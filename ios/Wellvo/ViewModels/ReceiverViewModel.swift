@@ -9,6 +9,10 @@ final class ReceiverViewModel: ObservableObject {
     @Published var lastCheckIn: CheckIn?
     @Published var errorMessage: String?
     @Published var familyId: UUID?
+    @Published var isOffline = false
+    @Published var pendingOfflineCount = 0
+
+    private let offlineService = OfflineCheckInService.shared
 
     func loadStatus() async {
         guard let family = try? await FamilyService.shared.getFamily() else { return }
@@ -23,6 +27,11 @@ final class ReceiverViewModel: ObservableObject {
             lastCheckIn = todayCheckIn
             hasCheckedInToday = true
         }
+
+        // Sync any pending offline check-ins
+        await offlineService.syncPendingCheckIns()
+        isOffline = !offlineService.isOnline
+        pendingOfflineCount = offlineService.pendingCount
     }
 
     func performCheckIn(mood: Mood? = nil) async {
@@ -32,17 +41,26 @@ final class ReceiverViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            let checkIn = try await CheckInService.shared.checkIn(
+            let checkIn = try await offlineService.performCheckIn(
                 familyId: familyId,
                 mood: mood,
                 source: .app
             )
-            lastCheckIn = checkIn
+
+            if let checkIn {
+                lastCheckIn = checkIn
+            }
             hasCheckedInToday = true
 
             if mood == nil {
                 showMoodSelector = true
             }
+        } catch let error as NetworkError {
+            // Offline — check-in was queued
+            hasCheckedInToday = true
+            isOffline = true
+            pendingOfflineCount = offlineService.pendingCount
+            errorMessage = error.localizedDescription
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -53,6 +71,5 @@ final class ReceiverViewModel: ObservableObject {
     func submitMood(_ mood: Mood) async {
         selectedMood = mood
         showMoodSelector = false
-        // Mood is sent with the next check-in or updated on the current one
     }
 }

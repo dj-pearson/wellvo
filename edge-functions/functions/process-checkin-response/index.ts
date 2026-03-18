@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
+import type { AuthResult } from "../../shared/auth.ts";
 
 interface ProcessCheckinRequest {
   checkin_request_id?: string;
@@ -7,7 +8,7 @@ interface ProcessCheckinRequest {
   source?: string;
 }
 
-export async function handleProcessCheckinResponse(req: Request): Promise<Response> {
+export async function handleProcessCheckinResponse(req: Request, auth: AuthResult): Promise<Response> {
   const body: ProcessCheckinRequest = await req.json();
 
   let requestId = body.checkin_request_id;
@@ -41,6 +42,33 @@ export async function handleProcessCheckinResponse(req: Request): Promise<Respon
     );
   }
 
+  // AUTHORIZATION: Verify the authenticated user IS the receiver
+  // Service role calls (from notification actions) are trusted
+  if (!auth.isServiceRole) {
+    if (!auth.userId || auth.userId !== receiverId) {
+      return new Response(
+        JSON.stringify({ error: "You can only check in for yourself" }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
+  // Verify the receiver is actually a member of this family
+  const { data: membership } = await supabaseAdmin
+    .from("family_members")
+    .select("id, role, status")
+    .eq("family_id", familyId)
+    .eq("user_id", receiverId)
+    .eq("status", "active")
+    .single();
+
+  if (!membership || membership.role !== "receiver") {
+    return new Response(
+      JSON.stringify({ error: "Invalid receiver or family" }),
+      { status: 403, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   // Record the check-in
   const { data: checkIn, error: checkInError } = await supabaseAdmin
     .from("checkins")
@@ -54,13 +82,13 @@ export async function handleProcessCheckinResponse(req: Request): Promise<Respon
 
   if (checkInError) {
     return new Response(
-      JSON.stringify({ error: "Failed to record check-in", details: checkInError }),
+      JSON.stringify({ error: "Failed to record check-in" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 
   // Mark all pending requests for this receiver+family as checked_in
-  const { error: updateError } = await supabaseAdmin
+  await supabaseAdmin
     .from("checkin_requests")
     .update({
       status: "checked_in",
@@ -69,10 +97,6 @@ export async function handleProcessCheckinResponse(req: Request): Promise<Respon
     .eq("receiver_id", receiverId)
     .eq("family_id", familyId)
     .eq("status", "pending");
-
-  if (updateError) {
-    console.error("Failed to update check-in requests:", updateError);
-  }
 
   return new Response(
     JSON.stringify({ success: true, checkin: checkIn }),

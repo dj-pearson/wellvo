@@ -1,16 +1,17 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification, buildCheckinPayload } from "../../shared/apns.ts";
+import type { AuthResult } from "../../shared/auth.ts";
 
 interface OnDemandRequest {
   receiver_id: string;
   family_id: string;
 }
 
-export async function handleOnDemandCheckin(req: Request): Promise<Response> {
+export async function handleOnDemandCheckin(req: Request, auth: AuthResult): Promise<Response> {
   const body: OnDemandRequest = await req.json();
   const { receiver_id, family_id } = body;
 
-  // Verify the requesting user is the family owner
+  // Get the family and verify ownership
   const { data: family } = await supabaseAdmin
     .from("families")
     .select("owner_id")
@@ -24,7 +25,33 @@ export async function handleOnDemandCheckin(req: Request): Promise<Response> {
     );
   }
 
-  // Get the owner's name
+  // AUTHORIZATION: Verify the requesting user is the family owner
+  if (!auth.isServiceRole) {
+    if (!auth.userId || auth.userId !== family.owner_id) {
+      return new Response(
+        JSON.stringify({ error: "Only the family owner can send check-in requests" }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
+  // Verify the receiver is an active member of this family
+  const { data: receiverMember } = await supabaseAdmin
+    .from("family_members")
+    .select("id, role, status")
+    .eq("family_id", family_id)
+    .eq("user_id", receiver_id)
+    .eq("status", "active")
+    .single();
+
+  if (!receiverMember || receiverMember.role !== "receiver") {
+    return new Response(
+      JSON.stringify({ error: "Receiver not found in this family" }),
+      { status: 404, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Get the owner's name for the notification
   const { data: owner } = await supabaseAdmin
     .from("users")
     .select("display_name")
@@ -32,23 +59,14 @@ export async function handleOnDemandCheckin(req: Request): Promise<Response> {
     .single();
 
   // Get receiver settings for grace period
-  const { data: memberRecord } = await supabaseAdmin
-    .from("family_members")
-    .select("id")
-    .eq("family_id", family_id)
-    .eq("user_id", receiver_id)
+  let gracePeriod = 30;
+  const { data: settings } = await supabaseAdmin
+    .from("receiver_settings")
+    .select("grace_period_minutes")
+    .eq("family_member_id", receiverMember.id)
     .single();
 
-  let gracePeriod = 30;
-  if (memberRecord) {
-    const { data: settings } = await supabaseAdmin
-      .from("receiver_settings")
-      .select("grace_period_minutes")
-      .eq("family_member_id", memberRecord.id)
-      .single();
-
-    if (settings) gracePeriod = settings.grace_period_minutes;
-  }
+  if (settings) gracePeriod = settings.grace_period_minutes;
 
   // Create check-in request
   const { data: request, error: requestError } = await supabaseAdmin
@@ -67,7 +85,7 @@ export async function handleOnDemandCheckin(req: Request): Promise<Response> {
 
   if (requestError || !request) {
     return new Response(
-      JSON.stringify({ error: "Failed to create check-in request", details: requestError }),
+      JSON.stringify({ error: "Failed to create check-in request" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -86,16 +104,26 @@ export async function handleOnDemandCheckin(req: Request): Promise<Response> {
       "on_demand"
     );
 
-    await Promise.all(
+    const results = await Promise.all(
       tokens.map((t: { token: string }) =>
         sendPushNotification(t.token, payload, {
           collapseId: `ondemand-${family_id}`,
         })
       )
     );
+
+    // Deactivate expired tokens
+    for (let i = 0; i < results.length; i++) {
+      if (results[i].statusCode === 410) {
+        await supabaseAdmin
+          .from("push_tokens")
+          .update({ is_active: false })
+          .eq("token", tokens[i].token);
+      }
+    }
   }
 
-  // Log
+  // Log notification
   await supabaseAdmin.from("notification_log").insert({
     user_id: receiver_id,
     checkin_request_id: request.id,

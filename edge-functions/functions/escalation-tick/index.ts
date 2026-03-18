@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification, buildCheckinPayload } from "../../shared/apns.ts";
+import type { AuthResult } from "../../shared/auth.ts";
 
 interface EscalationRequest {
   request_id: string;
@@ -9,7 +10,8 @@ interface EscalationRequest {
   owner_id: string;
 }
 
-export async function handleEscalationTick(req: Request): Promise<Response> {
+export async function handleEscalationTick(req: Request, _auth: AuthResult): Promise<Response> {
+  // This function is service-role-only (enforced by server.ts route config)
   const body: EscalationRequest = await req.json();
   const { request_id, receiver_id, family_id, escalation_step, owner_id } = body;
 
@@ -30,7 +32,6 @@ export async function handleEscalationTick(req: Request): Promise<Response> {
       );
     }
 
-    // Log
     await supabaseAdmin.from("notification_log").insert({
       user_id: receiver_id,
       checkin_request_id: request_id,

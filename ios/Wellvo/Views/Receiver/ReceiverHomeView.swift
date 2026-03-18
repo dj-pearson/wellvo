@@ -12,6 +12,21 @@ struct ReceiverHomeView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 40) {
+                // Offline banner
+                if viewModel.isOffline {
+                    HStack(spacing: 8) {
+                        Image(systemName: "wifi.slash")
+                        Text(viewModel.pendingOfflineCount > 0
+                             ? "Offline — \(viewModel.pendingOfflineCount) check-in(s) will sync when reconnected"
+                             : "You're offline")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.orange, in: Capsule())
+                }
+
                 Spacer()
 
                 if viewModel.hasCheckedInToday {

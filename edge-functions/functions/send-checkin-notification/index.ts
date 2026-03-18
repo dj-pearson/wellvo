@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification, buildCheckinPayload } from "../../shared/apns.ts";
+import type { AuthResult } from "../../shared/auth.ts";
 
 interface SendCheckinRequest {
   receiver_id: string;
@@ -7,7 +8,8 @@ interface SendCheckinRequest {
   type: "scheduled" | "on_demand";
 }
 
-export async function handleSendCheckinNotification(req: Request): Promise<Response> {
+export async function handleSendCheckinNotification(req: Request, _auth: AuthResult): Promise<Response> {
+  // This function is service-role-only (enforced by server.ts route config)
   const body: SendCheckinRequest = await req.json();
   const { receiver_id, family_id, type } = body;
 
@@ -20,7 +22,7 @@ export async function handleSendCheckinNotification(req: Request): Promise<Respo
 
   if (tokenError || !tokens?.length) {
     return new Response(
-      JSON.stringify({ error: "No active push tokens for receiver", details: tokenError }),
+      JSON.stringify({ error: "No active push tokens for receiver" }),
       { status: 404, headers: { "Content-Type": "application/json" } }
     );
   }

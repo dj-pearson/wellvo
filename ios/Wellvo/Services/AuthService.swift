@@ -223,18 +223,18 @@ actor AuthService {
 
     // MARK: - Apple User ID Persistence (Keychain)
 
-    private let appleUserIDKey = "net.wellvo.appleUserID"
+    private let appleUserIDKey = "appleUserID"
 
     private func persistAppleUserID(_ userID: String) {
-        UserDefaults.standard.set(userID, forKey: appleUserIDKey)
+        _ = KeychainService.save(key: appleUserIDKey, value: userID)
     }
 
     private func getPersistedAppleUserID() -> String? {
-        UserDefaults.standard.string(forKey: appleUserIDKey)
+        KeychainService.load(key: appleUserIDKey)
     }
 
     private func clearAppleUserID() {
-        UserDefaults.standard.removeObject(forKey: appleUserIDKey)
+        KeychainService.delete(key: appleUserIDKey)
     }
 
     // MARK: - Nonce Generation
