@@ -41,14 +41,14 @@ US-006: DONE - Add database backup automation
 -- Phase 3: iOS Production Readiness --
 US-007: PENDING - Enable analytics in iOS app
 US-008: DONE - Add 404 page and error boundary to website
-US-009: PENDING - Add SEO essentials to website
-US-010: PENDING - Add README.md, LICENSE, and .env.example
+US-009: DONE - Add SEO essentials to website
+US-010: DONE - Add README.md, LICENSE, and .env.example
 US-011: PENDING - Add iOS unit and integration tests
 US-012: PENDING - Implement push notification token refresh
 US-013: PENDING - Complete iOS accessibility for App Store review
 
 -- Phase 4: Data Integrity & Validation --
-US-014: PENDING - Add duplicate check-in prevention
+US-014: DONE - Add duplicate check-in prevention
 US-015: PENDING - Add phone number validation to invite flow
 US-016: PENDING - Add website accessibility fundamentals
 US-017: PENDING - Add code splitting and lazy loading to website
@@ -63,7 +63,7 @@ US-023: PENDING - Validate App Store webhook token properly
 US-024: PENDING - Add website privacy-first analytics
 US-025: PENDING - Add centralized error handling in iOS services
 US-026: PENDING - Add GDPR data export completeness
-US-027: PENDING - Add GitHub Actions failure notifications
+US-027: DONE - Add GitHub Actions failure notifications
 US-028: PENDING - Add container vulnerability scanning to CI
 US-029: PENDING - Add website testing infrastructure
 US-030: DONE - Add CLAUDE.md project configuration
@@ -112,3 +112,23 @@ Patterns: Catch-all route <Route path="*"> for 404. ErrorBoundary wraps at top l
 Implemented: CLAUDE.md project configuration file
 Files changed: CLAUDE.md (new)
 Patterns: Under 200 lines. Covers tech stack, directory structure, build commands, architecture decisions, common gotchas, and references to prd.json/progress.txt for task tracking.
+
+--- Iteration 9: US-009 (2026-03-18) ---
+Implemented: SEO essentials — sitemap, robots.txt, social meta, structured data
+Files changed: website/public/sitemap.xml (new), website/public/robots.txt (new), website/public/og-image.svg (new), website/index.html
+Patterns: Cloudflare Pages serves static files from public/ dir. SVG used for og-image as a text-based placeholder. Twitter card set to summary_large_image. JSON-LD SoftwareApplication schema with free price offer.
+
+--- Iteration 10: US-010 (2026-03-18) ---
+Implemented: README.md, LICENSE, edge-functions/.env.example
+Files changed: README.md (new), LICENSE (new), edge-functions/.env.example (new)
+Patterns: Proprietary license for Pearson Media LLC. README includes architecture ASCII diagram, getting started for all 4 components, and links to PRD/deployment docs. .env.example includes both required and optional (Twilio) vars.
+
+--- Iteration 11: US-014 (2026-03-18) ---
+Implemented: Duplicate check-in prevention at DB and application level
+Files changed: supabase/migrations/00007_duplicate_checkin_prevention.sql (new), edge-functions/functions/process-checkin-response/index.ts
+Patterns: UNIQUE index on (receiver_id, family_id, DATE(checked_in_at)). Application checks for existing check-in before insert. Duplicate returns 200 with existing data (not error). Extracted markRequestsAndRespond helper to deduplicate response logic.
+
+--- Iteration 12: US-027 (2026-03-18) ---
+Implemented: GitHub Actions failure notification via auto-created issues
+Files changed: .github/workflows/ios-build-deploy.yml, .github/workflows/edge-functions-deploy.yml, .github/workflows/supabase-migrations.yml
+Patterns: All 3 workflows get notify-failure job with actions/github-script@v7. Creates issue with 'ci-failure' label. Includes workflow name, branch, commit SHA, and link to failed run. Migration failure issue notes backup artifact availability.

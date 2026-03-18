@@ -148,7 +148,7 @@
         "npm run build succeeds and sitemap.xml is in dist/"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Currently no sitemap, robots.txt, og:image, or structured data."
     },
     {
@@ -164,7 +164,7 @@
         "README renders correctly on GitHub"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "GitHub landing page is currently blank. No setup docs."
     },
     {
@@ -230,7 +230,7 @@
         "Migration applies cleanly on existing data"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": "Currently can create multiple check-ins per receiver per minute."
     },
     {
@@ -430,7 +430,7 @@
         "Notification only fires on failure (not success)"
       ],
       "priority": 27,
-      "passes": false,
+      "passes": true,
       "notes": "Currently no notification on any CI/CD failure."
     },
     {
