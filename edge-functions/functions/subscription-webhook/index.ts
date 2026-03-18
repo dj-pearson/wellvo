@@ -1,5 +1,8 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
+import { logWarn } from "../../shared/logger.ts";
 import type { AuthResult } from "../../shared/auth.ts";
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface SubscriptionUpdate {
   product_id: string;
@@ -40,17 +43,31 @@ export async function handleSubscriptionWebhook(req: Request, auth: AuthResult):
   let userId: string | null = null;
 
   if (app_account_token) {
+    // Validate UUID format before querying
+    if (!UUID_REGEX.test(app_account_token)) {
+      logWarn("Invalid app_account_token format", { path: "/subscription-webhook" });
+      return new Response(
+        JSON.stringify({ error: "Invalid app_account_token: must be a valid UUID" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     // The appAccountToken is the Supabase user UUID set during purchase
-    // Verify this user actually exists
     const { data: user } = await supabaseAdmin
       .from("users")
       .select("id")
       .eq("id", app_account_token)
       .single();
 
-    if (user) {
-      userId = user.id;
+    if (!user) {
+      logWarn("app_account_token user not found", { path: "/subscription-webhook" });
+      return new Response(
+        JSON.stringify({ error: "No user found for the provided app_account_token" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
     }
+
+    userId = user.id;
   }
 
   if (!userId && auth.userId) {
