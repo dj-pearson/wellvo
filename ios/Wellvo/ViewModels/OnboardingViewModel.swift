@@ -4,6 +4,7 @@ enum OnboardingStep: Int, CaseIterable {
     case welcome
     case userType
     case createFamily
+    case choosePlan
     case addReceiver
     case notifications
     case complete

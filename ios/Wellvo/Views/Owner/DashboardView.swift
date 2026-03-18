@@ -199,6 +199,7 @@ struct TodayTimelineCard: View {
 
 struct ReceiverStatusCardView: View {
     let card: ReceiverStatusCard
+    var isReadOnly: Bool = false
     let onCheckOn: () -> Void
 
     var body: some View {
@@ -251,8 +252,8 @@ struct ReceiverStatusCardView: View {
                 }
             }
 
-            // Notification warning
-            if !card.hasNotificationsEnabled {
+            // Notification warning (owner-only)
+            if !isReadOnly && !card.hasNotificationsEnabled {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.caption)
@@ -287,8 +288,8 @@ struct ReceiverStatusCardView: View {
                 }
             }
 
-            // Check on button
-            if card.status != .checkedIn {
+            // Check on button (owner-only)
+            if !isReadOnly && card.status != .checkedIn {
                 Button {
                     onCheckOn()
                 } label: {

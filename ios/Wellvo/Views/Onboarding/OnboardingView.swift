@@ -22,6 +22,8 @@ struct OnboardingView: View {
                         userTypeStep
                     case .createFamily:
                         createFamilyStep
+                    case .choosePlan:
+                        choosePlanStep
                     case .addReceiver:
                         addReceiverStep
                     case .notifications:
@@ -223,6 +225,84 @@ struct OnboardingView: View {
             .controlSize(.large)
         }
         .padding()
+    }
+
+    private var choosePlanStep: some View {
+        VStack(spacing: 24) {
+            Text("Choose Your Plan")
+                .font(.title)
+                .fontWeight(.bold)
+
+            VStack(spacing: 12) {
+                planCard(
+                    title: "Free",
+                    price: "Free",
+                    features: ["1 Receiver", "Daily check-ins", "Basic escalation"],
+                    isHighlighted: false
+                ) {
+                    viewModel.advance()
+                }
+
+                planCard(
+                    title: "Family",
+                    price: "$4.99/mo",
+                    features: ["2 Receivers", "2 Viewers", "Full escalation", "Mood tracking"],
+                    isHighlighted: true
+                ) {
+                    viewModel.advance()
+                }
+
+                planCard(
+                    title: "Family+",
+                    price: "$9.99/mo",
+                    features: ["5 Receivers", "5 Viewers", "Priority support", "All features"],
+                    isHighlighted: false
+                ) {
+                    viewModel.advance()
+                }
+            }
+
+            Text("You can change your plan anytime in Settings.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+    }
+
+    private func planCard(title: String, price: String, features: [String], isHighlighted: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(title)
+                        .font(.headline)
+                    Spacer()
+                    Text(price)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(isHighlighted ? .white : .green)
+                }
+
+                ForEach(features, id: \.self) { feature in
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark")
+                            .font(.caption2)
+                            .foregroundStyle(isHighlighted ? .white.opacity(0.8) : .green)
+                        Text(feature)
+                            .font(.caption)
+                            .foregroundStyle(isHighlighted ? .white.opacity(0.9) : .secondary)
+                    }
+                }
+            }
+            .padding()
+            .background(isHighlighted ? Color.green : Color(.secondarySystemGroupedBackground))
+            .foregroundStyle(isHighlighted ? .white : .primary)
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isHighlighted ? Color.green : Color.clear, lineWidth: 2)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private var completeStep: some View {

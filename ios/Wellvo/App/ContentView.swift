@@ -18,6 +18,8 @@ struct ContentView: View {
                     OnboardingView()
                 } else if appState.currentUserRole == .receiver {
                     ReceiverHomeView()
+                } else if appState.currentUserRole == .viewer {
+                    ViewerTabView()
                 } else {
                     OwnerTabView()
                 }

@@ -17,6 +17,7 @@ import { handleEscalationTick } from "./functions/escalation-tick/index.ts";
 import { handleOnDemandCheckin } from "./functions/on-demand-checkin/index.ts";
 import { handleSubscriptionWebhook } from "./functions/subscription-webhook/index.ts";
 import { handleInviteReceiver } from "./functions/invite-receiver/index.ts";
+import { handleSubscriptionCancellation } from "./functions/subscription-cancellation/index.ts";
 
 type FunctionHandler = (req: Request, auth: AuthResult) => Promise<Response>;
 
@@ -34,6 +35,7 @@ const routes: Record<string, FunctionHandler> = {
   "/on-demand-checkin": handleOnDemandCheckin,
   "/subscription-webhook": handleSubscriptionWebhook,
   "/invite-receiver": handleInviteReceiver,
+  "/subscription-cancellation": handleSubscriptionCancellation,
 };
 
 function corsHeaders(): Record<string, string> {
