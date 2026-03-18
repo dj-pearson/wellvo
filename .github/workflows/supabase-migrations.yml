@@ -1,0 +1,37 @@
+name: Run Supabase Migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - '.github/workflows/supabase-migrations.yml'
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run migrations against production Supabase
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          # Install psql
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+
+          # Run each migration in order
+          for migration in $(ls supabase/migrations/*.sql | sort); do
+            echo "Running migration: $migration"
+            psql "$DATABASE_URL" -f "$migration" -v ON_ERROR_STOP=1
+            echo "✅ $migration completed"
+          done
+
+      - name: Verify migration
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          # Verify core tables exist
+          psql "$DATABASE_URL" -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;"
