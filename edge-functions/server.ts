@@ -9,6 +9,7 @@ const PORT = parseInt(Deno.env.get("PORT") || "9000");
 
 // Import auth
 import { verifyRequest, type AuthResult } from "./shared/auth.ts";
+import { checkRateLimit } from "./shared/rate-limiter.ts";
 
 // Import function handlers
 import { handleSendCheckinNotification } from "./functions/send-checkin-notification/index.ts";
@@ -85,6 +86,20 @@ async function handler(req: Request): Promise<Response> {
       status: 401,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  // Rate limiting (service-role requests from pg_cron bypass rate limits)
+  if (!auth.isServiceRole && auth.userId) {
+    const rateLimitResult = checkRateLimit(auth.userId, path);
+    if (!rateLimitResult.allowed) {
+      return new Response(JSON.stringify({ error: "Too many requests" }), {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": String(rateLimitResult.retryAfterSeconds),
+        },
+      });
+    }
   }
 
   // Service-role-only routes (internal calls from pg_cron)
