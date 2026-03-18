@@ -35,12 +35,12 @@ US-003: DONE - Add security headers to website
 US-004: DONE - Add migration safety gate to CI/CD
 
 -- Phase 2: Observability --
-US-005: PENDING - Add error logging and monitoring integration
-US-006: PENDING - Add database backup automation
+US-005: DONE - Add error logging and monitoring integration
+US-006: DONE - Add database backup automation
 
 -- Phase 3: iOS Production Readiness --
 US-007: PENDING - Enable analytics in iOS app
-US-008: PENDING - Add 404 page and error boundary to website
+US-008: DONE - Add 404 page and error boundary to website
 US-009: PENDING - Add SEO essentials to website
 US-010: PENDING - Add README.md, LICENSE, and .env.example
 US-011: PENDING - Add iOS unit and integration tests
@@ -66,7 +66,7 @@ US-026: PENDING - Add GDPR data export completeness
 US-027: PENDING - Add GitHub Actions failure notifications
 US-028: PENDING - Add container vulnerability scanning to CI
 US-029: PENDING - Add website testing infrastructure
-US-030: PENDING - Add CLAUDE.md project configuration
+US-030: DONE - Add CLAUDE.md project configuration
 
 == Ralph Loop Iteration Log ==
 
@@ -91,3 +91,24 @@ Patterns: Cloudflare Pages reads _headers from public/ dir. CSP needs 'unsafe-in
 Implemented: Migration safety gate with environment approval, backup, and transactions
 Files changed: .github/workflows/supabase-migrations.yml
 Patterns: GitHub environment protection rule "production" gates approval. pg_dump with --compress=9 uploaded as 30-day artifact. Each migration wrapped in BEGIN/COMMIT. Post-migration verification checks table, RLS, and trigger counts.
+
+--- Iteration 5: US-005 (2026-03-18) ---
+Implemented: Structured JSON logger with request lifecycle logging
+Files changed: edge-functions/shared/logger.ts (new), edge-functions/server.ts, docker-compose.yml
+Patterns: logInfo/logWarn/logError emit JSON-per-line. withRequestLogging wraps handlers for start/complete/error with timing. Docker json-file driver with 10m max-size, 3 file rotation.
+Gotcha: Must import logError separately for catch blocks; withRequestLogging only catches thrown errors.
+
+--- Iteration 6: US-006 (2026-03-18) ---
+Implemented: Automated PostgreSQL backup script with retention
+Files changed: coolify/backup-db.sh (new), coolify/README-DEPLOYMENT.md
+Patterns: pg_dump --compress=9, date-stamped filenames, validates non-empty before cleanup. Configurable via BACKUP_DIR, RETENTION_DAYS, DATABASE_URL. Scheduled via system cron, not pg_cron.
+
+--- Iteration 7: US-008 (2026-03-18) ---
+Implemented: 404 page with branded styling and ErrorBoundary component
+Files changed: website/src/pages/NotFound.tsx (new), website/src/pages/NotFound.css (new), website/src/components/ErrorBoundary.tsx (new), website/src/App.tsx, website/src/main.tsx
+Patterns: Catch-all route <Route path="*"> for 404. ErrorBoundary wraps at top level in main.tsx (above BrowserRouter). Error boundary uses inline styles to avoid CSS dependency that might also be broken.
+
+--- Iteration 8: US-030 (2026-03-18) ---
+Implemented: CLAUDE.md project configuration file
+Files changed: CLAUDE.md (new)
+Patterns: Under 200 lines. Covers tech stack, directory structure, build commands, architecture decisions, common gotchas, and references to prd.json/progress.txt for task tracking.

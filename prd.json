@@ -82,7 +82,7 @@
         "Docker compose adds json-file logging driver with max-size 10m and max-file 3"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Currently only console.error with no structure or aggregation."
     },
     {
@@ -98,7 +98,7 @@
         "README-DEPLOYMENT.md updated with backup setup and restore instructions"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "No backup strategy currently exists."
     },
     {
@@ -130,7 +130,7 @@
         "npm run build succeeds"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Currently visiting /invalid-path shows blank content."
     },
     {
@@ -477,7 +477,7 @@
         "File is under 200 lines"
       ],
       "priority": 30,
-      "passes": false,
+      "passes": true,
       "notes": "No CLAUDE.md exists. Critical for Ralph loop context."
     }
   ]
