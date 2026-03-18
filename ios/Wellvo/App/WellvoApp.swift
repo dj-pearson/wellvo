@@ -1,18 +1,26 @@
 import SwiftUI
+import SwiftData
 
 @main
 struct WellvoApp: App {
     @StateObject private var authViewModel = AuthViewModel()
     @StateObject private var appState = AppState()
+    @StateObject private var offlineService = OfflineCheckInService.shared
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(authViewModel)
                 .environmentObject(appState)
+                .environmentObject(offlineService)
+                .modelContainer(for: OfflineCheckIn.self)
                 .onOpenURL { url in
                     handleDeepLink(url)
+                }
+                .onChange(of: scenePhase) { _, newPhase in
+                    handleScenePhaseChange(newPhase)
                 }
         }
     }
@@ -27,6 +35,23 @@ struct WellvoApp: App {
                 appState.pendingInviteToken = token
             }
         default:
+            break
+        }
+    }
+
+    private func handleScenePhaseChange(_ phase: ScenePhase) {
+        switch phase {
+        case .active:
+            // Sync pending offline check-ins when app becomes active
+            Task { await offlineService.syncPendingCheckIns() }
+            // Re-check auth state
+            Task { await authViewModel.checkSession() }
+        case .background:
+            // App is backgrounded — no action needed, NWPathMonitor handles reconnect
+            break
+        case .inactive:
+            break
+        @unknown default:
             break
         }
     }
