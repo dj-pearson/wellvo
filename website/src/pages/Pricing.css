@@ -1,0 +1,264 @@
+.pricing-hero {
+  background: linear-gradient(135deg, var(--green-50) 0%, var(--white) 100%);
+  padding: 80px 0 48px;
+  text-align: center;
+}
+
+.pricing-hero h1 {
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--gray-900);
+  letter-spacing: -1px;
+  margin-bottom: 12px;
+}
+
+.pricing-hero p {
+  font-size: 18px;
+  color: var(--gray-500);
+}
+
+/* Plans */
+.pricing-plans {
+  padding-top: 48px;
+}
+
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.plan-card {
+  background: var(--white);
+  border: 2px solid var(--gray-100);
+  border-radius: 20px;
+  padding: 36px;
+  position: relative;
+  transition: all 0.2s;
+}
+.plan-card:hover {
+  border-color: var(--gray-200);
+}
+
+.plan-highlight {
+  border-color: var(--green-400);
+  box-shadow: 0 8px 32px rgba(46, 204, 113, 0.12);
+}
+.plan-highlight:hover {
+  border-color: var(--green-500);
+}
+
+.plan-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--green-500);
+  color: white;
+  padding: 4px 16px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.plan-header h3 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 8px;
+}
+
+.plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.price-amount {
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--gray-900);
+  letter-spacing: -1px;
+}
+
+.price-period {
+  font-size: 16px;
+  color: var(--gray-400);
+}
+
+.plan-yearly {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--gray-500);
+}
+
+.yearly-badge {
+  background: var(--green-100);
+  color: var(--green-700);
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.plan-desc {
+  font-size: 14px;
+  color: var(--gray-500);
+  margin-bottom: 20px;
+}
+
+.plan-limits {
+  display: flex;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--gray-100);
+  border-bottom: 1px solid var(--gray-100);
+  margin-bottom: 20px;
+}
+
+.limit {
+  font-size: 14px;
+  color: var(--gray-600);
+}
+
+.limit strong {
+  color: var(--gray-900);
+}
+
+.plan-features {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.plan-features li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--gray-600);
+}
+
+.plan-features li svg {
+  color: var(--green-500);
+  flex-shrink: 0;
+}
+
+.plan-cta {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Add-ons */
+.addons-section {
+  background: var(--gray-50);
+}
+
+.addons-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.addon-card {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: 16px;
+  padding: 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+
+.addon-card h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 4px;
+}
+
+.addon-card p {
+  font-size: 13px;
+  color: var(--gray-500);
+}
+
+.addon-price {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.addon-price .price-amount {
+  font-size: 24px;
+}
+
+.addon-price .price-period {
+  font-size: 13px;
+  display: block;
+}
+
+/* FAQ */
+.pricing-faq {
+  background: var(--white);
+}
+
+.faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 32px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.faq-item h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 8px;
+}
+
+.faq-item p {
+  font-size: 15px;
+  color: var(--gray-500);
+  line-height: 1.6;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .pricing-hero h1 {
+    font-size: 36px;
+  }
+  .plans-grid {
+    grid-template-columns: 1fr;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .addons-grid {
+    grid-template-columns: 1fr;
+  }
+  .addon-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .addon-price {
+    text-align: left;
+  }
+  .faq-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
