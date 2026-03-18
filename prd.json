@@ -245,7 +245,7 @@
         "Invalid phone returns 400 with clear error message"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": "Currently accepts any string as a phone number."
     },
     {
@@ -262,7 +262,7 @@
         "Color contrast passes WCAG AA (4.5:1 for normal text, 3:1 for large text)"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": "No focus styles, no skip nav, no ARIA attributes currently."
     },
     {
@@ -278,7 +278,7 @@
         "npm run build succeeds and shows multiple chunk files"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": "Currently single 276KB bundle with all pages."
     },
     {
@@ -340,7 +340,7 @@
         "New migration adds error_message column to notification_log if not present"
       ],
       "priority": 21,
-      "passes": false,
+      "passes": true,
       "notes": "sendSMS() currently fails silently if Twilio not configured."
     },
     {
@@ -355,7 +355,7 @@
         "EXPLAIN ANALYZE on dispatch_scheduled_checkins shows index usage"
       ],
       "priority": 22,
-      "passes": false,
+      "passes": true,
       "notes": "Missing indexes on subscription status, active settings, and invite phone."
     },
     {
@@ -369,7 +369,7 @@
         "Existing subscription flow still works end-to-end"
       ],
       "priority": 23,
-      "passes": false,
+      "passes": true,
       "notes": "Currently accepts garbage app_account_token values silently."
     },
     {
@@ -444,7 +444,7 @@
         "MEDIUM and below are logged as warnings but don't block deployment"
       ],
       "priority": 28,
-      "passes": false,
+      "passes": true,
       "notes": "No vulnerability scanning in any CI workflow."
     },
     {
@@ -462,7 +462,7 @@
         "Minimum 8 test cases"
       ],
       "priority": 29,
-      "passes": false,
+      "passes": true,
       "notes": "No test infrastructure or tests exist for the website."
     },
     {

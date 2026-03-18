@@ -49,23 +49,23 @@ US-013: PENDING - Complete iOS accessibility for App Store review
 
 -- Phase 4: Data Integrity & Validation --
 US-014: DONE - Add duplicate check-in prevention
-US-015: PENDING - Add phone number validation to invite flow
-US-016: PENDING - Add website accessibility fundamentals
-US-017: PENDING - Add code splitting and lazy loading to website
+US-015: DONE - Add phone number validation to invite flow
+US-016: DONE - Add website accessibility fundamentals
+US-017: DONE - Add code splitting and lazy loading to website
 
 -- Phase 5: Polish & Completeness --
 US-018: PENDING - Add Web App Manifest and apple-touch-icon
 US-019: PENDING - Add og:image social preview
 US-020: PENDING - Handle notification permission denial gracefully
-US-021: PENDING - Fix silent SMS escalation failure
-US-022: PENDING - Add missing database indexes
-US-023: PENDING - Validate App Store webhook token properly
+US-021: DONE - Fix silent SMS escalation failure
+US-022: DONE - Add missing database indexes
+US-023: DONE - Validate App Store webhook token properly
 US-024: PENDING - Add website privacy-first analytics
 US-025: PENDING - Add centralized error handling in iOS services
 US-026: PENDING - Add GDPR data export completeness
 US-027: DONE - Add GitHub Actions failure notifications
-US-028: PENDING - Add container vulnerability scanning to CI
-US-029: PENDING - Add website testing infrastructure
+US-028: DONE - Add container vulnerability scanning to CI
+US-029: DONE - Add website testing infrastructure
 US-030: DONE - Add CLAUDE.md project configuration
 
 == Ralph Loop Iteration Log ==
@@ -132,3 +132,43 @@ Patterns: UNIQUE index on (receiver_id, family_id, DATE(checked_in_at)). Applica
 Implemented: GitHub Actions failure notification via auto-created issues
 Files changed: .github/workflows/ios-build-deploy.yml, .github/workflows/edge-functions-deploy.yml, .github/workflows/supabase-migrations.yml
 Patterns: All 3 workflows get notify-failure job with actions/github-script@v7. Creates issue with 'ci-failure' label. Includes workflow name, branch, commit SHA, and link to failed run. Migration failure issue notes backup artifact availability.
+
+--- Iteration 13: US-015 (2026-03-18) ---
+Implemented: Server-side phone number validation in invite-receiver
+Files changed: edge-functions/functions/invite-receiver/index.ts
+Patterns: isValidUSPhone regex validates US numbers (10 digits, optional +1 prefix, first digit 2-9). Returns 400 with helpful error message. Validation happens before any DB queries.
+
+--- Iteration 14: US-016 (2026-03-18) ---
+Implemented: Website accessibility fundamentals
+Files changed: website/src/components/Layout.tsx, website/src/components/Header.tsx, website/src/pages/Home.tsx, website/src/index.css
+Patterns: Skip-to-main-content link visible on focus. aria-current='page' on active nav links. aria-expanded on mobile menu toggle. role='img' + aria-label on emoji content. :focus-visible green outline on all interactive elements.
+
+--- Iteration 15: US-017 (2026-03-18) ---
+Implemented: Code splitting and lazy loading for all page components
+Files changed: website/src/App.tsx, website/vite.config.ts
+Patterns: React.lazy() with Suspense fallback (green spinner). Vite rollupOptions splits vendor (react, react-dom, react-router-dom) and icons (lucide-react) into separate chunks.
+
+--- Iteration 16: US-021 (2026-03-18) ---
+Implemented: SMS failure logging and notification_log error tracking
+Files changed: edge-functions/functions/escalation-tick/index.ts, edge-functions/shared/sms.ts, supabase/migrations/00008_notification_log_error_message.sql (new)
+Patterns: SMS send attempts logged with structured logger. Failures recorded in notification_log with error_message column. Twilio credentials checked at module load with startup warning.
+
+--- Iteration 17: US-022 (2026-03-18) ---
+Implemented: Missing database indexes for performance
+Files changed: supabase/migrations/00009_add_missing_indexes.sql (new)
+Patterns: 5 indexes added: families(subscription_status, subscription_expires_at), receiver_settings(is_active) partial, invite_tokens(phone), push_tokens(user_id, is_active) partial, checkin_requests(status, next_escalation_at) partial.
+
+--- Iteration 18: US-023 (2026-03-18) ---
+Implemented: UUID format validation for App Store webhook app_account_token
+Files changed: edge-functions/functions/subscription-webhook/index.ts
+Patterns: UUID regex validation before DB query. Returns 400 for invalid format or unknown user instead of silent fallback. Token lookup failures logged via structured logger.
+
+--- Iteration 19: US-028 (2026-03-18) ---
+Implemented: Trivy container vulnerability scanning in edge-functions CI
+Files changed: .github/workflows/edge-functions-deploy.yml
+Patterns: Build → scan → push workflow. Trivy runs between build and push. Fails on HIGH/CRITICAL. Results uploaded as 30-day artifact. MEDIUM and below logged but don't block.
+
+--- Iteration 20: US-029 (2026-03-18) ---
+Implemented: Website testing infrastructure with 14 test cases
+Files changed: website/package.json, website/vitest.config.ts (new), website/src/test/setup.ts (new), website/src/test/App.test.tsx (new), website/src/test/Pricing.test.tsx (new), website/src/test/Header.test.tsx (new)
+Patterns: Vitest + @testing-library/react + jsdom. Tests use MemoryRouter for route testing. findByRole preferred over findByText for unique element matching. All 14 tests pass.
