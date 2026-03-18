@@ -47,6 +47,7 @@ struct CalendarHeatmapView: View {
                                 .fill(colorForStatus(entry.status))
                                 .frame(width: cellSize, height: cellSize)
                                 .help(entry.tooltip)
+                                .accessibilityLabel(entry.tooltip.isEmpty ? "No data" : entry.tooltip)
                         }
                     }
                 }

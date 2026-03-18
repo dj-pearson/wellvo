@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Mail, MessageCircle, FileText, HelpCircle } from 'lucide-react'
+import { trackEvent } from '../utils/analytics'
 import './Support.css'
 
 const faqs = [
@@ -38,6 +40,10 @@ const faqs = [
 ]
 
 export default function Support() {
+  useEffect(() => {
+    trackEvent('support_page_view')
+  }, [])
+
   return (
     <>
       <section className="support-hero">

@@ -153,7 +153,7 @@ final class DashboardViewModel: ObservableObject {
             alerts.removeAll { $0.id == alert.id }
             await AnalyticsService.shared.track(.alertDismissed, properties: ["type": alert.type])
         } catch {
-            print("Failed to dismiss alert: \(error)")
+            errorMessage = WellvoError.network(error).localizedDescription
         }
     }
 

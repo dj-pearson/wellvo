@@ -22,6 +22,7 @@ struct HistoryView: View {
                     }
                     .pickerStyle(.segmented)
                     .padding(.horizontal)
+                    .accessibilityLabel("History time period")
 
                     // Receiver selector
                     if !members.isEmpty {
@@ -43,6 +44,8 @@ struct HistoryView: View {
                                             .foregroundStyle(selectedReceiver?.id == member.id ? .white : .primary)
                                             .cornerRadius(20)
                                     }
+                                    .accessibilityLabel("View history for \(member.user?.displayName ?? "Unknown")")
+                                    .accessibilityAddTraits(selectedReceiver?.id == member.id ? .isSelected : [])
                                 }
                             }
                             .padding(.horizontal)
@@ -88,6 +91,7 @@ struct HistoryView: View {
                                     Circle()
                                         .fill(Color.green)
                                         .frame(width: 10, height: 10)
+                                        .accessibilityHidden(true)
 
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(checkIn.checkedInAt.formatted(date: .abbreviated, time: .shortened))
@@ -108,6 +112,8 @@ struct HistoryView: View {
                                 }
                                 .padding(.horizontal)
                                 .padding(.vertical, 6)
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel("Check-in on \(checkIn.checkedInAt.formatted(date: .abbreviated, time: .shortened)), via \(checkIn.source.rawValue)\(checkIn.mood != nil ? ", mood: \(checkIn.mood!.rawValue)" : "")")
                             }
                         }
                     }

@@ -8,6 +8,7 @@ struct FamilyView: View {
     @State private var isLoading = false
     @State private var showTransferAlert = false
     @State private var transferTarget: FamilyMember?
+    @State private var errorMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -155,7 +156,7 @@ struct FamilyView: View {
 
             await loadData()
         } catch {
-            print("Failed to transfer ownership: \(error)")
+            errorMessage = WellvoError.network(error).localizedDescription
         }
     }
 }

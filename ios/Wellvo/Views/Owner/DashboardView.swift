@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
+    @State private var notificationBanner = NotificationPermissionBanner()
 
     var body: some View {
         NavigationStack {
@@ -13,6 +14,10 @@ struct DashboardView: View {
                     emptyState
                 } else {
                     LazyVStack(spacing: 16) {
+                        // Notification permission banner
+                        NotificationPermissionBanner()
+                            .task { await notificationBanner.checkPermission() }
+
                         // Pattern Alerts
                         if !viewModel.alerts.isEmpty {
                             AlertsBannerView(alerts: viewModel.alerts) { alert in
@@ -135,6 +140,8 @@ struct StatBubble: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label): \(value)")
     }
 }
 
@@ -171,7 +178,10 @@ struct TodayTimelineCard: View {
 
                     // Timeline bar
                     timelineBar(for: card)
+                        .accessibilityHidden(true)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(card.name): \(card.checkedInTime != nil ? "checked in at \(card.checkedInTime!.formatted(date: .omitted, time: .shortened))" : card.status.label)")
             }
         }
         .padding()
@@ -293,6 +303,8 @@ struct ReceiverStatusCardView: View {
                     Text(moodEmoji(mood))
                         .font(.body)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Mood: \(mood.rawValue)")
             }
 
             // Check on button (owner-only)
@@ -311,12 +323,16 @@ struct ReceiverStatusCardView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.orange)
+                .accessibilityLabel("Check on \(card.name)")
+                .accessibilityHint("Sends an immediate check-in notification")
             }
         }
         .padding()
         .background(Color(.secondarySystemGroupedBackground))
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(card.name), \(card.status.label), \(card.streak) day streak")
     }
 }
 

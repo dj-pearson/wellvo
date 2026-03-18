@@ -1,13 +1,9 @@
 import Foundation
+import TelemetryDeck
 
 /// Privacy-first analytics using TelemetryDeck.
 /// No personal data is collected — only anonymous usage signals.
 /// TelemetryDeck is GDPR-compliant and does not use cookies or fingerprinting.
-///
-/// To integrate:
-/// 1. Add TelemetryDeck SPM package: https://github.com/TelemetryDeck/SwiftSDK
-/// 2. Set TELEMETRY_APP_ID in BuildConfig.xcconfig
-/// 3. Initialize in WellvoApp.init()
 ///
 /// Usage: AnalyticsService.shared.track(.checkIn)
 actor AnalyticsService {
@@ -67,8 +63,10 @@ actor AnalyticsService {
     /// Call this once in WellvoApp.init().
     func initialize() {
         #if !DEBUG
-        // Only initialize in release builds
-        // TelemetryDeck.initialize(config: .init(appID: Configuration.telemetryAppID))
+        let appID = Configuration.telemetryAppID
+        guard !appID.isEmpty else { return }
+        let config = TelemetryDeck.Config(appID: appID)
+        TelemetryDeck.initialize(config: config)
         isInitialized = true
         #endif
     }
@@ -80,12 +78,7 @@ actor AnalyticsService {
     func track(_ event: Event, properties: [String: String] = [:]) {
         guard isInitialized else { return }
 
-        // TelemetryDeck.signal(event.rawValue, parameters: properties)
-        // Uncomment the line above once TelemetryDeck SPM package is added.
-
-        #if DEBUG
-        print("[Analytics] \(event.rawValue) \(properties.isEmpty ? "" : properties.description)")
-        #endif
+        TelemetryDeck.signal(event.rawValue, parameters: properties)
     }
 
     /// Track a screen view.

@@ -25,6 +25,19 @@ enum Configuration {
         return value
     }
 
+    // MARK: - Analytics
+
+    static var telemetryAppID: String {
+        guard let value = Bundle.main.infoDictionary?["TELEMETRY_APP_ID"] as? String, !value.isEmpty else {
+            #if DEBUG
+            return ""
+            #else
+            return ""
+            #endif
+        }
+        return value
+    }
+
     // MARK: - App
 
     static let appScheme = "wellvo"

@@ -131,8 +131,13 @@ struct SettingsView: View {
         }
     }
 
+    @State private var settingsError: String?
+
     private func exportUserData() async {
-        guard let session = try? await SupabaseService.shared.client.auth.session else { return }
+        guard let session = try? await SupabaseService.shared.client.auth.session else {
+            settingsError = WellvoError.auth("Not signed in").localizedDescription
+            return
+        }
         isExportingData = true
         do {
             let result: AnyJSON = try await SupabaseService.shared.client
@@ -148,13 +153,16 @@ struct SettingsView: View {
                 showExportSheet = true
             }
         } catch {
-            print("Failed to export data: \(error)")
+            settingsError = WellvoError.network(error).localizedDescription
         }
         isExportingData = false
     }
 
     private func deleteAccount() async {
-        guard let session = try? await SupabaseService.shared.client.auth.session else { return }
+        guard let session = try? await SupabaseService.shared.client.auth.session else {
+            settingsError = WellvoError.auth("Not signed in").localizedDescription
+            return
+        }
         do {
             let _: AnyJSON = try await SupabaseService.shared.client
                 .rpc("delete_user_account", params: ["p_user_id": session.user.id.uuidString])
@@ -162,7 +170,7 @@ struct SettingsView: View {
                 .value
             await authViewModel.signOut()
         } catch {
-            print("Failed to delete account: \(error)")
+            settingsError = WellvoError.network(error).localizedDescription
         }
     }
 }
@@ -254,7 +262,7 @@ struct DataRetentionView: View {
                 showSaved = false
             }
         } catch {
-            print("Failed to save retention: \(error)")
+            print("[Settings] Failed to save retention: \(error.localizedDescription)")
         }
     }
 }

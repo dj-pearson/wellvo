@@ -30,7 +30,7 @@ final class OfflineCheckInService: ObservableObject {
 
     // MARK: - Queue a Check-In (Offline)
 
-    func queueCheckIn(familyId: UUID, receiverId: UUID, mood: Mood?, source: CheckInSource) {
+    func queueCheckIn(familyId: UUID, receiverId: UUID, mood: Mood?, source: CheckInSource) throws {
         guard let container = modelContainer else { return }
 
         let context = ModelContext(container)
@@ -46,7 +46,8 @@ final class OfflineCheckInService: ObservableObject {
             try context.save()
             updatePendingCount()
         } catch {
-            print("Failed to queue offline check-in: \(error.localizedDescription)")
+            print("[OfflineCheckInService] Failed to queue: \(error.localizedDescription)")
+            throw WellvoError.unknown(error)
         }
     }
 
@@ -66,11 +67,11 @@ final class OfflineCheckInService: ObservableObject {
                 return checkIn
             } catch {
                 // If network fails at this point, queue offline
-                queueCheckIn(familyId: familyId, receiverId: receiverId, mood: mood, source: source)
+                try queueCheckIn(familyId: familyId, receiverId: receiverId, mood: mood, source: source)
                 throw NetworkError.offline
             }
         } else {
-            queueCheckIn(familyId: familyId, receiverId: receiverId, mood: mood, source: source)
+            try queueCheckIn(familyId: familyId, receiverId: receiverId, mood: mood, source: source)
             return nil
         }
     }
@@ -104,7 +105,7 @@ final class OfflineCheckInService: ObservableObject {
                 offlineCheckIn.synced = true
                 try context.save()
             } catch {
-                print("Failed to sync offline check-in \(offlineCheckIn.id): \(error.localizedDescription)")
+                print("[OfflineCheckInService] Sync failed for \(offlineCheckIn.id): \(error.localizedDescription)")
                 break // Stop on first failure, retry later
             }
         }

@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, ArrowRight } from 'lucide-react'
+import { trackEvent } from '../utils/analytics'
 import './Pricing.css'
 
 const plans = [
@@ -77,6 +79,10 @@ const addons = [
 ]
 
 export default function Pricing() {
+  useEffect(() => {
+    trackEvent('pricing_page_view')
+  }, [])
+
   return (
     <>
       <section className="pricing-hero">

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { trackEvent } from '../utils/analytics'
 import {
   Heart,
   Shield,
@@ -36,6 +37,7 @@ export default function Home() {
               className="btn btn-primary btn-lg"
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackEvent('download_cta_click')}
             >
               Download for iPhone
               <ArrowRight size={18} />
@@ -318,6 +320,7 @@ export default function Home() {
                 className="btn btn-primary btn-lg"
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackEvent('download_cta_click')}
               >
                 Download for iPhone
                 <ArrowRight size={18} />

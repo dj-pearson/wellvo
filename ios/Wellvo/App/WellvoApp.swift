@@ -29,6 +29,15 @@ struct WellvoApp: App {
         }
     }
 
+    private func reRegisterPushToken() async {
+        let status = await PushNotificationService.shared.checkPermissionStatus()
+        if status == .authorized {
+            await MainActor.run {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+        }
+    }
+
     private func handleDeepLink(_ url: URL) {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true),
               let host = components.host else { return }
@@ -50,6 +59,8 @@ struct WellvoApp: App {
             Task { await offlineService.syncPendingCheckIns() }
             // Re-check auth state
             Task { await authViewModel.checkSession() }
+            // Re-register push token on every foreground
+            Task { await reRegisterPushToken() }
             Task { await AnalyticsService.shared.track(.appOpened) }
         case .background:
             Task { await AnalyticsService.shared.track(.appBackgrounded) }
