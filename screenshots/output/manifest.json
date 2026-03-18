@@ -1,0 +1,305 @@
+{
+  "generated": "2026-03-18T04:08:18.122Z",
+  "devices": [
+    {
+      "name": "iPhone 16 Pro Max",
+      "slug": "iphone-16-pro-max",
+      "resolution": "1320x2868",
+      "required": true,
+      "screenshots": [
+        {
+          "screen": "receiver-checkin",
+          "file": "iphone-16-pro-max/receiver-checkin.png",
+          "width": 1320,
+          "height": 2868
+        },
+        {
+          "screen": "receiver-done",
+          "file": "iphone-16-pro-max/receiver-done.png",
+          "width": 1320,
+          "height": 2868
+        },
+        {
+          "screen": "mood-selector",
+          "file": "iphone-16-pro-max/mood-selector.png",
+          "width": 1320,
+          "height": 2868
+        },
+        {
+          "screen": "owner-dashboard",
+          "file": "iphone-16-pro-max/owner-dashboard.png",
+          "width": 1320,
+          "height": 2868
+        },
+        {
+          "screen": "history-heatmap",
+          "file": "iphone-16-pro-max/history-heatmap.png",
+          "width": 1320,
+          "height": 2868
+        },
+        {
+          "screen": "family-management",
+          "file": "iphone-16-pro-max/family-management.png",
+          "width": 1320,
+          "height": 2868
+        },
+        {
+          "screen": "plan-selection",
+          "file": "iphone-16-pro-max/plan-selection.png",
+          "width": 1320,
+          "height": 2868
+        }
+      ]
+    },
+    {
+      "name": "iPhone 16 Pro",
+      "slug": "iphone-16-pro",
+      "resolution": "1206x2622",
+      "required": true,
+      "screenshots": [
+        {
+          "screen": "receiver-checkin",
+          "file": "iphone-16-pro/receiver-checkin.png",
+          "width": 1206,
+          "height": 2622
+        },
+        {
+          "screen": "receiver-done",
+          "file": "iphone-16-pro/receiver-done.png",
+          "width": 1206,
+          "height": 2622
+        },
+        {
+          "screen": "mood-selector",
+          "file": "iphone-16-pro/mood-selector.png",
+          "width": 1206,
+          "height": 2622
+        },
+        {
+          "screen": "owner-dashboard",
+          "file": "iphone-16-pro/owner-dashboard.png",
+          "width": 1206,
+          "height": 2622
+        },
+        {
+          "screen": "history-heatmap",
+          "file": "iphone-16-pro/history-heatmap.png",
+          "width": 1206,
+          "height": 2622
+        },
+        {
+          "screen": "family-management",
+          "file": "iphone-16-pro/family-management.png",
+          "width": 1206,
+          "height": 2622
+        },
+        {
+          "screen": "plan-selection",
+          "file": "iphone-16-pro/plan-selection.png",
+          "width": 1206,
+          "height": 2622
+        }
+      ]
+    },
+    {
+      "name": "iPhone 15 Plus",
+      "slug": "iphone-15-plus",
+      "resolution": "1290x2796",
+      "required": false,
+      "screenshots": [
+        {
+          "screen": "receiver-checkin",
+          "file": "iphone-15-plus/receiver-checkin.png",
+          "width": 1290,
+          "height": 2796
+        },
+        {
+          "screen": "receiver-done",
+          "file": "iphone-15-plus/receiver-done.png",
+          "width": 1290,
+          "height": 2796
+        },
+        {
+          "screen": "mood-selector",
+          "file": "iphone-15-plus/mood-selector.png",
+          "width": 1290,
+          "height": 2796
+        },
+        {
+          "screen": "owner-dashboard",
+          "file": "iphone-15-plus/owner-dashboard.png",
+          "width": 1290,
+          "height": 2796
+        },
+        {
+          "screen": "history-heatmap",
+          "file": "iphone-15-plus/history-heatmap.png",
+          "width": 1290,
+          "height": 2796
+        },
+        {
+          "screen": "family-management",
+          "file": "iphone-15-plus/family-management.png",
+          "width": 1290,
+          "height": 2796
+        },
+        {
+          "screen": "plan-selection",
+          "file": "iphone-15-plus/plan-selection.png",
+          "width": 1290,
+          "height": 2796
+        }
+      ]
+    },
+    {
+      "name": "iPhone 11 Pro Max",
+      "slug": "iphone-11-pro-max",
+      "resolution": "1284x2778",
+      "required": false,
+      "screenshots": [
+        {
+          "screen": "receiver-checkin",
+          "file": "iphone-11-pro-max/receiver-checkin.png",
+          "width": 1284,
+          "height": 2778
+        },
+        {
+          "screen": "receiver-done",
+          "file": "iphone-11-pro-max/receiver-done.png",
+          "width": 1284,
+          "height": 2778
+        },
+        {
+          "screen": "mood-selector",
+          "file": "iphone-11-pro-max/mood-selector.png",
+          "width": 1284,
+          "height": 2778
+        },
+        {
+          "screen": "owner-dashboard",
+          "file": "iphone-11-pro-max/owner-dashboard.png",
+          "width": 1284,
+          "height": 2778
+        },
+        {
+          "screen": "history-heatmap",
+          "file": "iphone-11-pro-max/history-heatmap.png",
+          "width": 1284,
+          "height": 2778
+        },
+        {
+          "screen": "family-management",
+          "file": "iphone-11-pro-max/family-management.png",
+          "width": 1284,
+          "height": 2778
+        },
+        {
+          "screen": "plan-selection",
+          "file": "iphone-11-pro-max/plan-selection.png",
+          "width": 1284,
+          "height": 2778
+        }
+      ]
+    },
+    {
+      "name": "iPhone 8 Plus",
+      "slug": "iphone-8-plus",
+      "resolution": "1242x2208",
+      "required": false,
+      "screenshots": [
+        {
+          "screen": "receiver-checkin",
+          "file": "iphone-8-plus/receiver-checkin.png",
+          "width": 1242,
+          "height": 2208
+        },
+        {
+          "screen": "receiver-done",
+          "file": "iphone-8-plus/receiver-done.png",
+          "width": 1242,
+          "height": 2208
+        },
+        {
+          "screen": "mood-selector",
+          "file": "iphone-8-plus/mood-selector.png",
+          "width": 1242,
+          "height": 2208
+        },
+        {
+          "screen": "owner-dashboard",
+          "file": "iphone-8-plus/owner-dashboard.png",
+          "width": 1242,
+          "height": 2208
+        },
+        {
+          "screen": "history-heatmap",
+          "file": "iphone-8-plus/history-heatmap.png",
+          "width": 1242,
+          "height": 2208
+        },
+        {
+          "screen": "family-management",
+          "file": "iphone-8-plus/family-management.png",
+          "width": 1242,
+          "height": 2208
+        },
+        {
+          "screen": "plan-selection",
+          "file": "iphone-8-plus/plan-selection.png",
+          "width": 1242,
+          "height": 2208
+        }
+      ]
+    },
+    {
+      "name": "iPad Pro 13\"",
+      "slug": "ipad-pro-13",
+      "resolution": "2048x2732",
+      "required": false,
+      "screenshots": [
+        {
+          "screen": "receiver-checkin",
+          "file": "ipad-pro-13/receiver-checkin.png",
+          "width": 2048,
+          "height": 2732
+        },
+        {
+          "screen": "receiver-done",
+          "file": "ipad-pro-13/receiver-done.png",
+          "width": 2048,
+          "height": 2732
+        },
+        {
+          "screen": "mood-selector",
+          "file": "ipad-pro-13/mood-selector.png",
+          "width": 2048,
+          "height": 2732
+        },
+        {
+          "screen": "owner-dashboard",
+          "file": "ipad-pro-13/owner-dashboard.png",
+          "width": 2048,
+          "height": 2732
+        },
+        {
+          "screen": "history-heatmap",
+          "file": "ipad-pro-13/history-heatmap.png",
+          "width": 2048,
+          "height": 2732
+        },
+        {
+          "screen": "family-management",
+          "file": "ipad-pro-13/family-management.png",
+          "width": 2048,
+          "height": 2732
+        },
+        {
+          "screen": "plan-selection",
+          "file": "ipad-pro-13/plan-selection.png",
+          "width": 2048,
+          "height": 2732
+        }
+      ]
+    }
+  ]
+}

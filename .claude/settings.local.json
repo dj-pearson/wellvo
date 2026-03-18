@@ -6,7 +6,18 @@
       "Bash(npm install:*)",
       "Bash(cd:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(npx playwright:*)",
+      "Bash(node -e \":*)",
+      "Bash(find /c/Users/pears/Documents/Wellvo/wellvo/ios -type f -name *Test* -o -name *test*)",
+      "Bash(grep -r \"TODO\\\\|FIXME\\\\|HACK\\\\|BUG\" /c/Users/pears/Documents/Wellvo/wellvo/ios/Wellvo --include=*.swift)",
+      "Bash(grep -r \"stub\\\\|placeholder\\\\|mock\\\\|not implemented\\\\|to be implemented\" /c/Users/pears/Documents/Wellvo/wellvo/ios/Wellvo --include=*.swift -i)",
+      "Bash(find /c/Users/pears/Documents/Wellvo/wellvo/ios/Wellvo/Views -type f -name \"*.swift\" -exec basename {})",
+      "Bash(find /c/Users/pears/Documents/Wellvo/wellvo/website -maxdepth 2 -name .env* -o -name wrangler.toml -o -name *.toml)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r passes: /c/Users/pears/Documents --include=*.json)",
+      "Bash(find /c/Users/pears/Documents -path */scripts/ralph/* -type f)",
+      "Bash(find /c/Users/pears/Documents -path */scripts/ralph/*.md)"
     ]
   }
 }

@@ -1,0 +1,107 @@
+export interface DeviceSpec {
+  name: string
+  slug: string
+  width: number
+  height: number
+  /** CSS pixels the content renders at (logical resolution) */
+  logicalWidth: number
+  logicalHeight: number
+  /** Device pixel ratio to reach physical resolution */
+  dpr: number
+  required: boolean
+  /** Corner radius in CSS px for the device frame mask */
+  cornerRadius: number
+  /** Status bar height in CSS px */
+  statusBar: number
+  /** Home indicator height in CSS px */
+  homeIndicator: number
+  /** Dynamic island or notch */
+  hasIsland: boolean
+}
+
+export const devices: DeviceSpec[] = [
+  {
+    name: 'iPhone 16 Pro Max',
+    slug: 'iphone-16-pro-max',
+    width: 1320,
+    height: 2868,
+    logicalWidth: 440,
+    logicalHeight: 956,
+    dpr: 3,
+    required: true,
+    cornerRadius: 55,
+    statusBar: 59,
+    homeIndicator: 34,
+    hasIsland: true,
+  },
+  {
+    name: 'iPhone 16 Pro',
+    slug: 'iphone-16-pro',
+    width: 1206,
+    height: 2622,
+    logicalWidth: 402,
+    logicalHeight: 874,
+    dpr: 3,
+    required: true,
+    cornerRadius: 55,
+    statusBar: 59,
+    homeIndicator: 34,
+    hasIsland: true,
+  },
+  {
+    name: 'iPhone 15 Plus',
+    slug: 'iphone-15-plus',
+    width: 1290,
+    height: 2796,
+    logicalWidth: 430,
+    logicalHeight: 932,
+    dpr: 3,
+    required: false,
+    cornerRadius: 55,
+    statusBar: 59,
+    homeIndicator: 34,
+    hasIsland: true,
+  },
+  {
+    name: 'iPhone 11 Pro Max',
+    slug: 'iphone-11-pro-max',
+    width: 1284,
+    height: 2778,
+    logicalWidth: 428,
+    logicalHeight: 926,
+    dpr: 3,
+    required: false,
+    cornerRadius: 44,
+    statusBar: 48,
+    homeIndicator: 34,
+    hasIsland: false,
+  },
+  {
+    name: 'iPhone 8 Plus',
+    slug: 'iphone-8-plus',
+    width: 1242,
+    height: 2208,
+    logicalWidth: 414,
+    logicalHeight: 736,
+    dpr: 3,
+    required: false,
+    cornerRadius: 0,
+    statusBar: 20,
+    homeIndicator: 0,
+    hasIsland: false,
+  },
+  {
+    name: 'iPad Pro 13"',
+    slug: 'ipad-pro-13',
+    width: 2048,
+    height: 2732,
+    logicalWidth: 1024,
+    logicalHeight: 1366,
+    dpr: 2,
+    required: false,
+    cornerRadius: 18,
+    statusBar: 24,
+    homeIndicator: 20,
+    hasIsland: false,
+  },
+]

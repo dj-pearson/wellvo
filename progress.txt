@@ -1,0 +1,69 @@
+== Ralph Progress Log ==
+Project: Wellvo
+Branch: ralph/production-hardening
+Started: 2026-03-17
+
+== Current Status ==
+Core platform built and functional:
+- iOS app (SwiftUI, MVVM, Swift 5.9+) with full feature set
+- Edge Functions (Deno, 7 functions) on Coolify/Contabo
+- Database (PostgreSQL via self-hosted Supabase) with RLS
+- Website (React + TypeScript + Vite) for Cloudflare Pages
+- App Store screenshots (Playwright, 42 images across 6 devices)
+- CI/CD pipelines (GitHub Actions for iOS, edge functions, migrations)
+
+== Completed (Pre-Ralph) ==
+[x] iOS app: Auth (Apple Sign-In + email), Owner dashboard, Receiver check-in, Viewer dashboard
+[x] iOS app: Onboarding flows (owner + receiver), Settings, Family management
+[x] iOS app: StoreKit 2 subscriptions (Free/Family/Family+), offline check-in queue
+[x] iOS app: History view with calendar heatmap and trend charts
+[x] iOS app: Deep linking for invite flow, mood tracking, pattern alerts
+[x] Edge functions: send-checkin-notification, process-checkin-response, escalation-tick
+[x] Edge functions: on-demand-checkin, subscription-webhook, invite-receiver, subscription-cancellation
+[x] Database: 6 migrations (core tables, RLS, pg_cron, invite tokens, GDPR, pattern alerts)
+[x] Website: Landing page, pricing, privacy policy, terms of use, support page
+[x] Website: Responsive design, footer with legal links, Cloudflare Pages SPA config
+[x] Screenshots: Playwright generator for all 6 App Store device sizes, 7 screens each
+[x] CI/CD: iOS build+deploy, edge functions Docker deploy, Supabase migrations
+[x] Docker: Non-root user, health checks, resource limits, Coolify deployment guide
+
+== Story Status ==
+-- Phase 1: Critical Security --
+US-001: PENDING - Fix CORS policy to restrict allowed origins
+US-002: PENDING - Add rate limiting middleware to edge functions
+US-003: PENDING - Add security headers to website
+US-004: PENDING - Add migration safety gate to CI/CD
+
+-- Phase 2: Observability --
+US-005: PENDING - Add error logging and monitoring integration
+US-006: PENDING - Add database backup automation
+
+-- Phase 3: iOS Production Readiness --
+US-007: PENDING - Enable analytics in iOS app
+US-008: PENDING - Add 404 page and error boundary to website
+US-009: PENDING - Add SEO essentials to website
+US-010: PENDING - Add README.md, LICENSE, and .env.example
+US-011: PENDING - Add iOS unit and integration tests
+US-012: PENDING - Implement push notification token refresh
+US-013: PENDING - Complete iOS accessibility for App Store review
+
+-- Phase 4: Data Integrity & Validation --
+US-014: PENDING - Add duplicate check-in prevention
+US-015: PENDING - Add phone number validation to invite flow
+US-016: PENDING - Add website accessibility fundamentals
+US-017: PENDING - Add code splitting and lazy loading to website
+
+-- Phase 5: Polish & Completeness --
+US-018: PENDING - Add Web App Manifest and apple-touch-icon
+US-019: PENDING - Add og:image social preview
+US-020: PENDING - Handle notification permission denial gracefully
+US-021: PENDING - Fix silent SMS escalation failure
+US-022: PENDING - Add missing database indexes
+US-023: PENDING - Validate App Store webhook token properly
+US-024: PENDING - Add website privacy-first analytics
+US-025: PENDING - Add centralized error handling in iOS services
+US-026: PENDING - Add GDPR data export completeness
+US-027: PENDING - Add GitHub Actions failure notifications
+US-028: PENDING - Add container vulnerability scanning to CI
+US-029: PENDING - Add website testing infrastructure
+US-030: PENDING - Add CLAUDE.md project configuration

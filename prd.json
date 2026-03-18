@@ -1,0 +1,484 @@
+{
+  "project": "Wellvo",
+  "branchName": "ralph/production-hardening",
+  "description": "Address all critical, high, and medium priority gaps across iOS app, website, backend, and repository health to prepare Wellvo for App Store submission and production launch",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Fix CORS policy to restrict allowed origins",
+      "description": "As a security engineer, I want the edge functions CORS policy restricted to wellvo.net so that arbitrary websites cannot make API calls to our backend.",
+      "acceptanceCriteria": [
+        "Access-Control-Allow-Origin in edge-functions/server.ts is set to https://wellvo.net (not *)",
+        "OPTIONS preflight requests return correct origin header",
+        "CORS origin is configurable via environment variable ALLOWED_ORIGIN",
+        "Requests from other origins receive 403",
+        "Edge functions still work when called from the iOS app (no origin header)"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Critical security fix. server.ts line 43 currently allows *."
+    },
+    {
+      "id": "US-002",
+      "title": "Add rate limiting middleware to edge functions",
+      "description": "As a security engineer, I want per-user rate limiting on all edge function endpoints so that brute-force attacks, notification flooding, and abuse are prevented.",
+      "acceptanceCriteria": [
+        "New shared/rate-limiter.ts module with in-memory rate limiting by user ID + endpoint",
+        "Default limit: 30 requests per minute per user per endpoint",
+        "Stricter limit on invite-receiver: 5 per minute",
+        "Stricter limit on on-demand-checkin: 10 per minute",
+        "Returns 429 Too Many Requests with Retry-After header when exceeded",
+        "Rate limiter is applied in server.ts before routing to handlers",
+        "Service-role requests (cron jobs) bypass rate limiting"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "All 7 endpoints currently have zero rate limiting."
+    },
+    {
+      "id": "US-003",
+      "title": "Add security headers to website via Cloudflare Pages _headers file",
+      "description": "As a security engineer, I want proper HTTP security headers on all website responses so that XSS, clickjacking, and MIME sniffing attacks are mitigated.",
+      "acceptanceCriteria": [
+        "website/public/_headers file exists with rules for /*",
+        "Content-Security-Policy header set (script-src self, style-src self and fonts.googleapis.com, font-src fonts.gstatic.com)",
+        "X-Frame-Options: DENY",
+        "X-Content-Type-Options: nosniff",
+        "Referrer-Policy: strict-origin-when-cross-origin",
+        "Permissions-Policy: camera=(), microphone=(), geolocation=()",
+        "Headers appear in production build output (dist/_headers)",
+        "Website still renders correctly with CSP active"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Currently no _headers file exists for security headers."
+    },
+    {
+      "id": "US-004",
+      "title": "Add migration safety gate to CI/CD pipeline",
+      "description": "As a developer, I want Supabase migrations to require manual approval and take a backup before running so that a bad migration cannot destroy production data.",
+      "acceptanceCriteria": [
+        "supabase-migrations.yml requires environment approval (GitHub environment protection rule)",
+        "Workflow runs pg_dump backup before applying any migration",
+        "Backup is uploaded as a workflow artifact (retained 30 days)",
+        "Each migration runs inside an explicit SQL transaction (BEGIN/COMMIT)",
+        "Workflow fails and stops if any migration errors",
+        "Verification step checks table count, RLS policy count, and trigger count"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Currently auto-deploys on push with no approval or backup."
+    },
+    {
+      "id": "US-005",
+      "title": "Add error logging and monitoring integration",
+      "description": "As an operator, I want structured JSON logging and error tracking in edge functions so that production issues are visible and alertable.",
+      "acceptanceCriteria": [
+        "New shared/logger.ts module with structured JSON logging (timestamp, level, path, userId, statusCode, duration, error)",
+        "All edge function handlers log request start and completion",
+        "Errors include stack traces in log output",
+        "server.ts catches unhandled errors and logs them before returning 500",
+        "Log output is JSON-per-line format compatible with Docker log drivers",
+        "Docker compose adds json-file logging driver with max-size 10m and max-file 3"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Currently only console.error with no structure or aggregation."
+    },
+    {
+      "id": "US-006",
+      "title": "Add database backup automation",
+      "description": "As an operator, I want automated daily PostgreSQL backups with retention so that data can be recovered in a disaster.",
+      "acceptanceCriteria": [
+        "New coolify/backup-db.sh script that runs pg_dump with compression",
+        "Backups stored in /var/backups/wellvo/ with date-stamped filenames",
+        "Retention: keep last 30 daily backups, delete older",
+        "Script is scheduled via cron (documented in coolify/README-DEPLOYMENT.md)",
+        "Backup script validates dump file is non-empty before deleting old ones",
+        "README-DEPLOYMENT.md updated with backup setup and restore instructions"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "No backup strategy currently exists."
+    },
+    {
+      "id": "US-007",
+      "title": "Enable analytics in iOS app",
+      "description": "As a product owner, I want TelemetryDeck analytics enabled so that I can measure retention, check-in rates, and conversion metrics from the PRD.",
+      "acceptanceCriteria": [
+        "TelemetryDeck SPM package added to Package.swift dependencies",
+        "AnalyticsService.swift uncommented and configured with TelemetryDeck app ID from Info.plist",
+        "Events tracked: app_open, check_in_completed, check_in_missed, mood_selected, subscription_started, subscription_cancelled, onboarding_completed, on_demand_checkin_sent",
+        "No PII sent in analytics events (no email, phone, or name)",
+        "Analytics disabled in DEBUG builds",
+        "App builds successfully with analytics enabled"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "TelemetryDeck code is commented out in AnalyticsService.swift."
+    },
+    {
+      "id": "US-008",
+      "title": "Add 404 page and error boundary to website",
+      "description": "As a user, I want to see a helpful error page when I visit an invalid URL or when a component crashes so that I'm not left with a blank screen.",
+      "acceptanceCriteria": [
+        "New website/src/pages/NotFound.tsx with branded 404 page (Wellvo styling, link to home)",
+        "Catch-all route added in App.tsx: <Route path='*' element={<NotFound />} />",
+        "New website/src/components/ErrorBoundary.tsx wrapping the app in Layout.tsx",
+        "ErrorBoundary shows user-friendly error message with retry button",
+        "404 page is responsive and matches site design",
+        "npm run build succeeds"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Currently visiting /invalid-path shows blank content."
+    },
+    {
+      "id": "US-009",
+      "title": "Add SEO essentials to website",
+      "description": "As a marketer, I want sitemap.xml, robots.txt, og:image, and structured data so that search engines can properly index the site and social shares look professional.",
+      "acceptanceCriteria": [
+        "website/public/sitemap.xml listing /, /pricing, /support, /privacy, /terms with lastmod dates",
+        "website/public/robots.txt allowing all crawlers and pointing to sitemap",
+        "og:image meta tag in index.html pointing to a 1200x630 social preview image",
+        "Social preview image generated (green gradient with Wellvo logo and tagline)",
+        "Twitter card meta tags added (twitter:card, twitter:title, twitter:description, twitter:image)",
+        "JSON-LD structured data for SoftwareApplication schema on home page",
+        "Per-page document titles set via useEffect or react-helmet-async",
+        "npm run build succeeds and sitemap.xml is in dist/"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "Currently no sitemap, robots.txt, og:image, or structured data."
+    },
+    {
+      "id": "US-010",
+      "title": "Add README.md, LICENSE, and .env.example to repository",
+      "description": "As a contributor, I want proper repository documentation so that I can understand the project, set up locally, and contribute correctly.",
+      "acceptanceCriteria": [
+        "Root README.md with: project description, architecture overview (iOS + Edge Functions + Supabase + Website), local development setup for each component, deployment instructions, link to PRD",
+        "LICENSE file (choose appropriate license)",
+        "edge-functions/.env.example listing all required env vars with placeholder values and descriptions",
+        "website/.env.example if any env vars are needed",
+        "CONTRIBUTING.md with PR process, commit message format, and code style expectations",
+        "README renders correctly on GitHub"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "GitHub landing page is currently blank. No setup docs."
+    },
+    {
+      "id": "US-011",
+      "title": "Add iOS unit and integration tests",
+      "description": "As a developer, I want automated tests for critical business logic so that regressions are caught before release.",
+      "acceptanceCriteria": [
+        "New WellvoTests target in Xcode project",
+        "Tests for AuthViewModel: sign in state transitions, validation logic, error handling",
+        "Tests for DashboardViewModel: streak calculation, weekly summary computation, receiver card building",
+        "Tests for ReceiverViewModel: check-in status tracking, offline queue integration",
+        "Tests for OfflineCheckInService: queue, sync, retry logic",
+        "Tests for SubscriptionService: tier mapping, entitlement checking",
+        "All tests pass with swift test or xcodebuild test",
+        "Minimum 15 test cases covering critical paths"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "Zero tests currently exist. Focus on ViewModels and Services."
+    },
+    {
+      "id": "US-012",
+      "title": "Implement push notification token refresh",
+      "description": "As a user, I want my push notification token to stay valid so that I never miss a check-in notification due to an expired token.",
+      "acceptanceCriteria": [
+        "PushNotificationService re-registers token on every app launch (foreground)",
+        "Token is compared to stored value; only sends to Supabase if changed",
+        "Old tokens marked is_active=false when a new token is registered for the same device",
+        "Edge function send-checkin-notification skips is_active=false tokens",
+        "Token registration failure is logged (not silently swallowed)"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "Tokens expire after ~30 days. No refresh mechanism exists."
+    },
+    {
+      "id": "US-013",
+      "title": "Complete iOS accessibility for App Store review",
+      "description": "As a visually impaired user, I want full VoiceOver support so that I can use Wellvo independently.",
+      "acceptanceCriteria": [
+        "ReceiverHomeView: check-in button has accessibilityLabel 'I'm OK check-in button' and accessibilityHint",
+        "DashboardView: each receiver card has accessibilityLabel with name, status, and streak",
+        "All tab bar items have accessibility labels",
+        "Mood selector buttons have accessibilityLabel (e.g., 'Select mood: Good')",
+        "HistoryView heatmap cells have accessibilityLabel with date and status",
+        "Settings toggles have accessibilityLabel describing what they control",
+        "Focus order is logical top-to-bottom on every screen",
+        "Dynamic Type tested at accessibility sizes (XXXL) without layout breakage"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "Apple reviews accessibility. Most VoiceOver labels are missing."
+    },
+    {
+      "id": "US-014",
+      "title": "Add duplicate check-in prevention",
+      "description": "As a developer, I want to prevent duplicate check-ins for the same receiver on the same day so that data integrity is maintained.",
+      "acceptanceCriteria": [
+        "UNIQUE constraint added on checkins(receiver_id, family_id, DATE(checked_in_at)) via new migration",
+        "process-checkin-response edge function uses upsert or checks for existing check-in before insert",
+        "Duplicate check-in attempt returns 200 with existing check-in data (not error)",
+        "ReceiverHomeView correctly shows already-checked-in state if duplicate detected",
+        "Migration applies cleanly on existing data"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "Currently can create multiple check-ins per receiver per minute."
+    },
+    {
+      "id": "US-015",
+      "title": "Add phone number validation to invite flow",
+      "description": "As an owner, I want phone number validation on the invite form so that invalid numbers don't waste SMS credits or create broken invites.",
+      "acceptanceCriteria": [
+        "FamilyView InviteReceiverSheet validates phone format before enabling Send button",
+        "Accepts US numbers: (xxx) xxx-xxxx, xxx-xxx-xxxx, +1xxxxxxxxxx, xxxxxxxxxx",
+        "Shows inline error message for invalid format",
+        "invite-receiver edge function also validates phone format server-side",
+        "Invalid phone returns 400 with clear error message"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "Currently accepts any string as a phone number."
+    },
+    {
+      "id": "US-016",
+      "title": "Add website accessibility fundamentals",
+      "description": "As a keyboard-only user, I want focus styles, skip navigation, and ARIA attributes so that I can navigate the website without a mouse.",
+      "acceptanceCriteria": [
+        "Global :focus-visible CSS styles added (visible ring on all interactive elements)",
+        "Skip-to-main-content link added as first element in Layout",
+        "Header menu toggle has aria-expanded attribute that updates on open/close",
+        "Active nav link has aria-current='page'",
+        "All emoji content in Home.tsx wrapped with aria-label or role='img'",
+        "Tab order is logical through all pages",
+        "Color contrast passes WCAG AA (4.5:1 for normal text, 3:1 for large text)"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "No focus styles, no skip nav, no ARIA attributes currently."
+    },
+    {
+      "id": "US-017",
+      "title": "Add code splitting and lazy loading to website",
+      "description": "As a user, I want fast page loads so that the site feels snappy on mobile connections.",
+      "acceptanceCriteria": [
+        "All page components loaded via React.lazy() with Suspense fallback",
+        "Vite config updated with rollupOptions for manual chunk splitting (vendor, pages)",
+        "Initial JS bundle under 150KB gzipped",
+        "Loading spinner or skeleton shown during lazy load",
+        "All routes still work correctly after code splitting",
+        "npm run build succeeds and shows multiple chunk files"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "Currently single 276KB bundle with all pages."
+    },
+    {
+      "id": "US-018",
+      "title": "Add Web App Manifest and apple-touch-icon",
+      "description": "As a mobile user, I want proper PWA metadata so that the site can be added to home screen with correct icon and name.",
+      "acceptanceCriteria": [
+        "website/public/manifest.json with name, short_name, icons, theme_color, background_color",
+        "apple-touch-icon (180x180) generated from Wellvo logo",
+        "Favicon in multiple sizes (16, 32, 192, 512) referenced in manifest",
+        "index.html links to manifest.json and apple-touch-icon",
+        "Lighthouse PWA audit passes installability checks"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "Only favicon.svg exists currently."
+    },
+    {
+      "id": "US-019",
+      "title": "Add og:image social preview to website",
+      "description": "As a marketer, I want a branded social preview image so that links shared on Twitter, Slack, and iMessage look professional.",
+      "acceptanceCriteria": [
+        "1200x630px og-image.png generated (green gradient, Wellvo logo, tagline 'One tap. Peace of mind.')",
+        "Image placed in website/public/og-image.png",
+        "og:image meta tag in index.html points to https://wellvo.net/og-image.png",
+        "twitter:card set to summary_large_image",
+        "twitter:image points to same og-image.png",
+        "Image renders correctly when URL is pasted in Twitter/Slack preview tools"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "No social preview image exists."
+    },
+    {
+      "id": "US-020",
+      "title": "Handle notification permission denial gracefully in iOS",
+      "description": "As an owner, I want to be prompted to enable notifications if I denied them previously so that I don't miss escalation alerts.",
+      "acceptanceCriteria": [
+        "App checks notification permission status on each foreground resume",
+        "If denied, show a non-intrusive banner on DashboardView explaining why notifications matter",
+        "Banner includes 'Open Settings' button that deep-links to iOS Settings > Wellvo > Notifications",
+        "Banner is dismissable and doesn't show again for 7 days after dismissal",
+        "Receivers see similar banner on ReceiverHomeView if notifications denied",
+        "Banner styling matches existing app design (orange tint warning style)"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "Currently no re-prompt if user denies push permissions."
+    },
+    {
+      "id": "US-021",
+      "title": "Fix silent SMS escalation failure",
+      "description": "As an operator, I want SMS failures logged and visible so that I know when Twilio is misconfigured or down.",
+      "acceptanceCriteria": [
+        "escalation-tick edge function logs SMS send attempts with structured logger",
+        "SMS failures are caught and logged with error details (not silently swallowed)",
+        "If Twilio credentials are missing, function logs a clear warning on startup",
+        "Failed SMS attempts recorded in notification_log table with error_message column",
+        "New migration adds error_message column to notification_log if not present"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": "sendSMS() currently fails silently if Twilio not configured."
+    },
+    {
+      "id": "US-022",
+      "title": "Add missing database indexes for performance",
+      "description": "As a developer, I want proper indexes on frequently queried columns so that dashboard and escalation queries are fast as the user base grows.",
+      "acceptanceCriteria": [
+        "New migration adds: CREATE INDEX idx_families_subscription ON families(subscription_status, subscription_expires_at)",
+        "New migration adds: CREATE INDEX idx_receiver_settings_active ON receiver_settings(is_active) WHERE is_active = true",
+        "New migration adds: CREATE INDEX idx_invite_tokens_phone ON invite_tokens(phone)",
+        "Migration applies cleanly on existing data",
+        "EXPLAIN ANALYZE on dispatch_scheduled_checkins shows index usage"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": "Missing indexes on subscription status, active settings, and invite phone."
+    },
+    {
+      "id": "US-023",
+      "title": "Validate App Store webhook token properly",
+      "description": "As a developer, I want the subscription webhook to reject invalid app_account_tokens so that subscription state cannot be corrupted by spoofed requests.",
+      "acceptanceCriteria": [
+        "subscription-webhook validates app_account_token is a valid UUID format before querying",
+        "If user not found for token, returns 400 with error instead of falling back silently",
+        "Webhook logs token lookup failures for debugging",
+        "Existing subscription flow still works end-to-end"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": "Currently accepts garbage app_account_token values silently."
+    },
+    {
+      "id": "US-024",
+      "title": "Add website privacy-first analytics",
+      "description": "As a product owner, I want privacy-first analytics on the website so that I can measure traffic and conversions without violating the privacy policy.",
+      "acceptanceCriteria": [
+        "Plausible Analytics or Cloudflare Web Analytics script added to index.html",
+        "No cookies set by analytics (privacy-first, cookieless)",
+        "Analytics script loads asynchronously and doesn't block rendering",
+        "Custom events tracked: pricing_page_view, download_cta_click, support_page_view",
+        "Privacy policy accuracy verified (claims match implementation)",
+        "No GDPR cookie banner needed (cookieless analytics)"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": "Privacy policy claims 'privacy-first analytics' but none integrated."
+    },
+    {
+      "id": "US-025",
+      "title": "Add centralized error handling in iOS services",
+      "description": "As a developer, I want a consistent error handling pattern across all services so that errors propagate correctly and users see helpful messages.",
+      "acceptanceCriteria": [
+        "CheckInService.respondToCheckIn propagates errors instead of just printing",
+        "All service methods that catch errors re-throw with WellvoError type",
+        "WellvoError enum covers: network, auth, notFound, serverError, offline, unknown",
+        "ViewModels display user-facing error messages from WellvoError.localizedDescription",
+        "No silent error swallowing (print-only) remains in any service file"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": "Some services just print errors without propagating."
+    },
+    {
+      "id": "US-026",
+      "title": "Add GDPR data export completeness",
+      "description": "As a user exercising my GDPR rights, I want data export to include all my data so that the export is legally complete.",
+      "acceptanceCriteria": [
+        "export_user_data RPC updated to include checkin_requests data",
+        "Export includes notification_log entries for the user",
+        "Export includes invite_tokens created by the user (with token values redacted)",
+        "Export includes alert history for families the user owns",
+        "JSON output structure documented in a code comment",
+        "Migration applies cleanly"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": "Current export missing checkin_requests, notification_log, and alerts."
+    },
+    {
+      "id": "US-027",
+      "title": "Add GitHub Actions notifications on build failure",
+      "description": "As a developer, I want to be notified when CI/CD pipelines fail so that broken builds are caught quickly.",
+      "acceptanceCriteria": [
+        "All three workflows (ios-build-deploy, edge-functions-deploy, supabase-migrations) have failure notification step",
+        "Notification via GitHub Actions built-in (creates issue or uses actions/github-script to comment)",
+        "Failure notification includes: workflow name, branch, commit SHA, error summary, link to run",
+        "Notification only fires on failure (not success)"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": "Currently no notification on any CI/CD failure."
+    },
+    {
+      "id": "US-028",
+      "title": "Add container vulnerability scanning to CI",
+      "description": "As a security engineer, I want Docker images scanned for vulnerabilities before deployment so that known CVEs don't reach production.",
+      "acceptanceCriteria": [
+        "edge-functions-deploy.yml adds Trivy scan step after Docker build, before push",
+        "Scan fails the workflow if HIGH or CRITICAL vulnerabilities are found",
+        "Scan results uploaded as GitHub Actions artifact",
+        "MEDIUM and below are logged as warnings but don't block deployment"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": "No vulnerability scanning in any CI workflow."
+    },
+    {
+      "id": "US-029",
+      "title": "Add website testing infrastructure",
+      "description": "As a developer, I want automated tests for the website so that regressions in routing, pricing display, and legal pages are caught.",
+      "acceptanceCriteria": [
+        "Vitest and @testing-library/react added as dev dependencies",
+        "vitest.config.ts configured with jsdom environment",
+        "Test for App.tsx: all routes render without crashing",
+        "Test for Pricing.tsx: all 3 plan names and prices display correctly",
+        "Test for Header.tsx: navigation links present and mobile menu toggles",
+        "Test for Privacy.tsx and Terms.tsx: page renders with correct heading",
+        "All tests pass with npm run test",
+        "Minimum 8 test cases"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": "No test infrastructure or tests exist for the website."
+    },
+    {
+      "id": "US-030",
+      "title": "Add CLAUDE.md project configuration",
+      "description": "As an AI-assisted developer, I want a CLAUDE.md file so that Claude Code has project context for future development sessions.",
+      "acceptanceCriteria": [
+        "Root CLAUDE.md with: project overview, tech stack summary, directory structure, build commands for each component, key architecture decisions, testing commands",
+        "References prd.json for outstanding work",
+        "References progress.txt for completed work",
+        "Includes common gotchas (e.g., Supabase config from Info.plist, Deno for edge functions)",
+        "File is under 200 lines"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": "No CLAUDE.md exists. Critical for Ralph loop context."
+    }
+  ]
+}
