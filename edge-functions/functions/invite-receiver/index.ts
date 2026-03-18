@@ -33,6 +33,14 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
     );
   }
 
+  // Validate phone number format (US numbers)
+  if (!isValidUSPhone(phone)) {
+    return new Response(
+      JSON.stringify({ error: "Invalid phone number. Please use a valid US phone number (e.g., (555) 123-4567, 555-123-4567, or +15551234567)." }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   // Verify the requesting user is the family owner
   if (!auth.userId) {
     return new Response(
@@ -219,4 +227,15 @@ async function acceptInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
     JSON.stringify({ success: true, family_id: invite.family_id, role: invite.role }),
     { headers: { "Content-Type": "application/json" } }
   );
+}
+
+/**
+ * Validate US phone number formats:
+ * (xxx) xxx-xxxx, xxx-xxx-xxxx, +1xxxxxxxxxx, xxxxxxxxxx
+ */
+function isValidUSPhone(phone: string): boolean {
+  // Strip all non-digit characters except leading +
+  const stripped = phone.replace(/[\s\-().]/g, "");
+  // Match: 10 digits, or +1 followed by 10 digits, or 1 followed by 10 digits
+  return /^(\+?1)?[2-9]\d{9}$/.test(stripped);
 }

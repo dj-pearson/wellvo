@@ -69,6 +69,23 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
     );
   }
 
+  // Check for existing check-in today (duplicate prevention)
+  const today = new Date().toISOString().split("T")[0];
+  const { data: existingCheckIn } = await supabaseAdmin
+    .from("checkins")
+    .select()
+    .eq("receiver_id", receiverId)
+    .eq("family_id", familyId)
+    .gte("checked_in_at", `${today}T00:00:00Z`)
+    .lt("checked_in_at", `${today}T23:59:59Z`)
+    .maybeSingle();
+
+  if (existingCheckIn) {
+    // Already checked in today — return existing check-in (not an error)
+    // Still mark pending requests as checked_in below
+    return markRequestsAndRespond(receiverId, familyId, existingCheckIn);
+  }
+
   // Record the check-in
   const { data: checkIn, error: checkInError } = await supabaseAdmin
     .from("checkins")
@@ -87,6 +104,14 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
     );
   }
 
+  return markRequestsAndRespond(receiverId, familyId, checkIn);
+}
+
+async function markRequestsAndRespond(
+  receiverId: string,
+  familyId: string,
+  checkIn: Record<string, unknown>,
+): Promise<Response> {
   // Mark all pending requests for this receiver+family as checked_in
   await supabaseAdmin
     .from("checkin_requests")

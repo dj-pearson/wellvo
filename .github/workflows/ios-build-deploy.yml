@@ -166,16 +166,22 @@ jobs:
         run: |
           security delete-keychain $RUNNER_TEMP/app-signing.keychain-db 2>/dev/null || true
 
-  # Notify on completion
-  notify:
+  # Notify on failure — create GitHub issue
+  notify-failure:
     needs: build-and-deploy
     runs-on: ubuntu-latest
-    if: always()
+    if: failure()
+    permissions:
+      issues: write
     steps:
-      - name: Notify result
-        run: |
-          if [ "${{ needs.build-and-deploy.result }}" = "success" ]; then
-            echo "✅ Wellvo iOS build uploaded to App Store Connect successfully"
-          else
-            echo "❌ Wellvo iOS build failed"
-          fi
+      - name: Create failure issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `CI Failure: iOS Build & Deploy — ${context.sha.substring(0, 7)}`,
+              body: `## Build Failure\n\n- **Workflow:** iOS Build & Deploy\n- **Branch:** ${context.ref}\n- **Commit:** ${context.sha}\n- **Run:** [View logs](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n\nPlease investigate and fix.`,
+              labels: ['ci-failure']
+            });

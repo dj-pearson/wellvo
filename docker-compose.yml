@@ -28,6 +28,11 @@ services:
       - APNS_TEAM_ID=${APNS_TEAM_ID}
       - APNS_PRIVATE_KEY=${APNS_PRIVATE_KEY}
       - APNS_ENVIRONMENT=${APNS_ENVIRONMENT:-development}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - wellvo-network
     healthcheck:

@@ -9,6 +9,8 @@ const PORT = parseInt(Deno.env.get("PORT") || "9000");
 
 // Import auth
 import { verifyRequest, type AuthResult } from "./shared/auth.ts";
+import { checkRateLimit } from "./shared/rate-limiter.ts";
+import { logInfo, logError, withRequestLogging } from "./shared/logger.ts";
 
 // Import function handlers
 import { handleSendCheckinNotification } from "./functions/send-checkin-notification/index.ts";
@@ -38,12 +40,21 @@ const routes: Record<string, FunctionHandler> = {
   "/subscription-cancellation": handleSubscriptionCancellation,
 };
 
-function corsHeaders(): Record<string, string> {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  };
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://wellvo.net";
+
+function corsHeaders(req?: Request): Record<string, string> {
+  const origin = req?.headers.get("Origin") || "";
+  // Allow requests with no Origin header (iOS app, server-to-server, pg_cron)
+  // Only set CORS headers when the request origin matches the allowed origin
+  if (!origin || origin === ALLOWED_ORIGIN) {
+    return {
+      "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    };
+  }
+  // Disallowed origin — return empty CORS headers (browser will block the response)
+  return {};
 }
 
 async function handler(req: Request): Promise<Response> {
@@ -59,7 +70,14 @@ async function handler(req: Request): Promise<Response> {
 
   // CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders() });
+    const origin = req.headers.get("Origin") || "";
+    if (origin && origin !== ALLOWED_ORIGIN) {
+      return new Response(JSON.stringify({ error: "Forbidden: origin not allowed" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response(null, { headers: corsHeaders(req) });
   }
 
   // Verify authentication (JWT or service role key)
@@ -69,6 +87,20 @@ async function handler(req: Request): Promise<Response> {
       status: 401,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  // Rate limiting (service-role requests from pg_cron bypass rate limits)
+  if (!auth.isServiceRole && auth.userId) {
+    const rateLimitResult = checkRateLimit(auth.userId, path);
+    if (!rateLimitResult.allowed) {
+      return new Response(JSON.stringify({ error: "Too many requests" }), {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": String(rateLimitResult.retryAfterSeconds),
+        },
+      });
+    }
   }
 
   // Service-role-only routes (internal calls from pg_cron)
@@ -82,24 +114,26 @@ async function handler(req: Request): Promise<Response> {
   // Route to function handler
   const functionHandler = routes[path];
   if (functionHandler) {
-    try {
-      const response = await functionHandler(req, auth);
-      // Add CORS headers to response
-      const headers = new Headers(response.headers);
-      for (const [key, value] of Object.entries(corsHeaders())) {
-        headers.set(key, value);
+    return withRequestLogging(path, auth.userId, async () => {
+      try {
+        const response = await functionHandler(req, auth);
+        // Add CORS headers to response
+        const headers = new Headers(response.headers);
+        for (const [key, value] of Object.entries(corsHeaders(req))) {
+          headers.set(key, value);
+        }
+        return new Response(response.body, {
+          status: response.status,
+          headers,
+        });
+      } catch (error) {
+        logError(`Unhandled error in ${path}`, error, { path, userId: auth.userId });
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          { status: 500, headers: { "Content-Type": "application/json" } }
+        );
       }
-      return new Response(response.body, {
-        status: response.status,
-        headers,
-      });
-    } catch (error) {
-      console.error(`Error in ${path}:`, error);
-      return new Response(
-        JSON.stringify({ error: "Internal server error" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
+    });
   }
 
   return new Response(JSON.stringify({ error: "Not found" }), {

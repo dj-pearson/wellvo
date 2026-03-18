@@ -11,27 +11,87 @@ on:
 jobs:
   migrate:
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run migrations against production Supabase
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Backup database before migration
         env:
           DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          # Install psql
-          sudo apt-get update && sudo apt-get install -y postgresql-client
+          echo "Creating pre-migration backup..."
+          pg_dump "$DATABASE_URL" --no-owner --no-acl --compress=9 \
+            -f backup-pre-migration-$(date +%Y%m%d-%H%M%S).sql.gz
+          echo "Backup complete: $(ls -lh backup-pre-migration-*.sql.gz)"
 
-          # Run each migration in order
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backup-pre-migration-*.sql.gz
+          retention-days: 30
+
+      - name: Run migrations in transactions
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
           for migration in $(ls supabase/migrations/*.sql | sort); do
             echo "Running migration: $migration"
-            psql "$DATABASE_URL" -f "$migration" -v ON_ERROR_STOP=1
+            # Wrap each migration in a transaction
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<EOSQL
+          BEGIN;
+          \i $migration
+          COMMIT;
+          EOSQL
             echo "✅ $migration completed"
           done
 
-      - name: Verify migration
+      - name: Verify migration integrity
         env:
           DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          # Verify core tables exist
+          set -euo pipefail
+          echo "=== Tables ==="
+          TABLE_COUNT=$(psql "$DATABASE_URL" -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';")
+          echo "Public tables: $TABLE_COUNT"
+
+          echo "=== RLS Policies ==="
+          POLICY_COUNT=$(psql "$DATABASE_URL" -t -c "SELECT count(*) FROM pg_policies WHERE schemaname = 'public';")
+          echo "RLS policies: $POLICY_COUNT"
+
+          echo "=== Triggers ==="
+          TRIGGER_COUNT=$(psql "$DATABASE_URL" -t -c "SELECT count(*) FROM information_schema.triggers WHERE trigger_schema = 'public';")
+          echo "Triggers: $TRIGGER_COUNT"
+
+          echo "=== Core tables check ==="
           psql "$DATABASE_URL" -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;"
+
+          # Fail if no tables exist (migration likely broke everything)
+          if [ "$(echo "$TABLE_COUNT" | tr -d ' ')" -lt 1 ]; then
+            echo "❌ ERROR: No public tables found after migration!"
+            exit 1
+          fi
+
+  notify-failure:
+    needs: migrate
+    runs-on: ubuntu-latest
+    if: failure()
+    permissions:
+      issues: write
+    steps:
+      - name: Create failure issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `CI Failure: Supabase Migrations — ${context.sha.substring(0, 7)}`,
+              body: `## Migration Failure\n\n- **Workflow:** Supabase Migrations\n- **Branch:** ${context.ref}\n- **Commit:** ${context.sha}\n- **Run:** [View logs](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n\n⚠️ A pre-migration backup artifact should be available in the workflow run. Check if the migration needs to be rolled back.`,
+              labels: ['ci-failure']
+            });

@@ -29,41 +29,146 @@ Core platform built and functional:
 
 == Story Status ==
 -- Phase 1: Critical Security --
-US-001: PENDING - Fix CORS policy to restrict allowed origins
-US-002: PENDING - Add rate limiting middleware to edge functions
-US-003: PENDING - Add security headers to website
-US-004: PENDING - Add migration safety gate to CI/CD
+US-001: DONE - Fix CORS policy to restrict allowed origins
+US-002: DONE - Add rate limiting middleware to edge functions
+US-003: DONE - Add security headers to website
+US-004: DONE - Add migration safety gate to CI/CD
 
 -- Phase 2: Observability --
-US-005: PENDING - Add error logging and monitoring integration
-US-006: PENDING - Add database backup automation
+US-005: DONE - Add error logging and monitoring integration
+US-006: DONE - Add database backup automation
 
 -- Phase 3: iOS Production Readiness --
 US-007: PENDING - Enable analytics in iOS app
-US-008: PENDING - Add 404 page and error boundary to website
-US-009: PENDING - Add SEO essentials to website
-US-010: PENDING - Add README.md, LICENSE, and .env.example
+US-008: DONE - Add 404 page and error boundary to website
+US-009: DONE - Add SEO essentials to website
+US-010: DONE - Add README.md, LICENSE, and .env.example
 US-011: PENDING - Add iOS unit and integration tests
 US-012: PENDING - Implement push notification token refresh
 US-013: PENDING - Complete iOS accessibility for App Store review
 
 -- Phase 4: Data Integrity & Validation --
-US-014: PENDING - Add duplicate check-in prevention
-US-015: PENDING - Add phone number validation to invite flow
-US-016: PENDING - Add website accessibility fundamentals
-US-017: PENDING - Add code splitting and lazy loading to website
+US-014: DONE - Add duplicate check-in prevention
+US-015: DONE - Add phone number validation to invite flow
+US-016: DONE - Add website accessibility fundamentals
+US-017: DONE - Add code splitting and lazy loading to website
 
 -- Phase 5: Polish & Completeness --
 US-018: PENDING - Add Web App Manifest and apple-touch-icon
 US-019: PENDING - Add og:image social preview
 US-020: PENDING - Handle notification permission denial gracefully
-US-021: PENDING - Fix silent SMS escalation failure
-US-022: PENDING - Add missing database indexes
-US-023: PENDING - Validate App Store webhook token properly
+US-021: DONE - Fix silent SMS escalation failure
+US-022: DONE - Add missing database indexes
+US-023: DONE - Validate App Store webhook token properly
 US-024: PENDING - Add website privacy-first analytics
 US-025: PENDING - Add centralized error handling in iOS services
 US-026: PENDING - Add GDPR data export completeness
-US-027: PENDING - Add GitHub Actions failure notifications
-US-028: PENDING - Add container vulnerability scanning to CI
-US-029: PENDING - Add website testing infrastructure
-US-030: PENDING - Add CLAUDE.md project configuration
+US-027: DONE - Add GitHub Actions failure notifications
+US-028: DONE - Add container vulnerability scanning to CI
+US-029: DONE - Add website testing infrastructure
+US-030: DONE - Add CLAUDE.md project configuration
+
+== Ralph Loop Iteration Log ==
+
+--- Iteration 1: US-001 (2026-03-18) ---
+Implemented: Restricted CORS from wildcard to https://wellvo.net
+Files changed: edge-functions/server.ts
+Patterns: ALLOWED_ORIGIN env var for configurability. Requests without Origin header (iOS, pg_cron) pass through. Disallowed origins get empty CORS headers on responses + 403 on preflight.
+Gotcha: iOS native apps don't send Origin headers, so CORS must allow missing-origin requests.
+
+--- Iteration 2: US-002 (2026-03-18) ---
+Implemented: In-memory sliding window rate limiter per user+endpoint
+Files changed: edge-functions/shared/rate-limiter.ts (new), edge-functions/server.ts
+Patterns: Default 30 req/min. invite-receiver: 5/min, on-demand-checkin: 10/min. Service role bypasses. Returns 429 + Retry-After header.
+Gotcha: Rate limiter is in-memory, so limits reset on container restart. Fine for single-instance Coolify deploy.
+
+--- Iteration 3: US-003 (2026-03-18) ---
+Implemented: Cloudflare Pages _headers file with CSP, X-Frame-Options, etc.
+Files changed: website/public/_headers (new)
+Patterns: Cloudflare Pages reads _headers from public/ dir. CSP needs 'unsafe-inline' for style-src due to Vite/React runtime styles. Google Fonts requires explicit font-src and style-src allowlist.
+
+--- Iteration 4: US-004 (2026-03-18) ---
+Implemented: Migration safety gate with environment approval, backup, and transactions
+Files changed: .github/workflows/supabase-migrations.yml
+Patterns: GitHub environment protection rule "production" gates approval. pg_dump with --compress=9 uploaded as 30-day artifact. Each migration wrapped in BEGIN/COMMIT. Post-migration verification checks table, RLS, and trigger counts.
+
+--- Iteration 5: US-005 (2026-03-18) ---
+Implemented: Structured JSON logger with request lifecycle logging
+Files changed: edge-functions/shared/logger.ts (new), edge-functions/server.ts, docker-compose.yml
+Patterns: logInfo/logWarn/logError emit JSON-per-line. withRequestLogging wraps handlers for start/complete/error with timing. Docker json-file driver with 10m max-size, 3 file rotation.
+Gotcha: Must import logError separately for catch blocks; withRequestLogging only catches thrown errors.
+
+--- Iteration 6: US-006 (2026-03-18) ---
+Implemented: Automated PostgreSQL backup script with retention
+Files changed: coolify/backup-db.sh (new), coolify/README-DEPLOYMENT.md
+Patterns: pg_dump --compress=9, date-stamped filenames, validates non-empty before cleanup. Configurable via BACKUP_DIR, RETENTION_DAYS, DATABASE_URL. Scheduled via system cron, not pg_cron.
+
+--- Iteration 7: US-008 (2026-03-18) ---
+Implemented: 404 page with branded styling and ErrorBoundary component
+Files changed: website/src/pages/NotFound.tsx (new), website/src/pages/NotFound.css (new), website/src/components/ErrorBoundary.tsx (new), website/src/App.tsx, website/src/main.tsx
+Patterns: Catch-all route <Route path="*"> for 404. ErrorBoundary wraps at top level in main.tsx (above BrowserRouter). Error boundary uses inline styles to avoid CSS dependency that might also be broken.
+
+--- Iteration 8: US-030 (2026-03-18) ---
+Implemented: CLAUDE.md project configuration file
+Files changed: CLAUDE.md (new)
+Patterns: Under 200 lines. Covers tech stack, directory structure, build commands, architecture decisions, common gotchas, and references to prd.json/progress.txt for task tracking.
+
+--- Iteration 9: US-009 (2026-03-18) ---
+Implemented: SEO essentials — sitemap, robots.txt, social meta, structured data
+Files changed: website/public/sitemap.xml (new), website/public/robots.txt (new), website/public/og-image.svg (new), website/index.html
+Patterns: Cloudflare Pages serves static files from public/ dir. SVG used for og-image as a text-based placeholder. Twitter card set to summary_large_image. JSON-LD SoftwareApplication schema with free price offer.
+
+--- Iteration 10: US-010 (2026-03-18) ---
+Implemented: README.md, LICENSE, edge-functions/.env.example
+Files changed: README.md (new), LICENSE (new), edge-functions/.env.example (new)
+Patterns: Proprietary license for Pearson Media LLC. README includes architecture ASCII diagram, getting started for all 4 components, and links to PRD/deployment docs. .env.example includes both required and optional (Twilio) vars.
+
+--- Iteration 11: US-014 (2026-03-18) ---
+Implemented: Duplicate check-in prevention at DB and application level
+Files changed: supabase/migrations/00007_duplicate_checkin_prevention.sql (new), edge-functions/functions/process-checkin-response/index.ts
+Patterns: UNIQUE index on (receiver_id, family_id, DATE(checked_in_at)). Application checks for existing check-in before insert. Duplicate returns 200 with existing data (not error). Extracted markRequestsAndRespond helper to deduplicate response logic.
+
+--- Iteration 12: US-027 (2026-03-18) ---
+Implemented: GitHub Actions failure notification via auto-created issues
+Files changed: .github/workflows/ios-build-deploy.yml, .github/workflows/edge-functions-deploy.yml, .github/workflows/supabase-migrations.yml
+Patterns: All 3 workflows get notify-failure job with actions/github-script@v7. Creates issue with 'ci-failure' label. Includes workflow name, branch, commit SHA, and link to failed run. Migration failure issue notes backup artifact availability.
+
+--- Iteration 13: US-015 (2026-03-18) ---
+Implemented: Server-side phone number validation in invite-receiver
+Files changed: edge-functions/functions/invite-receiver/index.ts
+Patterns: isValidUSPhone regex validates US numbers (10 digits, optional +1 prefix, first digit 2-9). Returns 400 with helpful error message. Validation happens before any DB queries.
+
+--- Iteration 14: US-016 (2026-03-18) ---
+Implemented: Website accessibility fundamentals
+Files changed: website/src/components/Layout.tsx, website/src/components/Header.tsx, website/src/pages/Home.tsx, website/src/index.css
+Patterns: Skip-to-main-content link visible on focus. aria-current='page' on active nav links. aria-expanded on mobile menu toggle. role='img' + aria-label on emoji content. :focus-visible green outline on all interactive elements.
+
+--- Iteration 15: US-017 (2026-03-18) ---
+Implemented: Code splitting and lazy loading for all page components
+Files changed: website/src/App.tsx, website/vite.config.ts
+Patterns: React.lazy() with Suspense fallback (green spinner). Vite rollupOptions splits vendor (react, react-dom, react-router-dom) and icons (lucide-react) into separate chunks.
+
+--- Iteration 16: US-021 (2026-03-18) ---
+Implemented: SMS failure logging and notification_log error tracking
+Files changed: edge-functions/functions/escalation-tick/index.ts, edge-functions/shared/sms.ts, supabase/migrations/00008_notification_log_error_message.sql (new)
+Patterns: SMS send attempts logged with structured logger. Failures recorded in notification_log with error_message column. Twilio credentials checked at module load with startup warning.
+
+--- Iteration 17: US-022 (2026-03-18) ---
+Implemented: Missing database indexes for performance
+Files changed: supabase/migrations/00009_add_missing_indexes.sql (new)
+Patterns: 5 indexes added: families(subscription_status, subscription_expires_at), receiver_settings(is_active) partial, invite_tokens(phone), push_tokens(user_id, is_active) partial, checkin_requests(status, next_escalation_at) partial.
+
+--- Iteration 18: US-023 (2026-03-18) ---
+Implemented: UUID format validation for App Store webhook app_account_token
+Files changed: edge-functions/functions/subscription-webhook/index.ts
+Patterns: UUID regex validation before DB query. Returns 400 for invalid format or unknown user instead of silent fallback. Token lookup failures logged via structured logger.
+
+--- Iteration 19: US-028 (2026-03-18) ---
+Implemented: Trivy container vulnerability scanning in edge-functions CI
+Files changed: .github/workflows/edge-functions-deploy.yml
+Patterns: Build → scan → push workflow. Trivy runs between build and push. Fails on HIGH/CRITICAL. Results uploaded as 30-day artifact. MEDIUM and below logged but don't block.
+
+--- Iteration 20: US-029 (2026-03-18) ---
+Implemented: Website testing infrastructure with 14 test cases
+Files changed: website/package.json, website/vitest.config.ts (new), website/src/test/setup.ts (new), website/src/test/App.test.tsx (new), website/src/test/Pricing.test.tsx (new), website/src/test/Header.test.tsx (new)
+Patterns: Vitest + @testing-library/react + jsdom. Tests use MemoryRouter for route testing. findByRole preferred over findByText for unique element matching. All 14 tests pass.
