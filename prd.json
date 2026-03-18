@@ -15,7 +15,7 @@
         "Edge functions still work when called from the iOS app (no origin header)"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Critical security fix. server.ts line 43 currently allows *."
     },
     {
@@ -32,7 +32,7 @@
         "Service-role requests (cron jobs) bypass rate limiting"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "All 7 endpoints currently have zero rate limiting."
     },
     {
@@ -50,7 +50,7 @@
         "Website still renders correctly with CSP active"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Currently no _headers file exists for security headers."
     },
     {
@@ -66,7 +66,7 @@
         "Verification step checks table count, RLS policy count, and trigger count"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Currently auto-deploys on push with no approval or backup."
     },
     {

@@ -29,10 +29,10 @@ Core platform built and functional:
 
 == Story Status ==
 -- Phase 1: Critical Security --
-US-001: PENDING - Fix CORS policy to restrict allowed origins
-US-002: PENDING - Add rate limiting middleware to edge functions
-US-003: PENDING - Add security headers to website
-US-004: PENDING - Add migration safety gate to CI/CD
+US-001: DONE - Fix CORS policy to restrict allowed origins
+US-002: DONE - Add rate limiting middleware to edge functions
+US-003: DONE - Add security headers to website
+US-004: DONE - Add migration safety gate to CI/CD
 
 -- Phase 2: Observability --
 US-005: PENDING - Add error logging and monitoring integration
@@ -67,3 +67,27 @@ US-027: PENDING - Add GitHub Actions failure notifications
 US-028: PENDING - Add container vulnerability scanning to CI
 US-029: PENDING - Add website testing infrastructure
 US-030: PENDING - Add CLAUDE.md project configuration
+
+== Ralph Loop Iteration Log ==
+
+--- Iteration 1: US-001 (2026-03-18) ---
+Implemented: Restricted CORS from wildcard to https://wellvo.net
+Files changed: edge-functions/server.ts
+Patterns: ALLOWED_ORIGIN env var for configurability. Requests without Origin header (iOS, pg_cron) pass through. Disallowed origins get empty CORS headers on responses + 403 on preflight.
+Gotcha: iOS native apps don't send Origin headers, so CORS must allow missing-origin requests.
+
+--- Iteration 2: US-002 (2026-03-18) ---
+Implemented: In-memory sliding window rate limiter per user+endpoint
+Files changed: edge-functions/shared/rate-limiter.ts (new), edge-functions/server.ts
+Patterns: Default 30 req/min. invite-receiver: 5/min, on-demand-checkin: 10/min. Service role bypasses. Returns 429 + Retry-After header.
+Gotcha: Rate limiter is in-memory, so limits reset on container restart. Fine for single-instance Coolify deploy.
+
+--- Iteration 3: US-003 (2026-03-18) ---
+Implemented: Cloudflare Pages _headers file with CSP, X-Frame-Options, etc.
+Files changed: website/public/_headers (new)
+Patterns: Cloudflare Pages reads _headers from public/ dir. CSP needs 'unsafe-inline' for style-src due to Vite/React runtime styles. Google Fonts requires explicit font-src and style-src allowlist.
+
+--- Iteration 4: US-004 (2026-03-18) ---
+Implemented: Migration safety gate with environment approval, backup, and transactions
+Files changed: .github/workflows/supabase-migrations.yml
+Patterns: GitHub environment protection rule "production" gates approval. pg_dump with --compress=9 uploaded as 30-day artifact. Each migration wrapped in BEGIN/COMMIT. Post-migration verification checks table, RLS, and trigger counts.
