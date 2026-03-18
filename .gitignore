@@ -1,0 +1,61 @@
+# Xcode
+ios/build/
+ios/DerivedData/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+ios/.build/
+ios/Packages/
+ios/.swiftpm/
+
+# CocoaPods (if ever used)
+ios/Pods/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment files
+.env
+.env.local
+.env.production
+*.env
+supabase/config/supabase.env
+
+# Build artifacts
+edge-functions/.cache/
+edge-functions/node_modules/
+
+# Secrets
+*.p8
+*.p12
+*.mobileprovision
+*.cer
+
+# Logs
+*.log
+
+# Temporary
+tmp/
+temp/

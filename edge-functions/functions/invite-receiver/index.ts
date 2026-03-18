@@ -1,0 +1,222 @@
+import { supabaseAdmin } from "../../shared/supabase.ts";
+import type { AuthResult } from "../../shared/auth.ts";
+
+interface InviteRequest {
+  action?: "create" | "accept";
+  // Create invite
+  family_id?: string;
+  name?: string;
+  phone?: string;
+  checkin_time?: string;
+  // Accept invite
+  token?: string;
+}
+
+export async function handleInviteReceiver(req: Request, auth: AuthResult): Promise<Response> {
+  const body: InviteRequest = await req.json();
+  const action = body.action || "create";
+
+  if (action === "accept") {
+    return acceptInvite(body, auth);
+  }
+
+  return createInvite(body, auth);
+}
+
+async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Response> {
+  const { family_id, name, phone, checkin_time } = body;
+
+  if (!family_id || !name || !phone) {
+    return new Response(
+      JSON.stringify({ error: "family_id, name, and phone are required" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Verify the requesting user is the family owner
+  if (!auth.userId) {
+    return new Response(
+      JSON.stringify({ error: "Authentication required" }),
+      { status: 401, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const { data: family } = await supabaseAdmin
+    .from("families")
+    .select("owner_id, max_receivers")
+    .eq("id", family_id)
+    .single();
+
+  if (!family || family.owner_id !== auth.userId) {
+    return new Response(
+      JSON.stringify({ error: "Only the family owner can send invites" }),
+      { status: 403, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Check receiver limit
+  const { count: currentReceivers } = await supabaseAdmin
+    .from("family_members")
+    .select("*", { count: "exact", head: true })
+    .eq("family_id", family_id)
+    .eq("role", "receiver")
+    .in("status", ["active", "invited"]);
+
+  if (currentReceivers !== null && currentReceivers >= family.max_receivers) {
+    return new Response(
+      JSON.stringify({ error: "Receiver limit reached for your subscription tier" }),
+      { status: 403, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Generate cryptographically secure invite token
+  const tokenBytes = new Uint8Array(32);
+  crypto.getRandomValues(tokenBytes);
+  const inviteToken = Array.from(tokenBytes, (b) => b.toString(16).padStart(2, "0")).join("");
+
+  // Store invite
+  const { error: inviteError } = await supabaseAdmin.from("invite_tokens").insert({
+    family_id,
+    role: "receiver",
+    phone,
+    name,
+    checkin_time: checkin_time || "08:00",
+    token: inviteToken,
+  });
+
+  if (inviteError) {
+    return new Response(
+      JSON.stringify({ error: "Failed to create invite" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Generate deep link
+  const inviteLink = `https://wellvo.net/invite?token=${inviteToken}`;
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      invite_token: inviteToken,
+      invite_link: inviteLink,
+    }),
+    { headers: { "Content-Type": "application/json" } }
+  );
+}
+
+async function acceptInvite(body: InviteRequest, auth: AuthResult): Promise<Response> {
+  const { token } = body;
+
+  if (!token) {
+    return new Response(
+      JSON.stringify({ error: "Invite token is required" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // User must be authenticated via JWT — get their ID from the verified token
+  if (!auth.userId) {
+    return new Response(
+      JSON.stringify({ error: "You must be signed in to accept an invite" }),
+      { status: 401, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const acceptingUserId = auth.userId;
+
+  // Look up invite — use constant-time-safe lookup (the DB query itself is safe)
+  const { data: invite, error: inviteError } = await supabaseAdmin
+    .from("invite_tokens")
+    .select("*")
+    .eq("token", token)
+    .is("used_by", null)
+    .gt("expires_at", new Date().toISOString())
+    .single();
+
+  // Return same error for invalid, expired, or used tokens (prevents enumeration)
+  if (inviteError || !invite) {
+    return new Response(
+      JSON.stringify({ error: "This invite link is invalid or has expired" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Check the user isn't already a member of this family
+  const { data: existingMember } = await supabaseAdmin
+    .from("family_members")
+    .select("id, status")
+    .eq("family_id", invite.family_id)
+    .eq("user_id", acceptingUserId)
+    .single();
+
+  if (existingMember && existingMember.status === "active") {
+    return new Response(
+      JSON.stringify({ error: "You are already a member of this family" }),
+      { status: 409, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Create or reactivate family member
+  let memberId: string;
+
+  if (existingMember) {
+    // Reactivate deactivated member
+    const { data: updated } = await supabaseAdmin
+      .from("family_members")
+      .update({
+        role: invite.role,
+        status: "active",
+        joined_at: new Date().toISOString(),
+      })
+      .eq("id", existingMember.id)
+      .select()
+      .single();
+    memberId = updated?.id;
+  } else {
+    const { data: member, error: memberError } = await supabaseAdmin
+      .from("family_members")
+      .insert({
+        family_id: invite.family_id,
+        user_id: acceptingUserId,
+        role: invite.role,
+        status: "active",
+        joined_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (memberError) {
+      return new Response(
+        JSON.stringify({ error: "Failed to join family" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    memberId = member.id;
+  }
+
+  // Create receiver settings if receiver role
+  if (invite.role === "receiver" && memberId) {
+    await supabaseAdmin.from("receiver_settings").upsert({
+      family_member_id: memberId,
+      checkin_time: invite.checkin_time || "08:00",
+      timezone: "America/New_York", // Updated by the app after joining
+    });
+  }
+
+  // Update user role
+  await supabaseAdmin
+    .from("users")
+    .update({ role: invite.role })
+    .eq("id", acceptingUserId);
+
+  // Mark invite as used
+  await supabaseAdmin
+    .from("invite_tokens")
+    .update({ used_by: acceptingUserId })
+    .eq("id", invite.id);
+
+  return new Response(
+    JSON.stringify({ success: true, family_id: invite.family_id, role: invite.role }),
+    { headers: { "Content-Type": "application/json" } }
+  );
+}

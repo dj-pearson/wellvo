@@ -1,0 +1,9 @@
+// Wellvo Build Configuration
+// Override these values per-environment in Xcode scheme or CI/CD
+
+// Supabase
+SUPABASE_URL = https://api.wellvo.net
+SUPABASE_ANON_KEY = your-anon-key-here
+
+// Bundle
+PRODUCT_BUNDLE_IDENTIFIER = net.wellvo.app

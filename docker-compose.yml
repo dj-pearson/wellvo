@@ -1,0 +1,48 @@
+###############################################################################
+# Wellvo Backend — Docker Compose for Coolify Deployment
+#
+# This compose file runs alongside your self-hosted Supabase instance.
+# Supabase itself is managed separately by Coolify's Supabase service.
+# This file deploys the Edge Functions sidecar container.
+#
+# In Coolify:
+#   1. Deploy Supabase using Coolify's built-in Supabase one-click service
+#   2. Deploy this compose file as a separate Docker Compose service
+#   3. Connect both to the same Docker network
+###############################################################################
+
+services:
+  edge-functions:
+    build:
+      context: ./edge-functions
+      dockerfile: Dockerfile
+    container_name: wellvo-edge-functions
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      - PORT=9000
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - APNS_KEY_ID=${APNS_KEY_ID}
+      - APNS_TEAM_ID=${APNS_TEAM_ID}
+      - APNS_PRIVATE_KEY=${APNS_PRIVATE_KEY}
+      - APNS_ENVIRONMENT=${APNS_ENVIRONMENT:-development}
+    networks:
+      - wellvo-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+networks:
+  wellvo-network:
+    external: true
+    name: ${SUPABASE_NETWORK:-supabase_default}
