@@ -10,6 +10,7 @@ const PORT = parseInt(Deno.env.get("PORT") || "9000");
 // Import auth
 import { verifyRequest, type AuthResult } from "./shared/auth.ts";
 import { checkRateLimit } from "./shared/rate-limiter.ts";
+import { logInfo, logError, withRequestLogging } from "./shared/logger.ts";
 
 // Import function handlers
 import { handleSendCheckinNotification } from "./functions/send-checkin-notification/index.ts";
@@ -113,24 +114,26 @@ async function handler(req: Request): Promise<Response> {
   // Route to function handler
   const functionHandler = routes[path];
   if (functionHandler) {
-    try {
-      const response = await functionHandler(req, auth);
-      // Add CORS headers to response
-      const headers = new Headers(response.headers);
-      for (const [key, value] of Object.entries(corsHeaders(req))) {
-        headers.set(key, value);
+    return withRequestLogging(path, auth.userId, async () => {
+      try {
+        const response = await functionHandler(req, auth);
+        // Add CORS headers to response
+        const headers = new Headers(response.headers);
+        for (const [key, value] of Object.entries(corsHeaders(req))) {
+          headers.set(key, value);
+        }
+        return new Response(response.body, {
+          status: response.status,
+          headers,
+        });
+      } catch (error) {
+        logError(`Unhandled error in ${path}`, error, { path, userId: auth.userId });
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          { status: 500, headers: { "Content-Type": "application/json" } }
+        );
       }
-      return new Response(response.body, {
-        status: response.status,
-        headers,
-      });
-    } catch (error) {
-      console.error(`Error in ${path}:`, error);
-      return new Response(
-        JSON.stringify({ error: "Internal server error" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
+    });
   }
 
   return new Response(JSON.stringify({ error: "Not found" }), {
