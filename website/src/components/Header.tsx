@@ -17,10 +17,11 @@ export default function Header() {
           <span className="logo-text">Wellvo</span>
         </Link>
 
-        <nav className={`nav ${menuOpen ? 'nav-open' : ''}`}>
+        <nav className={`nav ${menuOpen ? 'nav-open' : ''}`} role="navigation" aria-label="Main navigation">
           <Link
             to="/"
             className={`nav-link ${isActive('/') ? 'active' : ''}`}
+            aria-current={isActive('/') ? 'page' : undefined}
             onClick={() => setMenuOpen(false)}
           >
             Home
@@ -28,6 +29,7 @@ export default function Header() {
           <Link
             to="/pricing"
             className={`nav-link ${isActive('/pricing') ? 'active' : ''}`}
+            aria-current={isActive('/pricing') ? 'page' : undefined}
             onClick={() => setMenuOpen(false)}
           >
             Pricing
@@ -35,6 +37,7 @@ export default function Header() {
           <Link
             to="/support"
             className={`nav-link ${isActive('/support') ? 'active' : ''}`}
+            aria-current={isActive('/support') ? 'page' : undefined}
             onClick={() => setMenuOpen(false)}
           >
             Support
@@ -53,6 +56,7 @@ export default function Header() {
           className="menu-toggle"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Toggle menu"
+          aria-expanded={menuOpen}
         >
           {menuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>

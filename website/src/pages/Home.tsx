@@ -283,22 +283,22 @@ export default function Home() {
 
           <div className="use-cases-grid">
             <div className="use-case">
-              <div className="use-case-emoji">👵</div>
+              <div className="use-case-emoji" role="img" aria-label="Elderly woman">👵</div>
               <h4>Aging Parents</h4>
               <p>Adult children monitoring parents living independently</p>
             </div>
             <div className="use-case">
-              <div className="use-case-emoji">👦</div>
+              <div className="use-case-emoji" role="img" aria-label="Young boy">👦</div>
               <h4>Teenagers</h4>
               <p>A lightweight, respectful daily check-in for teens</p>
             </div>
             <div className="use-case">
-              <div className="use-case-emoji">🌍</div>
+              <div className="use-case-emoji" role="img" aria-label="Globe">🌍</div>
               <h4>Long-Distance Families</h4>
               <p>Stay connected across any distance</p>
             </div>
             <div className="use-case">
-              <div className="use-case-emoji">🩺</div>
+              <div className="use-case-emoji" role="img" aria-label="Stethoscope">🩺</div>
               <h4>Caregivers</h4>
               <p>A simple daily signal for professional and family caregivers</p>
             </div>
