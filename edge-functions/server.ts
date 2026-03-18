@@ -38,12 +38,21 @@ const routes: Record<string, FunctionHandler> = {
   "/subscription-cancellation": handleSubscriptionCancellation,
 };
 
-function corsHeaders(): Record<string, string> {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  };
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://wellvo.net";
+
+function corsHeaders(req?: Request): Record<string, string> {
+  const origin = req?.headers.get("Origin") || "";
+  // Allow requests with no Origin header (iOS app, server-to-server, pg_cron)
+  // Only set CORS headers when the request origin matches the allowed origin
+  if (!origin || origin === ALLOWED_ORIGIN) {
+    return {
+      "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    };
+  }
+  // Disallowed origin — return empty CORS headers (browser will block the response)
+  return {};
 }
 
 async function handler(req: Request): Promise<Response> {
@@ -59,7 +68,14 @@ async function handler(req: Request): Promise<Response> {
 
   // CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders() });
+    const origin = req.headers.get("Origin") || "";
+    if (origin && origin !== ALLOWED_ORIGIN) {
+      return new Response(JSON.stringify({ error: "Forbidden: origin not allowed" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response(null, { headers: corsHeaders(req) });
   }
 
   // Verify authentication (JWT or service role key)
@@ -86,7 +102,7 @@ async function handler(req: Request): Promise<Response> {
       const response = await functionHandler(req, auth);
       // Add CORS headers to response
       const headers = new Headers(response.headers);
-      for (const [key, value] of Object.entries(corsHeaders())) {
+      for (const [key, value] of Object.entries(corsHeaders(req))) {
         headers.set(key, value);
       }
       return new Response(response.body, {
