@@ -1,5 +1,6 @@
 import SwiftUI
 import AuthenticationServices
+import Supabase
 
 enum AuthState: Equatable {
     case loading
@@ -19,9 +20,27 @@ final class AuthViewModel: ObservableObject {
     @Published var password = ""
     @Published var displayName = ""
 
+    /// The raw nonce generated for the current Apple Sign-In attempt.
+    private var currentRawNonce: String?
+
+    /// Supabase auth state listener handle
+    private var authStateTask: Task<Void, Never>?
+
     init() {
-        Task { await checkSession() }
+        Task {
+            await checkSession()
+            listenForAuthStateChanges()
+            await checkAppleCredentialRevocation()
+            registerForAppleRevocationNotification()
+        }
     }
+
+    deinit {
+        authStateTask?.cancel()
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    // MARK: - Session Management
 
     func checkSession() async {
         do {
@@ -33,6 +52,46 @@ final class AuthViewModel: ObservableObject {
             }
         } catch {
             authState = .unauthenticated
+        }
+    }
+
+    /// Listen for Supabase auth state changes (token refresh, session expiry)
+    private func listenForAuthStateChanges() {
+        authStateTask = Task {
+            for await (event, _) in SupabaseService.shared.client.auth.authStateChanges {
+                switch event {
+                case .signedIn:
+                    if currentUser == nil {
+                        await checkSession()
+                    }
+                case .signedOut, .userDeleted:
+                    currentUser = nil
+                    authState = .unauthenticated
+                    clearFormFields()
+                case .tokenRefreshed:
+                    break // Session silently refreshed
+                default:
+                    break
+                }
+            }
+        }
+    }
+
+    // MARK: - Apple Sign-In
+
+    /// Prepare the Apple Sign-In request with a cryptographic nonce.
+    /// Call this from the SignInWithAppleButton's `onRequest` closure.
+    func configureAppleSignInRequest(_ request: ASAuthorizationAppleIDRequest) {
+        Task {
+            let rawNonce = await AuthService.shared.generateNonce()
+            let hashedNonce = await AuthService.shared.sha256(rawNonce)
+            await MainActor.run {
+                self.currentRawNonce = rawNonce
+            }
+            await MainActor.run {
+                request.requestedScopes = [.fullName, .email]
+                request.nonce = hashedNonce
+            }
         }
     }
 
@@ -50,16 +109,22 @@ final class AuthViewModel: ObservableObject {
             do {
                 currentUser = try await AuthService.shared.signInWithApple(credential: credential)
                 authState = .authenticated
+                clearFormFields()
             } catch {
                 errorMessage = error.localizedDescription
             }
 
         case .failure(let error):
-            errorMessage = error.localizedDescription
+            // Don't show error if user cancelled
+            if (error as? ASAuthorizationError)?.code != .canceled {
+                errorMessage = error.localizedDescription
+            }
         }
 
         isLoading = false
     }
+
+    // MARK: - Email Auth
 
     func signInWithEmail() async {
         guard !email.isEmpty, !password.isEmpty else {
@@ -73,8 +138,10 @@ final class AuthViewModel: ObservableObject {
         do {
             currentUser = try await AuthService.shared.signInWithEmail(email: email, password: password)
             authState = .authenticated
+            clearFormFields()
         } catch {
             errorMessage = error.localizedDescription
+            password = "" // Clear password on failure
         }
 
         isLoading = false
@@ -96,8 +163,10 @@ final class AuthViewModel: ObservableObject {
                 displayName: displayName
             )
             authState = .authenticated
+            clearFormFields()
         } catch {
             errorMessage = error.localizedDescription
+            password = "" // Clear password on failure
         }
 
         isLoading = false
@@ -108,8 +177,42 @@ final class AuthViewModel: ObservableObject {
             try await AuthService.shared.signOut()
             currentUser = nil
             authState = .unauthenticated
+            clearFormFields()
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    // MARK: - Apple Credential Revocation
+
+    /// Check on launch whether the Apple credential has been revoked.
+    private func checkAppleCredentialRevocation() async {
+        let isValid = await AuthService.shared.checkAppleCredentialStatus()
+        if !isValid {
+            await signOut()
+            errorMessage = "Your Apple ID access was revoked. Please sign in again."
+        }
+    }
+
+    /// Listen for the system notification that fires when Apple credential is revoked.
+    private func registerForAppleRevocationNotification() {
+        NotificationCenter.default.addObserver(
+            forName: ASAuthorizationAppleIDProvider.credentialRevokedNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                await self?.signOut()
+                self?.errorMessage = "Your Apple ID access was revoked. Please sign in again."
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func clearFormFields() {
+        email = ""
+        password = ""
+        displayName = ""
     }
 }

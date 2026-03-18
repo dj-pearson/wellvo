@@ -3,6 +3,7 @@ import AuthenticationServices
 
 struct AuthView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
+    @Environment(\.colorScheme) var colorScheme
     @State private var isSignUp = false
 
     var body: some View {
@@ -26,13 +27,15 @@ struct AuthView: View {
 
                 Spacer()
 
-                // Sign in with Apple
-                SignInWithAppleButton(.signIn) { request in
-                    request.requestedScopes = [.fullName, .email]
+                // Sign in with Apple (adapts to color scheme)
+                SignInWithAppleButton(
+                    isSignUp ? .signUp : .signIn
+                ) { request in
+                    authViewModel.configureAppleSignInRequest(request)
                 } onCompletion: { result in
                     Task { await authViewModel.signInWithApple(result) }
                 }
-                .signInWithAppleButtonStyle(.black)
+                .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
                 .frame(height: 54)
                 .cornerRadius(12)
 
@@ -50,18 +53,36 @@ struct AuthView: View {
                             .textFieldStyle(.roundedBorder)
                             .textContentType(.name)
                             .autocorrectionDisabled()
+                            .submitLabel(.next)
                     }
 
                     TextField("Email", text: $authViewModel.email)
                         .textFieldStyle(.roundedBorder)
                         .textContentType(.emailAddress)
                         .keyboardType(.emailAddress)
-                        .autocapitalization(.none)
+                        .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .submitLabel(.next)
 
                     SecureField("Password", text: $authViewModel.password)
                         .textFieldStyle(.roundedBorder)
                         .textContentType(isSignUp ? .newPassword : .password)
+                        .submitLabel(.go)
+                        .onSubmit {
+                            Task {
+                                if isSignUp {
+                                    await authViewModel.signUpWithEmail()
+                                } else {
+                                    await authViewModel.signInWithEmail()
+                                }
+                            }
+                        }
+
+                    if isSignUp {
+                        Text("Password must be 8+ characters with uppercase, lowercase, and a number.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
 
                     Button {
                         Task {
@@ -90,7 +111,10 @@ struct AuthView: View {
 
                 // Toggle sign-in / sign-up
                 Button {
-                    withAnimation { isSignUp.toggle() }
+                    withAnimation {
+                        isSignUp.toggle()
+                        authViewModel.errorMessage = nil
+                    }
                 } label: {
                     Text(isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up")
                         .font(.footnote)
@@ -102,11 +126,13 @@ struct AuthView: View {
                         .font(.caption)
                         .foregroundStyle(.red)
                         .multilineTextAlignment(.center)
+                        .transition(.opacity)
                 }
 
                 Spacer()
             }
             .padding(.horizontal, 24)
+            .animation(.easeInOut(duration: 0.2), value: authViewModel.errorMessage)
         }
     }
 }
