@@ -13,6 +13,17 @@ struct DashboardView: View {
                     emptyState
                 } else {
                     LazyVStack(spacing: 16) {
+                        // Weekly Summary
+                        if let summary = viewModel.weeklySummary {
+                            WeeklySummaryCard(summary: summary)
+                        }
+
+                        // Today's Timeline
+                        if !viewModel.receiverCards.isEmpty {
+                            TodayTimelineCard(cards: viewModel.receiverCards)
+                        }
+
+                        // Receiver Cards
                         ForEach(viewModel.receiverCards) { card in
                             ReceiverStatusCardView(card: card) {
                                 Task { await viewModel.sendOnDemandCheckIn(to: card.id) }
@@ -48,6 +59,144 @@ struct DashboardView: View {
     }
 }
 
+// MARK: - Weekly Summary Card
+
+struct WeeklySummaryCard: View {
+    let summary: WeeklySummary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("This Week")
+                .font(.headline)
+
+            HStack(spacing: 20) {
+                StatBubble(
+                    value: "\(Int(summary.consistencyPercentage))%",
+                    label: "Consistency",
+                    color: summary.consistencyPercentage >= 80 ? .green : summary.consistencyPercentage >= 50 ? .yellow : .red
+                )
+
+                StatBubble(
+                    value: summary.averageCheckInTime,
+                    label: "Avg Time",
+                    color: .blue
+                )
+
+                StatBubble(
+                    value: "\(summary.totalCheckIns)/\(summary.totalExpected)",
+                    label: "Check-Ins",
+                    color: .green
+                )
+            }
+
+            // Mood breakdown
+            if !summary.moodBreakdown.isEmpty {
+                HStack(spacing: 12) {
+                    Text("Moods:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    ForEach(Array(summary.moodBreakdown.keys), id: \.self) { mood in
+                        HStack(spacing: 2) {
+                            Text(moodEmoji(mood))
+                            Text("\(summary.moodBreakdown[mood] ?? 0)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(16)
+    }
+}
+
+struct StatBubble: View {
+    let value: String
+    let label: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundStyle(color)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Today's Timeline Card
+
+struct TodayTimelineCard: View {
+    let cards: [ReceiverStatusCard]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Today's Timeline")
+                .font(.headline)
+
+            ForEach(cards) { card in
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(card.status.color)
+                        .frame(width: 10, height: 10)
+
+                    Text(card.name)
+                        .font(.subheadline)
+
+                    Spacer()
+
+                    if let time = card.checkedInTime {
+                        Text(time.formatted(date: .omitted, time: .shortened))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(card.status.label)
+                            .font(.caption)
+                            .foregroundStyle(card.status.color)
+                    }
+
+                    // Timeline bar
+                    timelineBar(for: card)
+                }
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(16)
+    }
+
+    private func timelineBar(for card: ReceiverStatusCard) -> some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color(.systemGray5))
+                    .frame(height: 4)
+
+                if let time = card.checkedInTime {
+                    let calendar = Calendar.current
+                    let hour = calendar.component(.hour, from: time)
+                    let minute = calendar.component(.minute, from: time)
+                    let progress = CGFloat(hour * 60 + minute) / (24 * 60)
+
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(card.status.color)
+                        .frame(width: max(4, geometry.size.width * progress), height: 4)
+                }
+            }
+        }
+        .frame(width: 60, height: 4)
+    }
+}
+
+// MARK: - Receiver Status Card
+
 struct ReceiverStatusCardView: View {
     let card: ReceiverStatusCard
     let onCheckOn: () -> Void
@@ -66,8 +215,18 @@ struct ReceiverStatusCardView: View {
                     }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(card.name)
-                        .font(.headline)
+                    HStack(spacing: 6) {
+                        Text(card.name)
+                            .font(.headline)
+
+                        // Notification status indicator
+                        if !card.hasNotificationsEnabled {
+                            Image(systemName: "bell.slash.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                                .help("Notifications not enabled")
+                        }
+                    }
 
                     HStack(spacing: 4) {
                         Image(systemName: card.status.icon)
@@ -90,6 +249,20 @@ struct ReceiverStatusCardView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            // Notification warning
+            if !card.hasNotificationsEnabled {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                    Text("\(card.name) hasn't enabled notifications. They may miss check-in reminders.")
+                        .font(.caption)
+                }
+                .foregroundStyle(.orange)
+                .padding(8)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
             }
 
             // Last check-in time
@@ -137,12 +310,12 @@ struct ReceiverStatusCardView: View {
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
     }
+}
 
-    private func moodEmoji(_ mood: Mood) -> String {
-        switch mood {
-        case .happy: return "😊"
-        case .neutral: return "😐"
-        case .tired: return "😴"
-        }
+private func moodEmoji(_ mood: Mood) -> String {
+    switch mood {
+    case .happy: return "😊"
+    case .neutral: return "😐"
+    case .tired: return "😴"
     }
 }

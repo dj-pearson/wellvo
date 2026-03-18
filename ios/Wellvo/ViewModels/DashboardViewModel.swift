@@ -10,6 +10,8 @@ struct ReceiverStatusCard: Identifiable {
     var lastCheckIn: Date?
     var streak: Int
     var mood: Mood?
+    var hasNotificationsEnabled: Bool
+    var checkedInTime: Date? // Time component only, for timeline
 }
 
 enum ReceiverCheckInStatus {
@@ -46,10 +48,19 @@ enum ReceiverCheckInStatus {
     }
 }
 
+struct WeeklySummary {
+    var consistencyPercentage: Double
+    var averageCheckInTime: String
+    var totalCheckIns: Int
+    var totalExpected: Int
+    var moodBreakdown: [Mood: Int]
+}
+
 @MainActor
 final class DashboardViewModel: ObservableObject {
     @Published var family: Family?
     @Published var receiverCards: [ReceiverStatusCard] = []
+    @Published var weeklySummary: WeeklySummary?
     @Published var isLoading = false
     @Published var errorMessage: String?
 
@@ -70,6 +81,8 @@ final class DashboardViewModel: ObservableObject {
             let receivers = members.filter { $0.role == .receiver && $0.status == .active }
 
             var cards: [ReceiverStatusCard] = []
+            var weeklyCheckIns: [CheckIn] = []
+
             for receiver in receivers {
                 let todayCheckIn = try await CheckInService.shared.todayCheckInStatus(
                     receiverId: receiver.userId,
@@ -84,6 +97,13 @@ final class DashboardViewModel: ObservableObject {
 
                 let streak = calculateStreak(from: history)
 
+                // Check notification status — look for active push tokens
+                let hasNotifications = await checkNotificationStatus(userId: receiver.userId)
+
+                // Collect last 7 days for weekly summary
+                let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
+                weeklyCheckIns.append(contentsOf: history.filter { $0.checkedInAt >= sevenDaysAgo })
+
                 cards.append(ReceiverStatusCard(
                     id: receiver.userId,
                     memberId: receiver.id,
@@ -92,11 +112,14 @@ final class DashboardViewModel: ObservableObject {
                     status: todayCheckIn != nil ? .checkedIn : .pending,
                     lastCheckIn: todayCheckIn?.checkedInAt ?? history.first?.checkedInAt,
                     streak: streak,
-                    mood: todayCheckIn?.mood
+                    mood: todayCheckIn?.mood,
+                    hasNotificationsEnabled: hasNotifications,
+                    checkedInTime: todayCheckIn?.checkedInAt
                 ))
             }
 
             receiverCards = cards
+            weeklySummary = computeWeeklySummary(checkIns: weeklyCheckIns, receiverCount: receivers.count)
             await subscribeToRealtime(familyId: family.id)
         } catch {
             errorMessage = error.localizedDescription
@@ -136,6 +159,70 @@ final class DashboardViewModel: ObservableObject {
         return streak
     }
 
+    private func checkNotificationStatus(userId: UUID) async -> Bool {
+        do {
+            let tokens: [PushTokenRecord] = try await SupabaseService.shared.client
+                .from("push_tokens")
+                .select("id")
+                .eq("user_id", value: userId.uuidString)
+                .eq("is_active", value: true)
+                .limit(1)
+                .execute()
+                .value
+
+            return !tokens.isEmpty
+        } catch {
+            return false // Assume no if can't check
+        }
+    }
+
+    private func computeWeeklySummary(checkIns: [CheckIn], receiverCount: Int) -> WeeklySummary {
+        let totalExpected = receiverCount * 7
+        let totalCheckIns = checkIns.count
+        let consistency = totalExpected > 0 ? (Double(totalCheckIns) / Double(totalExpected)) * 100 : 0
+
+        // Average check-in time
+        let avgTime: String
+        if !checkIns.isEmpty {
+            let calendar = Calendar.current
+            let totalMinutes = checkIns.reduce(0) { sum, checkIn in
+                let components = calendar.dateComponents([.hour, .minute], from: checkIn.checkedInAt)
+                return sum + (components.hour ?? 0) * 60 + (components.minute ?? 0)
+            }
+            let avgMinutes = totalMinutes / checkIns.count
+            let hour = avgMinutes / 60
+            let minute = avgMinutes % 60
+            let formatter = DateFormatter()
+            formatter.dateFormat = "h:mm a"
+            var components = DateComponents()
+            components.hour = hour
+            components.minute = minute
+            if let date = calendar.date(from: components) {
+                avgTime = formatter.string(from: date)
+            } else {
+                avgTime = "--"
+            }
+        } else {
+            avgTime = "--"
+        }
+
+        // Mood breakdown
+        var moodBreakdown: [Mood: Int] = [:]
+        for checkIn in checkIns {
+            if let mood = checkIn.mood {
+                moodBreakdown[mood, default: 0] += 1
+            }
+        }
+
+        return WeeklySummary(
+            consistencyPercentage: consistency,
+            averageCheckInTime: avgTime,
+            totalCheckIns: totalCheckIns,
+            totalExpected: totalExpected,
+            moodBreakdown: moodBreakdown
+        )
+    }
+
     private func subscribeToRealtime(familyId: UUID) async {
         let channel = SupabaseService.shared.client.realtimeV2.channel("checkins:\(familyId.uuidString)")
 
@@ -156,4 +243,9 @@ final class DashboardViewModel: ObservableObject {
 
         realtimeChannel = channel
     }
+}
+
+/// Minimal struct to decode push_token existence check
+private struct PushTokenRecord: Codable {
+    let id: UUID
 }

@@ -1,10 +1,13 @@
 import SwiftUI
+import CoreImage.CIFilterBuiltins
 
 struct FamilyView: View {
     @State private var family: Family?
     @State private var members: [FamilyMember] = []
     @State private var showInviteSheet = false
     @State private var isLoading = false
+    @State private var showTransferAlert = false
+    @State private var transferTarget: FamilyMember?
 
     var body: some View {
         NavigationStack {
@@ -27,10 +30,46 @@ struct FamilyView: View {
 
                 Section("Members") {
                     ForEach(members) { member in
-                        MemberRow(member: member)
-                    }
-                    .onDelete { indexSet in
-                        Task { await removeMember(at: indexSet) }
+                        NavigationLink {
+                            if member.role == .receiver {
+                                ReceiverSettingsView(member: member)
+                            }
+                        } label: {
+                            MemberRow(member: member)
+                        }
+                        .disabled(member.role != .receiver)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            if member.role != .owner {
+                                Button("Remove", role: .destructive) {
+                                    Task { await removeMember(member) }
+                                }
+                            }
+                        }
+                        .swipeActions(edge: .leading) {
+                            if member.status == .invited {
+                                Button("Re-send") {
+                                    Task { await resendInvite(member) }
+                                }
+                                .tint(.blue)
+                            }
+                        }
+                        .contextMenu {
+                            if member.role != .owner && member.status == .active {
+                                Button {
+                                    transferTarget = member
+                                    showTransferAlert = true
+                                } label: {
+                                    Label("Transfer Ownership", systemImage: "arrow.right.arrow.left")
+                                }
+                            }
+                            if member.status == .invited {
+                                Button {
+                                    Task { await resendInvite(member) }
+                                } label: {
+                                    Label("Re-send Invite", systemImage: "arrow.clockwise")
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -48,6 +87,16 @@ struct FamilyView: View {
             .sheet(isPresented: $showInviteSheet) {
                 InviteReceiverSheet { await loadData() }
             }
+            .alert("Transfer Ownership", isPresented: $showTransferAlert) {
+                Button("Transfer", role: .destructive) {
+                    if let target = transferTarget {
+                        Task { await transferOwnership(to: target) }
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Are you sure you want to transfer ownership to \(transferTarget?.user?.displayName ?? "this member")? You will become a Viewer and lose control of settings and billing.")
+            }
         }
     }
 
@@ -60,13 +109,54 @@ struct FamilyView: View {
         isLoading = false
     }
 
-    private func removeMember(at offsets: IndexSet) async {
-        for index in offsets {
-            let member = members[index]
-            guard member.role != .owner else { continue }
-            try? await FamilyService.shared.removeMember(memberId: member.id)
-        }
+    private func removeMember(_ member: FamilyMember) async {
+        guard member.role != .owner else { return }
+        try? await FamilyService.shared.removeMember(memberId: member.id)
         await loadData()
+    }
+
+    private func resendInvite(_ member: FamilyMember) async {
+        guard let family, member.status == .invited else { return }
+        // Re-invite with same details
+        try? await FamilyService.shared.inviteReceiver(
+            familyId: family.id,
+            name: member.user?.displayName ?? "Family Member",
+            phone: member.user?.phone ?? "",
+            checkinTime: "08:00"
+        )
+    }
+
+    private func transferOwnership(to member: FamilyMember) async {
+        guard let family else { return }
+        do {
+            // Update family owner
+            try await SupabaseService.shared.client
+                .from("families")
+                .update(["owner_id": member.userId.uuidString])
+                .eq("id", value: family.id.uuidString)
+                .execute()
+
+            // Update member roles
+            try await SupabaseService.shared.client
+                .from("family_members")
+                .update(["role": "owner"])
+                .eq("id", value: member.id.uuidString)
+                .execute()
+
+            // Demote current owner to viewer
+            if let session = try? await SupabaseService.shared.client.auth.session {
+                try await SupabaseService.shared.client
+                    .from("family_members")
+                    .update(["role": "viewer"])
+                    .eq("family_id", value: family.id.uuidString)
+                    .eq("user_id", value: session.user.id.uuidString)
+                    .execute()
+            }
+
+            await loadData()
+        } catch {
+            print("Failed to transfer ownership: \(error)")
+        }
     }
 }
 
@@ -83,19 +173,33 @@ struct MemberRow: View {
                 Text(member.user?.displayName ?? "Invited")
                     .font(.body)
 
-                Text(member.role.rawValue.capitalized)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Text(member.role.rawValue.capitalized)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    if member.role == .receiver {
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .foregroundStyle(.quaternary)
+                    }
+                }
             }
 
             Spacer()
 
-            Text(member.status.rawValue.capitalized)
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(statusColor.opacity(0.15))
-                .cornerRadius(8)
+            if member.status == .invited {
+                Label("Invited", systemImage: "envelope")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            } else {
+                Text(member.status.rawValue.capitalized)
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(statusColor.opacity(0.15))
+                    .cornerRadius(8)
+            }
         }
     }
 
@@ -108,6 +212,8 @@ struct MemberRow: View {
     }
 }
 
+// MARK: - Invite Sheet with QR Code
+
 struct InviteReceiverSheet: View {
     @Environment(\.dismiss) var dismiss
     @State private var name = ""
@@ -115,6 +221,8 @@ struct InviteReceiverSheet: View {
     @State private var checkinTime = Date()
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var generatedInviteLink: String?
+    @State private var showQRCode = false
 
     let onComplete: () async -> Void
 
@@ -141,18 +249,45 @@ struct InviteReceiverSheet: View {
                             .font(.caption)
                     }
                 }
+
+                // QR Code section (shown after invite is created)
+                if let link = generatedInviteLink {
+                    Section("Share Invite") {
+                        VStack(spacing: 12) {
+                            if let qrImage = generateQRCode(from: link) {
+                                Image(uiImage: qrImage)
+                                    .interpolation(.none)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 200, height: 200)
+                                    .padding()
+                            }
+
+                            Text("Scan this QR code or share the link:")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            ShareLink(item: link) {
+                                Label("Share Invite Link", systemImage: "square.and.arrow.up")
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
             }
             .navigationTitle("Invite Receiver")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Done") { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Send Invite") {
-                        Task { await sendInvite() }
+                if generatedInviteLink == nil {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Send Invite") {
+                            Task { await sendInvite() }
+                        }
+                        .disabled(name.isEmpty || phone.isEmpty || isLoading)
                     }
-                    .disabled(name.isEmpty || phone.isEmpty || isLoading)
                 }
             }
         }
@@ -176,10 +311,29 @@ struct InviteReceiverSheet: View {
                 checkinTime: formatter.string(from: checkinTime)
             )
             await onComplete()
-            dismiss()
+
+            // Generate invite link for QR code display
+            // In production this comes from the edge function response
+            generatedInviteLink = "https://wellvo.net/invite?phone=\(phone.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? phone)"
         } catch {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    private func generateQRCode(from string: String) -> UIImage? {
+        let context = CIContext()
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(string.utf8)
+        filter.correctionLevel = "M"
+
+        guard let outputImage = filter.outputImage else { return nil }
+
+        // Scale up for clarity
+        let transform = CGAffineTransform(scaleX: 10, y: 10)
+        let scaledImage = outputImage.transformed(by: transform)
+
+        guard let cgImage = context.createCGImage(scaledImage, from: scaledImage.extent) else { return nil }
+        return UIImage(cgImage: cgImage)
     }
 }

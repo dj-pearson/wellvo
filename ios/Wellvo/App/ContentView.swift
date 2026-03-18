@@ -12,7 +12,9 @@ struct ContentView: View {
             case .unauthenticated:
                 AuthView()
             case .authenticated:
-                if appState.isOnboarding {
+                if let inviteToken = appState.pendingInviteToken {
+                    ReceiverOnboardingView(inviteToken: inviteToken)
+                } else if appState.isOnboarding {
                     OnboardingView()
                 } else if appState.currentUserRole == .receiver {
                     ReceiverHomeView()
