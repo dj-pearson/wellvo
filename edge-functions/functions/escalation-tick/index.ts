@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification, buildCheckinPayload } from "../../shared/apns.ts";
 import { sendSMS, buildEscalationSMS } from "../../shared/sms.ts";
+import { logInfo, logWarn, logError } from "../../shared/logger.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 
 interface EscalationRequest {
@@ -105,7 +106,18 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
         receiver?.display_name || "A family member",
         "owner_alert"
       );
-      await sendSMS(ownerUser.phone, smsBody);
+      logInfo("Sending owner escalation SMS", { path: "/escalation-tick", userId: owner_id });
+      const smsResult = await sendSMS(ownerUser.phone, smsBody);
+      if (!smsResult.success) {
+        logError("Owner escalation SMS failed", smsResult.error, { path: "/escalation-tick", userId: owner_id });
+        await supabaseAdmin.from("notification_log").insert({
+          user_id: owner_id,
+          checkin_request_id: request_id,
+          type: "owner_alert",
+          status: "failed",
+          error_message: smsResult.error || "SMS send failed",
+        });
+      }
     }
 
     await supabaseAdmin.from("notification_log").insert({
@@ -170,7 +182,18 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
             receiver?.display_name || "A family member",
             "viewer_alert"
           );
-          await sendSMS(viewerUser.phone, smsBody);
+          logInfo("Sending viewer escalation SMS", { path: "/escalation-tick", userId: viewer.user_id });
+          const smsResult = await sendSMS(viewerUser.phone, smsBody);
+          if (!smsResult.success) {
+            logError("Viewer escalation SMS failed", smsResult.error, { path: "/escalation-tick", userId: viewer.user_id });
+            await supabaseAdmin.from("notification_log").insert({
+              user_id: viewer.user_id,
+              checkin_request_id: request_id,
+              type: "viewer_alert",
+              status: "failed",
+              error_message: smsResult.error || "SMS send failed",
+            });
+          }
         }
 
         await supabaseAdmin.from("notification_log").insert({
