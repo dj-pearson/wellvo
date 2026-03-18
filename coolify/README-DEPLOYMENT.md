@@ -114,7 +114,42 @@ In your GitHub repository **Settings → Secrets and Variables → Actions**, ad
 | `COOLIFY_API_TOKEN`          | Coolify API token                        |
 | `EDGE_FUNCTIONS_HEALTH_URL`  | `https://edge.wellvo.net`                |
 
-### 6. Apple Developer Setup
+### 6. Database Backup Setup
+
+The `backup-db.sh` script automates daily PostgreSQL backups with 30-day retention.
+
+**Setup:**
+
+```bash
+# Copy script to server
+scp coolify/backup-db.sh your-vps:/opt/wellvo/coolify/
+
+# Make executable
+chmod +x /opt/wellvo/coolify/backup-db.sh
+
+# Add cron job (runs daily at 3 AM)
+echo "0 3 * * * DATABASE_URL='postgresql://...' /opt/wellvo/coolify/backup-db.sh >> /var/log/wellvo-backup.log 2>&1" | crontab -
+
+# Verify cron is set
+crontab -l
+```
+
+**Configuration (environment variables):**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | (required) | PostgreSQL connection string |
+| `BACKUP_DIR` | `/var/backups/wellvo` | Where backups are stored |
+| `RETENTION_DAYS` | `30` | Delete backups older than this |
+
+**Restore from backup:**
+
+```bash
+# Decompress and restore
+gunzip -c /var/backups/wellvo/wellvo-backup-20260318-030000.sql.gz | psql "$DATABASE_URL"
+```
+
+### 7. Apple Developer Setup
 
 1. **App ID**: Register `net.wellvo.app` with capabilities:
    - Push Notifications
