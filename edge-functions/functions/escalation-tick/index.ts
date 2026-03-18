@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification, buildCheckinPayload } from "../../shared/apns.ts";
+import { sendSMS, buildEscalationSMS } from "../../shared/sms.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 
 interface EscalationRequest {
@@ -74,6 +75,39 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       );
     }
 
+    // SMS fallback for owner — send if push tokens are missing or as supplement
+    const { data: ownerUser } = await supabaseAdmin
+      .from("users")
+      .select("phone")
+      .eq("id", owner_id)
+      .single();
+
+    // Check if SMS escalation is enabled for this receiver's settings
+    const { data: receiverMember } = await supabaseAdmin
+      .from("family_members")
+      .select("id")
+      .eq("user_id", receiver_id)
+      .eq("family_id", family_id)
+      .single();
+
+    let smsEnabled = false;
+    if (receiverMember) {
+      const { data: settings } = await supabaseAdmin
+        .from("receiver_settings")
+        .select("sms_escalation_enabled")
+        .eq("family_member_id", receiverMember.id)
+        .single();
+      smsEnabled = settings?.sms_escalation_enabled ?? false;
+    }
+
+    if (smsEnabled && ownerUser?.phone) {
+      const smsBody = buildEscalationSMS(
+        receiver?.display_name || "A family member",
+        "owner_alert"
+      );
+      await sendSMS(ownerUser.phone, smsBody);
+    }
+
     await supabaseAdmin.from("notification_log").insert({
       user_id: owner_id,
       checkin_request_id: request_id,
@@ -122,6 +156,21 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
               sendPushNotification(t.token, payload)
             )
           );
+        }
+
+        // SMS fallback for viewers with phone numbers
+        const { data: viewerUser } = await supabaseAdmin
+          .from("users")
+          .select("phone")
+          .eq("id", viewer.user_id)
+          .single();
+
+        if (viewerUser?.phone) {
+          const smsBody = buildEscalationSMS(
+            receiver?.display_name || "A family member",
+            "viewer_alert"
+          );
+          await sendSMS(viewerUser.phone, smsBody);
         }
 
         await supabaseAdmin.from("notification_log").insert({

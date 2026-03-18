@@ -13,6 +13,13 @@ struct DashboardView: View {
                     emptyState
                 } else {
                     LazyVStack(spacing: 16) {
+                        // Pattern Alerts
+                        if !viewModel.alerts.isEmpty {
+                            AlertsBannerView(alerts: viewModel.alerts) { alert in
+                                Task { await viewModel.dismissAlert(alert) }
+                            }
+                        }
+
                         // Weekly Summary
                         if let summary = viewModel.weeklySummary {
                             WeeklySummaryCard(summary: summary)
@@ -318,5 +325,52 @@ private func moodEmoji(_ mood: Mood) -> String {
     case .happy: return "😊"
     case .neutral: return "😐"
     case .tired: return "😴"
+    }
+}
+
+// MARK: - Pattern Alerts Banner
+
+struct AlertsBannerView: View {
+    let alerts: [WellvoAlert]
+    let onDismiss: (WellvoAlert) -> Void
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ForEach(alerts) { alert in
+                HStack(spacing: 12) {
+                    Image(systemName: alert.type == "time_drift" ? "clock.badge.exclamationmark" : "exclamationmark.triangle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.orange)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(alert.title)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Text(alert.message)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        if let driftHours = alert.data?["drift_hours"] as? Double {
+                            Text("Shifted by \(String(format: "%.1f", driftHours)) hours")
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                        }
+                    }
+
+                    Spacer()
+
+                    Button {
+                        onDismiss(alert)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(12)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(12)
+            }
+        }
     }
 }

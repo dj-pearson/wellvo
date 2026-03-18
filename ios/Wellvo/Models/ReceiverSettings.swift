@@ -11,6 +11,7 @@ struct ReceiverSettings: Codable, Identifiable {
     var quietHoursStart: String? // HH:mm
     var quietHoursEnd: String? // HH:mm
     var moodTrackingEnabled: Bool
+    var smsEscalationEnabled: Bool
     var isActive: Bool
 
     enum CodingKeys: String, CodingKey {
@@ -23,6 +24,7 @@ struct ReceiverSettings: Codable, Identifiable {
         case quietHoursStart = "quiet_hours_start"
         case quietHoursEnd = "quiet_hours_end"
         case moodTrackingEnabled = "mood_tracking_enabled"
+        case smsEscalationEnabled = "sms_escalation_enabled"
         case isActive = "is_active"
     }
 }

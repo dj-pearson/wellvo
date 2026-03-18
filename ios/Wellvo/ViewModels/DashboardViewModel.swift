@@ -61,6 +61,7 @@ final class DashboardViewModel: ObservableObject {
     @Published var family: Family?
     @Published var receiverCards: [ReceiverStatusCard] = []
     @Published var weeklySummary: WeeklySummary?
+    @Published var alerts: [WellvoAlert] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
 
@@ -120,6 +121,7 @@ final class DashboardViewModel: ObservableObject {
 
             receiverCards = cards
             weeklySummary = computeWeeklySummary(checkIns: weeklyCheckIns, receiverCount: receivers.count)
+            await loadAlerts(familyId: family.id)
             await subscribeToRealtime(familyId: family.id)
         } catch {
             errorMessage = error.localizedDescription
@@ -140,7 +142,39 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
+    func dismissAlert(_ alert: WellvoAlert) async {
+        do {
+            try await SupabaseService.shared.client
+                .from("alerts")
+                .update(["is_read": true])
+                .eq("id", value: alert.id.uuidString)
+                .execute()
+
+            alerts.removeAll { $0.id == alert.id }
+            await AnalyticsService.shared.track(.alertDismissed, properties: ["type": alert.type])
+        } catch {
+            print("Failed to dismiss alert: \(error)")
+        }
+    }
+
     // MARK: - Private
+
+    private func loadAlerts(familyId: UUID) async {
+        do {
+            alerts = try await SupabaseService.shared.client
+                .from("alerts")
+                .select()
+                .eq("family_id", value: familyId.uuidString)
+                .eq("is_read", value: false)
+                .order("created_at", ascending: false)
+                .limit(10)
+                .execute()
+                .value
+        } catch {
+            // Alerts are non-critical, don't surface error
+            alerts = []
+        }
+    }
 
     private func calculateStreak(from checkIns: [CheckIn]) -> Int {
         guard !checkIns.isEmpty else { return 0 }

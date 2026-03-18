@@ -51,6 +51,7 @@ final class ReceiverViewModel: ObservableObject {
                 lastCheckIn = checkIn
             }
             hasCheckedInToday = true
+            Task { await AnalyticsService.shared.track(.checkIn) }
 
             if mood == nil {
                 showMoodSelector = true
@@ -59,6 +60,7 @@ final class ReceiverViewModel: ObservableObject {
             // Offline — check-in was queued
             hasCheckedInToday = true
             isOffline = true
+            Task { await AnalyticsService.shared.track(.checkInOffline) }
             pendingOfflineCount = offlineService.pendingCount
             errorMessage = error.localizedDescription
         } catch {
@@ -71,5 +73,6 @@ final class ReceiverViewModel: ObservableObject {
     func submitMood(_ mood: Mood) async {
         selectedMood = mood
         showMoodSelector = false
+        Task { await AnalyticsService.shared.track(.moodSubmitted, properties: ["mood": mood.rawValue]) }
     }
 }

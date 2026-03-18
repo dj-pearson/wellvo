@@ -9,6 +9,10 @@ struct WellvoApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        Task { await AnalyticsService.shared.initialize() }
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -46,8 +50,9 @@ struct WellvoApp: App {
             Task { await offlineService.syncPendingCheckIns() }
             // Re-check auth state
             Task { await authViewModel.checkSession() }
+            Task { await AnalyticsService.shared.track(.appOpened) }
         case .background:
-            // App is backgrounded — no action needed, NWPathMonitor handles reconnect
+            Task { await AnalyticsService.shared.track(.appBackgrounded) }
             break
         case .inactive:
             break

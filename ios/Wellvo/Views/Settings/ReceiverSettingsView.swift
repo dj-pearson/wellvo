@@ -13,6 +13,7 @@ struct ReceiverSettingsView: View {
     @State private var quietHoursStart = Calendar.current.date(from: DateComponents(hour: 22)) ?? Date()
     @State private var quietHoursEnd = Calendar.current.date(from: DateComponents(hour: 7)) ?? Date()
     @State private var moodTrackingEnabled = false
+    @State private var smsEscalationEnabled = false
     @State private var isLoading = false
     @State private var isSaving = false
     @State private var showSavedConfirmation = false
@@ -77,6 +78,15 @@ struct ReceiverSettingsView: View {
                 Text("Quiet Hours")
             } footer: {
                 Text("No notifications will be sent during quiet hours.")
+            }
+
+            // SMS Escalation
+            Section {
+                Toggle("SMS Fallback", isOn: $smsEscalationEnabled)
+            } header: {
+                Text("SMS Escalation")
+            } footer: {
+                Text("Send an SMS to you and viewers if push notifications fail during escalation. Requires a phone number on your account.")
             }
 
             // Mood Tracking
@@ -152,6 +162,7 @@ struct ReceiverSettingsView: View {
             reminderInterval = loaded.reminderIntervalMinutes
             escalationEnabled = loaded.escalationEnabled
             moodTrackingEnabled = loaded.moodTrackingEnabled
+            smsEscalationEnabled = loaded.smsEscalationEnabled
 
             if let qStart = loaded.quietHoursStart, let qEnd = loaded.quietHoursEnd {
                 quietHoursEnabled = true
@@ -177,6 +188,7 @@ struct ReceiverSettingsView: View {
             "reminder_interval_minutes": String(reminderInterval),
             "escalation_enabled": String(escalationEnabled),
             "mood_tracking_enabled": String(moodTrackingEnabled),
+            "sms_escalation_enabled": String(smsEscalationEnabled),
         ]
 
         if quietHoursEnabled {
