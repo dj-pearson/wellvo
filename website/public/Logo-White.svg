@@ -1,0 +1,18 @@
+<svg width="1200" height="400" viewBox="0 0 1200 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="300" y2="300" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4ae38c" />
+      <stop offset="1" stop-color="#21ae5e" />
+    </linearGradient>
+  </defs>
+  <g transform="translate(50, 50)">
+    <rect width="300" height="300" rx="66" fill="url(#bg)"/>
+    <g transform="scale(0.5859375)">
+      <g transform="translate(256, 256) scale(1.5) translate(-256, -256)">
+        <path d="M 256 360 C 130 250 130 140 200 140 C 230 140 256 170 256 170 C 256 170 282 140 312 140 C 382 140 382 250 256 360 Z" fill="white"/>
+        <path d="M 206 240 L 246 280 L 316 210" stroke="#21AE5E" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+    </g>
+  </g>
+  <text x="400" y="245" font-family="'Inter', -apple-system, system-ui, sans-serif" font-weight="700" font-size="200" fill="white" letter-spacing="-0.04em">Wellvo</text>
+</svg>

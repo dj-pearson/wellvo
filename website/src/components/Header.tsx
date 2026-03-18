@@ -13,8 +13,7 @@ export default function Header() {
     <header className="header">
       <div className="container header-inner">
         <Link to="/" className="logo">
-          <div className="logo-icon">W</div>
-          <span className="logo-text">Wellvo</span>
+          <img src="/Logo.svg" alt="Wellvo" style={{ height: '36px', width: 'auto' }} />
         </Link>
 
         <nav className={`nav ${menuOpen ? 'nav-open' : ''}`} role="navigation" aria-label="Main navigation">
