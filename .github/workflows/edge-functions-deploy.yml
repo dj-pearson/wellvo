@@ -76,3 +76,22 @@ jobs:
             sleep 10
           done
           echo "⚠️ Health check timed out — deployment may still be starting"
+
+  notify-failure:
+    needs: [build-and-push, deploy]
+    runs-on: ubuntu-latest
+    if: failure()
+    permissions:
+      issues: write
+    steps:
+      - name: Create failure issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `CI Failure: Edge Functions Deploy — ${context.sha.substring(0, 7)}`,
+              body: `## Deploy Failure\n\n- **Workflow:** Edge Functions Deploy\n- **Branch:** ${context.ref}\n- **Commit:** ${context.sha}\n- **Run:** [View logs](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n\nPlease investigate and fix.`,
+              labels: ['ci-failure']
+            });
