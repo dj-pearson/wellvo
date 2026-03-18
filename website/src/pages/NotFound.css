@@ -1,0 +1,31 @@
+.not-found {
+  background: var(--white);
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+}
+
+.not-found-inner {
+  text-align: center;
+}
+
+.not-found-code {
+  font-size: 120px;
+  font-weight: 700;
+  color: var(--green-200);
+  line-height: 1;
+  margin-bottom: 16px;
+}
+
+.not-found h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 12px;
+}
+
+.not-found p {
+  font-size: 18px;
+  color: var(--gray-500);
+  margin-bottom: 32px;
+}

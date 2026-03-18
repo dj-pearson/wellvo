@@ -5,6 +5,7 @@ import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
 import Support from './pages/Support'
 import Pricing from './pages/Pricing'
+import NotFound from './pages/NotFound'
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <Route path="/terms" element={<Terms />} />
         <Route path="/support" element={<Support />} />
         <Route path="/pricing" element={<Pricing />} />
+        <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
   )
