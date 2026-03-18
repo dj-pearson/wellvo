@@ -18,7 +18,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     ) {
         let token = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
         Task {
-            await PushNotificationService.shared.registerToken(token)
+            do {
+                try await PushNotificationService.shared.registerToken(token)
+            } catch {
+                print("[PushNotification] Token registration failed: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -81,7 +85,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     private func handleCheckInFromNotification(userInfo: [AnyHashable: Any]) {
         guard let requestId = userInfo["checkin_request_id"] as? String else { return }
         Task {
-            await CheckInService.shared.respondToCheckIn(requestId: requestId, source: .notification)
+            do {
+                try await CheckInService.shared.respondToCheckIn(requestId: requestId, source: .notification)
+            } catch {
+                print("[CheckIn] Notification response failed: \(error.localizedDescription)")
+            }
         }
     }
 }

@@ -17,6 +17,7 @@ struct ReceiverSettingsView: View {
     @State private var isLoading = false
     @State private var isSaving = false
     @State private var showSavedConfirmation = false
+    @State private var errorMessage: String?
 
     private let gracePeriodOptions = [15, 30, 45, 60, 90, 120]
 
@@ -42,6 +43,8 @@ struct ReceiverSettingsView: View {
             // Escalation Chain
             Section {
                 Toggle("Escalation Alerts", isOn: $escalationEnabled)
+                    .accessibilityLabel("Escalation alerts")
+                    .accessibilityHint("When enabled, alerts fire if check-in is missed")
 
                 if escalationEnabled {
                     Picker("Grace Period", selection: $gracePeriod) {
@@ -69,6 +72,8 @@ struct ReceiverSettingsView: View {
             // Quiet Hours
             Section {
                 Toggle("Quiet Hours", isOn: $quietHoursEnabled)
+                    .accessibilityLabel("Quiet hours")
+                    .accessibilityHint("When enabled, no notifications during specified hours")
 
                 if quietHoursEnabled {
                     DatePicker("Start", selection: $quietHoursStart, displayedComponents: .hourAndMinute)
@@ -83,6 +88,8 @@ struct ReceiverSettingsView: View {
             // SMS Escalation
             Section {
                 Toggle("SMS Fallback", isOn: $smsEscalationEnabled)
+                    .accessibilityLabel("SMS escalation fallback")
+                    .accessibilityHint("Send SMS when push notifications fail during escalation")
             } header: {
                 Text("SMS Escalation")
             } footer: {
@@ -92,6 +99,8 @@ struct ReceiverSettingsView: View {
             // Mood Tracking
             Section {
                 Toggle("Mood Tracking", isOn: $moodTrackingEnabled)
+                    .accessibilityLabel("Mood tracking")
+                    .accessibilityHint("Allow sharing mood after check-in")
             } header: {
                 Text("Mood Tracking")
             } footer: {
@@ -170,7 +179,7 @@ struct ReceiverSettingsView: View {
                 if let end = formatter.date(from: qEnd) { quietHoursEnd = end }
             }
         } catch {
-            print("Failed to load receiver settings: \(error)")
+            errorMessage = WellvoError.network(error).localizedDescription
         }
         isLoading = false
     }
@@ -207,7 +216,7 @@ struct ReceiverSettingsView: View {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             withAnimation { showSavedConfirmation = false }
         } catch {
-            print("Failed to save settings: \(error)")
+            errorMessage = WellvoError.network(error).localizedDescription
         }
 
         isSaving = false

@@ -39,7 +39,7 @@ actor CheckInService {
     }
 
     /// Respond to a specific check-in request (from notification)
-    func respondToCheckIn(requestId: String, source: CheckInSource = .notification) async {
+    func respondToCheckIn(requestId: String, source: CheckInSource = .notification) async throws {
         do {
             try await supabase.functions.invoke(
                 "process-checkin-response",
@@ -49,7 +49,7 @@ actor CheckInService {
                 ])
             )
         } catch {
-            print("Failed to respond to check-in: \(error.localizedDescription)")
+            throw WellvoError.network(error)
         }
     }
 

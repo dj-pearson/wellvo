@@ -11,12 +11,19 @@ struct ReceiverHomeView: View {
     private let hapticSuccess = UINotificationFeedbackGenerator()
     private let hapticImpact = UIImpactFeedbackGenerator(style: .medium)
 
+    @State private var notificationBanner = NotificationPermissionBanner()
+
     var body: some View {
         ZStack {
             Color(.systemBackground)
                 .ignoresSafeArea()
 
             VStack(spacing: 40) {
+                // Notification permission banner
+                NotificationPermissionBanner()
+                    .padding(.horizontal)
+                    .task { await notificationBanner.checkPermission() }
+
                 // Offline banner
                 if viewModel.isOffline {
                     HStack(spacing: 8) {
@@ -31,6 +38,9 @@ struct ReceiverHomeView: View {
                     .padding(.vertical, 8)
                     .background(Color.orange, in: Capsule())
                     .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+                    .accessibilityLabel(viewModel.pendingOfflineCount > 0
+                        ? "Offline. \(viewModel.pendingOfflineCount) check-ins pending sync."
+                        : "You are offline")
                 }
 
                 Spacer()
@@ -136,7 +146,10 @@ struct ReceiverHomeView: View {
                     .font(.system(size: 100))
                     .foregroundStyle(.green)
                     .symbolEffect(.bounce, value: viewModel.hasCheckedInToday)
+                    .accessibilityHidden(true)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Checked in successfully")
 
             Text("Your family knows you're OK")
                 .font(.title2)
@@ -226,6 +239,7 @@ struct MoodButton: View {
             .frame(width: 80, height: 80)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Feeling \(label)")
+        .accessibilityLabel("Select mood: \(label)")
+        .accessibilityHint("Double tap to select \(label) mood")
     }
 }

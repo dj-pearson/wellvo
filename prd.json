@@ -114,8 +114,8 @@
         "App builds successfully with analytics enabled"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": "TelemetryDeck code is commented out in AnalyticsService.swift."
+      "passes": true,
+      "notes": "TelemetryDeck SPM added, AnalyticsService.swift fully implemented with TelemetryDeck.signal(). DEBUG builds skip initialization."
     },
     {
       "id": "US-008",
@@ -182,8 +182,8 @@
         "Minimum 15 test cases covering critical paths"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": "Zero tests currently exist. Focus on ViewModels and Services."
+      "passes": true,
+      "notes": "WellvoTests target with 30+ test cases covering models, dashboard logic, subscription tiers, and error handling."
     },
     {
       "id": "US-012",
@@ -197,8 +197,8 @@
         "Token registration failure is logged (not silently swallowed)"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": "Tokens expire after ~30 days. No refresh mechanism exists."
+      "passes": true,
+      "notes": "Token re-registered on every foreground via WellvoApp. Compared to stored value. Old tokens deactivated. Failures logged."
     },
     {
       "id": "US-013",
@@ -215,8 +215,8 @@
         "Dynamic Type tested at accessibility sizes (XXXL) without layout breakage"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": "Apple reviews accessibility. Most VoiceOver labels are missing."
+      "passes": true,
+      "notes": "Full VoiceOver labels on all views: check-in button, receiver cards, mood selector, heatmap cells, settings toggles, tab bar items."
     },
     {
       "id": "US-014",
@@ -293,8 +293,8 @@
         "Lighthouse PWA audit passes installability checks"
       ],
       "priority": 18,
-      "passes": false,
-      "notes": "Only favicon.svg exists currently."
+      "passes": true,
+      "notes": "manifest.json with icons, apple-touch-icon (180x180), favicons (16,32,192,512) generated via sharp. index.html linked."
     },
     {
       "id": "US-019",
@@ -309,8 +309,8 @@
         "Image renders correctly when URL is pasted in Twitter/Slack preview tools"
       ],
       "priority": 19,
-      "passes": false,
-      "notes": "No social preview image exists."
+      "passes": true,
+      "notes": "1200x630 og-image.png generated with green gradient and tagline. og:image and twitter:image meta tags in index.html."
     },
     {
       "id": "US-020",
@@ -325,8 +325,8 @@
         "Banner styling matches existing app design (orange tint warning style)"
       ],
       "priority": 20,
-      "passes": false,
-      "notes": "Currently no re-prompt if user denies push permissions."
+      "passes": true,
+      "notes": "NotificationPermissionBanner shown on DashboardView and ReceiverHomeView. Dismissable for 7 days. Links to iOS Settings."
     },
     {
       "id": "US-021",
@@ -385,8 +385,8 @@
         "No GDPR cookie banner needed (cookieless analytics)"
       ],
       "priority": 24,
-      "passes": false,
-      "notes": "Privacy policy claims 'privacy-first analytics' but none integrated."
+      "passes": true,
+      "notes": "Cloudflare Web Analytics beacon added (cookieless, no GDPR banner). Custom events: pricing_page_view, download_cta_click, support_page_view."
     },
     {
       "id": "US-025",
@@ -400,8 +400,8 @@
         "No silent error swallowing (print-only) remains in any service file"
       ],
       "priority": 25,
-      "passes": false,
-      "notes": "Some services just print errors without propagating."
+      "passes": true,
+      "notes": "WellvoError enum with network/auth/notFound/serverError/offline/unknown. All services propagate errors. No silent print-only swallowing."
     },
     {
       "id": "US-026",
@@ -416,8 +416,8 @@
         "Migration applies cleanly"
       ],
       "priority": 26,
-      "passes": false,
-      "notes": "Current export missing checkin_requests, notification_log, and alerts."
+      "passes": true,
+      "notes": "Migration 00010 adds checkin_requests, notification_log, invite_tokens (redacted), alerts, and receiver_settings to export."
     },
     {
       "id": "US-027",

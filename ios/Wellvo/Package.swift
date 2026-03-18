@@ -7,6 +7,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/supabase/supabase-swift.git", from: "2.0.0"),
         .package(url: "https://github.com/PostHog/posthog-ios.git", from: "3.0.0"),
+        .package(url: "https://github.com/TelemetryDeck/SwiftSDK.git", from: "2.0.0"),
     ],
     targets: [
         .target(
@@ -14,7 +15,13 @@ let package = Package(
             dependencies: [
                 .product(name: "Supabase", package: "supabase-swift"),
                 .product(name: "PostHog", package: "posthog-ios"),
+                .product(name: "TelemetryDeck", package: "SwiftSDK"),
             ]
+        ),
+        .testTarget(
+            name: "WellvoTests",
+            dependencies: ["Wellvo"],
+            path: "../WellvoTests"
         ),
     ]
 )
