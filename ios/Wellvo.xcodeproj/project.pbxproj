@@ -341,12 +341,10 @@
 				S1000001 /* Sources */,
 				D1000001 /* Frameworks */,
 				R1000001 /* Resources */,
-				E1000001 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				TD000001 /* PBXTargetDependency */,
 			);
 			name = Wellvo;
 			packageProductDependencies = (
@@ -427,7 +425,6 @@
 			projectRoot = "";
 			targets = (
 				T1000001 /* Wellvo */,
-				T2000001 /* WellvoNotificationService */,
 			);
 		};
 /* End PBXProject section */
