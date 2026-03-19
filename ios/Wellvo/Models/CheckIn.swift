@@ -10,6 +10,14 @@ enum CheckInSource: String, Codable {
     case app
     case notification
     case onDemand = "on_demand"
+    case needHelp = "need_help"
+    case callMe = "call_me"
+}
+
+enum CheckInResponseType: String, Codable {
+    case ok
+    case needHelp = "need_help"
+    case callMe = "call_me"
 }
 
 enum CheckInRequestStatus: String, Codable {
@@ -32,13 +40,21 @@ struct CheckIn: Codable, Identifiable {
     let mood: Mood?
     let source: CheckInSource
     let scheduledFor: Date?
+    let responseType: CheckInResponseType?
+    let latitude: Double?
+    let longitude: Double?
+    let locationAccuracyMeters: Double?
+    let distanceFromHomeMeters: Double?
 
     enum CodingKeys: String, CodingKey {
-        case id, mood, source
+        case id, mood, source, latitude, longitude
         case receiverId = "receiver_id"
         case familyId = "family_id"
         case checkedInAt = "checked_in_at"
         case scheduledFor = "scheduled_for"
+        case responseType = "response_type"
+        case locationAccuracyMeters = "location_accuracy_meters"
+        case distanceFromHomeMeters = "distance_from_home_meters"
     }
 }
 
