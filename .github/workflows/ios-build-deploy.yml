@@ -156,28 +156,28 @@ jobs:
           </plist>
           EOF
 
+      - name: Setup App Store Connect API key
+        run: |
+          mkdir -p ~/.private_keys
+          echo "${{ env.ASC_PRIVATE_KEY }}" > ~/.private_keys/AuthKey_${{ env.ASC_KEY_ID }}.p8
+
       - name: Export IPA
         run: |
           xcodebuild -exportArchive \
             -archivePath $RUNNER_TEMP/Wellvo.xcarchive \
             -exportPath $RUNNER_TEMP/export \
-            -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist
+            -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
+            -authenticationKeyPath ~/.private_keys/AuthKey_${{ env.ASC_KEY_ID }}.p8 \
+            -authenticationKeyID ${{ env.ASC_KEY_ID }} \
+            -authenticationKeyIssuerID ${{ env.ASC_ISSUER_ID }}
 
       - name: Upload to App Store Connect
-        env:
-          APP_STORE_CONNECT_API_KEY_ID: ${{ env.ASC_KEY_ID }}
-          APP_STORE_CONNECT_API_ISSUER_ID: ${{ env.ASC_ISSUER_ID }}
-          APP_STORE_CONNECT_API_KEY: ${{ env.ASC_PRIVATE_KEY }}
         run: |
-          # Create API key file
-          mkdir -p ~/.private_keys
-          echo "$APP_STORE_CONNECT_API_KEY" > ~/.private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
-
           xcrun altool --upload-app \
             --type ios \
             --file "$RUNNER_TEMP/export/Wellvo.ipa" \
-            --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
-            --apiIssuer "$APP_STORE_CONNECT_API_ISSUER_ID"
+            --apiKey "${{ env.ASC_KEY_ID }}" \
+            --apiIssuer "${{ env.ASC_ISSUER_ID }}"
 
       - name: Clean up keychain
         if: ${{ always() }}
