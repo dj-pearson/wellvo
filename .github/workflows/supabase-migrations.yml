@@ -16,12 +16,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Load secrets from Infisical
+        uses: Infisical/secrets-action@v1.0.7
+        with:
+          client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
+          client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          env-slug: "prod"
+          project-slug: "wellvo"
+          export-type: "env"
+
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
       - name: Backup database before migration
         env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DATABASE_URL: ${{ env.SUPABASE_DB_URL }}
         run: |
           echo "Creating pre-migration backup..."
           pg_dump "$DATABASE_URL" --no-owner --no-acl --compress=9 \
@@ -37,7 +46,7 @@ jobs:
 
       - name: Run migrations in transactions
         env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DATABASE_URL: ${{ env.SUPABASE_DB_URL }}
         run: |
           set -euo pipefail
           for migration in $(ls supabase/migrations/*.sql | sort); do
@@ -53,7 +62,7 @@ jobs:
 
       - name: Verify migration integrity
         env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DATABASE_URL: ${{ env.SUPABASE_DB_URL }}
         run: |
           set -euo pipefail
           echo "=== Tables ==="

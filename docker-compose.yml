@@ -50,4 +50,4 @@ services:
 networks:
   wellvo-network:
     external: true
-    name: ${SUPABASE_NETWORK:-supabase_default}
+    name: ${SUPABASE_NETWORK:-coolify}

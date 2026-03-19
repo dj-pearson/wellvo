@@ -23,6 +23,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Load secrets from Infisical
+        uses: Infisical/secrets-action@v1.0.7
+        with:
+          client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
+          client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          env-slug: "prod"
+          project-slug: "wellvo"
+          export-type: "env"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -93,10 +102,19 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
+      - name: Load secrets from Infisical
+        uses: Infisical/secrets-action@v1.0.7
+        with:
+          client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
+          client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          env-slug: "prod"
+          project-slug: "wellvo"
+          export-type: "env"
+
       - name: Trigger Coolify deployment via webhook
         run: |
-          curl -X POST "${{ secrets.COOLIFY_WEBHOOK_URL }}" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN }}" \
+          curl -X POST "${{ env.COOLIFY_WEBHOOK_URL }}" \
+            -H "Authorization: Bearer ${{ env.COOLIFY_API_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{"image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"}'
 
@@ -104,7 +122,7 @@ jobs:
         run: |
           sleep 15
           for i in {1..5}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.EDGE_FUNCTIONS_HEALTH_URL }}/health" || echo "000")
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ env.EDGE_FUNCTIONS_HEALTH_URL }}/health" || echo "000")
             if [ "$STATUS" = "200" ]; then
               echo "✅ Edge functions healthy"
               exit 0
