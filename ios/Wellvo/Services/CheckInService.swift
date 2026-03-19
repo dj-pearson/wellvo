@@ -39,13 +39,10 @@ actor CheckInService {
         }
 
         // Use the edge function which handles location, response type, and alerts
-        let response = try await supabase.functions.invoke(
+        let result: CheckInResponse = try await supabase.functions.invoke(
             "process-checkin-response",
             options: .init(body: body)
         )
-
-        // Decode the check-in from the response
-        let result = try JSONDecoder().decode(CheckInResponse.self, from: response.data)
         return result.checkin
     }
 
