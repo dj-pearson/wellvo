@@ -82,15 +82,15 @@ jobs:
 
       - name: Inject build configuration
         run: |
-          cat >> ios/Wellvo/BuildConfig.xcconfig <<EOF
-          SUPABASE_URL = ${{ env.SUPABASE_URL }}
-          SUPABASE_ANON_KEY = ${{ env.SUPABASE_ANON_KEY }}
-          CODE_SIGN_STYLE = Manual
-          CODE_SIGN_IDENTITY = Apple Distribution
-          DEVELOPMENT_TEAM = ${{ env.APPLE_TEAM_ID }}
-          PROVISIONING_PROFILE_SPECIFIER = ${{ env.PROVISIONING_PROFILE_NAME }}
-          PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios
-          EOF
+          {
+            echo "SUPABASE_URL = ${{ env.SUPABASE_URL }}"
+            echo "SUPABASE_ANON_KEY = ${{ env.SUPABASE_ANON_KEY }}"
+            echo "CODE_SIGN_STYLE = Manual"
+            echo "CODE_SIGN_IDENTITY = Apple Distribution"
+            echo "DEVELOPMENT_TEAM = ${{ env.APPLE_TEAM_ID }}"
+            echo "PROVISIONING_PROFILE_SPECIFIER = ${{ env.PROVISIONING_PROFILE_NAME }}"
+            echo "PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios"
+          } >> ios/Wellvo/BuildConfig.xcconfig
 
       - name: Set version and build number
         run: |
