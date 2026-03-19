@@ -13,6 +13,11 @@ struct ReceiverSettings: Codable, Identifiable {
     var moodTrackingEnabled: Bool
     var smsEscalationEnabled: Bool
     var isActive: Bool
+    var locationTrackingEnabled: Bool
+    var homeLatitude: Double?
+    var homeLongitude: Double?
+    var geofenceRadiusMeters: Int
+    var locationAlertEnabled: Bool
 
     enum CodingKeys: String, CodingKey {
         case id, timezone
@@ -26,5 +31,10 @@ struct ReceiverSettings: Codable, Identifiable {
         case moodTrackingEnabled = "mood_tracking_enabled"
         case smsEscalationEnabled = "sms_escalation_enabled"
         case isActive = "is_active"
+        case locationTrackingEnabled = "location_tracking_enabled"
+        case homeLatitude = "home_latitude"
+        case homeLongitude = "home_longitude"
+        case geofenceRadiusMeters = "geofence_radius_meters"
+        case locationAlertEnabled = "location_alert_enabled"
     }
 }
