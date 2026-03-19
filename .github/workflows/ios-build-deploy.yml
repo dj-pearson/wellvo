@@ -23,7 +23,7 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: macos-26
+    runs-on: macos-15
     timeout-minutes: 45
 
     steps:
