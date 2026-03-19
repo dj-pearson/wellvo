@@ -1,5 +1,7 @@
 import SwiftUI
 import AuthenticationServices
+import CryptoKit
+import Security
 import Supabase
 
 enum AuthState: Equatable {
@@ -79,20 +81,28 @@ final class AuthViewModel: ObservableObject {
 
     // MARK: - Apple Sign-In
 
-    /// Prepare the Apple Sign-In request with a cryptographic nonce.
+    /// Prepare the Apple Sign-In request.
     /// Call this from the SignInWithAppleButton's `onRequest` closure.
     func configureAppleSignInRequest(_ request: ASAuthorizationAppleIDRequest) {
-        Task {
-            let rawNonce = await AuthService.shared.generateNonce()
-            let hashedNonce = await AuthService.shared.sha256(rawNonce)
-            await MainActor.run {
-                self.currentRawNonce = rawNonce
-            }
-            await MainActor.run {
-                request.requestedScopes = [.fullName, .email]
-                request.nonce = hashedNonce
-            }
+        request.requestedScopes = [.fullName, .email]
+    }
+
+    // MARK: - Nonce Helpers (synchronous, no actor hop needed)
+
+    private static func sha256(_ input: String) -> String {
+        let data = Data(input.utf8)
+        let hash = SHA256.hash(data: data)
+        return hash.compactMap { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func randomNonceString(length: Int = 32) -> String {
+        var randomBytes = [UInt8](repeating: 0, count: length)
+        let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
+        guard errorCode == errSecSuccess else {
+            return UUID().uuidString.replacingOccurrences(of: "-", with: "")
         }
+        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        return String(randomBytes.map { charset[Int($0) % charset.count] })
     }
 
     func signInWithApple(_ result: Result<ASAuthorization, Error>) async {
@@ -106,8 +116,13 @@ final class AuthViewModel: ObservableObject {
                 isLoading = false
                 return
             }
+            guard let rawNonce = currentRawNonce else {
+                errorMessage = "Sign-in security check failed. Please try again."
+                isLoading = false
+                return
+            }
             do {
-                currentUser = try await AuthService.shared.signInWithApple(credential: credential)
+                currentUser = try await AuthService.shared.signInWithApple(credential: credential, rawNonce: rawNonce)
                 authState = .authenticated
                 clearFormFields()
             } catch {

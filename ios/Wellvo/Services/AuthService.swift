@@ -30,24 +30,16 @@ actor AuthService {
         return hash.compactMap { String(format: "%02x", $0) }.joined()
     }
 
-    func signInWithApple(credential: ASAuthorizationAppleIDCredential) async throws -> AppUser {
+    func signInWithApple(credential: ASAuthorizationAppleIDCredential, rawNonce: String) async throws -> AppUser {
         guard let identityToken = credential.identityToken,
               let tokenString = String(data: identityToken, encoding: .utf8) else {
             throw AuthError.invalidCredential
         }
 
-        guard let nonce = currentNonce else {
-            throw AuthError.missingNonce
-        }
-
-        // Clear nonce after use (single-use)
-        currentNonce = nil
-
         let session = try await supabase.auth.signInWithIdToken(
             credentials: .init(
                 provider: .apple,
-                idToken: tokenString,
-                nonce: nonce
+                idToken: tokenString
             )
         )
 
@@ -126,15 +118,11 @@ actor AuthService {
 
         let session = try await supabase.auth.signIn(email: trimmedEmail, password: password)
 
-        let user: AppUser = try await supabase
-            .from("users")
-            .select()
-            .eq("id", value: session.user.id.uuidString)
-            .single()
-            .execute()
-            .value
-
-        return user
+        return try await findOrCreateUserProfile(
+            userId: session.user.id,
+            email: trimmedEmail,
+            displayName: nil
+        )
     }
 
     func signUpWithEmail(email: String, password: String, displayName: String) async throws -> AppUser {
@@ -150,12 +138,33 @@ actor AuthService {
 
         let session = try await supabase.auth.signUp(email: trimmedEmail, password: password)
 
+        return try await findOrCreateUserProfile(
+            userId: session.user.id,
+            email: trimmedEmail,
+            displayName: trimmedName
+        )
+    }
+
+    /// Fetch existing user profile, or create one if it doesn't exist yet.
+    private func findOrCreateUserProfile(userId: UUID, email: String, displayName: String?) async throws -> AppUser {
+        // Try to find existing profile
+        let existing: AppUser? = try? await supabase
+            .from("users")
+            .select()
+            .eq("id", value: userId.uuidString)
+            .single()
+            .execute()
+            .value
+
+        if let existing { return existing }
+
+        // Profile doesn't exist — create it
         let user: AppUser = try await supabase
             .from("users")
-            .insert([
-                "id": session.user.id.uuidString,
-                "email": trimmedEmail,
-                "display_name": trimmedName,
+            .upsert([
+                "id": userId.uuidString,
+                "email": email,
+                "display_name": displayName ?? "User",
                 "timezone": TimeZone.current.identifier,
             ])
             .select()
@@ -176,7 +185,7 @@ actor AuthService {
     func currentSession() async throws -> AppUser? {
         guard let session = try? await supabase.auth.session else { return nil }
 
-        let user: AppUser = try await supabase
+        let user: AppUser? = try? await supabase
             .from("users")
             .select()
             .eq("id", value: session.user.id.uuidString)
