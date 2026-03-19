@@ -1,0 +1,14 @@
+# You need: Team ID, Key ID, bundle ID, and the .p8 key file
+# Ruby script (run on Mac or Linux):
+require 'jwt'
+require 'openssl'
+
+key = OpenSSL::PKey::EC.new(File.read('AuthKey_XXXXXXXXXX.p8'))
+payload = {
+  iss: 'YOUR_TEAM_ID',      # e.g. 4G65K84G73
+  iat: Time.now.to_i,
+  exp: Time.now.to_i + 15_552_000,  # 6 months
+  aud: 'https://appleid.apple.com',
+  sub: 'net.wellvo.app'
+}
+JWT.encode(payload, key, 'ES256', { kid: 'YOUR_KEY_ID' })
