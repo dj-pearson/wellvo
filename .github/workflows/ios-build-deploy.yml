@@ -80,14 +80,17 @@ jobs:
             -project Wellvo.xcodeproj \
             -scheme Wellvo
 
-      - name: Inject Supabase configuration
-        env:
-          SUPABASE_URL: ${{ env.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
+      - name: Inject build configuration
         run: |
-          # Set build settings for the Supabase URL and key
-          echo "SUPABASE_URL = $SUPABASE_URL" >> ios/Wellvo/BuildConfig.xcconfig
-          echo "SUPABASE_ANON_KEY = $SUPABASE_ANON_KEY" >> ios/Wellvo/BuildConfig.xcconfig
+          cat >> ios/Wellvo/BuildConfig.xcconfig <<EOF
+          SUPABASE_URL = ${{ env.SUPABASE_URL }}
+          SUPABASE_ANON_KEY = ${{ env.SUPABASE_ANON_KEY }}
+          CODE_SIGN_STYLE = Manual
+          CODE_SIGN_IDENTITY = Apple Distribution
+          DEVELOPMENT_TEAM = ${{ env.APPLE_TEAM_ID }}
+          PROVISIONING_PROFILE_SPECIFIER = ${{ env.PROVISIONING_PROFILE_NAME }}
+          PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios
+          EOF
 
       - name: Set version and build number
         run: |
@@ -112,15 +115,8 @@ jobs:
             -configuration Release \
             -archivePath $RUNNER_TEMP/Wellvo.xcarchive \
             -destination "generic/platform=iOS" \
-            DEVELOPMENT_TEAM="${{ env.APPLE_TEAM_ID }}" \
-            PRODUCT_BUNDLE_IDENTIFIER="com.wellvo.ios" \
-            CODE_SIGN_STYLE="Manual" \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="${{ env.PROVISIONING_PROFILE_NAME }}" \
             MARKETING_VERSION="${{ env.APP_VERSION }}" \
             CURRENT_PROJECT_VERSION="${{ env.BUILD_NUMBER }}" \
-            SUPABASE_URL="${{ env.SUPABASE_URL }}" \
-            SUPABASE_ANON_KEY="${{ env.SUPABASE_ANON_KEY }}" \
             | xcbeautify || true
 
       - name: Create ExportOptions.plist

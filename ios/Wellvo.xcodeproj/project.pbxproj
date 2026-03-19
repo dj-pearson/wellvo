@@ -117,6 +117,8 @@
 		F1F0000F /* ViewerTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerTabView.swift; sourceTree = "<group>"; };
 		/* Resources */
 		F1G00001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		/* Config */
+		F1X00001 /* BuildConfig.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = BuildConfig.xcconfig; sourceTree = "<group>"; };
 		/* Product */
 		F1P00001 /* Wellvo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wellvo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -153,6 +155,7 @@
 				G1E00001 /* ViewModels */,
 				G1F00001 /* Views */,
 				F1G00001 /* Assets.xcassets */,
+				F1X00001 /* BuildConfig.xcconfig */,
 			);
 			path = Wellvo;
 			sourceTree = "<group>";
@@ -473,6 +476,7 @@
 		};
 		BC000003 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F1X00001 /* BuildConfig.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -507,6 +511,7 @@
 		};
 		BC000004 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F1X00001 /* BuildConfig.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
