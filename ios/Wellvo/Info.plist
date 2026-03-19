@@ -13,9 +13,9 @@
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>SUPABASE_URL</key>
-	<string>$(SUPABASE_URL)</string>
+	<string>REPLACE_AT_BUILD_TIME</string>
 	<key>SUPABASE_ANON_KEY</key>
-	<string>$(SUPABASE_ANON_KEY)</string>
+	<string>REPLACE_AT_BUILD_TIME</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

@@ -91,20 +91,24 @@ jobs:
 
       - name: Inject build configuration
         run: |
-          # xcconfig uses first-definition-wins, so we must write a fresh file
-          # (not append) to ensure CI values override the local placeholders
+          # Write code signing config to xcconfig (these values are safe for xcconfig)
           {
             echo "// Wellvo Build Configuration (CI-generated)"
-            echo "SUPABASE_URL = ${{ env.SUPABASE_URL }}"
-            echo "SUPABASE_ANON_KEY = ${{ env.SUPABASE_ANON_KEY }}"
             echo "CODE_SIGN_STYLE = Manual"
             echo "CODE_SIGN_IDENTITY = Apple Distribution"
             echo "DEVELOPMENT_TEAM = ${{ env.APPLE_TEAM_ID }}"
             echo "PROVISIONING_PROFILE_SPECIFIER = ${{ env.PROVISIONING_PROFILE_NAME }}"
             echo "PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios"
           } > ios/Wellvo/BuildConfig.xcconfig
-          echo "BuildConfig.xcconfig contents:"
-          cat ios/Wellvo/BuildConfig.xcconfig
+
+          # Write Supabase config directly to Info.plist using PlistBuddy.
+          # xcconfig treats "//" as comments, which truncates JWT tokens (anon key).
+          /usr/libexec/PlistBuddy -c "Set :SUPABASE_URL ${{ env.SUPABASE_URL }}" ios/Wellvo/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :SUPABASE_ANON_KEY ${{ env.SUPABASE_ANON_KEY }}" ios/Wellvo/Info.plist
+
+          # Verify
+          echo "SUPABASE_URL: $(/usr/libexec/PlistBuddy -c 'Print :SUPABASE_URL' ios/Wellvo/Info.plist)"
+          echo "SUPABASE_ANON_KEY length: $(echo -n '${{ env.SUPABASE_ANON_KEY }}' | wc -c | tr -d ' ')"
 
       - name: Set version and build number
         run: |

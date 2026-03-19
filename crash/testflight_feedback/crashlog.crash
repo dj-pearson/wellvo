@@ -1,10 +1,10 @@
-Incident Identifier: AA9E3DFC-4288-47B0-A2D2-138F9E38C400
+Incident Identifier: CAB4F47F-B681-4530-A1BF-12BCE4C5146B
 Distributor ID:      com.apple.TestFlight
 Hardware Model:      iPhone18,1
-Process:             Wellvo [4915]
-Path:                /private/var/containers/Bundle/Application/B4D4ED5A-74FD-4895-9CFF-6D1B30E2423C/Wellvo.app/Wellvo
+Process:             Wellvo [4989]
+Path:                /private/var/containers/Bundle/Application/80D2E46F-B3EB-40B0-8284-257A682A19B3/Wellvo.app/Wellvo
 Identifier:          com.wellvo.ios
-Version:             1.0.0 (27)
+Version:             1.0.0 (28)
 AppStoreTools:       17E187
 AppVariant:          1:iPhone18,1:26
 Beta:                YES
@@ -13,98 +13,66 @@ Role:                Foreground
 Parent Process:      launchd [1]
 Coalition:           com.wellvo.ios [2086]
 
-Date/Time:           2026-03-19 12:57:47.8386 -0500
-Launch Time:         2026-03-19 12:57:47.7346 -0500
+Date/Time:           2026-03-19 13:07:24.3590 -0500
+Launch Time:         2026-03-19 13:07:24.2027 -0500
 OS Version:          iPhone OS 26.4 (23E5234a)
 Release Type:        Beta
 Baseband Version:    1.55.04
 Report Version:      104
 
 Exception Type:  EXC_BREAKPOINT (SIGTRAP)
-Exception Codes: 0x0000000000000001, 0x0000000100d40f18
+Exception Codes: 0x0000000000000001, 0x00000001043c0f18
 Termination Reason: SIGNAL 5 Trace/BPT trap: 5
-Terminating Process: exc handler [4915]
+Terminating Process: exc handler [4989]
 
-Triggered by Thread:  7
+Triggered by Thread:  5
 
 
 Thread 0 name:
 Thread 0:
-0   ContextKitExtraction          	0x00000001c1b39834 -[CKContextContentProviderManager userActivityWasCreated:] + 0 (CKContextContentProviderManager.m:558)
-1   UserActivity                  	0x00000002330c6754 -[UAUserActivity setParentUserActivity:] + 264 (UAUserActivity.mm:922)
-2   Foundation                    	0x00000001881cb7dc -[NSUserActivity initWithActivityType:] + 128 (NSUserActivity.m:171)
-3   SwiftUI                       	0x0000000193faa210 specialized AppSceneDelegate.stateRestorationActivity(for:) + 136 (UIKitAppDelegate.swift:913)
-4   SwiftUI                       	0x0000000193faa158 @objc AppSceneDelegate.stateRestorationActivity(for:) + 44 (<compiler-generated>:910)
-5   UIKitCore                     	0x0000000190d9ed04 -[_UISceneUserActivityManager _saveSceneRestorationState] + 564 (_UISceneUserActivityManager.m:878)
-6   UIKitCore                     	0x0000000190d9e9cc +[_UISceneUserActivityManager _saveRestorationStateForScene:] + 40 (_UISceneUserActivityManager.m:928)
-7   UIKitCore                     	0x0000000190d9e980 -[UIApplication _saveRestorationUserActivityStateForScene:] + 96 (UIApplication.m:12228)
-8   SwiftUI                       	0x0000000193fdd910 closure #5 in AppSceneDelegate.scene(_:willConnectTo:options:) + 60 (UIKitAppDelegate.swift:877)
-9   SwiftUI                       	0x0000000193fdd454 <deduplicated_symbol> + 36
-10  libdispatch.dylib             	0x00000001c4fe99a8 _dispatch_call_block_and_release + 32 (init.c:1597)
-11  libdispatch.dylib             	0x00000001c50031e4 _dispatch_client_callout + 16 (client_callout.mm:85)
-12  libdispatch.dylib             	0x00000001c5020e10 _dispatch_main_queue_drain.cold.6 + 832 (queue.c:8252)
-13  libdispatch.dylib             	0x00000001c4ff8964 _dispatch_main_queue_drain + 176 (queue.c:8233)
-14  libdispatch.dylib             	0x00000001c4ff88a4 _dispatch_main_queue_callback_4CF + 44 (queue.c:8412)
-15  CoreFoundation                	0x000000018ae5fa64 __CFRUNLOOP_IS_SERVICING_THE_MAIN_DISPATCH_QUEUE__ + 16 (CFRunLoop.c:1820)
-16  CoreFoundation                	0x000000018aded288 __CFRunLoopRun + 1944 (CFRunLoop.c:3177)
-17  CoreFoundation                	0x000000018adec1d0 _CFRunLoopRunSpecificWithOptions + 532 (CFRunLoop.c:3462)
-18  GraphicsServices              	0x00000002302eb498 GSEventRunModal + 120 (GSEvent.c:2049)
-19  UIKitCore                     	0x0000000190aadca0 -[UIApplication _run] + 796 (UIApplication.m:3904)
-20  UIKitCore                     	0x0000000190a18254 UIApplicationMain + 332 (UIApplication.m:5586)
-21  SwiftUI                       	0x0000000193e00570 closure #1 in KitRendererCommon(_:) + 168 (UIKitApp.swift:65)
-22  SwiftUI                       	0x0000000193dfd0f4 runApp<A>(_:) + 112 (UIKitApp.swift:16)
-23  SwiftUI                       	0x0000000193dfcc48 static App.main() + 172 (App.swift:137)
-24  Wellvo                        	0x0000000100c8606c 0x100c80000 + 24684
-25  dyld                          	0x00000001879f9c1c start + 6928
+0   libswiftCore.dylib            	0x0000000187ae2758 swift_getTypeByMangledNameImpl(swift::MetadataRequest, __swift::__runtime::llvm::StringRef, void const* const*, std::__1::function<void const* (unsigned int, unsigned int)>, std::__1::function<swif... + 296 (MetadataLookup.cpp:2561)
+1   libswiftCore.dylib            	0x0000000187ae24b4 swift_getTypeByMangledName + 336 (CompatibilityOverrideRuntime.def:221)
+2   libswiftCore.dylib            	0x0000000187ae1ce8 swift_getTypeByMangledNameInContextImpl(char const*, unsigned long, swift::TargetContextDescriptor<swift::InProcess> const*, void const* const*) + 188 (MetadataLookup.cpp:2658)
+3   Foundation                    	0x00000001883b9a98 __swift_instantiateConcreteTypeFromMangledNameV2 + 68 (<compiler-generated>:0)
+4   Foundation                    	0x00000001880a0128 <deduplicated_symbol> + 32
+5   Foundation                    	0x0000000188971f78 static AnyHashable._conditionallyBridgeFromObjectiveC(_:result:) + 60 (<compiler-generated>:0)
+6   libswiftCore.dylib            	0x0000000187acc938 _bridgeNonVerbatimFromObjectiveCConditional<A>(_:_:_:) + 608 (Casting.cpp:1684)
+7   libswiftCore.dylib            	0x0000000187acc690 _conditionallyBridgeFromObjectiveC<A>(_:_:) + 360 (BridgeObjectiveC.swift:290)
+8   libswiftCore.dylib            	0x0000000187acc34c _SwiftDeferredNSDictionary.object(forKey:) + 472 (DictionaryBridging.swift:294)
+9   libswiftCore.dylib            	0x0000000187acc4f0 @objc _SwiftDeferredNSDictionary.object(forKey:) + 60
+10  UserActivity                  	0x00000002330c7118 recurse(objc_object*, bool (objc_object*) block_pointer) + 304 (UAUserActivity.mm:1605)
+11  UserActivity                  	0x00000002330c6d38 -[UAUserActivity setUserInfo:] + 384 (UAUserActivity.mm:533)
+12  SwiftUI                       	0x0000000193faa6b4 specialized AppSceneDelegate.stateRestorationActivity(for:) + 1324 (UIKitAppDelegate.swift:940)
+13  SwiftUI                       	0x0000000193faa158 @objc AppSceneDelegate.stateRestorationActivity(for:) + 44 (<compiler-generated>:910)
+14  UIKitCore                     	0x0000000190d9ed04 -[_UISceneUserActivityManager _saveSceneRestorationState] + 564 (_UISceneUserActivityManager.m:878)
+15  UIKitCore                     	0x0000000190d9e9cc +[_UISceneUserActivityManager _saveRestorationStateForScene:] + 40 (_UISceneUserActivityManager.m:928)
+16  UIKitCore                     	0x0000000190d9e980 -[UIApplication _saveRestorationUserActivityStateForScene:] + 96 (UIApplication.m:12228)
+17  SwiftUI                       	0x0000000193fdd910 closure #5 in AppSceneDelegate.scene(_:willConnectTo:options:) + 60 (UIKitAppDelegate.swift:877)
+18  SwiftUI                       	0x0000000193fdd454 <deduplicated_symbol> + 36
+19  libdispatch.dylib             	0x00000001c4fe99a8 _dispatch_call_block_and_release + 32 (init.c:1597)
+20  libdispatch.dylib             	0x00000001c50031e4 _dispatch_client_callout + 16 (client_callout.mm:85)
+21  libdispatch.dylib             	0x00000001c5020e10 _dispatch_main_queue_drain.cold.6 + 832 (queue.c:8252)
+22  libdispatch.dylib             	0x00000001c4ff8964 _dispatch_main_queue_drain + 176 (queue.c:8233)
+23  libdispatch.dylib             	0x00000001c4ff88a4 _dispatch_main_queue_callback_4CF + 44 (queue.c:8412)
+24  CoreFoundation                	0x000000018ae5fa64 __CFRUNLOOP_IS_SERVICING_THE_MAIN_DISPATCH_QUEUE__ + 16 (CFRunLoop.c:1820)
+25  CoreFoundation                	0x000000018aded288 __CFRunLoopRun + 1944 (CFRunLoop.c:3177)
+26  CoreFoundation                	0x000000018adec1d0 _CFRunLoopRunSpecificWithOptions + 532 (CFRunLoop.c:3462)
+27  GraphicsServices              	0x00000002302eb498 GSEventRunModal + 120 (GSEvent.c:2049)
+28  UIKitCore                     	0x0000000190aadca0 -[UIApplication _run] + 796 (UIApplication.m:3904)
+29  UIKitCore                     	0x0000000190a18254 UIApplicationMain + 332 (UIApplication.m:5586)
+30  SwiftUI                       	0x0000000193e00570 closure #1 in KitRendererCommon(_:) + 168 (UIKitApp.swift:65)
+31  SwiftUI                       	0x0000000193dfd0f4 runApp<A>(_:) + 112 (UIKitApp.swift:16)
+32  SwiftUI                       	0x0000000193dfcc48 static App.main() + 172 (App.swift:137)
+33  Wellvo                        	0x000000010430606c static WellvoApp.$main() + 52 (WellvoApp.swift:0)
+34  Wellvo                        	0x000000010430606c main + 64
+35  dyld                          	0x00000001879f9c1c start + 6928
 
 Thread 1:
 
 Thread 2:
 
+Thread 3 name:
 Thread 3:
-
-Thread 4:
-
-Thread 5:
-
-Thread 6:
-
-Thread 7 name:
-Thread 7 Crashed:
-0   Wellvo                        	0x0000000100d40f18 0x100c80000 + 790296
-1   Wellvo                        	0x0000000100d40460 0x100c80000 + 787552
-2   Wellvo                        	0x0000000100cb4f48 0x100c80000 + 216904
-3   Wellvo                        	0x0000000100cb4d84 0x100c80000 + 216452
-4   libdispatch.dylib             	0x00000001c50031e4 _dispatch_client_callout + 16 (client_callout.mm:85)
-5   libdispatch.dylib             	0x00000001c4fec5b0 _dispatch_once_callout + 32 (once.c:52)
-6   Wellvo                        	0x0000000100c9fba4 0x100c80000 + 129956
-7   Wellvo                        	0x0000000100cb6605 0x100c80000 + 222725
-8   Wellvo                        	0x0000000100cb716d 0x100c80000 + 225645
-9   Wellvo                        	0x0000000100c89381 0x100c80000 + 37761
-10  Wellvo                        	0x0000000100c873d1 0x100c80000 + 29649
-11  Wellvo                        	0x0000000100c89381 0x100c80000 + 37761
-12  libswift_Concurrency.dylib    	0x0000000188edc385 completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*) + 1 (Task.cpp:546)
-
-Thread 8 name:
-Thread 8:
-0   libsystem_kernel.dylib        	0x0000000239c0dcd4 mach_msg2_trap + 8
-1   libsystem_kernel.dylib        	0x0000000239c1130c mach_msg2_internal + 76 (mach_msg.c:201)
-2   libsystem_kernel.dylib        	0x0000000239c1122c mach_msg_overwrite + 424 (mach_msg.c:0)
-3   libsystem_kernel.dylib        	0x0000000239c11078 mach_msg + 24 (mach_msg.c:323)
-4   CoreFoundation                	0x000000018ae22ea4 __CFRunLoopServiceMachPort + 160 (CFRunLoop.c:2650)
-5   CoreFoundation                	0x000000018adecf94 __CFRunLoopRun + 1188 (CFRunLoop.c:3035)
-6   CoreFoundation                	0x000000018adec1d0 _CFRunLoopRunSpecificWithOptions + 532 (CFRunLoop.c:3462)
-7   Foundation                    	0x0000000188058cf0 -[NSRunLoop(NSRunLoop) runMode:beforeDate:] + 212 (NSRunLoop.m:375)
-8   Foundation                    	0x0000000188058bd8 -[NSRunLoop(NSRunLoop) runUntilDate:] + 64 (NSRunLoop.m:422)
-9   UIKitCore                     	0x0000000190a732dc -[UIEventFetcher threadMain] + 420 (UIEventFetcher.m:1333)
-10  Foundation                    	0x00000001880dc804 __NSThread__start__ + 732 (NSThread.m:1004)
-11  libsystem_pthread.dylib       	0x00000001e9bef438 _pthread_start + 136 (pthread.c:931)
-12  libsystem_pthread.dylib       	0x00000001e9beb8cc thread_start + 8
-
-Thread 9:
-
-Thread 10 name:
-Thread 10:
 0   libsystem_kernel.dylib        	0x0000000239c13614 lstat + 8
 1   Foundation                    	0x000000018806598c _NSResolveSymlinksInPathUsingCache + 668 (NSPathUtilities.m:542)
 2   Foundation                    	0x000000018806569c -[NSString(NSPathUtilities) _stringByResolvingSymlinksInPathUsingCache:] + 128 (NSPathUtilities.m:1393)
@@ -123,32 +91,77 @@ Thread 10:
 15  libsystem_pthread.dylib       	0x00000001e9bec3b0 _pthread_wqthread + 292 (pthread.c:2696)
 16  libsystem_pthread.dylib       	0x00000001e9beb8c0 start_wqthread + 8
 
+Thread 4:
 
-Thread 7 crashed with ARM Thread State (64-bit):
+Thread 5 name:
+Thread 5 Crashed:
+0   Wellvo                        	0x00000001043c0f18 Swift runtime failure: Unexpectedly found nil while unwrapping an Optional value + 0 (/<compiler-generated>:0)
+1   Wellvo                        	0x00000001043c0f18 SupabaseClient.init(supabaseURL:supabaseKey:options:) + 2592 (SupabaseClient.swift:168)
+2   Wellvo                        	0x00000001043c0460 SupabaseClient.__allocating_init(supabaseURL:supabaseKey:options:) + 32 (SupabaseClient.swift:0)
+3   Wellvo                        	0x00000001043c0460 SupabaseClient.__allocating_init(supabaseURL:supabaseKey:) + 596 (SupabaseClient.swift:130)
+4   Wellvo                        	0x0000000104334f48 SupabaseService.().init() + 432 (SupabaseService.swift:25)
+5   Wellvo                        	0x0000000104334d84 SupabaseService.__allocating_init() + 24 (SupabaseService.swift:5)
+6   Wellvo                        	0x0000000104334d84 one-time initialization function for shared + 36
+7   libdispatch.dylib             	0x00000001c50031e4 _dispatch_client_callout + 16 (client_callout.mm:85)
+8   libdispatch.dylib             	0x00000001c4fec5b0 _dispatch_once_callout + 32 (once.c:52)
+9   Wellvo                        	0x000000010431fba4 SupabaseService.shared.unsafeMutableAddressor + 20 (SupabaseService.swift:5)
+10  Wellvo                        	0x000000010431fba4 AuthService.supabase.getter + 20 (AuthService.swift:10)
+11  Wellvo                        	0x000000010431fba4 AuthService.currentSession() + 184 (AuthService.swift:177)
+12  Wellvo                        	0x0000000104336605 AuthViewModel.checkSession() + 1 (AuthViewModel.swift:47)
+13  Wellvo                        	0x000000010433716d closure #1 in AuthViewModel.init() + 1 (AuthViewModel.swift:31)
+14  Wellvo                        	0x0000000104309381 <deduplicated_symbol> + 1
+15  Wellvo                        	0x00000001043073d1 specialized thunk for @escaping @isolated(any) @callee_guaranteed @async () -> (@out A) + 1 (/<compiler-generated>:0)
+16  Wellvo                        	0x0000000104309381 <deduplicated_symbol> + 1
+17  libswift_Concurrency.dylib    	0x0000000188edc385 completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*) + 1 (Task.cpp:546)
+
+Thread 6:
+
+Thread 7 name:
+Thread 7:
+0   libsystem_kernel.dylib        	0x0000000239c0dcd4 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	0x0000000239c1130c mach_msg2_internal + 76 (mach_msg.c:201)
+2   libsystem_kernel.dylib        	0x0000000239c1122c mach_msg_overwrite + 424 (mach_msg.c:0)
+3   libsystem_kernel.dylib        	0x0000000239c11078 mach_msg + 24 (mach_msg.c:323)
+4   CoreFoundation                	0x000000018ae22ea4 __CFRunLoopServiceMachPort + 160 (CFRunLoop.c:2650)
+5   CoreFoundation                	0x000000018adecf94 __CFRunLoopRun + 1188 (CFRunLoop.c:3035)
+6   CoreFoundation                	0x000000018adec1d0 _CFRunLoopRunSpecificWithOptions + 532 (CFRunLoop.c:3462)
+7   Foundation                    	0x0000000188058cf0 -[NSRunLoop(NSRunLoop) runMode:beforeDate:] + 212 (NSRunLoop.m:375)
+8   Foundation                    	0x0000000188058bd8 -[NSRunLoop(NSRunLoop) runUntilDate:] + 64 (NSRunLoop.m:422)
+9   UIKitCore                     	0x0000000190a732dc -[UIEventFetcher threadMain] + 420 (UIEventFetcher.m:1333)
+10  Foundation                    	0x00000001880dc804 __NSThread__start__ + 732 (NSThread.m:1004)
+11  libsystem_pthread.dylib       	0x00000001e9bef438 _pthread_start + 136 (pthread.c:931)
+12  libsystem_pthread.dylib       	0x00000001e9beb8cc thread_start + 8
+
+Thread 8:
+
+Thread 9:
+
+
+Thread 5 crashed with ARM Thread State (64-bit):
     x0: 0x0000000000000000   x1: 0x0000000000000000   x2: 0x0000000000000060   x3: 0xfffff0007fc00000
-    x4: 0x000000011280e7c0   x5: 0x0000000000000000   x6: 0xffffffffbfc007ff   x7: 0xfffff0003ffff800
-    x8: 0x2054071e07730004   x9: 0x2054071e07730004  x10: 0x0000000000054270  x11: 0x0000000000054270
-   x12: 0x0000000000054270  x13: 0xe46a58e12db8ec7a  x14: 0x00000001018500e0  x15: 0x000000011280c000
-   x16: 0x0000000188e14940  x17: 0xc8c30001f69500d0  x18: 0x0000000000000000  x19: 0x4000000106094000
-   x20: 0x000000016f54e960  x21: 0x4000000106094000  x22: 0x000000010636d620  x23: 0x000000010636d620
-   x24: 0x000000016f54ea08  x25: 0x000000016f54e960  x26: 0x000000016f54e620  x27: 0x0000000101114518
-   x28: 0x00000001061b6000   fp: 0x000000016f54e950   lr: 0x0000000100d40968
-    sp: 0x000000016f54e620   pc: 0x0000000100d40f18 cpsr: 0x60000000
+    x4: 0x000000014f183440   x5: 0x0000000000000000   x6: 0xffffffffbfc007ff   x7: 0xfffff0003ffff800
+    x8: 0x84545236a3850034   x9: 0x84545236a3850034  x10: 0x0013400000418c00  x11: 0x0000000000000000
+   x12: 0x0000000000000000  x13: 0x0000000000000000  x14: 0x0000000104d81538  x15: 0x000000014f180000
+   x16: 0x0000000188e14940  x17: 0xc8c30001f69500d0  x18: 0x0000000000000000  x19: 0x400000014e0840c0
+   x20: 0x000000016bdb6960  x21: 0x400000014e0840c0  x22: 0x000000014f17b240  x23: 0x000000014f17b240
+   x24: 0x000000016bdb6a08  x25: 0x000000016bdb6960  x26: 0x000000016bdb6620  x27: 0x0000000104794518
+   x28: 0x000000014f120600   fp: 0x000000016bdb6950   lr: 0x00000001043c0968
+    sp: 0x000000016bdb6620   pc: 0x00000001043c0f18 cpsr: 0x60000000
    esr: 0xf2000001 (Breakpoint) brk 1
 
 
 Binary Images:
-        0x100c80000 -         0x1010cffff Wellvo arm64  <840ad4eb4db13263b82ce81272577cbb> /private/var/containers/Bundle/Application/B4D4ED5A-74FD-4895-9CFF-6D1B30E2423C/Wellvo.app/Wellvo
-        0x1013b0000 -         0x1013bbfff libobjc-trampolines.dylib arm64e  <e51a481b92f532ba9e8bfcecda3b8431> /private/preboot/Cryptexes/OS/usr/lib/libobjc-trampolines.dylib
-        0x101428000 -         0x10143bfff GAXClient arm64e  <3137400ebb293bab9c9f1fb7c09cbdab> /System/Library/AccessibilityBundles/GAXClient.bundle/GAXClient
+        0x104300000 -         0x10474ffff Wellvo arm64  <198c1939bfe0343688aca51737c8aef6> /private/var/containers/Bundle/Application/80D2E46F-B3EB-40B0-8284-257A682A19B3/Wellvo.app/Wellvo
+        0x104ad8000 -         0x104ae3fff libobjc-trampolines.dylib arm64e  <e51a481b92f532ba9e8bfcecda3b8431> /private/preboot/Cryptexes/OS/usr/lib/libobjc-trampolines.dylib
+        0x10b660000 -         0x10b673fff GAXClient arm64e  <3137400ebb293bab9c9f1fb7c09cbdab> /System/Library/AccessibilityBundles/GAXClient.bundle/GAXClient
         0x1879f5000 -         0x187a99ec3 dyld arm64e  <e6decfd2efe33f28b2efc8d7042f9330> /usr/lib/dyld
+        0x187ab5000 -         0x18804d9bf libswiftCore.dylib arm64e  <fc75fdea81943c9f8b4d3a6958da6969> /usr/lib/swift/libswiftCore.dylib
         0x18804e000 -         0x188ed645f Foundation arm64e  <acc6c3b5069f3faebafb777b2f2d2fae> /System/Library/Frameworks/Foundation.framework/Foundation
         0x188ed7000 -         0x188f61925 libswift_Concurrency.dylib arm64e  <c3d9e1f8b402341d97cba9d77c84867c> /usr/lib/swift/libswift_Concurrency.dylib
         0x18adbe000 -         0x18b35a0ff CoreFoundation arm64e  <394b326665a73cbab302a128795d2316> /System/Library/Frameworks/CoreFoundation.framework/CoreFoundation
         0x19098c000 -         0x192eccc1f UIKitCore arm64e  <e06ccfc2dbdd3d7d9e8f03f0ca7e3ead> /System/Library/PrivateFrameworks/UIKitCore.framework/UIKitCore
         0x193dd0000 -         0x19505b7ff SwiftUI arm64e  <1faf9b60701c3cdf8241dc8ba7826690> /System/Library/Frameworks/SwiftUI.framework/SwiftUI
         0x19967d000 -         0x199789c1f AXCoreUtilities arm64e  <7bad8f43194e3da28ff02ee5660ab24f> /System/Library/PrivateFrameworks/AXCoreUtilities.framework/AXCoreUtilities
-        0x1c1b38000 -         0x1c1b4fbbf ContextKitExtraction arm64e  <c6e5aa04eeb73bb294944a1a6811fa12> /System/Library/PrivateFrameworks/ContextKitExtraction.framework/ContextKitExtraction
         0x1c4fe8000 -         0x1c502e5ff libdispatch.dylib arm64e  <74b7e3759c2e30f59eb0ad056e20b5d8> /usr/lib/system/libdispatch.dylib
         0x1e9beb000 -         0x1e9bf74ef libsystem_pthread.dylib arm64e  <6c9bcde9819d345d9d71b60ad47e5159> /usr/lib/system/libsystem_pthread.dylib
         0x2302ea000 -         0x2302f27bf GraphicsServices arm64e  <8504a12e46553d74990e33a39e8943ce> /System/Library/PrivateFrameworks/GraphicsServices.framework/GraphicsServices

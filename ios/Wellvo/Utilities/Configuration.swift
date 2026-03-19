@@ -6,7 +6,8 @@ enum Configuration {
     static var supabaseURL: String {
         guard let value = Bundle.main.infoDictionary?["SUPABASE_URL"] as? String,
               !value.isEmpty,
-              value != "$(SUPABASE_URL)" else {
+              value != "$(SUPABASE_URL)",
+              !value.hasPrefix("REPLACE_AT_BUILD") else {
             #if DEBUG
             return "http://localhost:8000"
             #else
@@ -19,7 +20,8 @@ enum Configuration {
     static var supabaseAnonKey: String {
         guard let value = Bundle.main.infoDictionary?["SUPABASE_ANON_KEY"] as? String,
               !value.isEmpty,
-              value != "$(SUPABASE_ANON_KEY)" else {
+              value != "$(SUPABASE_ANON_KEY)",
+              !value.hasPrefix("REPLACE_AT_BUILD") else {
             #if DEBUG
             return "your-anon-key-here"
             #else
