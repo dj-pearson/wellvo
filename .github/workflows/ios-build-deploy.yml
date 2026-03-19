@@ -42,8 +42,12 @@ jobs:
 
       - name: Select Xcode version
         run: |
-          # Use latest available Xcode
-          XCODE_PATH=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          # Use latest stable Xcode (exclude betas)
+          XCODE_PATH=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -v beta | sort -V | tail -1)
+          if [ -z "$XCODE_PATH" ]; then
+            # Fallback to any Xcode if no stable found
+            XCODE_PATH=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          fi
           echo "Using Xcode: $XCODE_PATH"
           sudo xcode-select -s "$XCODE_PATH"
           xcodebuild -version
