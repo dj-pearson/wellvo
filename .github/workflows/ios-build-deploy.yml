@@ -135,7 +135,7 @@ jobs:
             -destination "generic/platform=iOS" \
             MARKETING_VERSION="${{ env.APP_VERSION }}" \
             CURRENT_PROJECT_VERSION="${{ env.BUILD_NUMBER }}" \
-            | xcbeautify || true
+            | xcbeautify
 
       - name: Create ExportOptions.plist
         run: |
