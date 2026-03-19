@@ -70,6 +70,7 @@
 		B1C0000A /* HeartbeatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C0000A; };
 		/* Notification Service Extension */
 		B2A00001 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A00001; };
+		F2P00002 /* WellvoNotificationService.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = F2P00001; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -438,7 +439,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				F2P00002 /* WellvoNotificationService.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = F2P00001; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; },
+				F2P00002 /* WellvoNotificationService.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -506,21 +507,19 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXResourcesBuildPhase section (Extension) */
-		R2000001 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-
 /* Begin PBXResourcesBuildPhase section */
 		R1000001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				B1G00001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		R2000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
