@@ -113,7 +113,7 @@ jobs:
             -archivePath $RUNNER_TEMP/Wellvo.xcarchive \
             -destination "generic/platform=iOS" \
             DEVELOPMENT_TEAM="${{ env.APPLE_TEAM_ID }}" \
-            PRODUCT_BUNDLE_IDENTIFIER="net.wellvo.app" \
+            PRODUCT_BUNDLE_IDENTIFIER="com.wellvo.ios" \
             CODE_SIGN_STYLE="Manual" \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             PROVISIONING_PROFILE_SPECIFIER="${{ env.PROVISIONING_PROFILE_NAME }}" \
@@ -144,7 +144,7 @@ jobs:
               <string>manual</string>
               <key>provisioningProfiles</key>
               <dict>
-                  <key>net.wellvo.app</key>
+                  <key>com.wellvo.ios</key>
                   <string>${{ env.PROVISIONING_PROFILE_NAME }}</string>
               </dict>
           </dict>

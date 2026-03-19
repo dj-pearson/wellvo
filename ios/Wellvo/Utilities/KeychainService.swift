@@ -3,7 +3,7 @@ import Security
 
 /// Secure Keychain wrapper for storing sensitive values like the Apple User ID.
 enum KeychainService {
-    private static let serviceName = "net.wellvo.app"
+    private static let serviceName = "com.wellvo.ios"
 
     static func save(key: String, value: String) -> Bool {
         guard let data = value.data(using: .utf8) else { return false }

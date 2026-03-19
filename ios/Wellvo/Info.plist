@@ -7,7 +7,7 @@
 	<key>CFBundleName</key>
 	<string>Wellvo</string>
 	<key>CFBundleIdentifier</key>
-	<string>net.wellvo.app</string>
+	<string>com.wellvo.ios</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
