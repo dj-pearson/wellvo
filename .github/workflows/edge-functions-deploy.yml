@@ -26,6 +26,7 @@ jobs:
       - name: Load secrets from Infisical
         uses: Infisical/secrets-action@v1.0.7
         with:
+          domain: "https://env.dpearsonmedia.com"
           client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
           client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
           env-slug: "prod"
@@ -105,6 +106,7 @@ jobs:
       - name: Load secrets from Infisical
         uses: Infisical/secrets-action@v1.0.7
         with:
+          domain: "https://env.dpearsonmedia.com"
           client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
           client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
           env-slug: "prod"

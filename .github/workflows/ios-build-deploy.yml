@@ -16,6 +16,10 @@ on:
         options:
           - testflight
           - app-store
+      version:
+        description: 'Marketing version (e.g. 1.0.0). Leave empty to use value from project.'
+        required: false
+        type: string
 
 env:
   SCHEME: Wellvo
@@ -34,6 +38,7 @@ jobs:
       - name: Load secrets from Infisical
         uses: Infisical/secrets-action@v1.0.7
         with:
+          domain: "https://env.dpearsonmedia.com"
           client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
           client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
           env-slug: "prod"
@@ -102,6 +107,20 @@ jobs:
           echo "SUPABASE_URL = $SUPABASE_URL" >> ios/Wellvo/BuildConfig.xcconfig
           echo "SUPABASE_ANON_KEY = $SUPABASE_ANON_KEY" >> ios/Wellvo/BuildConfig.xcconfig
 
+      - name: Set version and build number
+        run: |
+          BUILD_NUMBER=${{ github.run_number }}
+          VERSION="${{ inputs.version }}"
+
+          # If no version provided, read from project
+          if [ -z "$VERSION" ]; then
+            VERSION=$(sed -n 's/.*MARKETING_VERSION = \(.*\);/\1/p' ios/Wellvo.xcodeproj/project.pbxproj | head -1 | xargs)
+          fi
+
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
+          echo "🏷️ Version: $VERSION ($BUILD_NUMBER)"
+
       - name: Build and archive
         working-directory: ios
         run: |
@@ -115,6 +134,8 @@ jobs:
             PRODUCT_BUNDLE_IDENTIFIER="${{ env.BUNDLE_ID }}" \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             PROVISIONING_PROFILE_SPECIFIER="${{ env.PROVISIONING_PROFILE_NAME }}" \
+            MARKETING_VERSION="${{ env.APP_VERSION }}" \
+            CURRENT_PROJECT_VERSION="${{ env.BUILD_NUMBER }}" \
             SUPABASE_URL="${{ env.SUPABASE_URL }}" \
             SUPABASE_ANON_KEY="${{ env.SUPABASE_ANON_KEY }}" \
             | xcbeautify || true
@@ -191,6 +212,6 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: `CI Failure: iOS Build & Deploy — ${context.sha.substring(0, 7)}`,
-              body: `## Build Failure\n\n- **Workflow:** iOS Build & Deploy\n- **Branch:** ${context.ref}\n- **Commit:** ${context.sha}\n- **Run:** [View logs](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n\nPlease investigate and fix.`,
+              body: `## Build Failure\n\n- **Workflow:** iOS Build & Deploy\n- **Branch:** ${context.ref}\n- **Commit:** ${context.sha}\n- **Build:** #${context.runNumber}\n- **Run:** [View logs](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n\nPlease investigate and fix.`,
               labels: ['ci-failure']
             });
