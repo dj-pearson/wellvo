@@ -208,10 +208,12 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
               body: alertMessage,
             },
             sound: "urgent.caf",
+            category: "URGENT_ALERT",
             "interruption-level": "critical" as const,
             "thread-id": `urgent-${familyId}`,
           },
           checkin_id: checkIn.id,
+          receiver_id: receiverId,
           type: responseType,
         };
 

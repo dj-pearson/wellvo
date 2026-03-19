@@ -11,6 +11,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         registerNotificationCategories()
         UIDevice.current.isBatteryMonitoringEnabled = true
         HeartbeatService.shared.start()
+
+        // Sync access token to shared App Group for Notification Service Extension
+        Task { await SupabaseService.shared.syncAccessTokenToExtension() }
+
         return true
     }
 
@@ -66,6 +70,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             handleCheckInFromNotification(userInfo: userInfo, responseType: .needHelp)
         case "CHECKIN_CALL_ME_ACTION":
             handleCheckInFromNotification(userInfo: userInfo, responseType: .callMe)
+        case "CALL_RECEIVER_ACTION":
+            handleCallReceiver(userInfo: userInfo)
         case UNNotificationDefaultActionIdentifier:
             // User tapped notification body — open app
             // Also confirm delivery
@@ -107,7 +113,69 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             options: [.customDismissAction]
         )
 
-        UNUserNotificationCenter.current().setNotificationCategories([checkinCategory])
+        // Urgent alert category for owners (call me / need help alerts)
+        let callNowAction = UNNotificationAction(
+            identifier: "CALL_RECEIVER_ACTION",
+            title: "Call Now",
+            options: [.foreground]
+        )
+
+        let urgentAlertCategory = UNNotificationCategory(
+            identifier: "URGENT_ALERT",
+            actions: [callNowAction],
+            intentIdentifiers: [],
+            options: []
+        )
+
+        // Location/battery alert category for owners
+        let viewLocationAction = UNNotificationAction(
+            identifier: "VIEW_LOCATION_ACTION",
+            title: "View Details",
+            options: [.foreground]
+        )
+
+        let locationAlertCategory = UNNotificationCategory(
+            identifier: "LOCATION_ALERT",
+            actions: [viewLocationAction],
+            intentIdentifiers: [],
+            options: []
+        )
+
+        UNUserNotificationCenter.current().setNotificationCategories([
+            checkinCategory,
+            urgentAlertCategory,
+            locationAlertCategory,
+        ])
+    }
+
+    private func handleCallReceiver(userInfo: [AnyHashable: Any]) {
+        // Look up the receiver's phone number and initiate a call
+        guard let receiverIdString = userInfo["receiver_id"] as? String,
+              let receiverId = UUID(uuidString: receiverIdString) else { return }
+
+        Task {
+            // Fetch receiver's phone number
+            let users: [AppUser] = try await SupabaseService.shared.client
+                .from("users")
+                .select("id, phone")
+                .eq("id", value: receiverId.uuidString)
+                .limit(1)
+                .execute()
+                .value
+
+            guard let phone = users.first?.phone, !phone.isEmpty else {
+                print("[Call] No phone number found for receiver \(receiverId)")
+                return
+            }
+
+            // Normalize to tel:// URL format
+            let cleaned = phone.replacingOccurrences(of: "[^0-9+]", with: "", options: .regularExpression)
+            guard let telURL = URL(string: "tel://\(cleaned)") else { return }
+
+            await MainActor.run {
+                UIApplication.shared.open(telURL)
+            }
+        }
     }
 
     private func handleCheckInFromNotification(userInfo: [AnyHashable: Any], responseType: CheckInResponseType) {

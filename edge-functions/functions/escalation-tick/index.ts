@@ -10,10 +10,11 @@ interface EscalationRequest {
   family_id: string;
   escalation_step?: number;
   owner_id?: string;
-  // Geofence alert fields
-  type?: "geofence_alert";
+  // Special alert fields
+  type?: "geofence_alert" | "low_battery_alert";
   distance_meters?: number;
   display_name?: string;
+  battery_level?: number;
 }
 
 export async function handleEscalationTick(req: Request, _auth: AuthResult): Promise<Response> {
@@ -63,6 +64,47 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
 
     return new Response(
       JSON.stringify({ success: true, type: "geofence_alert" }),
+      { headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Handle low battery alert — notify owner their receiver's phone is dying
+  if (body.type === "low_battery_alert") {
+    const targetOwnerId = body.owner_id || owner_id;
+    if (targetOwnerId) {
+      const { data: ownerTokens } = await supabaseAdmin
+        .from("push_tokens")
+        .select("token")
+        .eq("user_id", targetOwnerId)
+        .eq("is_active", true);
+
+      if (ownerTokens?.length) {
+        const displayName = body.display_name || "A family member";
+        const batteryPct = body.battery_level != null ? Math.round(body.battery_level * 100) : "low";
+        const payload = {
+          aps: {
+            alert: {
+              title: "Low Battery Warning",
+              body: `${displayName}'s phone battery is at ${batteryPct}%. If they miss their check-in, their phone may be off.`,
+            },
+            sound: "default",
+            "interruption-level": "time-sensitive" as const,
+            "thread-id": `battery-${family_id}`,
+          },
+          type: "low_battery_alert",
+          receiver_id,
+        };
+
+        await Promise.all(
+          ownerTokens.map((t: { token: string }) =>
+            sendPushNotification(t.token, payload, { priority: 10 })
+          )
+        );
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, type: "low_battery_alert" }),
       { headers: { "Content-Type": "application/json" } }
     );
   }
