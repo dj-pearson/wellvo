@@ -140,15 +140,13 @@ struct SettingsView: View {
         }
         isExportingData = true
         do {
-            let result: AnyJSON = try await SupabaseService.shared.client
+            let response = try await SupabaseService.shared.client
                 .rpc("export_user_data", params: ["p_user_id": session.user.id.uuidString])
                 .execute()
-                .value
 
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            if let jsonData = try? encoder.encode(result),
-               let jsonString = String(data: jsonData, encoding: .utf8) {
+            let jsonObject = try JSONSerialization.jsonObject(with: response.data)
+            let jsonData = try JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted, .sortedKeys])
+            if let jsonString = String(data: jsonData, encoding: .utf8) {
                 exportedData = jsonString
                 showExportSheet = true
             }
@@ -164,10 +162,9 @@ struct SettingsView: View {
             return
         }
         do {
-            let _: AnyJSON = try await SupabaseService.shared.client
+            try await SupabaseService.shared.client
                 .rpc("delete_user_account", params: ["p_user_id": session.user.id.uuidString])
                 .execute()
-                .value
             await authViewModel.signOut()
         } catch {
             settingsError = WellvoError.network(error).localizedDescription

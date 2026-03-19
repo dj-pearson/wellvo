@@ -107,7 +107,7 @@ struct ReceiverOnboardingView: View {
 
             Button("Allow Notifications") {
                 Task {
-                    let granted = await PushNotificationService.shared.requestPermission()
+                    let granted = (try? await PushNotificationService.shared.requestPermission()) ?? false
                     if granted {
                         withAnimation { currentStep = 2 }
                     } else {

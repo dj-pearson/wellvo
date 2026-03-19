@@ -89,7 +89,7 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     func requestNotificationPermission() async {
-        let granted = await PushNotificationService.shared.requestPermission()
+        let granted = (try? await PushNotificationService.shared.requestPermission()) ?? false
         if granted {
             advance()
         } else {
