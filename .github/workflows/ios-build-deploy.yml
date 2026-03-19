@@ -159,7 +159,11 @@ jobs:
       - name: Setup App Store Connect API key
         run: |
           mkdir -p ~/.private_keys
-          echo "${{ env.ASC_PRIVATE_KEY }}" > ~/.private_keys/AuthKey_${{ env.ASC_KEY_ID }}.p8
+          KEY_FILE=~/.private_keys/AuthKey_${{ env.ASC_KEY_ID }}.p8
+          echo -n "${{ env.ASC_PRIVATE_KEY }}" | sed 's/\\n/\n/g' > "$KEY_FILE"
+          # Verify the key file looks like a valid PEM
+          echo "Key file first line: $(head -1 "$KEY_FILE")"
+          echo "Key file line count: $(wc -l < "$KEY_FILE")"
 
       - name: Export IPA
         run: |
