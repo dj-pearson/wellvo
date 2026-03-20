@@ -19,11 +19,26 @@ struct ReceiverSettingsView: View {
     @State private var isSaving = false
     @State private var showSavedConfirmation = false
     @State private var errorMessage: String?
+    @State private var receiverMode: ReceiverMode = .standard
 
     private let gracePeriodOptions = [15, 30, 45, 60, 90, 120]
 
     var body: some View {
         Form {
+            // Receiver Mode
+            Section {
+                Picker("Mode", selection: $receiverMode) {
+                    Text("Standard").tag(ReceiverMode.standard)
+                    Text("Kid").tag(ReceiverMode.kid)
+                }
+                .accessibilityLabel("Receiver mode")
+                .accessibilityHint("Choose between standard and kid mode for this receiver")
+            } header: {
+                Text("Receiver Mode")
+            } footer: {
+                Text("Kid mode provides a fun, engaging experience with expanded mood options and location sharing.")
+            }
+
             // Check-In Schedule
             Section {
                 DatePicker("Daily Check-In Time", selection: $checkinTime, displayedComponents: .hourAndMinute)
@@ -174,6 +189,7 @@ struct ReceiverSettingsView: View {
             escalationEnabled = loaded.escalationEnabled
             moodTrackingEnabled = loaded.moodTrackingEnabled
             smsEscalationEnabled = loaded.smsEscalationEnabled
+            receiverMode = loaded.receiverMode
 
             if let qStart = loaded.quietHoursStart, let qEnd = loaded.quietHoursEnd {
                 quietHoursEnabled = true
@@ -200,6 +216,7 @@ struct ReceiverSettingsView: View {
             "escalation_enabled": String(escalationEnabled),
             "mood_tracking_enabled": String(moodTrackingEnabled),
             "sms_escalation_enabled": String(smsEscalationEnabled),
+            "receiver_mode": receiverMode.rawValue,
         ]
 
         if quietHoursEnabled {

@@ -105,19 +105,35 @@ export function buildCheckinPayload(
   receiverName: string,
   requestId: string,
   type: "scheduled" | "on_demand" | "escalation",
-  escalationStep?: number
+  escalationStep?: number,
+  receiverMode?: string
 ): APNsPayload {
-  const titles: Record<string, string> = {
-    scheduled: "Good morning!",
-    on_demand: "Someone is checking on you",
-    escalation: "Reminder: Check in",
-  };
+  let titles: Record<string, string>;
+  let bodies: Record<string, string>;
 
-  const bodies: Record<string, string> = {
-    scheduled: "Tap to let your family know you're OK.",
-    on_demand: `${receiverName} is checking on you. Tap to let them know you're OK.`,
-    escalation: `This is reminder #${escalationStep || 1}. Please tap to check in.`,
-  };
+  if (receiverMode === "kid") {
+    titles = {
+      scheduled: "Hey! 👋",
+      on_demand: "Your parent wants to hear from you!",
+      escalation: "Don't forget!",
+    };
+    bodies = {
+      scheduled: "Time to check in! Let your parents know how you're doing.",
+      on_demand: "Tap to let them know you're OK!",
+      escalation: "Your parents are waiting to hear from you.",
+    };
+  } else {
+    titles = {
+      scheduled: "Good morning!",
+      on_demand: "Someone is checking on you",
+      escalation: "Reminder: Check in",
+    };
+    bodies = {
+      scheduled: "Tap to let your family know you're OK.",
+      on_demand: `${receiverName} is checking on you. Tap to let them know you're OK.`,
+      escalation: `This is reminder #${escalationStep || 1}. Please tap to check in.`,
+    };
+  }
 
   const interruptionLevel =
     type === "escalation" && (escalationStep || 0) >= 2

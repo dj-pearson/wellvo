@@ -36,6 +36,28 @@ export async function handleSendCheckinNotification(req: Request, _auth: AuthRes
     .eq("id", receiver_id)
     .single();
 
+  // Fetch receiver_mode from receiver_settings via family_members
+  let receiverMode: string | undefined;
+  const { data: memberRow } = await supabaseAdmin
+    .from("family_members")
+    .select("id")
+    .eq("user_id", receiver_id)
+    .eq("family_id", family_id)
+    .eq("status", "active")
+    .single();
+
+  if (memberRow) {
+    const { data: settings } = await supabaseAdmin
+      .from("receiver_settings")
+      .select("receiver_mode")
+      .eq("family_member_id", memberRow.id)
+      .single();
+
+    if (settings?.receiver_mode) {
+      receiverMode = settings.receiver_mode;
+    }
+  }
+
   // Find or create a pending check-in request
   const { data: existingRequest } = await supabaseAdmin
     .from("checkin_requests")
@@ -52,7 +74,9 @@ export async function handleSendCheckinNotification(req: Request, _auth: AuthRes
   const payload = buildCheckinPayload(
     user?.display_name || "Your family",
     requestId,
-    type
+    type,
+    undefined,
+    receiverMode
   );
 
   // Send to all active tokens

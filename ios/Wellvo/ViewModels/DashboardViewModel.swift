@@ -12,6 +12,8 @@ struct ReceiverStatusCard: Identifiable {
     var mood: Mood?
     var hasNotificationsEnabled: Bool
     var checkedInTime: Date? // Time component only, for timeline
+    var locationLabel: String?
+    var kidResponseType: String?
 }
 
 enum ReceiverCheckInStatus {
@@ -115,7 +117,9 @@ final class DashboardViewModel: ObservableObject {
                     streak: streak,
                     mood: todayCheckIn?.mood,
                     hasNotificationsEnabled: hasNotifications,
-                    checkedInTime: todayCheckIn?.checkedInAt
+                    checkedInTime: todayCheckIn?.checkedInAt,
+                    locationLabel: todayCheckIn?.locationLabel,
+                    kidResponseType: todayCheckIn?.kidResponseType
                 ))
             }
 

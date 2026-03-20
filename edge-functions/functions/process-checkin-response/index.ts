@@ -25,6 +25,8 @@ interface ProcessCheckinRequest {
   longitude?: number;
   location_accuracy_meters?: number;
   battery_level?: number;
+  location_label?: string;
+  kid_response_type?: string;
 }
 
 export async function handleProcessCheckinResponse(req: Request, auth: AuthResult): Promise<Response> {
@@ -135,6 +137,8 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
   if (body.longitude != null) insertData.longitude = body.longitude;
   if (body.location_accuracy_meters != null) insertData.location_accuracy_meters = body.location_accuracy_meters;
   if (distanceFromHome != null) insertData.distance_from_home_meters = Math.round(distanceFromHome);
+  if (body.location_label != null) insertData.location_label = body.location_label;
+  if (body.kid_response_type != null) insertData.kid_response_type = body.kid_response_type;
 
   const { data: checkIn, error: checkInError } = await supabaseAdmin
     .from("checkins")
@@ -157,8 +161,12 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
       .eq("id", receiverId);
   }
 
+  // Treat kid SOS the same as need_help for escalation purposes
+  const isUrgent = responseType === "need_help" || responseType === "call_me" || body.kid_response_type === "sos";
+  const isKidInfoResponse = body.kid_response_type === "picking_me_up" || body.kid_response_type === "can_stay_longer";
+
   // Handle urgent response types — create alerts and notify owner immediately
-  if (responseType === "need_help" || responseType === "call_me") {
+  if (isUrgent || isKidInfoResponse) {
     const { data: family } = await supabaseAdmin
       .from("families")
       .select("owner_id")
@@ -171,57 +179,119 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
       .eq("id", receiverId)
       .single();
 
-    const alertTitle = responseType === "need_help" ? "Help Requested" : "Call Requested";
-    const alertMessage = responseType === "need_help"
-      ? `${receiver?.display_name || "A family member"} checked in but indicated they need help.`
-      : `${receiver?.display_name || "A family member"} checked in and is asking you to call them.`;
+    const displayName = receiver?.display_name || "A family member";
 
-    // Create urgent alert
-    await supabaseAdmin.from("alerts").insert({
-      family_id: familyId,
-      receiver_id: receiverId,
-      type: responseType,
-      title: alertTitle,
-      message: alertMessage,
-      data: {
-        checkin_id: checkIn.id,
-        latitude: body.latitude,
-        longitude: body.longitude,
-        distance_from_home_meters: distanceFromHome != null ? Math.round(distanceFromHome) : null,
-      },
-    });
+    if (isUrgent) {
+      const effectiveType = body.kid_response_type === "sos" ? "need_help" : responseType;
+      const alertTitle = effectiveType === "need_help" ? "Help Requested" : "Call Requested";
+      const alertMessage = effectiveType === "need_help"
+        ? `${displayName} checked in but indicated they need help.`
+        : `${displayName} checked in and is asking you to call them.`;
 
-    // Send urgent push to owner
-    if (family?.owner_id) {
-      const { sendPushNotification } = await import("../../shared/apns.ts");
-      const { data: ownerTokens } = await supabaseAdmin
-        .from("push_tokens")
-        .select("token")
-        .eq("user_id", family.owner_id)
-        .eq("is_active", true);
-
-      if (ownerTokens?.length) {
-        const urgentPayload = {
-          aps: {
-            alert: {
-              title: alertTitle,
-              body: alertMessage,
-            },
-            sound: "urgent.caf",
-            category: "URGENT_ALERT",
-            "interruption-level": "critical" as const,
-            "thread-id": `urgent-${familyId}`,
-          },
+      // Create urgent alert
+      await supabaseAdmin.from("alerts").insert({
+        family_id: familyId,
+        receiver_id: receiverId,
+        type: effectiveType,
+        title: alertTitle,
+        message: alertMessage,
+        data: {
           checkin_id: checkIn.id,
-          receiver_id: receiverId,
-          type: responseType,
-        };
+          latitude: body.latitude,
+          longitude: body.longitude,
+          distance_from_home_meters: distanceFromHome != null ? Math.round(distanceFromHome) : null,
+          kid_response_type: body.kid_response_type,
+        },
+      });
 
-        await Promise.all(
-          ownerTokens.map((t: { token: string }) =>
-            sendPushNotification(t.token, urgentPayload, { priority: 10 })
-          )
-        );
+      // Send urgent push to owner
+      if (family?.owner_id) {
+        const { sendPushNotification } = await import("../../shared/apns.ts");
+        const { data: ownerTokens } = await supabaseAdmin
+          .from("push_tokens")
+          .select("token")
+          .eq("user_id", family.owner_id)
+          .eq("is_active", true);
+
+        if (ownerTokens?.length) {
+          const urgentPayload = {
+            aps: {
+              alert: {
+                title: alertTitle,
+                body: alertMessage,
+              },
+              sound: "urgent.caf",
+              category: "URGENT_ALERT",
+              "interruption-level": "critical" as const,
+              "thread-id": `urgent-${familyId}`,
+            },
+            checkin_id: checkIn.id,
+            receiver_id: receiverId,
+            type: effectiveType,
+          };
+
+          await Promise.all(
+            ownerTokens.map((t: { token: string }) =>
+              sendPushNotification(t.token, urgentPayload, { priority: 10 })
+            )
+          );
+        }
+      }
+    } else if (isKidInfoResponse) {
+      // Non-urgent kid responses — notify owner so they see it in their dashboard
+      const kidLabel = body.kid_response_type === "picking_me_up" ? "Pickup Requested" : "Wants to Stay Longer";
+      const kidMessage = body.kid_response_type === "picking_me_up"
+        ? `${displayName} is asking to be picked up.`
+        : `${displayName} is asking if they can stay longer.`;
+
+      // Create non-urgent alert for owner dashboard
+      await supabaseAdmin.from("alerts").insert({
+        family_id: familyId,
+        receiver_id: receiverId,
+        type: body.kid_response_type,
+        title: kidLabel,
+        message: kidMessage,
+        data: {
+          checkin_id: checkIn.id,
+          latitude: body.latitude,
+          longitude: body.longitude,
+          location_label: body.location_label,
+          kid_response_type: body.kid_response_type,
+        },
+      });
+
+      // Send non-urgent push to owner
+      if (family?.owner_id) {
+        const { sendPushNotification } = await import("../../shared/apns.ts");
+        const { data: ownerTokens } = await supabaseAdmin
+          .from("push_tokens")
+          .select("token")
+          .eq("user_id", family.owner_id)
+          .eq("is_active", true);
+
+        if (ownerTokens?.length) {
+          const infoPayload = {
+            aps: {
+              alert: {
+                title: kidLabel,
+                body: kidMessage,
+              },
+              sound: "default",
+              category: "KID_RESPONSE",
+              "thread-id": `kid-${familyId}`,
+              "interruption-level": "active" as const,
+            },
+            checkin_id: checkIn.id,
+            receiver_id: receiverId,
+            type: body.kid_response_type,
+          };
+
+          await Promise.all(
+            ownerTokens.map((t: { token: string }) =>
+              sendPushNotification(t.token, infoPayload, { priority: 5 })
+            )
+          );
+        }
       }
     }
   }

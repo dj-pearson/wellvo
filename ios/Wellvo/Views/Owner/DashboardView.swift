@@ -109,11 +109,12 @@ struct WeeklySummaryCard: View {
                         .foregroundStyle(.secondary)
                     ForEach(Array(summary.moodBreakdown.keys), id: \.self) { mood in
                         HStack(spacing: 2) {
-                            Text(moodEmoji(mood))
+                            Text(mood.emoji)
                             Text("\(summary.moodBreakdown[mood] ?? 0)")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
+                        .accessibilityLabel("\(mood.label): \(summary.moodBreakdown[mood] ?? 0)")
                     }
                 }
             }
@@ -325,11 +326,32 @@ struct ReceiverStatusCardView: View {
                     Text("Mood:")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(moodEmoji(mood))
+                    Text(mood.emoji)
                         .font(.body)
+                    Text(mood.label)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Mood: \(mood.rawValue)")
+                .accessibilityLabel("Mood: \(mood.label)")
+            }
+
+            // Location label (kid mode)
+            if let locationLabel = card.locationLabel, !locationLabel.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "mappin.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.blue)
+                    Text("At: \(locationLabelDisplay(locationLabel))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Location: \(locationLabelDisplay(locationLabel))")
+            }
+
+            // Kid response type
+            if let kidResponse = card.kidResponseType, !kidResponse.isEmpty {
+                kidResponseBadge(kidResponse)
             }
 
             // Check on button (owner-only)
@@ -362,11 +384,41 @@ struct ReceiverStatusCardView: View {
 }
 
 private func moodEmoji(_ mood: Mood) -> String {
-    switch mood {
-    case .happy: return "😊"
-    case .neutral: return "😐"
-    case .tired: return "😴"
+    mood.emoji
+}
+
+private func locationLabelDisplay(_ rawValue: String) -> String {
+    if let label = LocationLabel(rawValue: rawValue) {
+        return label.label
     }
+    return rawValue.replacingOccurrences(of: "_", with: " ").capitalized
+}
+
+private func kidResponseBadge(_ rawValue: String) -> some View {
+    let config: (text: String, color: Color)
+    switch rawValue {
+    case KidResponseType.pickingMeUp.rawValue:
+        config = ("Wants pickup", .orange)
+    case KidResponseType.canStayLonger.rawValue:
+        config = ("Wants to stay longer", .blue)
+    case KidResponseType.sos.rawValue:
+        config = ("SOS!", .red)
+    default:
+        config = (rawValue, .gray)
+    }
+
+    return HStack(spacing: 4) {
+        Image(systemName: config.color == .red ? "exclamationmark.triangle.fill" : "bubble.left.fill")
+            .font(.caption2)
+        Text(config.text)
+            .font(.caption)
+            .fontWeight(.medium)
+    }
+    .foregroundStyle(.white)
+    .padding(.horizontal, 10)
+    .padding(.vertical, 4)
+    .background(config.color, in: Capsule())
+    .accessibilityLabel("Kid response: \(config.text)")
 }
 
 // MARK: - Pattern Alerts Banner

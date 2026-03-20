@@ -13,7 +13,9 @@ actor CheckInService {
         source: CheckInSource = .app,
         responseType: CheckInResponseType = .ok,
         location: CheckInLocation? = nil,
-        batteryLevel: Double? = nil
+        batteryLevel: Double? = nil,
+        locationLabel: String? = nil,
+        kidResponseType: String? = nil
     ) async throws -> CheckIn {
         guard let session = try? await supabase.auth.session else {
             throw CheckInError.notAuthenticated
@@ -36,6 +38,12 @@ actor CheckInService {
         }
         if let battery = batteryLevel {
             body["battery_level"] = String(battery)
+        }
+        if let locationLabel {
+            body["location_label"] = locationLabel
+        }
+        if let kidResponseType {
+            body["kid_response_type"] = kidResponseType
         }
 
         // Use the edge function which handles location, response type, and alerts
