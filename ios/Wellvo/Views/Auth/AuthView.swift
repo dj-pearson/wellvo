@@ -4,7 +4,9 @@ import AuthenticationServices
 struct AuthView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State private var isSignUp = false
+    @ScaledMetric(relativeTo: .largeTitle) private var logoSize: CGFloat = 80
 
     var body: some View {
         NavigationStack {
@@ -14,15 +16,18 @@ struct AuthView: View {
                 // Logo & Tagline
                 VStack(spacing: 12) {
                     Image(systemName: "heart.circle.fill")
-                        .font(.system(size: 80))
+                        .font(.system(size: logoSize))
                         .foregroundStyle(.green)
+                        .accessibilityHidden(true)
 
                     Text("Wellvo")
-                        .font(.system(size: 42, weight: .bold))
+                        .font(.largeTitle.weight(.bold))
+                        .accessibilityAddTraits(.isHeader)
 
                     Text("One tap. Total peace of mind.")
                         .font(.title3)
                         .foregroundStyle(.secondary)
+                        .accessibilityLabel("One tap. Total peace of mind.")
                 }
 
                 Spacer()
@@ -111,9 +116,14 @@ struct AuthView: View {
 
                 // Toggle sign-in / sign-up
                 Button {
-                    withAnimation {
+                    if reduceMotion {
                         isSignUp.toggle()
                         authViewModel.errorMessage = nil
+                    } else {
+                        withAnimation {
+                            isSignUp.toggle()
+                            authViewModel.errorMessage = nil
+                        }
                     }
                 } label: {
                     Text(isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up")
@@ -132,7 +142,7 @@ struct AuthView: View {
                 Spacer()
             }
             .padding(.horizontal, 24)
-            .animation(.easeInOut(duration: 0.2), value: authViewModel.errorMessage)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: authViewModel.errorMessage)
         }
     }
 }

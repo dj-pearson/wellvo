@@ -88,10 +88,15 @@ struct HistoryView: View {
 
                             ForEach(checkIns) { checkIn in
                                 HStack {
-                                    Circle()
-                                        .fill(Color.green)
-                                        .frame(width: 10, height: 10)
-                                        .accessibilityHidden(true)
+                                    ZStack {
+                                        Circle()
+                                            .fill(Color.green)
+                                            .frame(width: 10, height: 10)
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 6, weight: .bold))
+                                            .foregroundStyle(.white)
+                                    }
+                                    .accessibilityHidden(true)
 
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(checkIn.checkedInAt.formatted(date: .abbreviated, time: .shortened))

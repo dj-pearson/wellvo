@@ -157,23 +157,36 @@ struct TodayTimelineCard: View {
 
             ForEach(cards) { card in
                 HStack(spacing: 12) {
-                    Circle()
-                        .fill(card.status.color)
-                        .frame(width: 10, height: 10)
+                    ZStack {
+                        Circle()
+                            .fill(card.status.color)
+                            .frame(width: 10, height: 10)
+
+                        Image(systemName: timelineStatusIcon(for: card))
+                            .font(.system(size: 6, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                    .frame(width: 14, height: 14)
+                    .accessibilityHidden(true)
 
                     Text(card.name)
                         .font(.subheadline)
 
                     Spacer()
 
-                    if let time = card.checkedInTime {
-                        Text(time.formatted(date: .omitted, time: .shortened))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text(card.status.label)
-                            .font(.caption)
-                            .foregroundStyle(card.status.color)
+                    HStack(spacing: 4) {
+                        Image(systemName: timelineStatusIcon(for: card))
+                            .font(.caption2)
+
+                        if let time = card.checkedInTime {
+                            Text(time.formatted(date: .omitted, time: .shortened))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text(card.status.label)
+                                .font(.caption)
+                                .foregroundStyle(card.status.color)
+                        }
                     }
 
                     // Timeline bar
@@ -187,6 +200,18 @@ struct TodayTimelineCard: View {
         .padding()
         .background(Color(.secondarySystemGroupedBackground))
         .cornerRadius(16)
+    }
+
+    private func timelineStatusIcon(for card: ReceiverStatusCard) -> String {
+        if card.checkedInTime != nil {
+            return "checkmark.circle"
+        }
+        // Use the card's status label to differentiate pending vs missed
+        let label = card.status.label.lowercased()
+        if label.contains("miss") {
+            return "xmark.circle"
+        }
+        return "clock"
     }
 
     private func timelineBar(for card: ReceiverStatusCard) -> some View {

@@ -3,6 +3,9 @@ import SwiftUI
 struct OnboardingView: View {
     @StateObject private var viewModel = OnboardingViewModel()
     @EnvironmentObject var appState: AppState
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @ScaledMetric(relativeTo: .largeTitle) private var largeIconSize: CGFloat = 80
+    @ScaledMetric(relativeTo: .title) private var mediumIconSize: CGFloat = 60
 
     var body: some View {
         NavigationStack {
@@ -11,6 +14,7 @@ struct OnboardingView: View {
                 ProgressView(value: Double(viewModel.currentStep.rawValue), total: Double(OnboardingStep.allCases.count - 1))
                     .tint(.green)
                     .padding(.horizontal)
+                    .accessibilityLabel("Onboarding progress: step \(viewModel.currentStep.rawValue + 1) of \(OnboardingStep.allCases.count)")
 
                 Spacer()
 
@@ -33,10 +37,11 @@ struct OnboardingView: View {
                     }
                 }
                 .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
+                .transaction { t in if reduceMotion { t.animation = nil } }
 
                 Spacer()
             }
-            .animation(.easeInOut, value: viewModel.currentStep)
+            .animation(reduceMotion ? nil : .easeInOut, value: viewModel.currentStep)
         }
     }
 
@@ -45,8 +50,9 @@ struct OnboardingView: View {
     private var welcomeStep: some View {
         VStack(spacing: 24) {
             Image(systemName: "heart.circle.fill")
-                .font(.system(size: 80))
+                .font(.system(size: largeIconSize))
                 .foregroundStyle(.green)
+                .accessibilityHidden(true)
 
             Text("Welcome to Wellvo")
                 .font(.largeTitle)
@@ -107,6 +113,7 @@ struct OnboardingView: View {
                 Image(systemName: icon)
                     .font(.title2)
                     .frame(width: 40)
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.headline)
@@ -123,6 +130,8 @@ struct OnboardingView: View {
             .cornerRadius(12)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(title): \(subtitle)")
+        .accessibilityHint("Double tap to select \(title)")
     }
 
     private var createFamilyStep: some View {
@@ -205,8 +214,9 @@ struct OnboardingView: View {
     private var notificationsStep: some View {
         VStack(spacing: 24) {
             Image(systemName: "bell.badge.fill")
-                .font(.system(size: 60))
+                .font(.system(size: mediumIconSize))
                 .foregroundStyle(.green)
+                .accessibilityHidden(true)
 
             Text("Enable Notifications")
                 .font(.title)
@@ -308,8 +318,9 @@ struct OnboardingView: View {
     private var completeStep: some View {
         VStack(spacing: 24) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
+                .font(.system(size: largeIconSize))
                 .foregroundStyle(.green)
+                .accessibilityHidden(true)
 
             Text("You're All Set!")
                 .font(.largeTitle)

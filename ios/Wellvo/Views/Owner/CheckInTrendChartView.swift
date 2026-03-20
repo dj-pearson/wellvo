@@ -81,6 +81,7 @@ struct CheckInTrendChartView: View {
                                     .fill(point.count > 0 ? Color.green : Color.clear)
                                     .frame(width: 6, height: 6)
                                     .position(x: x, y: y)
+                                    .accessibilityLabel("\(point.label): average check-in at \(formatMinutesToTime(Int(point.avgMinutes))), \(point.count) check-in\(point.count == 1 ? "" : "s")")
                             }
                         }
                         .frame(height: chartHeight)

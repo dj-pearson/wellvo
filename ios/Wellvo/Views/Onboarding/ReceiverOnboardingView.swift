@@ -4,6 +4,7 @@ import SwiftUI
 /// Intentionally minimal — matches PRD Section 7.2.
 struct ReceiverOnboardingView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State private var currentStep = 0
     @State private var isProcessing = false
     @State private var checkinTimeDisplay = "8:00 AM"
@@ -23,6 +24,8 @@ struct ReceiverOnboardingView: View {
                 }
             }
             .padding(.top, 20)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Step \(currentStep + 1) of 3")
 
             Spacer()
 
@@ -37,7 +40,8 @@ struct ReceiverOnboardingView: View {
                 }
             }
             .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
-            .animation(.easeInOut(duration: 0.3), value: currentStep)
+            .transaction { t in if reduceMotion { t.animation = nil } }
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: currentStep)
 
             Spacer()
         }
@@ -77,7 +81,11 @@ struct ReceiverOnboardingView: View {
             }
 
             Button("Continue") {
-                withAnimation { currentStep = 1 }
+                if reduceMotion {
+                    currentStep = 1
+                } else {
+                    withAnimation { currentStep = 1 }
+                }
             }
             .buttonStyle(.borderedProminent)
             .tint(.green)
@@ -108,7 +116,9 @@ struct ReceiverOnboardingView: View {
             Button("Allow Notifications") {
                 Task {
                     let granted = (try? await PushNotificationService.shared.requestPermission()) ?? false
-                    if granted {
+                    if reduceMotion {
+                        currentStep = 2
+                    } else if granted {
                         withAnimation { currentStep = 2 }
                     } else {
                         withAnimation { currentStep = 2 }

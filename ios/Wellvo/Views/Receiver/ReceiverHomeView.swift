@@ -2,11 +2,15 @@ import SwiftUI
 
 struct ReceiverHomeView: View {
     @StateObject private var viewModel = ReceiverViewModel()
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State private var buttonScale: CGFloat = 1.0
     @State private var isPulsing = false
     @State private var showCheckmark = false
     @State private var checkmarkScale: CGFloat = 0.0
     @State private var checkmarkOpacity: Double = 0.0
+    @ScaledMetric(relativeTo: .largeTitle) private var buttonDiameter: CGFloat = 200
+    @ScaledMetric(relativeTo: .title) private var tapIconSize: CGFloat = 40
+    @ScaledMetric(relativeTo: .title) private var tapTextSize: CGFloat = 28
 
     private let hapticSuccess = UINotificationFeedbackGenerator()
     private let hapticImpact = UIImpactFeedbackGenerator(style: .medium)
@@ -57,6 +61,7 @@ struct ReceiverHomeView: View {
                 if viewModel.showMoodSelector {
                     moodSelector
                         .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .transaction { t in if reduceMotion { t.animation = nil } }
                 }
             }
             .padding()
@@ -85,8 +90,8 @@ struct ReceiverHomeView: View {
             } label: {
                 ZStack {
                     Circle()
-                        .fill(Color(red: 0.18, green: 0.8, blue: 0.443)) // #2ECC71
-                        .frame(width: 200, height: 200)
+                        .fill(Color.green)
+                        .frame(width: buttonDiameter, height: buttonDiameter)
                         .shadow(color: .green.opacity(0.4), radius: isPulsing ? 20 : 10)
                         .scaleEffect(buttonScale)
 
@@ -100,11 +105,11 @@ struct ReceiverHomeView: View {
                     } else {
                         VStack(spacing: 8) {
                             Image(systemName: "hand.tap.fill")
-                                .font(.system(size: 40))
+                                .font(.system(size: tapIconSize))
                                 .foregroundStyle(.white)
 
                             Text("I'm OK")
-                                .font(.system(size: 28, weight: .bold))
+                                .font(.system(size: tapTextSize, weight: .bold))
                                 .foregroundStyle(.white)
                         }
                     }
@@ -113,6 +118,7 @@ struct ReceiverHomeView: View {
             .disabled(viewModel.isCheckingIn)
             .accessibilityLabel("Tap to check in and let your family know you're okay")
             .onAppear {
+                guard !reduceMotion else { return }
                 withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
                     isPulsing = true
                     buttonScale = 1.05
@@ -145,7 +151,7 @@ struct ReceiverHomeView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 100))
                     .foregroundStyle(.green)
-                    .symbolEffect(.bounce, value: viewModel.hasCheckedInToday)
+                    .symbolEffect(.bounce, value: reduceMotion ? false : viewModel.hasCheckedInToday)
                     .accessibilityHidden(true)
             }
             .accessibilityElement(children: .ignore)
@@ -206,16 +212,24 @@ struct ReceiverHomeView: View {
 
     private func animateCheckmark() {
         showCheckmark = true
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
-            checkmarkScale = 1.2
-            checkmarkOpacity = 1.0
-        }
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7).delay(0.2)) {
+        if reduceMotion {
             checkmarkScale = 1.0
-        }
-        // Transition to checked-in state after animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            showCheckmark = false
+            checkmarkOpacity = 1.0
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                showCheckmark = false
+            }
+        } else {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
+                checkmarkScale = 1.2
+                checkmarkOpacity = 1.0
+            }
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7).delay(0.2)) {
+                checkmarkScale = 1.0
+            }
+            // Transition to checked-in state after animation
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                showCheckmark = false
+            }
         }
     }
 }

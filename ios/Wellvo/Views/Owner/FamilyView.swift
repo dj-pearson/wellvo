@@ -166,9 +166,17 @@ struct MemberRow: View {
 
     var body: some View {
         HStack {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 10, height: 10)
+            ZStack {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 10, height: 10)
+
+                Image(systemName: statusIcon)
+                    .font(.system(size: 6, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 14, height: 14)
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(member.user?.displayName ?? "Invited")
@@ -194,14 +202,20 @@ struct MemberRow: View {
                     .font(.caption)
                     .foregroundStyle(.orange)
             } else {
-                Text(member.status.rawValue.capitalized)
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(statusColor.opacity(0.15))
-                    .cornerRadius(8)
+                HStack(spacing: 4) {
+                    Image(systemName: statusIcon)
+                        .font(.caption2)
+                    Text(member.status.rawValue.capitalized)
+                }
+                .font(.caption)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(statusColor.opacity(0.15))
+                .cornerRadius(8)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(member.user?.displayName ?? "Invited"), \(member.role.rawValue), status: \(statusLabel)")
     }
 
     private var statusColor: Color {
@@ -209,6 +223,22 @@ struct MemberRow: View {
         case .active: return .green
         case .invited: return .orange
         case .deactivated: return .gray
+        }
+    }
+
+    private var statusIcon: String {
+        switch member.status {
+        case .active: return "checkmark"
+        case .invited: return "clock"
+        case .deactivated: return "xmark"
+        }
+    }
+
+    private var statusLabel: String {
+        switch member.status {
+        case .active: return "Active"
+        case .invited: return "Invited"
+        case .deactivated: return "Deactivated"
         }
     }
 }

@@ -4,6 +4,7 @@ import UserNotifications
 /// A non-intrusive banner shown when notification permission is denied.
 /// Dismissable for 7 days. Links to iOS Settings.
 struct NotificationPermissionBanner: View {
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State private var permissionStatus: UNAuthorizationStatus = .authorized
     @State private var isDismissed = false
 
@@ -80,7 +81,11 @@ struct NotificationPermissionBanner: View {
 
     private func dismiss() {
         UserDefaults.standard.set(Date(), forKey: dismissKey)
-        withAnimation { isDismissed = true }
+        if reduceMotion {
+            isDismissed = true
+        } else {
+            withAnimation { isDismissed = true }
+        }
     }
 
     private func openSettings() {

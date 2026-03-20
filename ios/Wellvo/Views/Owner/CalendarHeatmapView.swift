@@ -43,11 +43,17 @@ struct CalendarHeatmapView: View {
                     VStack(spacing: spacing) {
                         ForEach(0..<grid[weekIndex].count, id: \.self) { dayIndex in
                             let entry = grid[weekIndex][dayIndex]
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(colorForStatus(entry.status))
-                                .frame(width: cellSize, height: cellSize)
-                                .help(entry.tooltip)
-                                .accessibilityLabel(entry.tooltip.isEmpty ? "No data" : entry.tooltip)
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(colorForStatus(entry.status))
+                                    .frame(width: cellSize, height: cellSize)
+
+                                Text(symbolForStatus(entry.status))
+                                    .font(.system(size: 7, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.9))
+                            }
+                            .help(entry.tooltip)
+                            .accessibilityLabel(entry.tooltip.isEmpty ? "No data" : entry.tooltip)
                         }
                     }
                 }
@@ -55,10 +61,10 @@ struct CalendarHeatmapView: View {
 
             // Legend
             HStack(spacing: 12) {
-                legendItem(color: .gray.opacity(0.15), label: "No data")
-                legendItem(color: .green, label: "On time")
-                legendItem(color: .yellow, label: "Late")
-                legendItem(color: .red, label: "Missed")
+                legendItem(color: .gray.opacity(0.15), label: "No data", symbol: "")
+                legendItem(color: .green, label: "On time", symbol: "\u{2713}")
+                legendItem(color: .yellow, label: "Late", symbol: "!")
+                legendItem(color: .red, label: "Missed", symbol: "\u{2717}")
             }
             .font(.caption2)
             .foregroundStyle(.secondary)
@@ -199,11 +205,27 @@ struct CalendarHeatmapView: View {
         }
     }
 
-    private func legendItem(color: Color, label: String) -> some View {
+    private func symbolForStatus(_ status: DayStatus) -> String {
+        switch status {
+        case .onTime: return "\u{2713}"
+        case .late: return "!"
+        case .missed: return "\u{2717}"
+        case .noData, .future: return ""
+        }
+    }
+
+    private func legendItem(color: Color, label: String, symbol: String = "") -> some View {
         HStack(spacing: 4) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(color)
-                .frame(width: 10, height: 10)
+            ZStack {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(color)
+                    .frame(width: 10, height: 10)
+                if !symbol.isEmpty {
+                    Text(symbol)
+                        .font(.system(size: 6, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.9))
+                }
+            }
             Text(label)
         }
     }

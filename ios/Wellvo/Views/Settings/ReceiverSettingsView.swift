@@ -4,6 +4,7 @@ import Supabase
 struct ReceiverSettingsView: View {
     let member: FamilyMember
 
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State private var settings: ReceiverSettings?
     @State private var checkinTime = Date()
     @State private var gracePeriod = 30
@@ -140,6 +141,7 @@ struct ReceiverSettingsView: View {
                     .padding(.bottom, 40)
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transaction { t in if reduceMotion { t.animation = nil } }
             }
         }
         .task { await loadSettings() }
@@ -212,9 +214,17 @@ struct ReceiverSettingsView: View {
                 .eq("family_member_id", value: member.id.uuidString)
                 .execute()
 
-            withAnimation { showSavedConfirmation = true }
+            if reduceMotion {
+                showSavedConfirmation = true
+            } else {
+                withAnimation { showSavedConfirmation = true }
+            }
             try? await Task.sleep(nanoseconds: 2_000_000_000)
-            withAnimation { showSavedConfirmation = false }
+            if reduceMotion {
+                showSavedConfirmation = false
+            } else {
+                withAnimation { showSavedConfirmation = false }
+            }
         } catch {
             errorMessage = WellvoError.network(error).localizedDescription
         }

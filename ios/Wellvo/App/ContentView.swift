@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var appState: AppState
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
         Group {
@@ -25,24 +26,31 @@ struct ContentView: View {
                 }
             }
         }
-        .animation(.easeInOut, value: authViewModel.authState)
+        .animation(reduceMotion ? nil : .easeInOut, value: authViewModel.authState)
     }
 }
 
 struct LaunchScreenView: View {
+    @ScaledMetric(relativeTo: .largeTitle) private var heartSize: CGFloat = 80
+
     var body: some View {
         ZStack {
             Color(.systemBackground)
                 .ignoresSafeArea()
             VStack(spacing: 16) {
                 Image(systemName: "heart.circle.fill")
-                    .font(.system(size: 80))
+                    .font(.system(size: heartSize))
                     .foregroundStyle(.green)
+                    .accessibilityLabel("Wellvo heart icon")
                 Text("Wellvo")
                     .font(.largeTitle)
                     .fontWeight(.bold)
+                    .accessibilityLabel("Wellvo")
                 ProgressView()
+                    .accessibilityLabel("Loading")
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Wellvo is loading")
         }
     }
 }
