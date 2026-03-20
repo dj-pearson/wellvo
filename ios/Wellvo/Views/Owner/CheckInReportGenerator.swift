@@ -143,13 +143,7 @@ struct CheckInReportGenerator {
                 let dateStr = dateFmt.string(from: checkIn.checkedInAt)
                 let timeStr = timeFmt.string(from: checkIn.checkedInAt)
                 let sourceStr = checkIn.source.rawValue.replacingOccurrences(of: "_", with: " ").capitalized
-                let moodStr: String
-                switch checkIn.mood {
-                case .happy: moodStr = "Good"
-                case .neutral: moodStr = "Okay"
-                case .tired: moodStr = "Tired"
-                case .none: moodStr = "—"
-                }
+                let moodStr = checkIn.mood?.label ?? "—"
 
                 dateStr.draw(at: CGPoint(x: columns[0].1, y: yPosition), withAttributes: rowAttrs)
                 timeStr.draw(at: CGPoint(x: columns[1].1, y: yPosition), withAttributes: rowAttrs)
@@ -199,11 +193,8 @@ struct CheckInReportGenerator {
     private static func moodBreakdownString(_ checkIns: [CheckIn]) -> String {
         var counts: [String: Int] = [:]
         for ci in checkIns {
-            switch ci.mood {
-            case .happy: counts["Good", default: 0] += 1
-            case .neutral: counts["Okay", default: 0] += 1
-            case .tired: counts["Tired", default: 0] += 1
-            case .none: break
+            if let mood = ci.mood {
+                counts[mood.label, default: 0] += 1
             }
         }
         if counts.isEmpty { return "No mood data" }

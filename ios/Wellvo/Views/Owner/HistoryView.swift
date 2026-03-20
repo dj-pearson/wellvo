@@ -195,11 +195,7 @@ struct HistoryView: View {
     }
 
     private func moodEmoji(_ mood: Mood) -> String {
-        switch mood {
-        case .happy: return "😊"
-        case .neutral: return "😐"
-        case .tired: return "😴"
-        }
+        mood.emoji
     }
 }
 
