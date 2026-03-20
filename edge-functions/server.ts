@@ -20,6 +20,9 @@ import { handleOnDemandCheckin } from "./functions/on-demand-checkin/index.ts";
 import { handleSubscriptionWebhook } from "./functions/subscription-webhook/index.ts";
 import { handleInviteReceiver } from "./functions/invite-receiver/index.ts";
 import { handleSubscriptionCancellation } from "./functions/subscription-cancellation/index.ts";
+import { handleConfirmDelivery } from "./functions/confirm-delivery/index.ts";
+import { handleReportLocation } from "./functions/report-location/index.ts";
+import { handleHeartbeat } from "./functions/heartbeat/index.ts";
 
 type FunctionHandler = (req: Request, auth: AuthResult) => Promise<Response>;
 
@@ -38,6 +41,9 @@ const routes: Record<string, FunctionHandler> = {
   "/subscription-webhook": handleSubscriptionWebhook,
   "/invite-receiver": handleInviteReceiver,
   "/subscription-cancellation": handleSubscriptionCancellation,
+  "/confirm-delivery": handleConfirmDelivery,
+  "/report-location": handleReportLocation,
+  "/heartbeat": handleHeartbeat,
 };
 
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://wellvo.net";

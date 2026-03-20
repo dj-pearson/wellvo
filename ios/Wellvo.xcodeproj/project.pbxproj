@@ -65,6 +65,9 @@
 		B1H00001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = P1H00001; };
 		B1H00002 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = P1H00002; };
 		B1H00003 /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = P1H00003; };
+		/* New Services */
+		B1C00009 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00009; };
+		B1C0000A /* HeartbeatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C0000A; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -90,6 +93,8 @@
 		F1C00006 /* PushNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationService.swift; sourceTree = "<group>"; };
 		F1C00007 /* SubscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionService.swift; sourceTree = "<group>"; };
 		F1C00008 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
+		F1C00009 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
+		F1C0000A /* HeartbeatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartbeatService.swift; sourceTree = "<group>"; };
 		/* Utilities */
 		F1D00001 /* Configuration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
 		F1D00002 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
@@ -200,6 +205,8 @@
 				F1C00002 /* AuthService.swift */,
 				F1C00003 /* CheckInService.swift */,
 				F1C00004 /* FamilyService.swift */,
+				F1C0000A /* HeartbeatService.swift */,
+				F1C00009 /* LocationService.swift */,
 				F1C00005 /* OfflineCheckInService.swift */,
 				F1C00006 /* PushNotificationService.swift */,
 				F1C00007 /* SubscriptionService.swift */,
@@ -408,6 +415,8 @@
 				B1F0000D /* ReceiverSettingsView.swift in Sources */,
 				B1F0000E /* SettingsView.swift in Sources */,
 				B1F0000F /* ViewerTabView.swift in Sources */,
+				B1C00009 /* LocationService.swift in Sources */,
+				B1C0000A /* HeartbeatService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

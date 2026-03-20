@@ -22,6 +22,9 @@ struct AppUser: Codable, Identifiable {
     var timezone: String
     let createdAt: Date
     var updatedAt: Date
+    var lastSeenAt: Date?
+    var lastBatteryLevel: Double?
+    var lastAppVersion: String?
 
     enum CodingKeys: String, CodingKey {
         case id, email, phone, role, timezone
@@ -29,5 +32,8 @@ struct AppUser: Codable, Identifiable {
         case avatarUrl = "avatar_url"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case lastSeenAt = "last_seen_at"
+        case lastBatteryLevel = "last_battery_level"
+        case lastAppVersion = "last_app_version"
     }
 }

@@ -6,51 +6,88 @@ actor CheckInService {
 
     private var supabase: SupabaseClient { SupabaseService.shared.client }
 
-    /// Receiver performs a check-in
-    func checkIn(familyId: UUID, mood: Mood? = nil, source: CheckInSource = .app) async throws -> CheckIn {
+    /// Receiver performs a check-in with optional response type and location
+    func checkIn(
+        familyId: UUID,
+        mood: Mood? = nil,
+        source: CheckInSource = .app,
+        responseType: CheckInResponseType = .ok,
+        location: CheckInLocation? = nil,
+        batteryLevel: Double? = nil
+    ) async throws -> CheckIn {
         guard let session = try? await supabase.auth.session else {
             throw CheckInError.notAuthenticated
         }
 
-        let checkIn: CheckIn = try await supabase
-            .from("checkins")
-            .insert([
-                "receiver_id": session.user.id.uuidString,
-                "family_id": familyId.uuidString,
-                "checked_in_at": ISO8601DateFormatter().string(from: Date()),
-                "mood": mood?.rawValue ?? "",
-                "source": source.rawValue,
-            ])
-            .select()
-            .single()
-            .execute()
-            .value
+        var body: [String: String] = [
+            "receiver_id": session.user.id.uuidString,
+            "family_id": familyId.uuidString,
+            "source": source.rawValue,
+            "response_type": responseType.rawValue,
+        ]
 
-        // Also update any pending check-in requests
-        try await supabase.functions.invoke(
+        if let mood = mood { body["mood"] = mood.rawValue }
+        if let loc = location {
+            body["latitude"] = String(loc.latitude)
+            body["longitude"] = String(loc.longitude)
+            if let accuracy = loc.accuracy {
+                body["location_accuracy_meters"] = String(accuracy)
+            }
+        }
+        if let battery = batteryLevel {
+            body["battery_level"] = String(battery)
+        }
+
+        // Use the edge function which handles location, response type, and alerts
+        let result: CheckInResponse = try await supabase.functions.invoke(
             "process-checkin-response",
-            options: .init(body: [
-                "receiver_id": session.user.id.uuidString,
-                "family_id": familyId.uuidString,
-            ])
+            options: .init(body: body)
         )
-
-        return checkIn
+        return result.checkin
     }
 
     /// Respond to a specific check-in request (from notification)
-    func respondToCheckIn(requestId: String, source: CheckInSource = .notification) async throws {
+    func respondToCheckIn(
+        requestId: String,
+        source: CheckInSource = .notification,
+        responseType: CheckInResponseType = .ok,
+        location: CheckInLocation? = nil,
+        batteryLevel: Double? = nil
+    ) async throws {
         do {
+            var body: [String: String] = [
+                "checkin_request_id": requestId,
+                "source": source.rawValue,
+                "response_type": responseType.rawValue,
+            ]
+            if let loc = location {
+                body["latitude"] = String(loc.latitude)
+                body["longitude"] = String(loc.longitude)
+                if let accuracy = loc.accuracy {
+                    body["location_accuracy_meters"] = String(accuracy)
+                }
+            }
+            if let battery = batteryLevel {
+                body["battery_level"] = String(battery)
+            }
+
             try await supabase.functions.invoke(
                 "process-checkin-response",
-                options: .init(body: [
-                    "checkin_request_id": requestId,
-                    "source": source.rawValue,
-                ])
+                options: .init(body: body)
             )
         } catch {
             throw WellvoError.network(error)
         }
+    }
+
+    /// Confirm delivery of a push notification
+    func confirmDelivery(checkinRequestId: String) async {
+        try? await supabase.functions.invoke(
+            "confirm-delivery",
+            options: .init(body: [
+                "checkin_request_id": checkinRequestId,
+            ])
+        )
     }
 
     /// Owner sends on-demand check-in request
@@ -113,4 +150,15 @@ enum CheckInError: LocalizedError {
         case .alreadyCheckedIn: return "You've already checked in today"
         }
     }
+}
+
+struct CheckInLocation {
+    let latitude: Double
+    let longitude: Double
+    let accuracy: Double?
+}
+
+private struct CheckInResponse: Codable {
+    let success: Bool
+    let checkin: CheckIn
 }

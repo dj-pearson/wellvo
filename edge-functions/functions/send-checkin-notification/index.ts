@@ -6,12 +6,14 @@ interface SendCheckinRequest {
   receiver_id: string;
   family_id: string;
   type: "scheduled" | "on_demand";
+  is_retry?: boolean;
+  notification_log_id?: string;
 }
 
 export async function handleSendCheckinNotification(req: Request, _auth: AuthResult): Promise<Response> {
   // This function is service-role-only (enforced by server.ts route config)
   const body: SendCheckinRequest = await req.json();
-  const { receiver_id, family_id, type } = body;
+  const { receiver_id, family_id, type, is_retry, notification_log_id } = body;
 
   // Get the receiver's push tokens
   const { data: tokens, error: tokenError } = await supabaseAdmin
@@ -62,14 +64,30 @@ export async function handleSendCheckinNotification(req: Request, _auth: AuthRes
     )
   );
 
-  // Log notifications
+  // Log notifications with retry tracking
   for (const result of results) {
-    await supabaseAdmin.from("notification_log").insert({
-      user_id: receiver_id,
-      checkin_request_id: requestId,
-      type: "checkin_reminder",
-      status: result.success ? "sent" : "failed",
-    });
+    if (is_retry && notification_log_id) {
+      // Update existing log entry for retry
+      await supabaseAdmin
+        .from("notification_log")
+        .update({
+          status: result.success ? "sent" : "failed",
+          retry_count: supabaseAdmin.rpc ? undefined : undefined, // incremented by pg function
+        })
+        .eq("id", notification_log_id);
+    } else {
+      // New notification — set initial retry schedule (2 min from now)
+      await supabaseAdmin.from("notification_log").insert({
+        user_id: receiver_id,
+        checkin_request_id: requestId,
+        type: "checkin_reminder",
+        status: result.success ? "sent" : "failed",
+        next_retry_at: result.success
+          ? new Date(Date.now() + 2 * 60 * 1000).toISOString()
+          : null,
+        max_retries: 3,
+      });
+    }
   }
 
   // Deactivate tokens that returned 410 (expired)

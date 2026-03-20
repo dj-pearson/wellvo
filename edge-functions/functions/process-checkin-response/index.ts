@@ -1,11 +1,30 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 
+function haversineDistance(
+  lat1: number, lon1: number,
+  lat2: number, lon2: number
+): number {
+  const R = 6371000;
+  const toRad = (deg: number) => deg * (Math.PI / 180);
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 interface ProcessCheckinRequest {
   checkin_request_id?: string;
   receiver_id?: string;
   family_id?: string;
   source?: string;
+  response_type?: "ok" | "need_help" | "call_me";
+  latitude?: number;
+  longitude?: number;
+  location_accuracy_meters?: number;
+  battery_level?: number;
 }
 
 export async function handleProcessCheckinResponse(req: Request, auth: AuthResult): Promise<Response> {
@@ -15,6 +34,7 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
   let receiverId = body.receiver_id;
   let familyId = body.family_id;
   const source = body.source || "app";
+  const responseType = body.response_type || "ok";
 
   // If responding by request ID, look it up
   if (requestId && !receiverId) {
@@ -86,14 +106,39 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
     return markRequestsAndRespond(receiverId, familyId, existingCheckIn);
   }
 
-  // Record the check-in
+  // Calculate distance from home if location is provided
+  let distanceFromHome: number | null = null;
+  if (body.latitude != null && body.longitude != null) {
+    const { data: settings } = await supabaseAdmin
+      .from("receiver_settings")
+      .select("home_latitude, home_longitude, location_tracking_enabled")
+      .eq("family_member_id", membership.id)
+      .single();
+
+    if (settings?.location_tracking_enabled && settings.home_latitude != null && settings.home_longitude != null) {
+      distanceFromHome = haversineDistance(
+        body.latitude, body.longitude,
+        settings.home_latitude, settings.home_longitude
+      );
+    }
+  }
+
+  // Record the check-in with location and response type
+  const insertData: Record<string, unknown> = {
+    receiver_id: receiverId,
+    family_id: familyId,
+    source,
+    response_type: responseType,
+  };
+
+  if (body.latitude != null) insertData.latitude = body.latitude;
+  if (body.longitude != null) insertData.longitude = body.longitude;
+  if (body.location_accuracy_meters != null) insertData.location_accuracy_meters = body.location_accuracy_meters;
+  if (distanceFromHome != null) insertData.distance_from_home_meters = Math.round(distanceFromHome);
+
   const { data: checkIn, error: checkInError } = await supabaseAdmin
     .from("checkins")
-    .insert({
-      receiver_id: receiverId,
-      family_id: familyId,
-      source,
-    })
+    .insert(insertData)
     .select()
     .single();
 
@@ -102,6 +147,83 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
       JSON.stringify({ error: "Failed to record check-in" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
+  }
+
+  // Update battery level on user profile if provided
+  if (body.battery_level != null) {
+    await supabaseAdmin
+      .from("users")
+      .update({ last_battery_level: body.battery_level, last_seen_at: new Date().toISOString() })
+      .eq("id", receiverId);
+  }
+
+  // Handle urgent response types — create alerts and notify owner immediately
+  if (responseType === "need_help" || responseType === "call_me") {
+    const { data: family } = await supabaseAdmin
+      .from("families")
+      .select("owner_id")
+      .eq("id", familyId)
+      .single();
+
+    const { data: receiver } = await supabaseAdmin
+      .from("users")
+      .select("display_name")
+      .eq("id", receiverId)
+      .single();
+
+    const alertTitle = responseType === "need_help" ? "Help Requested" : "Call Requested";
+    const alertMessage = responseType === "need_help"
+      ? `${receiver?.display_name || "A family member"} checked in but indicated they need help.`
+      : `${receiver?.display_name || "A family member"} checked in and is asking you to call them.`;
+
+    // Create urgent alert
+    await supabaseAdmin.from("alerts").insert({
+      family_id: familyId,
+      receiver_id: receiverId,
+      type: responseType,
+      title: alertTitle,
+      message: alertMessage,
+      data: {
+        checkin_id: checkIn.id,
+        latitude: body.latitude,
+        longitude: body.longitude,
+        distance_from_home_meters: distanceFromHome != null ? Math.round(distanceFromHome) : null,
+      },
+    });
+
+    // Send urgent push to owner
+    if (family?.owner_id) {
+      const { sendPushNotification } = await import("../../shared/apns.ts");
+      const { data: ownerTokens } = await supabaseAdmin
+        .from("push_tokens")
+        .select("token")
+        .eq("user_id", family.owner_id)
+        .eq("is_active", true);
+
+      if (ownerTokens?.length) {
+        const urgentPayload = {
+          aps: {
+            alert: {
+              title: alertTitle,
+              body: alertMessage,
+            },
+            sound: "urgent.caf",
+            category: "URGENT_ALERT",
+            "interruption-level": "critical" as const,
+            "thread-id": `urgent-${familyId}`,
+          },
+          checkin_id: checkIn.id,
+          receiver_id: receiverId,
+          type: responseType,
+        };
+
+        await Promise.all(
+          ownerTokens.map((t: { token: string }) =>
+            sendPushNotification(t.token, urgentPayload, { priority: 10 })
+          )
+        );
+      }
+    }
   }
 
   return markRequestsAndRespond(receiverId, familyId, checkIn);
