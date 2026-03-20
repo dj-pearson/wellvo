@@ -7,6 +7,7 @@ const Privacy = lazy(() => import('./pages/Privacy'))
 const Terms = lazy(() => import('./pages/Terms'))
 const Support = lazy(() => import('./pages/Support'))
 const Pricing = lazy(() => import('./pages/Pricing'))
+const Accessibility = lazy(() => import('./pages/Accessibility'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 function LoadingSpinner() {
@@ -34,6 +35,7 @@ function App() {
           <Route path="/terms" element={<Terms />} />
           <Route path="/support" element={<Support />} />
           <Route path="/pricing" element={<Pricing />} />
+          <Route path="/accessibility" element={<Accessibility />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

@@ -2,7 +2,7 @@ import './Legal.css'
 
 export default function Terms() {
   return (
-    <div className="legal-page">
+    <main className="legal-page">
       <div className="container">
         <div className="legal-content">
           <h1>Terms of Use</h1>
@@ -216,6 +216,6 @@ export default function Terms() {
           </section>
         </div>
       </div>
-    </div>
+    </main>
   )
 }

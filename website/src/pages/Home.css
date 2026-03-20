@@ -35,7 +35,7 @@
 
 .hero-subtitle {
   font-size: 20px;
-  color: var(--gray-500);
+  color: var(--gray-600);
   max-width: 600px;
   margin: 0 auto 32px;
   line-height: 1.6;
@@ -90,7 +90,7 @@
 
 .proof-item span {
   font-size: 14px;
-  color: var(--gray-500);
+  color: var(--gray-600);
 }
 
 .proof-divider {
@@ -115,7 +115,7 @@
 
 .section-header p {
   font-size: 18px;
-  color: var(--gray-500);
+  color: var(--gray-600);
 }
 
 /* How it works */
@@ -163,7 +163,7 @@
 
 .step-card p {
   font-size: 15px;
-  color: var(--gray-500);
+  color: var(--gray-600);
   line-height: 1.6;
 }
 
@@ -211,7 +211,7 @@
 
 .feature-card p {
   font-size: 15px;
-  color: var(--gray-500);
+  color: var(--gray-600);
   line-height: 1.6;
 }
 
@@ -367,7 +367,7 @@
 
 .use-case p {
   font-size: 14px;
-  color: var(--gray-500);
+  color: var(--gray-600);
 }
 
 /* CTA */

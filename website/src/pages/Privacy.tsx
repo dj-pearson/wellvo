@@ -2,7 +2,7 @@ import './Legal.css'
 
 export default function Privacy() {
   return (
-    <div className="legal-page">
+    <main className="legal-page">
       <div className="container">
         <div className="legal-content">
           <h1>Privacy Policy</h1>
@@ -214,6 +214,6 @@ export default function Privacy() {
           </section>
         </div>
       </div>
-    </div>
+    </main>
   )
 }

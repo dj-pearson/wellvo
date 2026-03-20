@@ -12,7 +12,7 @@
 .not-found-code {
   font-size: 120px;
   font-weight: 700;
-  color: var(--green-200);
+  color: var(--green-600);
   line-height: 1;
   margin-bottom: 16px;
 }
@@ -26,6 +26,6 @@
 
 .not-found p {
   font-size: 18px;
-  color: var(--gray-500);
+  color: var(--gray-600);
   margin-bottom: 32px;
 }

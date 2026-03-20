@@ -14,7 +14,7 @@
 
 .support-hero p {
   font-size: 18px;
-  color: var(--gray-500);
+  color: var(--gray-600);
 }
 
 /* Contact cards */
@@ -48,7 +48,7 @@
 
 .contact-card p {
   font-size: 14px;
-  color: var(--gray-500);
+  color: var(--gray-600);
   line-height: 1.6;
   margin-bottom: 4px;
 }
@@ -115,7 +115,7 @@
 .faq-item-detail p {
   padding: 0 24px 20px;
   font-size: 15px;
-  color: var(--gray-500);
+  color: var(--gray-600);
   line-height: 1.7;
 }
 
@@ -137,7 +137,7 @@
 
 .support-cta-card p {
   font-size: 16px;
-  color: var(--gray-500);
+  color: var(--gray-600);
   margin-bottom: 24px;
   max-width: 480px;
   margin-left: auto;

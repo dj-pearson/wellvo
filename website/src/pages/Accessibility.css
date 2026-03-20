@@ -1,0 +1,12 @@
+.accessibility-features {
+  list-style: none;
+  padding-left: 0;
+}
+
+.accessibility-features li {
+  padding-left: 0;
+}
+
+.accessibility-features li::before {
+  content: none;
+}
