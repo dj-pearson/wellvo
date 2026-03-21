@@ -127,6 +127,7 @@ jobs:
       - name: Build and archive
         working-directory: ios
         run: |
+          set -o pipefail
           xcodebuild archive \
             -project Wellvo.xcodeproj \
             -scheme Wellvo \
@@ -136,6 +137,12 @@ jobs:
             MARKETING_VERSION="${{ env.APP_VERSION }}" \
             CURRENT_PROJECT_VERSION="${{ env.BUILD_NUMBER }}" \
             | xcbeautify
+
+          # Verify archive was created
+          if [ ! -d "$RUNNER_TEMP/Wellvo.xcarchive" ]; then
+            echo "::error::Archive was not created at $RUNNER_TEMP/Wellvo.xcarchive"
+            exit 1
+          fi
 
       - name: Create ExportOptions.plist
         run: |
