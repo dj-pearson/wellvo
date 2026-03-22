@@ -30,12 +30,15 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
       - name: Backup database before migration
-        env:
-          DATABASE_URL: ${{ env.SUPABASE_DB_URL }}
         run: |
+          DB_URL="${SUPABASE_DB_URL:-$DATABASE_URL}"
+          if [ -z "$DB_URL" ]; then
+            echo "::error::Neither SUPABASE_DB_URL nor DATABASE_URL is set. Check Infisical secrets."
+            exit 1
+          fi
           echo "Creating pre-migration backup..."
-          pg_dump "$DATABASE_URL" --no-owner --no-acl --compress=9 \
-            -f backup-pre-migration-$(date +%Y%m%d-%H%M%S).sql.gz
+          pg_dump "$DB_URL" --no-owner --no-acl --compress=9 \
+            -f "backup-pre-migration-$(date +%Y%m%d-%H%M%S).sql.gz"
           echo "Backup complete: $(ls -lh backup-pre-migration-*.sql.gz)"
 
       - name: Upload backup artifact
@@ -46,14 +49,13 @@ jobs:
           retention-days: 30
 
       - name: Run migrations in transactions
-        env:
-          DATABASE_URL: ${{ env.SUPABASE_DB_URL }}
         run: |
           set -euo pipefail
+          DB_URL="${SUPABASE_DB_URL:-$DATABASE_URL}"
           for migration in $(ls supabase/migrations/*.sql | sort); do
             echo "Running migration: $migration"
             # Wrap each migration in a transaction
-            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<EOSQL
+            psql "$DB_URL" -v ON_ERROR_STOP=1 <<EOSQL
           BEGIN;
           \i $migration
           COMMIT;
@@ -62,24 +64,23 @@ jobs:
           done
 
       - name: Verify migration integrity
-        env:
-          DATABASE_URL: ${{ env.SUPABASE_DB_URL }}
         run: |
           set -euo pipefail
+          DB_URL="${SUPABASE_DB_URL:-$DATABASE_URL}"
           echo "=== Tables ==="
-          TABLE_COUNT=$(psql "$DATABASE_URL" -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';")
+          TABLE_COUNT=$(psql "$DB_URL" -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';")
           echo "Public tables: $TABLE_COUNT"
 
           echo "=== RLS Policies ==="
-          POLICY_COUNT=$(psql "$DATABASE_URL" -t -c "SELECT count(*) FROM pg_policies WHERE schemaname = 'public';")
+          POLICY_COUNT=$(psql "$DB_URL" -t -c "SELECT count(*) FROM pg_policies WHERE schemaname = 'public';")
           echo "RLS policies: $POLICY_COUNT"
 
           echo "=== Triggers ==="
-          TRIGGER_COUNT=$(psql "$DATABASE_URL" -t -c "SELECT count(*) FROM information_schema.triggers WHERE trigger_schema = 'public';")
+          TRIGGER_COUNT=$(psql "$DB_URL" -t -c "SELECT count(*) FROM information_schema.triggers WHERE trigger_schema = 'public';")
           echo "Triggers: $TRIGGER_COUNT"
 
           echo "=== Core tables check ==="
-          psql "$DATABASE_URL" -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;"
+          psql "$DB_URL" -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;"
 
           # Fail if no tables exist (migration likely broke everything)
           if [ "$(echo "$TABLE_COUNT" | tr -d ' ')" -lt 1 ]; then
