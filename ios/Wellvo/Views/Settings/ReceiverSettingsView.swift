@@ -21,10 +21,49 @@ struct ReceiverSettingsView: View {
     @State private var errorMessage: String?
     @State private var receiverMode: ReceiverMode = .standard
 
+    // Schedule fields
+    @State private var scheduleType: ScheduleType = .daily
+    @State private var weekendCheckinTime = Calendar.current.date(from: DateComponents(hour: 10)) ?? Date()
+    @State private var customSchedule = DaySchedule.defaultSchedule()
+    @State private var schedulePaused = false
+    @State private var dayEnabled: [String: Bool] = [
+        "mon": true, "tue": true, "wed": true, "thu": true, "fri": true, "sat": true, "sun": true
+    ]
+    @State private var dayTimes: [String: Date] = [:]
+
+    // Manual check-in
+    @State private var isSendingManual = false
+    @State private var showManualSent = false
+
     private let gracePeriodOptions = [15, 30, 45, 60, 90, 120]
+    private let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
 
     var body: some View {
         Form {
+            // Pause Banner
+            if schedulePaused {
+                Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: "pause.circle.fill")
+                            .font(.title3)
+                            .foregroundStyle(.orange)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Notifications Paused")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Text("Scheduled check-in notifications are currently paused. Toggle off to resume.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+
             // Receiver Mode
             Section {
                 Picker("Mode", selection: $receiverMode) {
@@ -39,21 +78,72 @@ struct ReceiverSettingsView: View {
                 Text("Kid mode provides a fun, engaging experience with expanded mood options and location sharing.")
             }
 
-            // Check-In Schedule
+            // Pause & Manual Notifications
             Section {
-                DatePicker("Daily Check-In Time", selection: $checkinTime, displayedComponents: .hourAndMinute)
+                Toggle("Pause Notifications", isOn: $schedulePaused)
+                    .accessibilityLabel("Pause scheduled notifications")
+                    .accessibilityHint("When enabled, no scheduled check-in notifications will be sent")
 
-                // Timezone display
+                Button {
+                    Task { await sendManualCheckIn() }
+                } label: {
+                    HStack {
+                        Image(systemName: "bell.badge")
+                        Text("Send Check-In Now")
+                        Spacer()
+                        if isSendingManual {
+                            ProgressView()
+                        } else if showManualSent {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                        }
+                    }
+                }
+                .disabled(isSendingManual)
+            } header: {
+                Text("Notification Controls")
+            } footer: {
+                Text("Pause stops all scheduled notifications. Use \"Send Check-In Now\" to manually trigger a check-in request at any time.")
+            }
+
+            // Schedule Type Picker
+            Section {
+                Picker("Schedule", selection: $scheduleType) {
+                    ForEach(ScheduleType.allCases, id: \.self) { type in
+                        VStack(alignment: .leading) {
+                            Text(type.label)
+                        }
+                        .tag(type)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityLabel("Notification schedule type")
+
+                Text(scheduleType.description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Check-In Schedule")
+            }
+
+            // Schedule Details (varies by type)
+            switch scheduleType {
+            case .daily:
+                dailyScheduleSection
+            case .weekdayWeekend:
+                weekdayWeekendSection
+            case .custom:
+                customScheduleSection
+            }
+
+            // Timezone
+            Section {
                 HStack {
                     Text("Timezone")
                     Spacer()
                     Text(member.user?.timezone ?? TimeZone.current.identifier)
                         .foregroundStyle(.secondary)
                 }
-            } header: {
-                Text("Check-In Schedule")
-            } footer: {
-                Text("A push notification will be sent at this time every day.")
             }
 
             // Escalation Chain
@@ -162,6 +252,75 @@ struct ReceiverSettingsView: View {
         .task { await loadSettings() }
     }
 
+    // MARK: - Schedule Sections
+
+    private var dailyScheduleSection: some View {
+        Section {
+            DatePicker("Check-In Time", selection: $checkinTime, displayedComponents: .hourAndMinute)
+        } footer: {
+            Text("A push notification will be sent at this time every day.")
+        }
+    }
+
+    private var weekdayWeekendSection: some View {
+        Section {
+            DatePicker("Weekday Time (Mon\u{2013}Fri)", selection: $checkinTime, displayedComponents: .hourAndMinute)
+            DatePicker("Weekend Time (Sat\u{2013}Sun)", selection: $weekendCheckinTime, displayedComponents: .hourAndMinute)
+        } footer: {
+            Text("Different check-in times for weekdays and weekends.")
+        }
+    }
+
+    private var customScheduleSection: some View {
+        Section {
+            ForEach(DaySchedule.allDays, id: \.key) { day in
+                HStack {
+                    Toggle(isOn: Binding(
+                        get: { dayEnabled[day.key] ?? true },
+                        set: { dayEnabled[day.key] = $0 }
+                    )) {
+                        Text(day.label)
+                            .font(.subheadline)
+                    }
+
+                    if dayEnabled[day.key] ?? true {
+                        Spacer()
+                        DatePicker(
+                            "",
+                            selection: Binding(
+                                get: { dayTimes[day.key] ?? defaultTimeDate() },
+                                set: { dayTimes[day.key] = $0 }
+                            ),
+                            displayedComponents: .hourAndMinute
+                        )
+                        .labelsHidden()
+                        .frame(width: 100)
+                    }
+                }
+            }
+        } footer: {
+            Text("Toggle off days where no check-in is needed. Set individual times for each active day.")
+        }
+    }
+
+    // MARK: - Manual Check-In
+
+    private func sendManualCheckIn() async {
+        isSendingManual = true
+        do {
+            try await CheckInService.shared.sendOnDemandCheckIn(
+                receiverId: member.userId,
+                familyId: member.familyId
+            )
+            showManualSent = true
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            showManualSent = false
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isSendingManual = false
+    }
+
     // MARK: - Data
 
     private func loadSettings() async {
@@ -191,8 +350,40 @@ struct ReceiverSettingsView: View {
             smsEscalationEnabled = loaded.smsEscalationEnabled
             receiverMode = loaded.receiverMode
 
+            // Schedule fields
+            scheduleType = loaded.scheduleType
+            schedulePaused = loaded.schedulePaused
+
+            if let weekendTime = loaded.weekendCheckinTime {
+                formatter.dateFormat = "HH:mm:ss"
+                if let wt = formatter.date(from: weekendTime) {
+                    weekendCheckinTime = wt
+                } else {
+                    formatter.dateFormat = "HH:mm"
+                    if let wt = formatter.date(from: weekendTime) {
+                        weekendCheckinTime = wt
+                    }
+                }
+            }
+
+            // Load custom schedule
+            if let custom = loaded.customSchedule {
+                customSchedule = custom
+                for day in DaySchedule.allDays {
+                    let timeStr = custom[keyPath: day.keyPath]
+                    dayEnabled[day.key] = timeStr != nil
+                    if let timeStr {
+                        formatter.dateFormat = "HH:mm"
+                        if let date = formatter.date(from: timeStr) {
+                            dayTimes[day.key] = date
+                        }
+                    }
+                }
+            }
+
             if let qStart = loaded.quietHoursStart, let qEnd = loaded.quietHoursEnd {
                 quietHoursEnabled = true
+                formatter.dateFormat = "HH:mm:ss"
                 if let start = formatter.date(from: qStart) { quietHoursStart = start }
                 if let end = formatter.date(from: qEnd) { quietHoursEnd = end }
             }
@@ -205,8 +396,6 @@ struct ReceiverSettingsView: View {
     private func saveSettings() async {
         isSaving = true
 
-        let timeFormatter = DateFormatter()
-        timeFormatter.dateFormat = "HH:mm"
         let timeString = timeFormatter.string(from: checkinTime)
 
         var updates: [String: String] = [
@@ -217,7 +406,24 @@ struct ReceiverSettingsView: View {
             "mood_tracking_enabled": String(moodTrackingEnabled),
             "sms_escalation_enabled": String(smsEscalationEnabled),
             "receiver_mode": receiverMode.rawValue,
+            "schedule_type": scheduleType.rawValue,
+            "schedule_paused": String(schedulePaused),
         ]
+
+        // Schedule-specific fields
+        switch scheduleType {
+        case .weekdayWeekend:
+            updates["weekend_checkin_time"] = timeFormatter.string(from: weekendCheckinTime)
+        case .custom:
+            // Build custom schedule JSON
+            let schedule = buildCustomSchedule()
+            if let jsonData = try? JSONEncoder().encode(schedule),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                updates["custom_schedule"] = jsonString
+            }
+        case .daily:
+            break
+        }
 
         if quietHoursEnabled {
             updates["quiet_hours_start"] = timeFormatter.string(from: quietHoursStart)
@@ -247,5 +453,22 @@ struct ReceiverSettingsView: View {
         }
 
         isSaving = false
+    }
+
+    private func buildCustomSchedule() -> DaySchedule {
+        var schedule = DaySchedule()
+        for day in DaySchedule.allDays {
+            if dayEnabled[day.key] ?? false {
+                let time = dayTimes[day.key] ?? defaultTimeDate()
+                schedule[keyPath: day.keyPath] = timeFormatter.string(from: time)
+            } else {
+                schedule[keyPath: day.keyPath] = nil
+            }
+        }
+        return schedule
+    }
+
+    private func defaultTimeDate() -> Date {
+        Calendar.current.date(from: DateComponents(hour: 8, minute: 0)) ?? Date()
     }
 }

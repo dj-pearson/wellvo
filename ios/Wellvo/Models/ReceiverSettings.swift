@@ -1,9 +1,59 @@
 import Foundation
 
+/// Schedule type for check-in notifications
+enum ScheduleType: String, Codable, CaseIterable {
+    case daily
+    case weekdayWeekend = "weekday_weekend"
+    case custom
+
+    var label: String {
+        switch self {
+        case .daily: return "Every Day"
+        case .weekdayWeekend: return "Weekday / Weekend"
+        case .custom: return "Custom"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .daily: return "Same time every day"
+        case .weekdayWeekend: return "Different times for weekdays and weekends"
+        case .custom: return "Set individual days and times"
+        }
+    }
+}
+
+/// Per-day schedule for custom schedule type
+struct DaySchedule: Codable, Equatable {
+    var mon: String?
+    var tue: String?
+    var wed: String?
+    var thu: String?
+    var fri: String?
+    var sat: String?
+    var sun: String?
+
+    static let weekdays: [WritableKeyPath<DaySchedule, String?>] = [\.mon, \.tue, \.wed, \.thu, \.fri]
+    static let weekend: [WritableKeyPath<DaySchedule, String?>] = [\.sat, \.sun]
+    static let allDays: [(key: String, label: String, keyPath: WritableKeyPath<DaySchedule, String?>)] = [
+        ("mon", "Monday", \.mon),
+        ("tue", "Tuesday", \.tue),
+        ("wed", "Wednesday", \.wed),
+        ("thu", "Thursday", \.thu),
+        ("fri", "Friday", \.fri),
+        ("sat", "Saturday", \.sat),
+        ("sun", "Sunday", \.sun),
+    ]
+
+    static func defaultSchedule(time: String = "08:00") -> DaySchedule {
+        DaySchedule(mon: time, tue: time, wed: time, thu: time, fri: time, sat: time, sun: time)
+    }
+}
+
 struct ReceiverSettings: Codable, Identifiable {
     let id: UUID
     let familyMemberId: UUID
-    var checkinTime: String // HH:mm format
+    var checkinTime: String // HH:mm format (weekday time when using weekday_weekend)
     var timezone: String
     var gracePeriodMinutes: Int
     var reminderIntervalMinutes: Int
@@ -19,6 +69,10 @@ struct ReceiverSettings: Codable, Identifiable {
     var geofenceRadiusMeters: Int
     var locationAlertEnabled: Bool
     var receiverMode: ReceiverMode
+    var scheduleType: ScheduleType
+    var weekendCheckinTime: String? // HH:mm (used with weekday_weekend)
+    var customSchedule: DaySchedule?
+    var schedulePaused: Bool
 
     enum CodingKeys: String, CodingKey {
         case id, timezone
@@ -38,6 +92,10 @@ struct ReceiverSettings: Codable, Identifiable {
         case geofenceRadiusMeters = "geofence_radius_meters"
         case locationAlertEnabled = "location_alert_enabled"
         case receiverMode = "receiver_mode"
+        case scheduleType = "schedule_type"
+        case weekendCheckinTime = "weekend_checkin_time"
+        case customSchedule = "custom_schedule"
+        case schedulePaused = "schedule_paused"
     }
 
     init(from decoder: Decoder) throws {
@@ -60,5 +118,9 @@ struct ReceiverSettings: Codable, Identifiable {
         geofenceRadiusMeters = try container.decode(Int.self, forKey: .geofenceRadiusMeters)
         locationAlertEnabled = try container.decode(Bool.self, forKey: .locationAlertEnabled)
         receiverMode = try container.decodeIfPresent(ReceiverMode.self, forKey: .receiverMode) ?? .standard
+        scheduleType = try container.decodeIfPresent(ScheduleType.self, forKey: .scheduleType) ?? .daily
+        weekendCheckinTime = try container.decodeIfPresent(String.self, forKey: .weekendCheckinTime)
+        customSchedule = try container.decodeIfPresent(DaySchedule.self, forKey: .customSchedule)
+        schedulePaused = try container.decodeIfPresent(Bool.self, forKey: .schedulePaused) ?? false
     }
 }
