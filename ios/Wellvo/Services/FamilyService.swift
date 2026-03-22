@@ -120,12 +120,11 @@ actor FamilyService {
     /// Check if the authenticated user's phone matches a pending invite and auto-join.
     /// Returns the auto-join result, or nil if no match found.
     func checkAutoJoin() async throws -> AutoJoinResult? {
-        let response = try await supabase.functions.invoke(
+        let data: AutoJoinResponse = try await supabase.functions.invoke(
             "auto-join",
             options: .init(body: [:] as [String: String])
         )
 
-        let data = try JSONDecoder().decode(AutoJoinResponse.self, from: response.data)
         guard data.matched else { return nil }
 
         return AutoJoinResult(
