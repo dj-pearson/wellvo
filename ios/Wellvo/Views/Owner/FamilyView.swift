@@ -277,19 +277,23 @@ struct InviteReceiverSheet: View {
                         .padding(.vertical, 4)
                     }
 
-                    Section("Receiver Details") {
+                    Section {
                         TextField("Name", text: $name)
                             .textContentType(.name)
 
                         TextField("Phone Number", text: $phone)
                             .textContentType(.telephoneNumber)
                             .keyboardType(.phonePad)
+                    } header: {
+                        Text("Receiver Details")
                     } footer: {
                         Text("Use the phone number they'll sign into the app with. This is how they're automatically matched to your family.")
                     }
 
-                    Section("Check-In Schedule") {
+                    Section {
                         DatePicker("Daily Check-In Time", selection: $checkinTime, displayedComponents: .hourAndMinute)
+                    } header: {
+                        Text("Check-In Schedule")
                     } footer: {
                         Text("You can customize the schedule later (weekday/weekend, per-day, pause, etc.) from their settings.")
                     }
