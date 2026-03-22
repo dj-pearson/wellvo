@@ -116,6 +116,46 @@ actor FamilyService {
             ])
         )
     }
+
+    /// Check if the authenticated user's phone matches a pending invite and auto-join.
+    /// Returns the auto-join result, or nil if no match found.
+    func checkAutoJoin() async throws -> AutoJoinResult? {
+        let response = try await supabase.functions.invoke(
+            "auto-join",
+            options: .init(body: [:] as [String: String])
+        )
+
+        let data = try JSONDecoder().decode(AutoJoinResponse.self, from: response.data)
+        guard data.matched else { return nil }
+
+        return AutoJoinResult(
+            familyId: data.familyId ?? "",
+            role: data.role ?? "receiver",
+            checkinTime: data.checkinTime
+        )
+    }
+}
+
+struct AutoJoinResponse: Decodable {
+    let matched: Bool
+    let alreadyMember: Bool?
+    let familyId: String?
+    let role: String?
+    let checkinTime: String?
+
+    enum CodingKeys: String, CodingKey {
+        case matched
+        case alreadyMember = "already_member"
+        case familyId = "family_id"
+        case role
+        case checkinTime = "checkin_time"
+    }
+}
+
+struct AutoJoinResult {
+    let familyId: String
+    let role: String
+    let checkinTime: String?
 }
 
 enum FamilyError: LocalizedError {

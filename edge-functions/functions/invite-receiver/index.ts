@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
+import { sendSMS } from "../../shared/sms.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 
 interface InviteRequest {
@@ -99,14 +100,24 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
     );
   }
 
-  // Generate deep link
+  // Generate deep link (kept as fallback for QR/link sharing)
   const inviteLink = `https://wellvo.net/invite?token=${inviteToken}`;
+
+  // Send SMS invite to receiver
+  // The receiver just needs to download the app and sign in with this phone number —
+  // auto-join will match them to this invite automatically.
+  const smsBody =
+    `${name}, your family wants to check in with you daily using Alive. ` +
+    `Download the app and sign in with this phone number to get started: ` +
+    `https://apps.apple.com/app/alive-daily-checkin/id6742044109`;
+  const smsResult = await sendSMS(phone, smsBody);
 
   return new Response(
     JSON.stringify({
       success: true,
       invite_token: inviteToken,
       invite_link: inviteLink,
+      sms_sent: smsResult.success,
     }),
     { headers: { "Content-Type": "application/json" } }
   );

@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// Simplified onboarding flow for Receivers joining via invite link.
-/// Intentionally minimal — matches PRD Section 7.2.
+/// Simplified onboarding flow for Receivers.
+/// Supports two paths:
+/// 1. Token-based (deep link) — accepts invite via token
+/// 2. Auto-join (phone match) — invite already accepted by auto-join endpoint
 struct ReceiverOnboardingView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -11,7 +13,8 @@ struct ReceiverOnboardingView: View {
     @State private var ownerName = "Your family"
     @State private var errorMessage: String?
 
-    let inviteToken: String
+    /// Nil when using auto-join (phone match) flow.
+    let inviteToken: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -46,7 +49,7 @@ struct ReceiverOnboardingView: View {
             Spacer()
         }
         .padding(.horizontal, 32)
-        .task { await acceptInvite() }
+        .task { await processJoin() }
     }
 
     // MARK: - Step 1: Welcome
@@ -115,14 +118,11 @@ struct ReceiverOnboardingView: View {
 
             Button("Allow Notifications") {
                 Task {
-                    let granted = (try? await PushNotificationService.shared.requestPermission()) ?? false
+                    let _ = (try? await PushNotificationService.shared.requestPermission()) ?? false
                     if reduceMotion {
                         currentStep = 2
-                    } else if granted {
-                        withAnimation { currentStep = 2 }
                     } else {
                         withAnimation { currentStep = 2 }
-                        // Still proceed but they'll see the prompt in settings
                     }
                 }
             }
@@ -153,6 +153,7 @@ struct ReceiverOnboardingView: View {
 
             Button("Start Checking In") {
                 appState.pendingInviteToken = nil
+                appState.pendingAutoJoin = nil
                 appState.isOnboarding = false
                 appState.currentUserRole = .receiver
             }
@@ -162,15 +163,35 @@ struct ReceiverOnboardingView: View {
         }
     }
 
-    // MARK: - Accept Invite
+    // MARK: - Join Logic
 
-    private func acceptInvite() async {
+    private func processJoin() async {
+        if let token = inviteToken {
+            // Token-based flow (deep link)
+            await acceptInviteByToken(token)
+        } else if let autoJoin = appState.pendingAutoJoin {
+            // Auto-join flow — invite already accepted server-side
+            if let time = autoJoin.checkinTime {
+                checkinTimeDisplay = formatCheckinTime(time)
+            }
+        }
+    }
+
+    private func acceptInviteByToken(_ token: String) async {
         isProcessing = true
         do {
-            try await FamilyService.shared.acceptInvite(token: inviteToken)
+            try await FamilyService.shared.acceptInvite(token: token)
         } catch {
             errorMessage = "Could not join family. The invite may have expired."
         }
         isProcessing = false
+    }
+
+    private func formatCheckinTime(_ time: String) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        guard let date = formatter.date(from: time) else { return time }
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
     }
 }

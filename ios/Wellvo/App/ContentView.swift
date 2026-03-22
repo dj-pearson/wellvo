@@ -15,6 +15,8 @@ struct ContentView: View {
             case .authenticated:
                 if let inviteToken = appState.pendingInviteToken {
                     ReceiverOnboardingView(inviteToken: inviteToken)
+                } else if appState.pendingAutoJoin != nil {
+                    ReceiverOnboardingView(inviteToken: nil)
                 } else if appState.isOnboarding {
                     OnboardingView()
                 } else if appState.currentUserRole == .receiver {
@@ -27,6 +29,21 @@ struct ContentView: View {
             }
         }
         .animation(reduceMotion ? nil : .easeInOut, value: authViewModel.authState)
+        .task(id: authViewModel.authState) {
+            // After authentication, check for phone-based auto-join
+            guard authViewModel.authState == .authenticated,
+                  appState.pendingInviteToken == nil,
+                  appState.pendingAutoJoin == nil,
+                  appState.currentUserRole == nil else { return }
+
+            do {
+                if let result = try await FamilyService.shared.checkAutoJoin() {
+                    appState.pendingAutoJoin = result
+                }
+            } catch {
+                // Auto-join is best-effort; don't block the user
+            }
+        }
     }
 }
 
