@@ -22,6 +22,11 @@ final class AuthViewModel: ObservableObject {
     @Published var password = ""
     @Published var displayName = ""
 
+    // Phone OTP fields
+    @Published var phoneNumber = ""
+    @Published var otpCode = ""
+    @Published var isAwaitingOTP = false
+
     /// The raw nonce generated for the current Apple Sign-In attempt.
     private var currentRawNonce: String?
 
@@ -187,6 +192,49 @@ final class AuthViewModel: ObservableObject {
         isLoading = false
     }
 
+    // MARK: - Phone OTP Auth
+
+    func sendPhoneOTP() async {
+        let cleaned = phoneNumber.filter(\.isNumber)
+        guard cleaned.count >= 10 else {
+            errorMessage = "Please enter a valid phone number"
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            try await AuthService.shared.sendPhoneOTP(phone: phoneNumber)
+            isAwaitingOTP = true
+        } catch {
+            errorMessage = "Could not send verification code. Please try again."
+        }
+
+        isLoading = false
+    }
+
+    func verifyPhoneOTP() async {
+        guard otpCode.count == 6 else {
+            errorMessage = "Please enter the 6-digit code"
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            currentUser = try await AuthService.shared.verifyPhoneOTP(phone: phoneNumber, code: otpCode)
+            authState = .authenticated
+            clearFormFields()
+        } catch {
+            errorMessage = "Invalid code. Please try again."
+            otpCode = ""
+        }
+
+        isLoading = false
+    }
+
     func signOut() async {
         do {
             try await AuthService.shared.signOut()
@@ -229,5 +277,8 @@ final class AuthViewModel: ObservableObject {
         email = ""
         password = ""
         displayName = ""
+        phoneNumber = ""
+        otpCode = ""
+        isAwaitingOTP = false
     }
 }

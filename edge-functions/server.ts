@@ -23,6 +23,7 @@ import { handleSubscriptionCancellation } from "./functions/subscription-cancell
 import { handleConfirmDelivery } from "./functions/confirm-delivery/index.ts";
 import { handleReportLocation } from "./functions/report-location/index.ts";
 import { handleHeartbeat } from "./functions/heartbeat/index.ts";
+import { handleAutoJoin } from "./functions/auto-join/index.ts";
 
 type FunctionHandler = (req: Request, auth: AuthResult) => Promise<Response>;
 
@@ -44,6 +45,7 @@ const routes: Record<string, FunctionHandler> = {
   "/confirm-delivery": handleConfirmDelivery,
   "/report-location": handleReportLocation,
   "/heartbeat": handleHeartbeat,
+  "/auto-join": handleAutoJoin,
 };
 
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://wellvo.net";

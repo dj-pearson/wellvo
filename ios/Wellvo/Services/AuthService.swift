@@ -146,7 +146,7 @@ actor AuthService {
     }
 
     /// Fetch existing user profile, or create one if it doesn't exist yet.
-    private func findOrCreateUserProfile(userId: UUID, email: String, displayName: String?) async throws -> AppUser {
+    private func findOrCreateUserProfile(userId: UUID, email: String?, displayName: String?, phone: String? = nil) async throws -> AppUser {
         // Try to find existing profile
         let existing: AppUser? = try? await supabase
             .from("users")
@@ -159,20 +159,61 @@ actor AuthService {
         if let existing { return existing }
 
         // Profile doesn't exist — create it
+        var fields: [String: String] = [
+            "id": userId.uuidString,
+            "email": email ?? "",
+            "display_name": displayName ?? "User",
+            "timezone": TimeZone.current.identifier,
+        ]
+        if let phone {
+            fields["phone"] = phone
+        }
+
         let user: AppUser = try await supabase
             .from("users")
-            .upsert([
-                "id": userId.uuidString,
-                "email": email,
-                "display_name": displayName ?? "User",
-                "timezone": TimeZone.current.identifier,
-            ])
+            .upsert(fields)
             .select()
             .single()
             .execute()
             .value
 
         return user
+    }
+
+    // MARK: - Phone OTP Auth
+
+    /// Send a one-time passcode to the given phone number via SMS.
+    func sendPhoneOTP(phone: String) async throws {
+        let normalized = normalizePhone(phone)
+        try await supabase.auth.signInWithOTP(phone: normalized)
+    }
+
+    /// Verify the OTP code and sign the user in.
+    func verifyPhoneOTP(phone: String, code: String) async throws -> AppUser {
+        let normalized = normalizePhone(phone)
+        let session = try await supabase.auth.verifyOTP(
+            phone: normalized,
+            token: code,
+            type: .sms
+        )
+
+        return try await findOrCreateUserProfile(
+            userId: session.user.id,
+            email: nil,
+            displayName: nil,
+            phone: normalized
+        )
+    }
+
+    /// Normalize a US phone number to +1XXXXXXXXXX format.
+    private func normalizePhone(_ phone: String) -> String {
+        let digits = phone.filter(\.isNumber)
+        if digits.count == 10 {
+            return "+1\(digits)"
+        } else if digits.count == 11, digits.hasPrefix("1") {
+            return "+\(digits)"
+        }
+        return phone.hasPrefix("+") ? phone : "+\(digits)"
     }
 
     // MARK: - Session Management
