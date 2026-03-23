@@ -117,6 +117,16 @@ actor FamilyService {
         )
     }
 
+    /// Redeem a 6-digit pairing code (iPad / alternate-device setup).
+    /// Returns the join result from the server.
+    func redeemPairingCode(_ code: String) async throws -> RedeemCodeResponse {
+        let data: RedeemCodeResponse = try await supabase.functions.invoke(
+            "redeem-code",
+            options: .init(body: ["code": code])
+        )
+        return data
+    }
+
     /// Check if the authenticated user's phone matches a pending invite and auto-join.
     /// Returns the auto-join result, or nil if no match found.
     func checkAutoJoin() async throws -> AutoJoinResult? {
@@ -132,6 +142,26 @@ actor FamilyService {
             role: data.role ?? "receiver",
             checkinTime: data.checkinTime
         )
+    }
+}
+
+struct RedeemCodeResponse: Decodable {
+    let success: Bool?
+    let alreadyMember: Bool?
+    let familyId: String?
+    let role: String?
+    let checkinTime: String?
+    let name: String?
+    let error: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case alreadyMember = "already_member"
+        case familyId = "family_id"
+        case role
+        case checkinTime = "checkin_time"
+        case name
+        case error
     }
 }
 

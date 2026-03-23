@@ -3,10 +3,12 @@ import AuthenticationServices
 
 struct AuthView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var appState: AppState
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State private var isSignUp = false
     @State private var showEmailAuth = false
+    @State private var joinViaCode = false
     @ScaledMetric(relativeTo: .largeTitle) private var logoSize: CGFloat = 80
 
     var body: some View {
@@ -64,9 +66,25 @@ struct AuthView: View {
                 }
 
                 Spacer()
+
+                // iPad / alternate-device setup via pairing code
+                Button {
+                    joinViaCode = true
+                } label: {
+                    Label("Have a setup code?", systemImage: "number.square")
+                        .font(.footnote)
+                        .foregroundStyle(.green)
+                }
+                .padding(.bottom, 16)
             }
             .padding(.horizontal, 24)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: authViewModel.errorMessage)
+            .onChange(of: authViewModel.authState) { newState in
+                if newState == .authenticated, joinViaCode {
+                    appState.showPairingCodeEntry = true
+                    joinViaCode = false
+                }
+            }
         }
     }
 
