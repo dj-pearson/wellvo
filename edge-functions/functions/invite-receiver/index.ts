@@ -83,6 +83,9 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   crypto.getRandomValues(tokenBytes);
   const inviteToken = Array.from(tokenBytes, (b) => b.toString(16).padStart(2, "0")).join("");
 
+  // Generate a short 6-digit pairing code for iPad / alternate-device setup
+  const pairingCode = generatePairingCode();
+
   // Store invite
   const { error: inviteError } = await supabaseAdmin.from("invite_tokens").insert({
     family_id,
@@ -91,6 +94,7 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
     name,
     checkin_time: checkin_time || "08:00",
     token: inviteToken,
+    pairing_code: pairingCode,
   });
 
   if (inviteError) {
@@ -106,10 +110,12 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   // Send SMS invite to receiver
   // The receiver just needs to download the app and sign in with this phone number —
   // auto-join will match them to this invite automatically.
+  // The pairing code is included so they can set up on an iPad or other device.
   const smsBody =
     `${name}, your family wants to check in with you daily using Alive. ` +
     `Download the app and sign in with this phone number to get started: ` +
-    `https://apps.apple.com/app/alive-daily-checkin/id6742044109`;
+    `https://apps.apple.com/app/alive-daily-checkin/id6742044109\n\n` +
+    `Setting up on an iPad? Use this code: ${pairingCode}`;
   const smsResult = await sendSMS(phone, smsBody);
 
   return new Response(
@@ -117,6 +123,7 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
       success: true,
       invite_token: inviteToken,
       invite_link: inviteLink,
+      pairing_code: pairingCode,
       sms_sent: smsResult.success,
     }),
     { headers: { "Content-Type": "application/json" } }
@@ -238,6 +245,19 @@ async function acceptInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
     JSON.stringify({ success: true, family_id: invite.family_id, role: invite.role }),
     { headers: { "Content-Type": "application/json" } }
   );
+}
+
+/**
+ * Generate a cryptographically random 6-digit pairing code (100000–999999).
+ * Used for iPad / alternate-device setup where phone auto-join isn't possible.
+ */
+function generatePairingCode(): string {
+  const bytes = new Uint8Array(4);
+  crypto.getRandomValues(bytes);
+  const num = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
+  // Map to 100000–999999 range
+  const code = 100000 + (num % 900000);
+  return String(code);
 }
 
 /**

@@ -17,6 +17,8 @@ struct ContentView: View {
                     ReceiverOnboardingView(inviteToken: inviteToken)
                 } else if appState.pendingAutoJoin != nil {
                     ReceiverOnboardingView(inviteToken: nil)
+                } else if appState.showPairingCodeEntry {
+                    PairingCodeEntryView()
                 } else if appState.isOnboarding {
                     OnboardingView()
                 } else if appState.currentUserRole == .receiver {

@@ -7,6 +7,7 @@ final class AppState: ObservableObject {
     @Published var currentUserRole: UserRole?
     @Published var selectedTab: AppTab = .dashboard
     @Published var isOnboarding: Bool = false
+    @Published var showPairingCodeEntry: Bool = false
 
     enum AppTab: Int, CaseIterable {
         case dashboard = 0
