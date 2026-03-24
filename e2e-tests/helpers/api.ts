@@ -26,7 +26,18 @@ export async function callEdgeFunction<T = unknown>(
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
 
-  const data = (await res.json()) as T;
+  const text = await res.text();
+  let data: T;
+  try {
+    data = JSON.parse(text) as T;
+  } catch {
+    console.error(`[api] ${path} returned non-JSON (${res.status}): ${text.substring(0, 200)}`);
+    data = { error: text } as T;
+  }
+
+  if (res.status >= 400) {
+    console.error(`[api] ${path} failed (${res.status}):`, JSON.stringify(data).substring(0, 300));
+  }
 
   return {
     status: res.status,
