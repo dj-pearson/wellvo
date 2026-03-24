@@ -61,3 +61,5 @@ e2e-tests/node_modules/
 tmp/
 temp/
 work.md
+table/users_rows.csv
+/table
