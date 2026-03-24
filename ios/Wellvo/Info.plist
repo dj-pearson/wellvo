@@ -27,6 +27,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Wellvo uses your location to include it with your check-in so your family knows you're safe.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Wellvo uses your location to include it with your check-in so your family knows you're safe.</string>
 	<key>UIBackgroundModes</key>
