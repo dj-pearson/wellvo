@@ -89,7 +89,10 @@ final class AuthViewModel: ObservableObject {
     /// Prepare the Apple Sign-In request.
     /// Call this from the SignInWithAppleButton's `onRequest` closure.
     func configureAppleSignInRequest(_ request: ASAuthorizationAppleIDRequest) {
+        let rawNonce = Self.randomNonceString()
+        currentRawNonce = rawNonce
         request.requestedScopes = [.fullName, .email]
+        request.nonce = Self.sha256(rawNonce)
     }
 
     // MARK: - Nonce Helpers (synchronous, no actor hop needed)
