@@ -2,11 +2,14 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var appState: AppState
     @StateObject private var subscriptionService = SubscriptionService.shared
     @State private var showDeleteConfirmation = false
     @State private var isExportingData = false
     @State private var exportedData: String?
     @State private var showExportSheet = false
+
+    private var isOwner: Bool { appState.currentUserRole == .owner }
 
     var body: some View {
         NavigationStack {
@@ -35,21 +38,23 @@ struct SettingsView: View {
                     }
                 }
 
-                // Subscription
-                Section("Subscription") {
-                    HStack {
-                        Text("Current Plan")
-                        Spacer()
-                        Text(subscriptionService.currentTier.rawValue.capitalized)
-                            .foregroundStyle(.secondary)
-                    }
+                // Subscription — owners only
+                if isOwner {
+                    Section("Subscription") {
+                        HStack {
+                            Text("Current Plan")
+                            Spacer()
+                            Text(subscriptionService.currentTier.rawValue.capitalized)
+                                .foregroundStyle(.secondary)
+                        }
 
-                    NavigationLink("Manage Subscription") {
-                        SubscriptionView()
-                    }
+                        NavigationLink("Manage Subscription") {
+                            SubscriptionView()
+                        }
 
-                    Button("Restore Purchases") {
-                        Task { await subscriptionService.restorePurchases() }
+                        Button("Restore Purchases") {
+                            Task { await subscriptionService.restorePurchases() }
+                        }
                     }
                 }
 

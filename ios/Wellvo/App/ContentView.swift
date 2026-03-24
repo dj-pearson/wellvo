@@ -32,12 +32,20 @@ struct ContentView: View {
         }
         .animation(reduceMotion ? nil : .easeInOut, value: authViewModel.authState)
         .task(id: authViewModel.authState) {
-            // After authentication, check for phone-based auto-join
             guard authViewModel.authState == .authenticated,
                   appState.pendingInviteToken == nil,
                   appState.pendingAutoJoin == nil,
                   appState.currentUserRole == nil else { return }
 
+            // Load the user's existing role from the DB first.
+            // This ensures receivers/viewers are routed correctly on every login,
+            // not just after the initial onboarding flow.
+            if let role = await FamilyService.shared.getCurrentUserRole() {
+                appState.currentUserRole = role
+                return
+            }
+
+            // No existing membership — check for phone-based auto-join (new user)
             do {
                 if let result = try await FamilyService.shared.checkAutoJoin() {
                     appState.pendingAutoJoin = result

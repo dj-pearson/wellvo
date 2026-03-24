@@ -2,6 +2,7 @@ import SwiftUI
 import CoreImage.CIFilterBuiltins
 
 struct FamilyView: View {
+    @EnvironmentObject var appState: AppState
     @State private var family: Family?
     @State private var members: [FamilyMember] = []
     @State private var showInviteSheet = false
@@ -9,6 +10,8 @@ struct FamilyView: View {
     @State private var showTransferAlert = false
     @State private var transferTarget: FamilyMember?
     @State private var errorMessage: String?
+
+    private var isOwner: Bool { appState.currentUserRole == .owner }
 
     var body: some View {
         NavigationStack {
@@ -32,22 +35,22 @@ struct FamilyView: View {
                 Section("Members") {
                     ForEach(members) { member in
                         NavigationLink {
-                            if member.role == .receiver {
+                            if member.role == .receiver && isOwner {
                                 ReceiverSettingsView(member: member)
                             }
                         } label: {
                             MemberRow(member: member)
                         }
-                        .disabled(member.role != .receiver)
+                        .disabled(!(member.role == .receiver && isOwner))
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            if member.role != .owner {
+                            if isOwner && member.role != .owner {
                                 Button("Remove", role: .destructive) {
                                     Task { await removeMember(member) }
                                 }
                             }
                         }
                         .swipeActions(edge: .leading) {
-                            if member.status == .invited {
+                            if isOwner && member.status == .invited {
                                 Button("Re-send") {
                                     Task { await resendInvite(member) }
                                 }
@@ -55,7 +58,7 @@ struct FamilyView: View {
                             }
                         }
                         .contextMenu {
-                            if member.role != .owner && member.status == .active {
+                            if isOwner && member.role != .owner && member.status == .active {
                                 Button {
                                     transferTarget = member
                                     showTransferAlert = true
@@ -63,7 +66,7 @@ struct FamilyView: View {
                                     Label("Transfer Ownership", systemImage: "arrow.right.arrow.left")
                                 }
                             }
-                            if member.status == .invited {
+                            if isOwner && member.status == .invited {
                                 Button {
                                     Task { await resendInvite(member) }
                                 } label: {
@@ -74,11 +77,13 @@ struct FamilyView: View {
                     }
                 }
 
-                Section {
-                    Button {
-                        showInviteSheet = true
-                    } label: {
-                        Label("Invite Family Member", systemImage: "person.badge.plus")
+                if isOwner {
+                    Section {
+                        Button {
+                            showInviteSheet = true
+                        } label: {
+                            Label("Invite Family Member", systemImage: "person.badge.plus")
+                        }
                     }
                 }
             }

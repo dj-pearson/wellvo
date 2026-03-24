@@ -76,6 +76,23 @@ actor FamilyService {
         return family
     }
 
+    /// Returns the current user's role in their family, or nil if they have no membership.
+    /// Used on login to route receivers/viewers to the correct UI without requiring re-onboarding.
+    func getCurrentUserRole() async -> UserRole? {
+        guard let session = try? await supabase.auth.session else { return nil }
+
+        let members: [FamilyMember] = (try? await supabase
+            .from("family_members")
+            .select()
+            .eq("user_id", value: session.user.id.uuidString)
+            .eq("status", value: MemberStatus.active.rawValue)
+            .limit(1)
+            .execute()
+            .value) ?? []
+
+        return members.first?.role
+    }
+
     func getFamilyMembers(familyId: UUID) async throws -> [FamilyMember] {
         let members: [FamilyMember] = try await supabase
             .from("family_members")

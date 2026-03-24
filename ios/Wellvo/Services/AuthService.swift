@@ -39,7 +39,8 @@ actor AuthService {
         let session = try await supabase.auth.signInWithIdToken(
             credentials: .init(
                 provider: .apple,
-                idToken: tokenString
+                idToken: tokenString,
+                nonce: rawNonce
             )
         )
 
