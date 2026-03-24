@@ -4,8 +4,10 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
-import { resolve } from "path";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 config({ path: resolve(__dirname, "../.env") });
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
