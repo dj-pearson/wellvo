@@ -25,11 +25,6 @@ describe("Full E2E Flow: Owner → Receiver Check-In", () => {
   let receiverId: string;
   let checkInRequestId: string;
 
-  beforeAll(async () => {
-    const healthy = await healthCheck();
-    expect(healthy).toBe(true);
-  });
-
   it("Step 1: Both users authenticate successfully", async () => {
     [owner, receiver] = await Promise.all([signInOwner(), signInReceiver()]);
 

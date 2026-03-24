@@ -39,7 +39,7 @@ services:
     networks:
       - wellvo-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      test: ["CMD", "deno", "eval", "const r = await fetch('http://localhost:9000/health'); const d = await r.json(); if (d.status !== 'ok') Deno.exit(1);"]
       interval: 30s
       timeout: 10s
       retries: 3

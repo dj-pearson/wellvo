@@ -16,8 +16,8 @@ RUN deno cache server.ts
 
 EXPOSE 9000
 
-# Health check
+# Health check (using Deno fetch since curl is not available in the Deno image)
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD curl -f http://localhost:9000/health || exit 1
+  CMD deno eval "const r = await fetch('http://localhost:9000/health'); const d = await r.json(); if (d.status !== 'ok') Deno.exit(1);" || exit 1
 
 CMD ["deno", "run", "--allow-net", "--allow-env", "--allow-read=/app", "server.ts"]

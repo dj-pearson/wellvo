@@ -4,7 +4,7 @@ import { healthCheck } from "../helpers/api";
 import { getUserProfile, getFamiliesForUser } from "../helpers/db";
 
 describe("Authentication", () => {
-  beforeAll(async () => {
+  it("edge functions health check", async () => {
     const healthy = await healthCheck();
     expect(healthy).toBe(true);
   });
