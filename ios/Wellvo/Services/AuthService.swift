@@ -111,6 +111,47 @@ actor AuthService {
         }
     }
 
+    // MARK: - Link Apple ID
+
+    /// Link an Apple identity to the currently signed-in user.
+    /// This allows users who signed up with email/phone to later use "Sign in with Apple."
+    func linkAppleID(credential: ASAuthorizationAppleIDCredential, rawNonce: String) async throws {
+        guard let identityToken = credential.identityToken,
+              let tokenString = String(data: identityToken, encoding: .utf8) else {
+            throw AuthError.invalidCredential
+        }
+
+        guard let session = try? await supabase.auth.session else {
+            throw AuthError.userNotFound
+        }
+
+        // Send the Apple identity token to our edge function which verifies it
+        // and links the identity in auth.identities via the admin API.
+        let hashedNonce = sha256(rawNonce)
+        try await supabase.functions.invoke(
+            "link-apple-id",
+            options: .init(body: [
+                "identity_token": tokenString,
+                "nonce": hashedNonce,
+            ])
+        )
+
+        // Persist the Apple user ID for revocation checks
+        persistAppleUserID(credential.user)
+    }
+
+    /// Check if the current user has an Apple identity linked.
+    func hasLinkedAppleID() async -> Bool {
+        guard let session = try? await supabase.auth.session else { return false }
+
+        let result: Bool? = try? await supabase
+            .rpc("has_apple_identity", params: ["p_user_id": session.user.id.uuidString])
+            .execute()
+            .value
+
+        return result ?? false
+    }
+
     // MARK: - Email Auth
 
     func signInWithEmail(email: String, password: String) async throws -> AppUser {
