@@ -1,9 +1,11 @@
 import SwiftUI
+import AuthenticationServices
 
 struct SettingsView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var appState: AppState
     @StateObject private var subscriptionService = SubscriptionService.shared
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showDeleteConfirmation = false
     @State private var isExportingData = false
     @State private var exportedData: String?
@@ -35,6 +37,44 @@ struct SettingsView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
+                    }
+                }
+
+                // Link Apple ID
+                Section {
+                    if authViewModel.hasLinkedApple {
+                        Label("Apple ID Linked", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    } else {
+                        SignInWithAppleButton(.continue) { request in
+                            authViewModel.configureAppleLinkRequest(request)
+                        } onCompletion: { result in
+                            Task { await authViewModel.linkAppleID(result) }
+                        }
+                        .signInWithAppleButtonStyle(
+                            colorScheme == .dark ? .white : .black
+                        )
+                        .frame(height: 44)
+                        .disabled(authViewModel.isLinkingApple)
+
+                        if authViewModel.isLinkingApple {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+
+                    if let message = authViewModel.linkAppleMessage {
+                        Text(message)
+                            .font(.caption)
+                            .foregroundStyle(
+                                authViewModel.hasLinkedApple ? .green : .red
+                            )
+                    }
+                } header: {
+                    Text("Apple ID")
+                } footer: {
+                    if !authViewModel.hasLinkedApple {
+                        Text("Link your Apple ID so you can use Sign in with Apple to access this account.")
                     }
                 }
 
@@ -124,6 +164,9 @@ struct SettingsView: View {
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("This will permanently delete your account, your family group, all check-in history, and remove all members. This action cannot be undone.")
+            }
+            .task {
+                await authViewModel.checkAppleLinkStatus()
             }
             .sheet(isPresented: $showExportSheet) {
                 if let data = exportedData {

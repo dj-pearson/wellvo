@@ -28,7 +28,17 @@ final class AuthViewModel: ObservableObject {
     @Published var isAwaitingOTP = false
 
     /// The raw nonce generated for the current Apple Sign-In attempt.
-    private var currentRawNonce: String?
+    /// Backed by UserDefaults so it survives view recreation and SwiftUI lifecycle events.
+    private var currentRawNonce: String? {
+        get { UserDefaults.standard.string(forKey: "apple_signin_nonce") }
+        set {
+            if let newValue {
+                UserDefaults.standard.set(newValue, forKey: "apple_signin_nonce")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "apple_signin_nonce")
+            }
+        }
+    }
 
     /// Supabase auth state listener handle
     private var authStateTask: Task<Void, Never>?
@@ -131,6 +141,7 @@ final class AuthViewModel: ObservableObject {
             }
             do {
                 currentUser = try await AuthService.shared.signInWithApple(credential: credential, rawNonce: rawNonce)
+                currentRawNonce = nil
                 authState = .authenticated
                 clearFormFields()
             } catch {
@@ -145,6 +156,60 @@ final class AuthViewModel: ObservableObject {
         }
 
         isLoading = false
+    }
+
+    // MARK: - Link Apple ID
+
+    @Published var hasLinkedApple = false
+    @Published var isLinkingApple = false
+    @Published var linkAppleMessage: String?
+
+    /// Check whether the current user already has a linked Apple identity.
+    func checkAppleLinkStatus() async {
+        hasLinkedApple = await AuthService.shared.hasLinkedAppleID()
+    }
+
+    /// Configure an Apple Sign-In request for identity linking (reuses nonce logic).
+    func configureAppleLinkRequest(_ request: ASAuthorizationAppleIDRequest) {
+        let rawNonce = Self.randomNonceString()
+        currentRawNonce = rawNonce
+        request.requestedScopes = [.email]
+        request.nonce = Self.sha256(rawNonce)
+    }
+
+    /// Handle the Apple Sign-In result for identity linking.
+    func linkAppleID(_ result: Result<ASAuthorization, Error>) async {
+        isLinkingApple = true
+        linkAppleMessage = nil
+
+        switch result {
+        case .success(let authorization):
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+                linkAppleMessage = "Invalid Apple credential"
+                isLinkingApple = false
+                return
+            }
+            guard let rawNonce = currentRawNonce else {
+                linkAppleMessage = "Security check failed. Please try again."
+                isLinkingApple = false
+                return
+            }
+            do {
+                try await AuthService.shared.linkAppleID(credential: credential, rawNonce: rawNonce)
+                currentRawNonce = nil
+                hasLinkedApple = true
+                linkAppleMessage = "Apple ID linked successfully!"
+            } catch {
+                linkAppleMessage = error.localizedDescription
+            }
+
+        case .failure(let error):
+            if (error as? ASAuthorizationError)?.code != .canceled {
+                linkAppleMessage = error.localizedDescription
+            }
+        }
+
+        isLinkingApple = false
     }
 
     // MARK: - Email Auth

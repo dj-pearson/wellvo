@@ -25,6 +25,7 @@ import { handleReportLocation } from "./functions/report-location/index.ts";
 import { handleHeartbeat } from "./functions/heartbeat/index.ts";
 import { handleAutoJoin } from "./functions/auto-join/index.ts";
 import { handleRedeemCode } from "./functions/redeem-code/index.ts";
+import { handleLinkAppleId } from "./functions/link-apple-id/index.ts";
 
 type FunctionHandler = (req: Request, auth: AuthResult) => Promise<Response>;
 
@@ -48,6 +49,7 @@ const routes: Record<string, FunctionHandler> = {
   "/heartbeat": handleHeartbeat,
   "/auto-join": handleAutoJoin,
   "/redeem-code": handleRedeemCode,
+  "/link-apple-id": handleLinkAppleId,
 };
 
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://wellvo.net";
