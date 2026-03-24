@@ -17,7 +17,14 @@
       "Bash(xargs grep:*)",
       "Bash(grep -r passes: /c/Users/pears/Documents --include=*.json)",
       "Bash(find /c/Users/pears/Documents -path */scripts/ralph/* -type f)",
-      "Bash(find /c/Users/pears/Documents -path */scripts/ralph/*.md)"
+      "Bash(find /c/Users/pears/Documents -path */scripts/ralph/*.md)",
+      "Bash(find /c/Users/dpearson/Documents/Wellvo/wellvo -type f -name *.test.* -o -name *.spec.* -o -name playwright.config.* -o -name vitest.config.* -o -name jest.config.*)",
+      "Bash(curl -s https://api.github.com/search/repositories?q=XcodeBuildMCP)",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(f{r[''''full_name'''']} - {r[''''description'''']} - {r[''''html_url'''']} - Stars: {r[''''stargazers_count'''']}\\) for r in data.get\\(''''items'''',[]\\)]\")",
+      "Bash(curl -s https://api.github.com/search/repositories?q=ios-simulator-mcp)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(find /c/Users/dpearson/Documents/Wellvo/wellvo/ios/Wellvo -name *UITests* -o -name *Test*)"
     ]
   }
 }

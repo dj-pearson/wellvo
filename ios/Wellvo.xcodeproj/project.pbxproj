@@ -70,6 +70,10 @@
 		/* New Services */
 		B1C00009 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00009; };
 		B1C0000A /* HeartbeatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C0000A; };
+		/* UI Tests */
+		B2U00001 /* WellvoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00001; };
+		B2U00002 /* OwnerFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00002; };
+		B2U00003 /* ReceiverFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00003; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -130,7 +134,30 @@
 		F1X00001 /* BuildConfig.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = BuildConfig.xcconfig; sourceTree = "<group>"; };
 		/* Product */
 		F1P00001 /* Wellvo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wellvo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F1P00002 /* WellvoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WellvoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		/* UI Test Files */
+		F2U00001 /* WellvoUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WellvoUITests.swift; sourceTree = "<group>"; };
+		F2U00002 /* OwnerFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnerFlowTests.swift; sourceTree = "<group>"; };
+		F2U00003 /* ReceiverFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverFlowTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXContainerItemProxy section */
+		CP000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = PR000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = T1000001;
+			remoteInfo = Wellvo;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		TD000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = T1000001 /* Wellvo */;
+			targetProxy = CP000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		D1000001 /* Frameworks */ = {
@@ -143,6 +170,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D2000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -150,6 +184,7 @@
 			isa = PBXGroup;
 			children = (
 				G1000002 /* Wellvo */,
+				G2U00001 /* WellvoUITests */,
 				G1000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -173,8 +208,19 @@
 			isa = PBXGroup;
 			children = (
 				F1P00001 /* Wellvo.app */,
+				F1P00002 /* WellvoUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		G2U00001 /* WellvoUITests */ = {
+			isa = PBXGroup;
+			children = (
+				F2U00001 /* WellvoUITests.swift */,
+				F2U00002 /* OwnerFlowTests.swift */,
+				F2U00003 /* ReceiverFlowTests.swift */,
+			);
+			path = WellvoUITests;
 			sourceTree = "<group>";
 		};
 		G1A00001 /* App */ = {
@@ -337,6 +383,23 @@
 			productReference = F1P00001 /* Wellvo.app */;
 			productType = "com.apple.product-type.application";
 		};
+	T2000001 /* WellvoUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CL000003 /* Build configuration list for PBXNativeTarget "WellvoUITests" */;
+			buildPhases = (
+				S2000001 /* Sources */,
+				D2000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				TD000001 /* PBXTargetDependency */,
+			);
+			name = WellvoUITests;
+			productName = WellvoUITests;
+			productReference = F1P00002 /* WellvoUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -349,6 +412,10 @@
 				TargetAttributes = {
 					T1000001 = {
 						CreatedOnToolsVersion = 15.2;
+					};
+					T2000001 = {
+						CreatedOnToolsVersion = 15.2;
+						TestTargetID = T1000001;
 					};
 				};
 			};
@@ -371,6 +438,7 @@
 			projectRoot = "";
 			targets = (
 				T1000001 /* Wellvo */,
+				T2000001 /* WellvoUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -425,6 +493,16 @@
 				B1F0000F /* ViewerTabView.swift in Sources */,
 				B1C00009 /* LocationService.swift in Sources */,
 				B1C0000A /* HeartbeatService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+	S2000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B2U00001 /* WellvoUITests.swift in Sources */,
+				B2U00002 /* OwnerFlowTests.swift in Sources */,
+				B2U00003 /* ReceiverFlowTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -555,6 +633,42 @@
 			};
 			name = Release;
 		};
+	BC000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Wellvo;
+			};
+			name = Debug;
+		};
+		BC000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Wellvo;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -572,6 +686,15 @@
 			buildConfigurations = (
 				BC000003 /* Debug */,
 				BC000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+	CL000003 /* Build configuration list for PBXNativeTarget "WellvoUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BC000005 /* Debug */,
+				BC000006 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

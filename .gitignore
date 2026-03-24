@@ -46,6 +46,7 @@ supabase/config/supabase.env
 # Build artifacts
 edge-functions/.cache/
 edge-functions/node_modules/
+e2e-tests/node_modules/
 
 # Secrets
 *.p8
