@@ -24,7 +24,8 @@
       "Bash(curl -s https://api.github.com/search/repositories?q=ios-simulator-mcp)",
       "WebSearch",
       "WebFetch(domain:github.com)",
-      "Bash(find /c/Users/dpearson/Documents/Wellvo/wellvo/ios/Wellvo -name *UITests* -o -name *Test*)"
+      "Bash(find /c/Users/dpearson/Documents/Wellvo/wellvo/ios/Wellvo -name *UITests* -o -name *Test*)",
+      "Bash(grep -r \"PRODUCT_NAME\\\\|PRODUCT_BUNDLE_IDENTIFIER\\\\|CFBundleDisplayName\\\\|MARKETING_VERSION\" /c/Users/pears/Documents/Wellvo/wellvo/ios/*.pbxproj)"
     ]
   }
 }

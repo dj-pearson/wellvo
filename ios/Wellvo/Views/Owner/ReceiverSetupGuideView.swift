@@ -39,7 +39,7 @@ struct ReceiverSetupGuideView: View {
                         stepNumber: 1,
                         icon: "message.fill",
                         title: "Open the Text Message",
-                        description: "\(receiverName) will receive a text with a link to download Alive from the App Store."
+                        description: "\(receiverName) will receive a text with a link to download Wellvo from the App Store."
                     )
 
                     // Step 2
@@ -47,7 +47,7 @@ struct ReceiverSetupGuideView: View {
                         stepNumber: 2,
                         icon: "arrow.down.app.fill",
                         title: "Download the App",
-                        description: "Tap the link in the text to open the App Store and download Alive."
+                        description: "Tap the link in the text to open the App Store and download Wellvo."
                     )
 
                     // Step 3
