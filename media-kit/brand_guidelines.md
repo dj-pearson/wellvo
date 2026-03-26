@@ -3,7 +3,7 @@
 ## Our Mission
 **"One tap. Total peace of mind."**
 
-Wellvo (also known as Alive) is a daily check-in app designed to give families peace of mind. We are the opposite of a medical alert device or a surveillance tool. Our brand should always feel safe, simple, and family-oriented.
+Wellvo is a daily check-in app designed to give families peace of mind. We are the opposite of a medical alert device or a surveillance tool. Our brand should always feel safe, simple, and family-oriented.
 
 ---
 

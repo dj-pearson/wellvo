@@ -1,7 +1,7 @@
 # Wellvo — Project Configuration
 
 ## Overview
-Wellvo (marketed as "Alive") is a daily check-in app for families. Owners send check-in requests; Receivers tap "I'm OK." Escalation alerts fire if no response.
+Wellvo is a daily check-in app for families. Owners send check-in requests; Receivers tap "I'm OK." Escalation alerts fire if no response.
 
 ## Tech Stack
 - **iOS App**: Swift 5.9+, SwiftUI, MVVM, iOS 16+, StoreKit 2
@@ -91,4 +91,4 @@ cd android && ./gradlew test                  # Unit tests
 ## Task Tracking
 - `prd.json` — User stories with `passes: true/false` status (Ralph loop format)
 - `progress.txt` — Append-only log with story status and iteration details
-- PRD: `Alive-PRD-v1.md` — Full product requirements document
+- PRD: `Wellvo-PRD-v1.md` — Full product requirements document

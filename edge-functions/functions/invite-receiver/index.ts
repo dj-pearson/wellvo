@@ -112,7 +112,7 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   // auto-join will match them to this invite automatically.
   // The pairing code is included so they can set up on an iPad or other device.
   const smsBody =
-    `${name}, your family wants to check in with you daily using Alive. ` +
+    `${name}, your family wants to check in with you daily using Wellvo. ` +
     `Download the app and sign in with this phone number to get started: ` +
     `https://apps.apple.com/app/alive-daily-checkin/id6742044109\n\n` +
     `Setting up on an iPad? Use this code: ${pairingCode}`;

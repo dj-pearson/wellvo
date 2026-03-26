@@ -1,4 +1,4 @@
-# Wellvo (Alive) — Daily Check-In App for Families
+# Wellvo — Daily Check-In App for Families
 
 One person sends check-in requests. Their loved ones tap "I'm OK." If no response, escalation alerts fire. Simple, private, and built for ages 13 to 95.
 
@@ -73,7 +73,7 @@ CI runs migrations automatically on push to `main` (requires GitHub environment 
 
 ## Documentation
 
-- **[Alive-PRD-v1.md](./Alive-PRD-v1.md)** — Full product requirements document
+- **[Wellvo-PRD-v1.md](./Wellvo-PRD-v1.md)** — Full product requirements document
 - **[coolify/README-DEPLOYMENT.md](./coolify/README-DEPLOYMENT.md)** — Production deployment guide
 - **[CLAUDE.md](./CLAUDE.md)** — AI development context
 

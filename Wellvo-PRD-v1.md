@@ -1,4 +1,4 @@
-# ALIVE — Daily Check-In
+# WELLVO — Daily Check-In
 
 ## Product Requirements Document
 
@@ -10,7 +10,7 @@
 
 ## 1. Executive Summary
 
-Alive is a daily check-in app that gives families peace of mind. One person (the "Owner") manages the account and sends check-in requests. Their connected family members ("Receivers") see a single, distraction-free screen with one button: "I'm OK." If a Receiver doesn't check in within the configured window, the Owner gets an escalating alert chain.
+Wellvo is a daily check-in app that gives families peace of mind. One person (the "Owner") manages the account and sends check-in requests. Their connected family members ("Receivers") see a single, distraction-free screen with one button: "I'm OK." If a Receiver doesn't check in within the configured window, the Owner gets an escalating alert chain.
 
 The app targets two primary markets: adult children monitoring aging parents, and parents keeping tabs on teenagers. Both share the same core anxiety — "Are they okay?" — and the same willingness to pay for peace of mind.
 
@@ -22,7 +22,7 @@ The business model is Owner-pays: the subscription lives on the Owner's account 
 
 | Attribute | Detail |
 |-----------|--------|
-| App Name | Alive |
+| App Name | Wellvo |
 | Tagline | "One tap. Total peace of mind." |
 | Platform | iOS (Swift native, SwiftUI) |
 | Backend | Self-hosted Supabase (PostgreSQL, Auth, Realtime, Edge Functions, Push via APNs) |
@@ -251,7 +251,7 @@ The Owner has full control over the family group:
 
 ### 7.2 Receiver Onboarding
 
-1. Receive SMS: "[Owner Name] wants to make sure you're OK every day. Tap to set up Alive."
+1. Receive SMS: "[Owner Name] wants to make sure you're OK every day. Tap to set up Wellvo."
 2. Tap link → App Store download (or opens app if installed)
 3. Open app → auto-links to family via invite token in deep link
 4. Single screen: "Every day at [time], we'll send you a notification. Just tap 'I'm OK' and that's it."
@@ -294,7 +294,7 @@ The Owner app has more depth but should still feel simple and calm, not clinical
 
 ### 9.1 Target Segments
 
-**Primary — Adult Children with Aging Parents:** 53+ million Americans are caregivers for aging family members. The core anxiety is "I haven't heard from Mom today — is she okay?" Current solutions (medical alert pendants, smart home sensors) feel clinical and stigmatizing. Alive feels like family, not healthcare.
+**Primary — Adult Children with Aging Parents:** 53+ million Americans are caregivers for aging family members. The core anxiety is "I haven't heard from Mom today — is she okay?" Current solutions (medical alert pendants, smart home sensors) feel clinical and stigmatizing. Wellvo feels like family, not healthcare.
 
 **Secondary — Parents of Teenagers:** Parents of 13–18 year olds who want a lightweight, non-invasive check-in that doesn't feel like surveillance. Positioned as the opposite of location tracking — just a daily "I'm good" that respects the teen's autonomy.
 
@@ -302,7 +302,7 @@ The Owner app has more depth but should still feel simple and calm, not clinical
 
 ### 9.2 Positioning Statement
 
-"Alive is the simplest way to know your loved ones are okay. One tap. Every day. Total peace of mind."
+"Wellvo is the simplest way to know your loved ones are okay. One tap. Every day. Total peace of mind."
 
 ### 9.3 Key Differentiators
 
@@ -387,7 +387,7 @@ The product has a built-in viral loop at the family level. One sibling sets up a
 
 ## 13. Competitive Landscape
 
-Existing solutions fall into three categories, none of which nail the simplicity + family dynamic that Alive targets:
+Existing solutions fall into three categories, none of which nail the simplicity + family dynamic that Wellvo targets:
 
 **Medical Alert Devices (Life Alert, Medical Guardian):** Hardware-based, expensive ($30–50/month), stigmatizing, designed for emergencies not daily connection. Target is 75+ with fall risk, not general aging-in-place or teenagers.
 
@@ -395,7 +395,7 @@ Existing solutions fall into three categories, none of which nail the simplicity
 
 **Smart Home Sensors (Lively, GrandCare):** Requires hardware installation, complex setup, expensive. Overkill for the core anxiety. Most families want a simple signal, not a sensor network.
 
-Alive's positioning is deliberately between these categories: lighter than medical devices, more purposeful than location sharing, simpler than smart home, and cheaper than all three.
+Wellvo's positioning is deliberately between these categories: lighter than medical devices, more purposeful than location sharing, simpler than smart home, and cheaper than all three.
 
 ---
 
@@ -403,7 +403,7 @@ Alive's positioning is deliberately between these categories: lighter than medic
 
 ### 14.1 App Store Metadata (Draft)
 
-**App Name:** Alive — Daily Check-In
+**App Name:** Wellvo — Daily Check-In
 **Subtitle:** One tap. Peace of mind.
 **Category:** Lifestyle (Primary), Health & Fitness (Secondary)
 **Keywords:** check in, family safety, aging parents, daily check, senior safety, teen check in, family wellness, caregiver, peace of mind, elderly care
