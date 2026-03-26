@@ -1,484 +1,1198 @@
 {
-  "project": "Wellvo",
-  "branchName": "ralph/production-hardening",
-  "description": "Address all critical, high, and medium priority gaps across iOS app, website, backend, and repository health to prepare Wellvo for App Store submission and production launch",
+  "project": "Wellvo Android",
+  "branchName": "ralph/android-app",
+  "description": "Build a native Android (Kotlin + Jetpack Compose) clone of the Wellvo iOS app with full feature parity. The Android app connects to the same Supabase backend and edge functions, uses FCM instead of APNs, Google Play Billing instead of StoreKit 2, and Room instead of SwiftData. Target Android 8.0+ (API 26+), Material Design 3.",
   "userStories": [
     {
-      "id": "US-001",
-      "title": "Fix CORS policy to restrict allowed origins",
-      "description": "As a security engineer, I want the edge functions CORS policy restricted to wellvo.net so that arbitrary websites cannot make API calls to our backend.",
+      "id": "US-A001",
+      "title": "Scaffold Android project with Kotlin and Jetpack Compose",
+      "description": "As a developer, I want a properly structured Android project so that all subsequent features have a solid foundation to build on.",
       "acceptanceCriteria": [
-        "Access-Control-Allow-Origin in edge-functions/server.ts is set to https://wellvo.net (not *)",
-        "OPTIONS preflight requests return correct origin header",
-        "CORS origin is configurable via environment variable ALLOWED_ORIGIN",
-        "Requests from other origins receive 403",
-        "Edge functions still work when called from the iOS app (no origin header)"
+        "New android/ directory at project root with standard Gradle project structure",
+        "App module: android/app/ with build.gradle.kts using Kotlin DSL",
+        "compileSdk = 34, minSdk = 26, targetSdk = 34",
+        "Kotlin 1.9+, Jetpack Compose BOM (latest stable)",
+        "Package name: net.wellvo.android",
+        "Material Design 3 theme with Wellvo brand colors (green primary #22C55E, white background)",
+        "App name 'Wellvo' in strings.xml",
+        "Project builds successfully with ./gradlew assembleDebug",
+        "Root settings.gradle.kts includes the app module"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": "Critical security fix. server.ts line 43 currently allows *."
+      "passes": false,
+      "notes": "Foundation for all Android work. Use single-module architecture initially; can modularize later. Create under android/ at the repo root alongside ios/."
     },
     {
-      "id": "US-002",
-      "title": "Add rate limiting middleware to edge functions",
-      "description": "As a security engineer, I want per-user rate limiting on all edge function endpoints so that brute-force attacks, notification flooding, and abuse are prevented.",
+      "id": "US-A002",
+      "title": "Set up dependency injection with Hilt",
+      "description": "As a developer, I want Hilt DI so that services, repositories, and ViewModels are properly scoped and testable.",
       "acceptanceCriteria": [
-        "New shared/rate-limiter.ts module with in-memory rate limiting by user ID + endpoint",
-        "Default limit: 30 requests per minute per user per endpoint",
-        "Stricter limit on invite-receiver: 5 per minute",
-        "Stricter limit on on-demand-checkin: 10 per minute",
-        "Returns 429 Too Many Requests with Retry-After header when exceeded",
-        "Rate limiter is applied in server.ts before routing to handlers",
-        "Service-role requests (cron jobs) bypass rate limiting"
+        "Hilt Gradle plugin and dependencies added to build.gradle.kts",
+        "@HiltAndroidApp annotation on Application class (WellvoApplication)",
+        "AppModule providing singletons: SupabaseClient, SharedPreferences, Room database",
+        "NetworkModule providing Ktor HttpClient (or OkHttp) configured with Supabase base URL",
+        "All service classes annotated with @Inject and @Singleton where appropriate",
+        "Project builds with Hilt kapt/ksp processing"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "All 7 endpoints currently have zero rate limiting."
+      "passes": false,
+      "notes": "Hilt is the standard Android DI framework. Use KSP over KAPT for faster builds."
     },
     {
-      "id": "US-003",
-      "title": "Add security headers to website via Cloudflare Pages _headers file",
-      "description": "As a security engineer, I want proper HTTP security headers on all website responses so that XSS, clickjacking, and MIME sniffing attacks are mitigated.",
+      "id": "US-A003",
+      "title": "Integrate Supabase Kotlin SDK",
+      "description": "As a developer, I want a configured Supabase client so that the Android app can authenticate users and query the database.",
       "acceptanceCriteria": [
-        "website/public/_headers file exists with rules for /*",
-        "Content-Security-Policy header set (script-src self, style-src self and fonts.googleapis.com, font-src fonts.gstatic.com)",
-        "X-Frame-Options: DENY",
-        "X-Content-Type-Options: nosniff",
-        "Referrer-Policy: strict-origin-when-cross-origin",
-        "Permissions-Policy: camera=(), microphone=(), geolocation=()",
-        "Headers appear in production build output (dist/_headers)",
-        "Website still renders correctly with CSP active"
+        "io.github.jan-tennert.supabase Kotlin SDK added (Auth, PostgREST, Realtime, Functions modules)",
+        "Supabase URL and anon key loaded from BuildConfig fields (set in build.gradle.kts)",
+        "Separate debug/release build flavors with different Supabase credentials if needed",
+        "SupabaseClient singleton created via Hilt with GoTrue, Postgrest, Realtime, Functions plugins",
+        "Helper extension functions for common queries (e.g., supabase.from(table).select())",
+        "Connection verified: app can reach Supabase and return a response"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Currently no _headers file exists for security headers."
+      "passes": false,
+      "notes": "Use the official Supabase Kotlin Multiplatform SDK (io.github.jan-tennert.supabase). Supabase URL and key should NOT be hardcoded — use BuildConfig."
     },
     {
-      "id": "US-004",
-      "title": "Add migration safety gate to CI/CD pipeline",
-      "description": "As a developer, I want Supabase migrations to require manual approval and take a backup before running so that a bad migration cannot destroy production data.",
+      "id": "US-A004",
+      "title": "Set up Jetpack Navigation with role-based routing",
+      "description": "As a user, I want to be routed to the correct screen based on my auth state and role so that I see the right experience immediately.",
       "acceptanceCriteria": [
-        "supabase-migrations.yml requires environment approval (GitHub environment protection rule)",
-        "Workflow runs pg_dump backup before applying any migration",
-        "Backup is uploaded as a workflow artifact (retained 30 days)",
-        "Each migration runs inside an explicit SQL transaction (BEGIN/COMMIT)",
-        "Workflow fails and stops if any migration errors",
-        "Verification step checks table count, RLS policy count, and trigger count"
+        "Jetpack Navigation Compose dependency added",
+        "NavHost in MainActivity with routes: splash, auth, onboarding, ownerTabs, receiverHome, viewerTabs, pairingCode, receiverOnboarding",
+        "Navigation graph mirrors iOS ContentView routing: authState (loading/unauthenticated/authenticated) → role (owner/receiver/viewer)",
+        "Owner gets bottom nav with 4 tabs: Dashboard, History, Family, Settings",
+        "Receiver gets single-screen check-in interface",
+        "Viewer gets bottom nav with 3 tabs: Dashboard (read-only), History (read-only), Settings",
+        "Back stack handled correctly (no back from authenticated to auth screen)",
+        "Splash screen shows while checking auth state"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Currently auto-deploys on push with no approval or backup."
+      "passes": false,
+      "notes": "Match the iOS ContentView routing logic exactly. Use sealed class for routes."
     },
     {
-      "id": "US-005",
-      "title": "Add error logging and monitoring integration",
-      "description": "As an operator, I want structured JSON logging and error tracking in edge functions so that production issues are visible and alertable.",
+      "id": "US-A005",
+      "title": "Configure build variants and signing",
+      "description": "As a developer, I want debug and release build variants configured so that development and production builds are properly separated.",
       "acceptanceCriteria": [
-        "New shared/logger.ts module with structured JSON logging (timestamp, level, path, userId, statusCode, duration, error)",
-        "All edge function handlers log request start and completion",
-        "Errors include stack traces in log output",
-        "server.ts catches unhandled errors and logs them before returning 500",
-        "Log output is JSON-per-line format compatible with Docker log drivers",
-        "Docker compose adds json-file logging driver with max-size 10m and max-file 3"
+        "Debug build variant with debug Supabase credentials in BuildConfig",
+        "Release build variant with production Supabase credentials",
+        "ProGuard/R8 rules for release builds (minifyEnabled = true)",
+        "Keep rules for Supabase SDK, Ktor, Hilt, and serialization classes",
+        "Signing config placeholder for release keystore (keystore path, alias, passwords from local.properties or environment variables)",
+        "Version code and version name set in build.gradle.kts",
+        "./gradlew assembleDebug and ./gradlew assembleRelease both succeed"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Currently only console.error with no structure or aggregation."
+      "passes": false,
+      "notes": "Do NOT commit keystore or passwords. Use local.properties or CI environment variables."
     },
     {
-      "id": "US-006",
-      "title": "Add database backup automation",
-      "description": "As an operator, I want automated daily PostgreSQL backups with retention so that data can be recovered in a disaster.",
+      "id": "US-A006",
+      "title": "Implement core data models with Kotlin Serialization",
+      "description": "As a developer, I want Kotlin data classes matching the Supabase schema so that API responses deserialize correctly.",
       "acceptanceCriteria": [
-        "New coolify/backup-db.sh script that runs pg_dump with compression",
-        "Backups stored in /var/backups/wellvo/ with date-stamped filenames",
-        "Retention: keep last 30 daily backups, delete older",
-        "Script is scheduled via cron (documented in coolify/README-DEPLOYMENT.md)",
-        "Backup script validates dump file is non-empty before deleting old ones",
-        "README-DEPLOYMENT.md updated with backup setup and restore instructions"
+        "Kotlinx Serialization dependency added with JSON format",
+        "AppUser data class: id (UUID), email, phone, displayName, role (enum: owner/receiver/viewer), avatarUrl, timezone, createdAt, updatedAt, lastSeenAt, lastBatteryLevel, lastAppVersion",
+        "Family data class: id, name, ownerId, subscriptionTier (enum: free/family/family_plus), subscriptionStatus (enum: active/expired/grace_period/cancelled), subscriptionExpiresAt, maxReceivers, maxViewers, createdAt",
+        "FamilyMember data class: id, familyId, userId, role (enum: owner/receiver/viewer), status (enum: active/invited/deactivated), invitedAt, joinedAt, user (nullable joined field)",
+        "CheckIn data class: id, receiverId, familyId, checkedInAt, mood (enum), source (enum: app/notification/on_demand/need_help/call_me), scheduledFor, responseType, latitude, longitude, locationAccuracyMeters, distanceFromHomeMeters, locationLabel, kidResponseType",
+        "CheckInRequest data class: id, familyId, receiverId, requestedBy, type (enum: scheduled/on_demand), status (enum: pending/checked_in/missed/expired), createdAt, respondedAt, escalationStep, nextEscalationAt",
+        "All @Serializable with @SerialName for snake_case mapping",
+        "Nullable fields properly annotated"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "No backup strategy currently exists."
+      "passes": false,
+      "notes": "Match iOS models exactly. Use kotlinx.serialization @SerialName for snake_case column names. All timestamp fields as String or Instant."
     },
     {
-      "id": "US-007",
-      "title": "Enable analytics in iOS app",
-      "description": "As a product owner, I want TelemetryDeck analytics enabled so that I can measure retention, check-in rates, and conversion metrics from the PRD.",
+      "id": "US-A007",
+      "title": "Implement ReceiverSettings and schedule models",
+      "description": "As a developer, I want ReceiverSettings data classes so that per-receiver configuration can be loaded and saved.",
       "acceptanceCriteria": [
-        "TelemetryDeck SPM package added to Package.swift dependencies",
-        "AnalyticsService.swift uncommented and configured with TelemetryDeck app ID from Info.plist",
-        "Events tracked: app_open, check_in_completed, check_in_missed, mood_selected, subscription_started, subscription_cancelled, onboarding_completed, on_demand_checkin_sent",
-        "No PII sent in analytics events (no email, phone, or name)",
-        "Analytics disabled in DEBUG builds",
-        "App builds successfully with analytics enabled"
+        "ReceiverSettings data class with all fields: id, familyMemberId, checkinTime (HH:mm string), timezone, gracePeriodMinutes, reminderIntervalMinutes, escalationEnabled, quietHoursStart, quietHoursEnd, moodTrackingEnabled, smsEscalationEnabled, isActive, locationTrackingEnabled, homeLatitude, homeLongitude, geofenceRadiusMeters, locationAlertEnabled, receiverMode (enum: standard/kid), scheduleType (enum: daily/weekday_weekend/custom), weekendCheckinTime, customSchedule (list of DaySchedule), schedulePaused",
+        "DaySchedule data class: dayOfWeek (Int 1-7), isEnabled (Boolean), checkinTime (HH:mm string)",
+        "ReceiverMode enum: standard (3 moods), kid (8 moods)",
+        "ScheduleType enum: daily, weekday_weekend, custom",
+        "Mood enum with displayName, emoji, and color for each: happy, neutral, tired (standard) + excited, bored, hungry, scared, having_fun (kid)",
+        "LocationLabel enum: home, school, friends_house, park, store, other with display names",
+        "KidResponseType enum: picking_me_up, can_stay_longer, sos with labels, icons, and colors",
+        "WellvoAlert data class: id, familyId, receiverId, type, title, message, data (Map), isRead, createdAt"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "TelemetryDeck SPM added, AnalyticsService.swift fully implemented with TelemetryDeck.signal(). DEBUG builds skip initialization."
+      "passes": false,
+      "notes": "These enums drive UI rendering. Match iOS emoji/color choices exactly."
     },
     {
-      "id": "US-008",
-      "title": "Add 404 page and error boundary to website",
-      "description": "As a user, I want to see a helpful error page when I visit an invalid URL or when a component crashes so that I'm not left with a blank screen.",
+      "id": "US-A008",
+      "title": "Set up Room database for offline storage",
+      "description": "As a receiver, I want my check-ins saved locally when offline so that they sync when I'm back online.",
       "acceptanceCriteria": [
-        "New website/src/pages/NotFound.tsx with branded 404 page (Wellvo styling, link to home)",
-        "Catch-all route added in App.tsx: <Route path='*' element={<NotFound />} />",
-        "New website/src/components/ErrorBoundary.tsx wrapping the app in Layout.tsx",
-        "ErrorBoundary shows user-friendly error message with retry button",
-        "404 page is responsive and matches site design",
-        "npm run build succeeds"
+        "Room dependency added (room-runtime, room-ktx, room-compiler with KSP)",
+        "OfflineCheckIn @Entity with fields: id (UUID primary key), familyId, receiverId, mood (String nullable), source (String), createdAt (Long timestamp), synced (Boolean default false)",
+        "OfflineCheckInDao with: insert, getUnsynced (WHERE synced = false), markSynced (by id), deleteAll",
+        "WellvoDatabase @Database class with OfflineCheckIn entity",
+        "Database singleton provided via Hilt AppModule",
+        "Migration strategy: fallbackToDestructiveMigration for v1 (no production data yet)"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "Currently visiting /invalid-path shows blank content."
+      "passes": false,
+      "notes": "Equivalent of iOS SwiftData OfflineCheckIn model. Room is the standard Android local DB."
     },
     {
-      "id": "US-009",
-      "title": "Add SEO essentials to website",
-      "description": "As a marketer, I want sitemap.xml, robots.txt, og:image, and structured data so that search engines can properly index the site and social shares look professional.",
+      "id": "US-A009",
+      "title": "Implement network layer and API service",
+      "description": "As a developer, I want a clean network layer so that edge function calls and Supabase queries are consistent and reliable.",
       "acceptanceCriteria": [
-        "website/public/sitemap.xml listing /, /pricing, /support, /privacy, /terms with lastmod dates",
-        "website/public/robots.txt allowing all crawlers and pointing to sitemap",
-        "og:image meta tag in index.html pointing to a 1200x630 social preview image",
-        "Social preview image generated (green gradient with Wellvo logo and tagline)",
-        "Twitter card meta tags added (twitter:card, twitter:title, twitter:description, twitter:image)",
-        "JSON-LD structured data for SoftwareApplication schema on home page",
-        "Per-page document titles set via useEffect or react-helmet-async",
-        "npm run build succeeds and sitemap.xml is in dist/"
+        "ApiService class with methods matching all edge function endpoints: processCheckinResponse, onDemandCheckin, confirmDelivery, heartbeat, reportLocation, inviteReceiver, redeemCode, autoJoin, subscriptionWebhook",
+        "Each method calls the edge function via Supabase Functions invoke or direct HTTP",
+        "Request/response DTOs as @Serializable data classes",
+        "Consistent error handling: network errors → WellvoError.Network, auth errors → WellvoError.Auth, 404 → WellvoError.NotFound, 5xx → WellvoError.ServerError",
+        "WellvoError sealed class with: Network, Auth, NotFound, ServerError, Offline, Unknown variants, each with localizedMessage",
+        "NetworkRetry utility: suspend function with exponential backoff, max 3 attempts, skips auth/cancellation errors",
+        "Timeout of 30 seconds on all requests"
       ],
       "priority": 9,
-      "passes": true,
-      "notes": "Currently no sitemap, robots.txt, og:image, or structured data."
+      "passes": false,
+      "notes": "Mirrors iOS NetworkRetry and WellvoError. Use Ktor client from Supabase SDK or standalone OkHttp."
     },
     {
-      "id": "US-010",
-      "title": "Add README.md, LICENSE, and .env.example to repository",
-      "description": "As a contributor, I want proper repository documentation so that I can understand the project, set up locally, and contribute correctly.",
+      "id": "US-A010",
+      "title": "Implement secure configuration and credential storage",
+      "description": "As a developer, I want Supabase credentials loaded from BuildConfig and sensitive data stored in Android Keystore so that secrets are not hardcoded.",
       "acceptanceCriteria": [
-        "Root README.md with: project description, architecture overview (iOS + Edge Functions + Supabase + Website), local development setup for each component, deployment instructions, link to PRD",
-        "LICENSE file (choose appropriate license)",
-        "edge-functions/.env.example listing all required env vars with placeholder values and descriptions",
-        "website/.env.example if any env vars are needed",
-        "CONTRIBUTING.md with PR process, commit message format, and code style expectations",
-        "README renders correctly on GitHub"
+        "SUPABASE_URL and SUPABASE_ANON_KEY injected via buildConfigField in build.gradle.kts",
+        "Values read from local.properties (not committed) with fallback to environment variables",
+        "EncryptedSharedPreferences (AndroidX Security) for storing auth tokens and sensitive user data",
+        "KeychainService equivalent: SecureStorage class wrapping EncryptedSharedPreferences with save/load/delete methods",
+        "Google user ID stored securely (equivalent to iOS Keychain Apple User ID storage)",
+        "No secrets in version control (local.properties in .gitignore)"
       ],
       "priority": 10,
-      "passes": true,
-      "notes": "GitHub landing page is currently blank. No setup docs."
+      "passes": false,
+      "notes": "Equivalent of iOS BuildConfig.xcconfig + KeychainService. EncryptedSharedPreferences uses Android Keystore under the hood."
     },
     {
-      "id": "US-011",
-      "title": "Add iOS unit and integration tests",
-      "description": "As a developer, I want automated tests for critical business logic so that regressions are caught before release.",
+      "id": "US-A011",
+      "title": "Implement phone OTP authentication",
+      "description": "As a receiver, I want to sign in with my phone number via SMS code so that I can join my family's Wellvo group without creating a password.",
       "acceptanceCriteria": [
-        "New WellvoTests target in Xcode project",
-        "Tests for AuthViewModel: sign in state transitions, validation logic, error handling",
-        "Tests for DashboardViewModel: streak calculation, weekly summary computation, receiver card building",
-        "Tests for ReceiverViewModel: check-in status tracking, offline queue integration",
-        "Tests for OfflineCheckInService: queue, sync, retry logic",
-        "Tests for SubscriptionService: tier mapping, entitlement checking",
-        "All tests pass with swift test or xcodebuild test",
-        "Minimum 15 test cases covering critical paths"
+        "AuthService class with sendPhoneOTP(phone: String) and verifyPhoneOTP(phone: String, code: String) methods",
+        "Phone number normalization: strip non-digits, prepend +1 for 10-digit US numbers",
+        "Supabase Auth signInWithOtp used for phone flow",
+        "AuthViewModel state: phoneNumber, otpCode, isAwaitingOTP, isLoading, errorMessage",
+        "OTP entry UI: phone input with country code → 6-digit code input with auto-focus",
+        "Error states: invalid phone format, wrong OTP code, expired OTP, rate limited",
+        "After successful OTP: check session, load user profile, determine role, navigate appropriately"
       ],
       "priority": 11,
-      "passes": true,
-      "notes": "WellvoTests target with 30+ test cases covering models, dashboard logic, subscription tiers, and error handling."
+      "passes": false,
+      "notes": "Phone OTP is the PRIMARY auth method for receivers. Must match iOS flow exactly. Supabase handles the SMS sending."
     },
     {
-      "id": "US-012",
-      "title": "Implement push notification token refresh",
-      "description": "As a user, I want my push notification token to stay valid so that I never miss a check-in notification due to an expired token.",
+      "id": "US-A012",
+      "title": "Implement email/password authentication",
+      "description": "As an owner, I want to sign up and sign in with email and password so that I have a secure account for managing my family.",
       "acceptanceCriteria": [
-        "PushNotificationService re-registers token on every app launch (foreground)",
-        "Token is compared to stored value; only sends to Supabase if changed",
-        "Old tokens marked is_active=false when a new token is registered for the same device",
-        "Edge function send-checkin-notification skips is_active=false tokens",
-        "Token registration failure is logged (not silently swallowed)"
+        "AuthService signUpWithEmail(email, password, displayName) and signInWithEmail(email, password) methods",
+        "Password validation: 8+ characters, at least one uppercase, one lowercase, one number",
+        "Email validation: basic format check",
+        "Display name validation: 2-50 characters",
+        "Sign-up creates user profile in users table after auth",
+        "Sign-in fetches existing profile",
+        "AuthViewModel state: email, password, displayName (for sign-up), authMode (signIn/signUp) toggle",
+        "UI: tabbed sign-in / sign-up forms with validation error display",
+        "AuthError sealed class: InvalidEmail, PasswordTooShort, PasswordTooWeak, InvalidDisplayName, UserNotFound, InvalidCredential"
       ],
       "priority": 12,
-      "passes": true,
-      "notes": "Token re-registered on every foreground via WellvoApp. Compared to stored value. Old tokens deactivated. Failures logged."
+      "passes": false,
+      "notes": "Email/password is primarily for Owners. Match iOS validation rules exactly."
     },
     {
-      "id": "US-013",
-      "title": "Complete iOS accessibility for App Store review",
-      "description": "As a visually impaired user, I want full VoiceOver support so that I can use Wellvo independently.",
+      "id": "US-A013",
+      "title": "Implement Google Sign-In",
+      "description": "As a user, I want to sign in with my Google account so that I can use one-tap authentication without remembering a password.",
       "acceptanceCriteria": [
-        "ReceiverHomeView: check-in button has accessibilityLabel 'I'm OK check-in button' and accessibilityHint",
-        "DashboardView: each receiver card has accessibilityLabel with name, status, and streak",
-        "All tab bar items have accessibility labels",
-        "Mood selector buttons have accessibilityLabel (e.g., 'Select mood: Good')",
-        "HistoryView heatmap cells have accessibilityLabel with date and status",
-        "Settings toggles have accessibilityLabel describing what they control",
-        "Focus order is logical top-to-bottom on every screen",
-        "Dynamic Type tested at accessibility sizes (XXXL) without layout breakage"
+        "Google Sign-In dependency added (Credential Manager API or legacy Google Sign-In)",
+        "AuthService signInWithGoogle() method using Supabase Auth signInWith(Google) provider",
+        "Google OAuth client ID configured in build.gradle.kts (from Google Cloud Console)",
+        "One-tap sign-in prompt on auth screen",
+        "ID token sent to Supabase for server-side verification",
+        "User profile created/updated after successful Google sign-in",
+        "AuthViewModel tracks Google sign-in state and errors",
+        "Fallback to standard Google Sign-In flow if Credential Manager unavailable"
       ],
       "priority": 13,
-      "passes": true,
-      "notes": "Full VoiceOver labels on all views: check-in button, receiver cards, mood selector, heatmap cells, settings toggles, tab bar items."
+      "passes": false,
+      "notes": "Android equivalent of Apple Sign-In. Use Android Credential Manager (API 28+) with Google Sign-In fallback for API 26-27."
     },
     {
-      "id": "US-014",
-      "title": "Add duplicate check-in prevention",
-      "description": "As a developer, I want to prevent duplicate check-ins for the same receiver on the same day so that data integrity is maintained.",
+      "id": "US-A014",
+      "title": "Implement auth state management and session persistence",
+      "description": "As a user, I want to stay signed in across app restarts so that I don't have to re-authenticate every time.",
       "acceptanceCriteria": [
-        "UNIQUE constraint added on checkins(receiver_id, family_id, DATE(checked_in_at)) via new migration",
-        "process-checkin-response edge function uses upsert or checks for existing check-in before insert",
-        "Duplicate check-in attempt returns 200 with existing check-in data (not error)",
-        "ReceiverHomeView correctly shows already-checked-in state if duplicate detected",
-        "Migration applies cleanly on existing data"
+        "AuthViewModel observes Supabase auth state changes (sessionStatus flow)",
+        "AuthState sealed class: Loading, Unauthenticated, Authenticated(user: AppUser)",
+        "On app start: check for existing session, refresh if expired, route accordingly",
+        "Session token persisted by Supabase SDK (SettingsSessionManager or custom)",
+        "Sign-out clears session, tokens, cached data, and navigates to auth screen",
+        "Auth state exposed as StateFlow for Compose observation",
+        "Handle token refresh failures gracefully (re-authenticate prompt)"
       ],
       "priority": 14,
-      "passes": true,
-      "notes": "Currently can create multiple check-ins per receiver per minute."
+      "passes": false,
+      "notes": "Equivalent of iOS AuthViewModel.listenForAuthStateChanges(). Supabase Kotlin SDK handles token persistence."
     },
     {
-      "id": "US-015",
-      "title": "Add phone number validation to invite flow",
-      "description": "As an owner, I want phone number validation on the invite form so that invalid numbers don't waste SMS credits or create broken invites.",
+      "id": "US-A015",
+      "title": "Implement auto-join and pairing code flows",
+      "description": "As a receiver who was invited, I want to automatically join my family after phone OTP so that setup is seamless.",
       "acceptanceCriteria": [
-        "FamilyView InviteReceiverSheet validates phone format before enabling Send button",
-        "Accepts US numbers: (xxx) xxx-xxxx, xxx-xxx-xxxx, +1xxxxxxxxxx, xxxxxxxxxx",
-        "Shows inline error message for invalid format",
-        "invite-receiver edge function also validates phone format server-side",
-        "Invalid phone returns 400 with clear error message"
+        "AuthService checkAutoJoin() method: calls auto-join edge function with user's phone number",
+        "If match found: auto-accepts invite, returns family info, routes to receiver onboarding",
+        "If no match: proceeds to normal onboarding",
+        "PairingCodeViewModel with state: code (6 digits), isLoading, errorMessage, success (family name + check-in time)",
+        "PairingCodeScreen: 6-digit input field, submit button, success state with check-in time display",
+        "redeemPairingCode() calls redeem-code edge function",
+        "On success: routes to receiver home",
+        "On failure: shows error (invalid code, expired, already used)"
       ],
       "priority": 15,
-      "passes": true,
-      "notes": "Currently accepts any string as a phone number."
+      "passes": false,
+      "notes": "Auto-join matches the receiver's phone number to pending invitations. Pairing code is for iPad/alternate device setup on iOS — same flow on Android."
     },
     {
-      "id": "US-016",
-      "title": "Add website accessibility fundamentals",
-      "description": "As a keyboard-only user, I want focus styles, skip navigation, and ARIA attributes so that I can navigate the website without a mouse.",
+      "id": "US-A016",
+      "title": "Build authentication UI screens",
+      "description": "As a user, I want a polished authentication screen so that I can sign in or create an account easily.",
       "acceptanceCriteria": [
-        "Global :focus-visible CSS styles added (visible ring on all interactive elements)",
-        "Skip-to-main-content link added as first element in Layout",
-        "Header menu toggle has aria-expanded attribute that updates on open/close",
-        "Active nav link has aria-current='page'",
-        "All emoji content in Home.tsx wrapped with aria-label or role='img'",
-        "Tab order is logical through all pages",
-        "Color contrast passes WCAG AA (4.5:1 for normal text, 3:1 for large text)"
+        "AuthScreen composable with Wellvo logo, app name, and tagline at top",
+        "Three auth options: Phone OTP (primary, prominent), Google Sign-In button, Email/Password (expandable section)",
+        "Phone flow: phone number input with +1 prefix → OTP code input → loading → success",
+        "Email flow: sign-in/sign-up tab toggle, form fields with validation, submit button",
+        "Google Sign-In: branded Google button following Google's design guidelines",
+        "Error messages displayed inline below relevant fields",
+        "Loading states with CircularProgressIndicator",
+        "Keyboard handling: IME actions (next/done), auto-focus, dismiss on submit",
+        "Material Design 3 styling consistent with Wellvo brand"
       ],
       "priority": 16,
-      "passes": true,
-      "notes": "No focus styles, no skip nav, no ARIA attributes currently."
+      "passes": false,
+      "notes": "Match iOS AuthView layout and flow. Phone OTP should be the most prominent option."
     },
     {
-      "id": "US-017",
-      "title": "Add code splitting and lazy loading to website",
-      "description": "As a user, I want fast page loads so that the site feels snappy on mobile connections.",
+      "id": "US-A017",
+      "title": "Implement owner onboarding flow (7 steps)",
+      "description": "As a new owner, I want a guided setup flow so that I can create my family group, invite my first receiver, and understand how Wellvo works.",
       "acceptanceCriteria": [
-        "All page components loaded via React.lazy() with Suspense fallback",
-        "Vite config updated with rollupOptions for manual chunk splitting (vendor, pages)",
-        "Initial JS bundle under 150KB gzipped",
-        "Loading spinner or skeleton shown during lazy load",
-        "All routes still work correctly after code splitting",
-        "npm run build succeeds and shows multiple chunk files"
+        "OnboardingViewModel with currentStep (enum: welcome, userType, createFamily, choosePlan, addReceiver, notifications, complete)",
+        "Step 1 - Welcome: app intro with illustration, 'Get Started' button",
+        "Step 2 - User Type: selection cards for aging_parent, teenager, other with descriptions",
+        "Step 3 - Create Family: family name input, create button, calls FamilyService.createFamily()",
+        "Step 4 - Choose Plan: three plan cards (Free/Family/Family+) with features and prices",
+        "Step 5 - Add Receiver: name input, phone input, check-in time picker, calls FamilyService.inviteReceiver()",
+        "Step 6 - Notifications: permission request explanation, request button, calls notification permission",
+        "Step 7 - Complete: success message with next steps, 'Go to Dashboard' button",
+        "Back navigation between steps, progress indicator at top",
+        "State preserved across configuration changes (SavedStateHandle)"
       ],
       "priority": 17,
-      "passes": true,
-      "notes": "Currently single 276KB bundle with all pages."
+      "passes": false,
+      "notes": "Exact mirror of iOS OnboardingView. 7-step wizard with back/forward navigation."
     },
     {
-      "id": "US-018",
-      "title": "Add Web App Manifest and apple-touch-icon",
-      "description": "As a mobile user, I want proper PWA metadata so that the site can be added to home screen with correct icon and name.",
+      "id": "US-A018",
+      "title": "Implement receiver onboarding flow (3 steps)",
+      "description": "As a new receiver, I want a quick setup so that I understand when my check-in is scheduled and how notifications work.",
       "acceptanceCriteria": [
-        "website/public/manifest.json with name, short_name, icons, theme_color, background_color",
-        "apple-touch-icon (180x180) generated from Wellvo logo",
-        "Favicon in multiple sizes (16, 32, 192, 512) referenced in manifest",
-        "index.html links to manifest.json and apple-touch-icon",
-        "Lighthouse PWA audit passes installability checks"
+        "ReceiverOnboardingScreen composable with 3 steps",
+        "Step 1 - Welcome: greeting with receiver's name, explanation of daily check-in, display scheduled check-in time",
+        "Step 2 - Notifications: explain why notifications matter, request notification permission button",
+        "Step 3 - Complete: 'You're all set!' message, 'Start Using Wellvo' button → navigate to ReceiverHome",
+        "Check-in time loaded from receiver_settings for this family member",
+        "Progress dots at bottom",
+        "Handles notification permission denied gracefully (warns but allows proceeding)"
       ],
       "priority": 18,
-      "passes": true,
-      "notes": "manifest.json with icons, apple-touch-icon (180x180), favicons (16,32,192,512) generated via sharp. index.html linked."
+      "passes": false,
+      "notes": "Simpler than owner onboarding. 3 steps: welcome → notifications → done."
     },
     {
-      "id": "US-019",
-      "title": "Add og:image social preview to website",
-      "description": "As a marketer, I want a branded social preview image so that links shared on Twitter, Slack, and iMessage look professional.",
+      "id": "US-A019",
+      "title": "Implement FamilyService for family management",
+      "description": "As a developer, I want a FamilyService so that family CRUD, member management, and invitation logic is centralized.",
       "acceptanceCriteria": [
-        "1200x630px og-image.png generated (green gradient, Wellvo logo, tagline 'One tap. Peace of mind.')",
-        "Image placed in website/public/og-image.png",
-        "og:image meta tag in index.html points to https://wellvo.net/og-image.png",
-        "twitter:card set to summary_large_image",
-        "twitter:image points to same og-image.png",
-        "Image renders correctly when URL is pasted in Twitter/Slack preview tools"
+        "FamilyService @Singleton with @Inject constructor",
+        "createFamily(name: String): creates family in Supabase, returns Family",
+        "getFamily(userId: String): fetches family where user is a member",
+        "getFamilyMembers(familyId: String): returns list of FamilyMember with joined user data",
+        "getCurrentUserRole(userId: String, familyId: String): returns Role enum",
+        "inviteReceiver(familyId, name, phone, checkinTime): calls invite-receiver edge function",
+        "removeMember(memberId: String): deactivates family member",
+        "acceptInvite(token: String): calls invite-receiver edge function with action='accept'",
+        "redeemPairingCode(code: String): calls redeem-code edge function",
+        "checkAutoJoin(phone: String): calls auto-join edge function",
+        "All methods throw WellvoError on failure"
       ],
       "priority": 19,
-      "passes": true,
-      "notes": "1200x630 og-image.png generated with green gradient and tagline. og:image and twitter:image meta tags in index.html."
+      "passes": false,
+      "notes": "Direct port of iOS FamilyService. All edge function calls use the same endpoints."
     },
     {
-      "id": "US-020",
-      "title": "Handle notification permission denial gracefully in iOS",
-      "description": "As an owner, I want to be prompted to enable notifications if I denied them previously so that I don't miss escalation alerts.",
+      "id": "US-A020",
+      "title": "Build receiver check-in screen (standard mode)",
+      "description": "As a receiver, I want a simple one-button interface so that I can check in with a single tap.",
       "acceptanceCriteria": [
-        "App checks notification permission status on each foreground resume",
-        "If denied, show a non-intrusive banner on DashboardView explaining why notifications matter",
-        "Banner includes 'Open Settings' button that deep-links to iOS Settings > Wellvo > Notifications",
-        "Banner is dismissable and doesn't show again for 7 days after dismissal",
-        "Receivers see similar banner on ReceiverHomeView if notifications denied",
-        "Banner styling matches existing app design (orange tint warning style)"
+        "ReceiverHomeScreen composable with large centered 'I'm OK' button (green, circular, prominent)",
+        "ReceiverViewModel with state: hasCheckedInToday, isCheckingIn, lastCheckIn, errorMessage, nextCheckInTime",
+        "Before check-in: large green button with 'I'm OK' text",
+        "During check-in: loading indicator on button",
+        "After check-in: green checkmark with 'You're all set!' status card, time of check-in displayed",
+        "Next check-in time displayed at bottom",
+        "Haptic feedback on successful check-in (HapticFeedbackType.Confirm)",
+        "Error state with retry option",
+        "Loads today's check-in status on screen entry"
       ],
       "priority": 20,
-      "passes": true,
-      "notes": "NotificationPermissionBanner shown on DashboardView and ReceiverHomeView. Dismissable for 7 days. Links to iOS Settings."
+      "passes": false,
+      "notes": "This is THE core receiver experience. Must be dead simple. Match iOS ReceiverHomeView exactly."
     },
     {
-      "id": "US-021",
-      "title": "Fix silent SMS escalation failure",
-      "description": "As an operator, I want SMS failures logged and visible so that I know when Twilio is misconfigured or down.",
+      "id": "US-A021",
+      "title": "Implement CheckInService",
+      "description": "As a developer, I want a CheckInService so that check-in logic including location, battery, and mood is centralized.",
       "acceptanceCriteria": [
-        "escalation-tick edge function logs SMS send attempts with structured logger",
-        "SMS failures are caught and logged with error details (not silently swallowed)",
-        "If Twilio credentials are missing, function logs a clear warning on startup",
-        "Failed SMS attempts recorded in notification_log table with error_message column",
-        "New migration adds error_message column to notification_log if not present"
+        "CheckInService @Singleton with @Inject constructor",
+        "checkIn(familyId, receiverId, mood?, location?, batteryLevel?): calls process-checkin-response edge function",
+        "respondToCheckIn(requestId, source, responseType, location?, batteryLevel?): responds to notification-triggered check-in",
+        "confirmDelivery(checkinRequestId): calls confirm-delivery edge function",
+        "sendOnDemandCheckIn(familyId, receiverId): calls on-demand-checkin edge function",
+        "todayCheckInStatus(receiverId, familyId): queries checkins table for today's record",
+        "checkInHistory(receiverId, familyId, days: Int): queries checkins for date range",
+        "Battery level obtained from BatteryManager",
+        "Location obtained from FusedLocationProviderClient"
       ],
       "priority": 21,
-      "passes": true,
-      "notes": "sendSMS() currently fails silently if Twilio not configured."
+      "passes": false,
+      "notes": "Direct port of iOS CheckInService. Same edge function endpoints."
     },
     {
-      "id": "US-022",
-      "title": "Add missing database indexes for performance",
-      "description": "As a developer, I want proper indexes on frequently queried columns so that dashboard and escalation queries are fast as the user base grows.",
+      "id": "US-A022",
+      "title": "Implement mood selection for check-ins",
+      "description": "As a receiver, I want to optionally share my mood after checking in so that my family knows how I'm feeling.",
       "acceptanceCriteria": [
-        "New migration adds: CREATE INDEX idx_families_subscription ON families(subscription_status, subscription_expires_at)",
-        "New migration adds: CREATE INDEX idx_receiver_settings_active ON receiver_settings(is_active) WHERE is_active = true",
-        "New migration adds: CREATE INDEX idx_invite_tokens_phone ON invite_tokens(phone)",
-        "Migration applies cleanly on existing data",
-        "EXPLAIN ANALYZE on dispatch_scheduled_checkins shows index usage"
+        "MoodSelectorComposable: grid of mood options that appears after check-in",
+        "Standard mode (3 moods): Happy 😊, Neutral 😐, Tired 😴 — displayed as horizontal row",
+        "Kid mode (8 moods): Happy 😊, Neutral 😐, Tired 😴, Excited 🤩, Bored 😑, Hungry 🍕, Scared 😨, Having Fun 🎉 — displayed as 2×4 grid",
+        "Each mood is a tappable card with emoji and label",
+        "Selected mood highlighted with border/background color",
+        "Mood submitted via CheckInService update (PATCH to checkins table)",
+        "Mood selection is optional — can be skipped",
+        "ReceiverViewModel.selectedMood state, submitMood() method"
       ],
       "priority": 22,
-      "passes": true,
-      "notes": "Missing indexes on subscription status, active settings, and invite phone."
+      "passes": false,
+      "notes": "Match iOS mood emojis and grid layout exactly. Standard vs kid mode determined by receiverSettings.receiverMode."
     },
     {
-      "id": "US-023",
-      "title": "Validate App Store webhook token properly",
-      "description": "As a developer, I want the subscription webhook to reject invalid app_account_tokens so that subscription state cannot be corrupted by spoofed requests.",
+      "id": "US-A023",
+      "title": "Implement kid mode features (location label and response buttons)",
+      "description": "As a kid-mode receiver, I want to share where I am and send quick requests so that my parent knows my situation.",
       "acceptanceCriteria": [
-        "subscription-webhook validates app_account_token is a valid UUID format before querying",
-        "If user not found for token, returns 400 with error instead of falling back silently",
-        "Webhook logs token lookup failures for debugging",
-        "Existing subscription flow still works end-to-end"
+        "LocationLabelSelector composable: 3×2 grid of location options (Home 🏠, School 🏫, Friend's House 🏡, Park 🌳, Store 🏪, Other 📍)",
+        "Each location is a tappable card with emoji and label",
+        "Selected location submitted via CheckInService update (PATCH locationLabel on checkins)",
+        "KidResponseButtons composable: horizontal row of 3 action buttons",
+        "Pick Me Up 🚗 (orange), Can I Stay Longer? ⏰ (blue), SOS! ⚠️ (red)",
+        "Kid response submitted via CheckInService update (PATCH kidResponseType on checkins)",
+        "Both selectors appear after mood selection in kid mode",
+        "ReceiverViewModel: selectedLocationLabel, selectedKidResponse, submitLocationLabel(), submitKidResponse()",
+        "All kid mode UI only visible when receiverSettings.receiverMode == .kid"
       ],
       "priority": 23,
-      "passes": true,
-      "notes": "Currently accepts garbage app_account_token values silently."
+      "passes": false,
+      "notes": "Kid mode adds location and response features after the basic check-in. Match iOS ReceiverHomeView kid mode section."
     },
     {
-      "id": "US-024",
-      "title": "Add website privacy-first analytics",
-      "description": "As a product owner, I want privacy-first analytics on the website so that I can measure traffic and conversions without violating the privacy policy.",
+      "id": "US-A024",
+      "title": "Implement offline check-in with Room and sync",
+      "description": "As a receiver without internet, I want my check-in saved locally and synced automatically when connectivity returns.",
       "acceptanceCriteria": [
-        "Plausible Analytics or Cloudflare Web Analytics script added to index.html",
-        "No cookies set by analytics (privacy-first, cookieless)",
-        "Analytics script loads asynchronously and doesn't block rendering",
-        "Custom events tracked: pricing_page_view, download_cta_click, support_page_view",
-        "Privacy policy accuracy verified (claims match implementation)",
-        "No GDPR cookie banner needed (cookieless analytics)"
+        "OfflineCheckInService @Singleton with connectivity monitoring",
+        "ConnectivityManager.NetworkCallback used to monitor network state",
+        "isOffline StateFlow<Boolean> exposed for UI",
+        "performCheckIn(): tries online first, queues to Room if network fails",
+        "queueCheckIn(): inserts OfflineCheckIn entity with synced=false",
+        "syncPendingCheckIns(): fetches unsynced, calls CheckInService for each, marks synced on success",
+        "Sync triggered automatically when network becomes available",
+        "pendingOfflineCount StateFlow<Int> for UI badge",
+        "ReceiverHomeScreen shows offline indicator banner when isOffline",
+        "ReceiverHomeScreen shows 'X check-ins pending sync' when pendingOfflineCount > 0"
       ],
       "priority": 24,
-      "passes": true,
-      "notes": "Cloudflare Web Analytics beacon added (cookieless, no GDPR banner). Custom events: pricing_page_view, download_cta_click, support_page_view."
+      "passes": false,
+      "notes": "Direct port of iOS OfflineCheckInService. Uses Room instead of SwiftData, ConnectivityManager instead of NWPathMonitor."
     },
     {
-      "id": "US-025",
-      "title": "Add centralized error handling in iOS services",
-      "description": "As a developer, I want a consistent error handling pattern across all services so that errors propagate correctly and users see helpful messages.",
+      "id": "US-A025",
+      "title": "Implement receiver settings loading and next check-in computation",
+      "description": "As a receiver, I want to see when my next check-in is scheduled so that I know when to expect notifications.",
       "acceptanceCriteria": [
-        "CheckInService.respondToCheckIn propagates errors instead of just printing",
-        "All service methods that catch errors re-throw with WellvoError type",
-        "WellvoError enum covers: network, auth, notFound, serverError, offline, unknown",
-        "ViewModels display user-facing error messages from WellvoError.localizedDescription",
-        "No silent error swallowing (print-only) remains in any service file"
+        "ReceiverViewModel.loadReceiverSettings(): fetches ReceiverSettings from Supabase for current family member",
+        "computeNextCheckInTime(): calculates next check-in based on scheduleType",
+        "Daily: returns checkinTime for today (or tomorrow if past)",
+        "Weekday/Weekend: returns weekday or weekend time based on current day",
+        "Custom: finds next enabled day's time from customSchedule list",
+        "Respects timezone from receiver settings",
+        "Handles schedulePaused state (shows 'Notifications paused' instead of time)",
+        "nextCheckInTime displayed on ReceiverHomeScreen below check-in button"
       ],
       "priority": 25,
-      "passes": true,
-      "notes": "WellvoError enum with network/auth/notFound/serverError/offline/unknown. All services propagate errors. No silent print-only swallowing."
+      "passes": false,
+      "notes": "Match iOS ReceiverViewModel.computeNextCheckInTime() logic for all 3 schedule types."
     },
     {
-      "id": "US-026",
-      "title": "Add GDPR data export completeness",
-      "description": "As a user exercising my GDPR rights, I want data export to include all my data so that the export is legally complete.",
+      "id": "US-A026",
+      "title": "Build owner dashboard screen",
+      "description": "As an owner, I want a dashboard showing all my receivers' check-in status so that I can see at a glance if everyone is OK.",
       "acceptanceCriteria": [
-        "export_user_data RPC updated to include checkin_requests data",
-        "Export includes notification_log entries for the user",
-        "Export includes invite_tokens created by the user (with token values redacted)",
-        "Export includes alert history for families the user owns",
-        "JSON output structure documented in a code comment",
-        "Migration applies cleanly"
+        "DashboardScreen composable with pull-to-refresh",
+        "DashboardViewModel with state: family, receiverCards (list), weeklySummary, alerts, isLoading, errorMessage",
+        "Notification permission banner at top if notifications not granted",
+        "Alerts section: pattern alerts (e.g., time drift) with dismiss button",
+        "Weekly summary card: consistency %, average check-in time, total check-ins (X/Y), mood breakdown with emojis",
+        "Receiver status cards (one per active receiver) with: name, status (checked_in/pending/missed/no_data), streak count, last check-in time, mood emoji, 'Check on' button for pending receivers",
+        "Status colors: green (checked in), yellow (pending), red (missed), gray (no data)",
+        "Streak calculation: consecutive days with on-time check-ins",
+        "loadDashboard() fetches family, members, today's check-ins, alerts"
       ],
       "priority": 26,
-      "passes": true,
-      "notes": "Migration 00010 adds checkin_requests, notification_log, invite_tokens (redacted), alerts, and receiver_settings to export."
+      "passes": false,
+      "notes": "Core owner screen. Match iOS DashboardView layout. ReceiverStatusCard data class mirrors iOS."
     },
     {
-      "id": "US-027",
-      "title": "Add GitHub Actions notifications on build failure",
-      "description": "As a developer, I want to be notified when CI/CD pipelines fail so that broken builds are caught quickly.",
+      "id": "US-A027",
+      "title": "Implement real-time dashboard updates",
+      "description": "As an owner, I want the dashboard to update in real-time when a receiver checks in so that I see status changes immediately.",
       "acceptanceCriteria": [
-        "All three workflows (ios-build-deploy, edge-functions-deploy, supabase-migrations) have failure notification step",
-        "Notification via GitHub Actions built-in (creates issue or uses actions/github-script to comment)",
-        "Failure notification includes: workflow name, branch, commit SHA, error summary, link to run",
-        "Notification only fires on failure (not success)"
+        "DashboardViewModel subscribes to Supabase Realtime on checkins table filtered by familyId",
+        "On INSERT event: reload the affected receiver's card, update weekly summary",
+        "Realtime channel created on dashboard entry, unsubscribed on exit",
+        "Uses Supabase Kotlin SDK realtime postgresChangeFlow()",
+        "Handles reconnection gracefully (re-subscribes on connection restore)",
+        "Full dashboard refresh available via pull-to-refresh as fallback",
+        "No UI jank: updates applied on main dispatcher"
       ],
       "priority": 27,
-      "passes": true,
-      "notes": "Currently no notification on any CI/CD failure."
+      "passes": false,
+      "notes": "Uses Supabase Realtime Postgres Changes. Same approach as iOS but with Kotlin coroutine flows."
     },
     {
-      "id": "US-028",
-      "title": "Add container vulnerability scanning to CI",
-      "description": "As a security engineer, I want Docker images scanned for vulnerabilities before deployment so that known CVEs don't reach production.",
+      "id": "US-A028",
+      "title": "Implement today's timeline on dashboard",
+      "description": "As an owner, I want a visual timeline showing each receiver's check-in progress for today.",
       "acceptanceCriteria": [
-        "edge-functions-deploy.yml adds Trivy scan step after Docker build, before push",
-        "Scan fails the workflow if HIGH or CRITICAL vulnerabilities are found",
-        "Scan results uploaded as GitHub Actions artifact",
-        "MEDIUM and below are logged as warnings but don't block deployment"
+        "ReceiverTimelineComposable: 24-hour horizontal bar per receiver",
+        "Colored dot at left: green (checked in), yellow (pending), red (missed), gray (no data)",
+        "If checked in: show time label on the bar at the check-in position",
+        "If pending/missed: show status text",
+        "Receivers ordered by check-in time (checked in first, then pending, then missed)",
+        "Timeline integrated into DashboardScreen below weekly summary",
+        "Accessible: each timeline item has contentDescription with receiver name and status"
       ],
       "priority": 28,
-      "passes": true,
-      "notes": "No vulnerability scanning in any CI workflow."
+      "passes": false,
+      "notes": "Match iOS ReceiverTimeline layout. Canvas or custom composable for the horizontal bar."
     },
     {
-      "id": "US-029",
-      "title": "Add website testing infrastructure",
-      "description": "As a developer, I want automated tests for the website so that regressions in routing, pricing display, and legal pages are caught.",
+      "id": "US-A029",
+      "title": "Implement kid mode indicators on dashboard cards",
+      "description": "As an owner, I want to see kid-mode receiver details (location, response, extended moods) on their dashboard card.",
       "acceptanceCriteria": [
-        "Vitest and @testing-library/react added as dev dependencies",
-        "vitest.config.ts configured with jsdom environment",
-        "Test for App.tsx: all routes render without crashing",
-        "Test for Pricing.tsx: all 3 plan names and prices display correctly",
-        "Test for Header.tsx: navigation links present and mobile menu toggles",
-        "Test for Privacy.tsx and Terms.tsx: page renders with correct heading",
-        "All tests pass with npm run test",
-        "Minimum 8 test cases"
+        "ReceiverStatusCard includes optional locationLabel, kidResponseType fields",
+        "If receiver is in kid mode and checked in: show location label emoji + text below mood",
+        "If kid response submitted: show response badge (Pick Me Up/Stay Longer/SOS) with color",
+        "SOS badge highlighted in red with exclamation icon",
+        "'Pick Me Up' shown in orange, 'Stay Longer' in blue",
+        "Kid mode receivers show extended mood emoji set",
+        "Notification warning icon if receiver's push token not registered"
       ],
       "priority": 29,
-      "passes": true,
-      "notes": "No test infrastructure or tests exist for the website."
+      "passes": false,
+      "notes": "Enhance the dashboard cards from US-A026 with kid-mode data. Match iOS DashboardView kid mode display."
     },
     {
-      "id": "US-030",
-      "title": "Add CLAUDE.md project configuration",
-      "description": "As an AI-assisted developer, I want a CLAUDE.md file so that Claude Code has project context for future development sessions.",
+      "id": "US-A030",
+      "title": "Implement on-demand check-in from dashboard",
+      "description": "As an owner, I want to send an immediate check-in request to a receiver so that I can check on them outside the schedule.",
       "acceptanceCriteria": [
-        "Root CLAUDE.md with: project overview, tech stack summary, directory structure, build commands for each component, key architecture decisions, testing commands",
-        "References prd.json for outstanding work",
-        "References progress.txt for completed work",
-        "Includes common gotchas (e.g., Supabase config from Info.plist, Deno for edge functions)",
-        "File is under 200 lines"
+        "Each pending/missed receiver card has 'Check on [name]' button",
+        "Button calls DashboardViewModel.sendOnDemandCheckIn(receiverId)",
+        "DashboardViewModel calls CheckInService.sendOnDemandCheckIn(familyId, receiverId)",
+        "Success: show snackbar 'Check-in request sent to [name]'",
+        "Loading state on button while sending",
+        "Error: show snackbar with error message",
+        "Button disabled for receivers who already checked in today",
+        "Rate limiting: disable button for 60 seconds after sending (prevent spam)"
       ],
       "priority": 30,
-      "passes": true,
-      "notes": "No CLAUDE.md exists. Critical for Ralph loop context."
+      "passes": false,
+      "notes": "Calls on-demand-checkin edge function. Match iOS 'Check on' button behavior."
+    },
+    {
+      "id": "US-A031",
+      "title": "Build family management screen",
+      "description": "As an owner, I want to see and manage all family members so that I can add, remove, and configure receivers.",
+      "acceptanceCriteria": [
+        "FamilyScreen composable with family name and subscription tier badge at top",
+        "Member list: each member shows name, role badge, status (active/invited/deactivated)",
+        "Swipe-to-dismiss actions: Remove member (with confirmation dialog)",
+        "Long-press context menu: Transfer ownership, Re-send invite (for invited members)",
+        "FAB or top-bar button: 'Invite Receiver' → opens InviteReceiverSheet",
+        "FamilyViewModel with state: family, members, isLoading, errorMessage",
+        "loadFamily() fetches family + members via FamilyService",
+        "removeMember() with confirmation dialog → calls FamilyService.removeMember()",
+        "Empty state: 'No receivers yet. Invite someone to get started.'"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": "Match iOS FamilyView layout. Subscription tier badge shows free/family/family_plus."
+    },
+    {
+      "id": "US-A032",
+      "title": "Implement invite receiver flow",
+      "description": "As an owner, I want to invite a receiver by phone number so that they receive an SMS with setup instructions.",
+      "acceptanceCriteria": [
+        "InviteReceiverSheet composable (bottom sheet or dialog): name input, phone input, check-in time picker",
+        "Phone validation: accepts US formats ((xxx) xxx-xxxx, xxx-xxx-xxxx, +1xxxxxxxxxx, xxxxxxxxxx)",
+        "Inline error for invalid phone format, send button disabled until valid",
+        "Time picker: Material 3 TimePicker for selecting daily check-in time",
+        "Submit calls FamilyService.inviteReceiver(familyId, name, phone, checkinTime)",
+        "Success state: checkmark icon, 'Invitation sent!' message, 'How to set up' instructions",
+        "Instructions include: receiver will get SMS, download app, enter code or sign in with phone",
+        "Error handling: member limit reached, invalid phone, network error",
+        "Sheet dismissable after success"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": "Match iOS InviteReceiverSheet. The invite-receiver edge function sends the SMS."
+    },
+    {
+      "id": "US-A033",
+      "title": "Implement receiver setup guide view",
+      "description": "As an owner who just invited a receiver, I want setup guidance so that I can help my receiver get started.",
+      "acceptanceCriteria": [
+        "ReceiverSetupGuideScreen composable accessible from invite success state",
+        "Step-by-step instructions for the receiver: 1) Check SMS, 2) Download Wellvo from Play Store, 3) Sign in with phone number, 4) Tap 'I'm OK' to check in",
+        "Visual illustrations or icons for each step",
+        "Copy invite link button (if applicable)",
+        "Navigate back to family screen",
+        "Content matches iOS ReceiverSetupGuideView descriptions (updated for Android/Play Store)"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": "Help owners guide their receivers through setup. Update references from App Store to Play Store."
+    },
+    {
+      "id": "US-A034",
+      "title": "Implement ownership transfer",
+      "description": "As an owner, I want to transfer family ownership to another member so that someone else can manage the family.",
+      "acceptanceCriteria": [
+        "Context menu option 'Transfer Ownership' on active family members (not on self)",
+        "Confirmation dialog: 'Transfer ownership of [family] to [member]? You will become a viewer.'",
+        "On confirm: update family.owner_id + swap roles in family_members table",
+        "Current owner becomes viewer role",
+        "Target member becomes owner role",
+        "FamilyViewModel.transferOwnership(memberId) method",
+        "After transfer: navigate to viewer tab view",
+        "Error handling: cannot transfer to invited (non-active) members"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": "Match iOS ownership transfer flow. Requires Supabase RLS to allow owner to update family."
+    },
+    {
+      "id": "US-A035",
+      "title": "Build receiver settings screen (owner-controlled)",
+      "description": "As an owner, I want to configure each receiver's check-in schedule, escalation, and mode so that notifications are tailored to their needs.",
+      "acceptanceCriteria": [
+        "ReceiverSettingsScreen composable accessible from dashboard card or family member tap",
+        "Pause notifications toggle (schedulePaused)",
+        "'Send check-in now' button (calls on-demand check-in)",
+        "Schedule type selector: Daily / Weekday-Weekend / Custom radio buttons",
+        "Daily: single time picker",
+        "Weekday-Weekend: two time pickers (weekday time, weekend time)",
+        "Custom: 7 day rows, each with toggle (enabled) + time picker",
+        "Receiver mode toggle: Standard / Kid with description",
+        "Escalation section: grace period slider (15-120 min), reminder interval slider (15-120 min)",
+        "Quiet hours: start time and end time pickers",
+        "SMS escalation toggle, mood tracking toggle",
+        "Timezone display (read-only from receiver settings)",
+        "Save button: PATCHes receiver_settings in Supabase",
+        "ReceiverSettingsViewModel with loaded settings state and save method"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": "Complex settings screen. Match all iOS ReceiverSettingsView options. Three schedule types is key complexity."
+    },
+    {
+      "id": "US-A036",
+      "title": "Build history screen with time period selector",
+      "description": "As an owner, I want to view check-in history over different time periods so that I can track patterns and consistency.",
+      "acceptanceCriteria": [
+        "HistoryScreen composable with top bar containing time period chips (7 days / 30 days / 90 days)",
+        "Receiver selector: horizontal scrollable row of receiver name chips/pills, first is selected by default",
+        "HistoryViewModel with state: selectedPeriod, selectedReceiver, checkIns (list), isLoading",
+        "loadHistory(): queries CheckInService.checkInHistory(receiverId, familyId, days)",
+        "Check-in log: LazyColumn of check-in records, newest first",
+        "Each log entry: date, time, mood emoji, source badge (app/notification/on_demand), response type",
+        "Empty state: 'No check-ins for this period.'",
+        "Switching receiver or period reloads data"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": "Foundation for history. Calendar heatmap and trend chart added in subsequent stories."
+    },
+    {
+      "id": "US-A037",
+      "title": "Implement calendar heatmap visualization",
+      "description": "As an owner, I want a GitHub-style calendar heatmap so that I can see check-in consistency at a glance.",
+      "acceptanceCriteria": [
+        "CalendarHeatmapComposable: weeks as columns, days as rows (Mon-Sun), GitHub-style grid",
+        "Cell colors: green (on-time), yellow (late), red (missed), gray (no data/future)",
+        "On-time defined as: checked in within scheduled time",
+        "Late defined as: checked in but >2 hours after scheduled time",
+        "Symbols inside cells: ✓ (on-time), ! (late), ✕ (missed), blank (no data)",
+        "Legend below heatmap explaining colors",
+        "Adapts to selected time period (7/30/90 days)",
+        "Uses Canvas composable for drawing the grid",
+        "Accessible: each cell has contentDescription with date and status",
+        "Integrated into HistoryScreen above the check-in log"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": "Match iOS CalendarHeatmapView. Custom Canvas drawing. May need custom layout for the grid."
+    },
+    {
+      "id": "US-A038",
+      "title": "Implement check-in trend line chart",
+      "description": "As an owner, I want a trend chart showing average check-in times over the selected period so that I can spot timing patterns.",
+      "acceptanceCriteria": [
+        "TrendChartComposable: line chart with data points",
+        "Y-axis: time of day (AM/PM format, e.g., 8 AM, 9 AM)",
+        "X-axis: date labels (daily for 7 days) or week labels (weekly buckets for 30/90 days)",
+        "Line connects average check-in time per bucket",
+        "Grid lines for readability",
+        "Summary stats below chart: average time, earliest, latest",
+        "Uses Canvas composable for drawing (or a charting library like Vico/MPAndroidChart)",
+        "Integrated into HistoryScreen between heatmap and log",
+        "Handles missing data points gracefully (skip or interpolate)"
+      ],
+      "priority": 38,
+      "passes": false,
+      "notes": "Match iOS CheckInTrendChart. Consider using Vico charting library for cleaner implementation."
+    },
+    {
+      "id": "US-A039",
+      "title": "Implement PDF export for check-in history",
+      "description": "As an owner, I want to export check-in history as a PDF so that I can share it with caregivers or keep records.",
+      "acceptanceCriteria": [
+        "Export button in HistoryScreen top bar (share icon)",
+        "PDF generated using Android PdfDocument API",
+        "PDF contains: family name, receiver name, date range, heatmap grid, summary stats, check-in log table",
+        "PDF saved to app cache directory, shared via Android ShareSheet (Intent.ACTION_SEND)",
+        "FileProvider configured for sharing PDF files from cache",
+        "Loading state while generating PDF",
+        "Generated PDF looks professional: proper fonts, margins, headers",
+        "HistoryViewModel.exportPdf() method"
+      ],
+      "priority": 39,
+      "passes": false,
+      "notes": "Android equivalent of iOS share sheet PDF export. Use android.graphics.pdf.PdfDocument."
+    },
+    {
+      "id": "US-A040",
+      "title": "Build owner settings screen",
+      "description": "As an owner, I want to manage my account, subscription, and app settings.",
+      "acceptanceCriteria": [
+        "SettingsScreen composable with sections: Account, Subscription, Data, About",
+        "Account section: avatar circle with initials, display name, email/phone",
+        "Link Google Account button (or 'Google Account Linked' checkmark if already linked)",
+        "Subscription section: current tier name, 'Manage Subscription' button (opens Play Store subscription management), 'Restore Purchases' button",
+        "Data section: 'Export My Data' button (calls export_user_data RPC, downloads JSON), data retention picker (90/180/365/730 days dropdown)",
+        "About section: app version (from BuildConfig), Privacy Policy link, Terms of Service link",
+        "Sign Out button with confirmation dialog",
+        "Delete Account button (red, destructive) with double-confirmation dialog → calls delete_user_account RPC",
+        "SettingsViewModel with methods for each action"
+      ],
+      "priority": 40,
+      "passes": false,
+      "notes": "Match iOS SettingsView sections. 'Manage Subscription' opens Play Store deep link."
+    },
+    {
+      "id": "US-A041",
+      "title": "Build viewer experience (read-only tabs)",
+      "description": "As a viewer, I want a read-only dashboard and history so that I can monitor family check-ins without managing settings.",
+      "acceptanceCriteria": [
+        "ViewerTabScreen composable with 3 bottom nav tabs: Dashboard, History, Settings",
+        "Dashboard tab: reuses DashboardScreen but hides 'Check on' buttons and on-demand actions",
+        "History tab: reuses HistoryScreen in read-only mode (export still available)",
+        "Settings tab: ViewerSettingsScreen with account display (name, email, role badge), About section, Sign Out button",
+        "No family management, no receiver settings, no subscription management",
+        "ViewerViewModel or reuse DashboardViewModel with isViewer flag",
+        "Viewer role determined by getCurrentUserRole() on auth"
+      ],
+      "priority": 41,
+      "passes": false,
+      "notes": "Minimal viewer experience. Reuse owner composables with read-only flags."
+    },
+    {
+      "id": "US-A042",
+      "title": "Implement alert display and dismissal",
+      "description": "As an owner, I want to see and dismiss pattern alerts on my dashboard so that I'm aware of unusual check-in behavior.",
+      "acceptanceCriteria": [
+        "AlertCard composable: warning-styled card with title, message, dismiss button",
+        "Alerts loaded from Supabase alerts table (WHERE family_id = X AND is_read = false)",
+        "Types supported: time_drift (check-in time shifting pattern), missed_pattern, etc.",
+        "Alert data includes metadata map (e.g., drift_hours for time drift alerts)",
+        "Dismiss button: marks alert as is_read = true in Supabase",
+        "DashboardViewModel.alerts StateFlow, dismissAlert(alertId) method",
+        "Alerts displayed between notification banner and weekly summary on dashboard",
+        "Empty state: no alerts section shown when list is empty"
+      ],
+      "priority": 42,
+      "passes": false,
+      "notes": "Match iOS WellvoAlert model and DashboardView alert display."
+    },
+    {
+      "id": "US-A043",
+      "title": "Implement weekly summary computation",
+      "description": "As an owner, I want a weekly summary showing check-in consistency and mood trends.",
+      "acceptanceCriteria": [
+        "DashboardViewModel.computeWeeklySummary(): calculates from last 7 days of check-ins across all receivers",
+        "Consistency %: (actual check-ins / expected check-ins) × 100, color-coded (green ≥80%, yellow ≥50%, red <50%)",
+        "Average check-in time: mean of all check-in times, formatted as h:mm a",
+        "Total check-ins: 'X / Y' where Y = receivers × 7 days",
+        "Mood breakdown: list of (mood emoji, count) sorted by frequency",
+        "WeeklySummary data class: consistency (Float), avgTime (String), totalActual (Int), totalExpected (Int), moods (Map<Mood, Int>)",
+        "WeeklySummaryCard composable displaying all fields",
+        "Handles edge case: no check-ins yet (shows 0% with friendly message)"
+      ],
+      "priority": 43,
+      "passes": false,
+      "notes": "Match iOS computeWeeklySummary() logic and WeeklySummaryCard display."
+    },
+    {
+      "id": "US-A044",
+      "title": "Set up Firebase Cloud Messaging (FCM)",
+      "description": "As a user, I want push notifications so that I receive check-in reminders and alerts.",
+      "acceptanceCriteria": [
+        "Firebase SDK added to project (firebase-messaging-ktx)",
+        "google-services.json placeholder in app/ directory (actual file from Firebase Console)",
+        "google-services plugin applied in build.gradle.kts",
+        "WellvoFirebaseMessagingService extends FirebaseMessagingService",
+        "onNewToken(): registers new FCM token with Supabase push_tokens table (platform='android')",
+        "Token comparison: only sends to Supabase if changed from stored value",
+        "Old tokens marked is_active=false when new token registered",
+        "PushNotificationService @Singleton: requestPermission() (POST_NOTIFICATIONS for API 33+), registerToken(), checkPermissionStatus()",
+        "Permission request handled for Android 13+ (Tiramisu) runtime permission",
+        "Token registration failure logged, not silently swallowed"
+      ],
+      "priority": 44,
+      "passes": false,
+      "notes": "FCM is the Android equivalent of APNs. Must register tokens to the same push_tokens table with platform='android'. Edge functions need to support FCM sending (may need backend changes)."
+    },
+    {
+      "id": "US-A045",
+      "title": "Handle incoming push notifications with actions",
+      "description": "As a receiver, I want to respond to check-in notifications directly from the notification shade.",
+      "acceptanceCriteria": [
+        "onMessageReceived() in WellvoFirebaseMessagingService handles data messages",
+        "CHECKIN_REQUEST notification: shows notification with 3 action buttons — 'I'm OK ✓', 'I Need Help', 'Call Me'",
+        "NotificationCompat.Builder with CHECKIN channel (importance HIGH, sound + vibration)",
+        "Action buttons use PendingIntent with BroadcastReceiver to handle taps",
+        "CheckInNotificationReceiver processes action: gets location + battery, calls respondToCheckIn()",
+        "URGENT_ALERT notification: shows with 'Call Now' action button",
+        "'Call Now' action: looks up receiver phone from users table, opens tel:// intent",
+        "LOCATION_ALERT notification: shows with 'View Details' action",
+        "Notification channels created in WellvoApplication.onCreate(): checkin_requests (HIGH), urgent_alerts (MAX), location_alerts (HIGH)",
+        "confirmDelivery() called when notification received"
+      ],
+      "priority": 45,
+      "passes": false,
+      "notes": "Match iOS notification categories and actions. Android uses NotificationCompat action buttons instead of UNNotificationAction. BroadcastReceiver handles background action processing."
+    },
+    {
+      "id": "US-A046",
+      "title": "Handle notification taps and deep routing",
+      "description": "As a user, I want tapping a notification to take me to the right screen in the app.",
+      "acceptanceCriteria": [
+        "Notification content intent opens MainActivity with extras (notification type, request ID, receiver ID)",
+        "MainActivity.onCreate() and onNewIntent() check for notification extras",
+        "CHECKIN_REQUEST tap: routes receiver to ReceiverHomeScreen (auto check-in if desired)",
+        "URGENT_ALERT tap: routes owner to DashboardScreen",
+        "LOCATION_ALERT tap: routes owner to receiver's history or settings",
+        "If app was killed: full auth check → route to correct screen with notification context",
+        "If app was in foreground: show notification as in-app banner (Snackbar or TopAppBar overlay)",
+        "Clear notification badge/count after handling"
+      ],
+      "priority": 46,
+      "passes": false,
+      "notes": "Match iOS AppDelegate.didReceive notification handling and routing logic."
+    },
+    {
+      "id": "US-A047",
+      "title": "Implement notification permission handling with recovery banner",
+      "description": "As a user who denied notifications, I want a persistent reminder so that I don't miss critical alerts.",
+      "acceptanceCriteria": [
+        "NotificationPermissionBanner composable: warning-styled banner explaining why notifications matter",
+        "Shown on DashboardScreen (owners) and ReceiverHomeScreen (receivers) if notifications not granted",
+        "'Open Settings' button deep-links to app notification settings (Settings.ACTION_APP_NOTIFICATION_SETTINGS)",
+        "Banner dismissable: hides for 7 days after dismissal (stored in SharedPreferences with timestamp)",
+        "Permission status checked on every app resume (Lifecycle.Event.ON_RESUME)",
+        "Banner auto-hides when permission is granted",
+        "Orange/warning color scheme matching Wellvo brand"
+      ],
+      "priority": 47,
+      "passes": false,
+      "notes": "Match iOS NotificationPermissionBanner. Android 13+ requires POST_NOTIFICATIONS runtime permission."
+    },
+    {
+      "id": "US-A048",
+      "title": "Implement Google Play Billing for subscriptions",
+      "description": "As an owner, I want to purchase a subscription so that I can add more receivers and viewers to my family.",
+      "acceptanceCriteria": [
+        "Google Play Billing Library 6+ dependency added",
+        "SubscriptionService @Singleton with BillingClient lifecycle management",
+        "Product IDs mapped: net.wellvo.family.monthly, net.wellvo.family.yearly, net.wellvo.familyplus.monthly, net.wellvo.familyplus.yearly, net.wellvo.addon.receiver, net.wellvo.addon.viewer",
+        "loadProducts(): queries BillingClient for product details (name, price, description)",
+        "purchase(product): launches billing flow via BillingClient.launchBillingFlow()",
+        "PurchasesUpdatedListener handles purchase results: acknowledge purchases, verify signatures",
+        "Verify purchase server-side by calling subscription-webhook edge function with purchase token",
+        "restorePurchases(): BillingClient.queryPurchasesAsync() for active subscriptions",
+        "hasAccess(tier): checks current entitlements against tier",
+        "currentTier(): returns free/family/family_plus based on active purchases",
+        "Handle billing errors gracefully: user-cancelled, already-owned, network error"
+      ],
+      "priority": 48,
+      "passes": false,
+      "notes": "Google Play Billing replaces StoreKit 2. Must acknowledge purchases within 3 days or they refund. Server verification via subscription-webhook edge function."
+    },
+    {
+      "id": "US-A049",
+      "title": "Build subscription management UI",
+      "description": "As an owner, I want to view plans, purchase subscriptions, and manage my billing.",
+      "acceptanceCriteria": [
+        "SubscriptionScreen composable (accessible from Settings and Onboarding step 4)",
+        "Three plan cards: Free, Family ($4.99/mo or $47.99/yr), Family+ ($9.99/mo or $95.99/yr)",
+        "Each card shows: plan name, price, features list (receiver count, viewer count, features)",
+        "Monthly/Yearly toggle switch",
+        "Current plan highlighted with 'Current Plan' badge",
+        "Purchase button on non-current plans: triggers SubscriptionService.purchase()",
+        "Loading state during purchase flow",
+        "Success state: 'Welcome to [plan]!' with family limits updated",
+        "Manage subscription link: opens Play Store subscription management URL",
+        "Restore purchases button: calls SubscriptionService.restorePurchases()"
+      ],
+      "priority": 49,
+      "passes": false,
+      "notes": "Match iOS subscription UI. Plan prices must match App Store pricing for parity."
+    },
+    {
+      "id": "US-A050",
+      "title": "Implement location services for check-ins",
+      "description": "As the app, I want to capture the receiver's location during check-in so that owners can see where receivers checked in from.",
+      "acceptanceCriteria": [
+        "LocationService @Singleton using FusedLocationProviderClient (Google Play Services)",
+        "requestPermission(): handles ACCESS_FINE_LOCATION and ACCESS_COARSE_LOCATION runtime permissions",
+        "requestBackgroundPermission(): handles ACCESS_BACKGROUND_LOCATION (separate request on Android 10+)",
+        "getCurrentLocation(): one-shot location request with PRIORITY_BALANCED_POWER_ACCURACY, returns latitude/longitude/accuracy",
+        "Timeout: 10 seconds for location acquisition",
+        "Location included in check-in payload (optional — check-in works without location)",
+        "Permission status checking: isLocationGranted(), isBackgroundLocationGranted()",
+        "Handle permission denied gracefully (check-in proceeds without location)",
+        "LocationService exposed via Hilt for injection into CheckInService and ReceiverViewModel"
+      ],
+      "priority": 50,
+      "passes": false,
+      "notes": "Uses Google Play Services FusedLocationProvider instead of iOS CLLocationManager. Background location is a separate permission on Android."
+    },
+    {
+      "id": "US-A051",
+      "title": "Implement background location monitoring",
+      "description": "As the app, I want to report receiver location changes in the background so that owners see updated location data.",
+      "acceptanceCriteria": [
+        "Background location monitoring using WorkManager periodic work (minimum 15 min interval)",
+        "LocationReportWorker: gets current location + battery level, calls report-location edge function",
+        "Worker only runs when background location permission granted and monitoring enabled",
+        "LocationService.startBackgroundMonitoring(familyId): enqueues periodic WorkManager request",
+        "LocationService.stopBackgroundMonitoring(): cancels the periodic work",
+        "Battery level obtained from BatteryManager.EXTRA_LEVEL intent",
+        "Worker has network constraint (requires connectivity)",
+        "Monitoring started when receiver signs in with background location permission",
+        "Monitoring stopped on sign out"
+      ],
+      "priority": 51,
+      "passes": false,
+      "notes": "Android equivalent of iOS significantLocationChanges. WorkManager is more reliable than AlarmManager for periodic background work."
+    },
+    {
+      "id": "US-A052",
+      "title": "Implement heartbeat service with WorkManager",
+      "description": "As the backend, I want periodic heartbeats from receivers so that I know they have the app installed and running.",
+      "acceptanceCriteria": [
+        "HeartbeatWorker extends CoroutineWorker: sends heartbeat to edge function with battery level and app version",
+        "Periodic work request: every 15 minutes (WorkManager minimum is 15 min)",
+        "Payload: batteryLevel (Float), appVersion (String from BuildConfig.VERSION_NAME)",
+        "HeartbeatService @Singleton: start() enqueues periodic work, stop() cancels it",
+        "Network constraint: only runs when connected",
+        "Battery level from BatteryManager sticky intent",
+        "Started on successful auth, stopped on sign out",
+        "Worker tagged 'heartbeat' for cancellation"
+      ],
+      "priority": 52,
+      "passes": false,
+      "notes": "Android equivalent of iOS HeartbeatService Timer. WorkManager replaces Timer for reliability across app restarts."
+    },
+    {
+      "id": "US-A053",
+      "title": "Implement analytics with TelemetryDeck",
+      "description": "As a product owner, I want privacy-first analytics in the Android app so that I can measure usage without collecting PII.",
+      "acceptanceCriteria": [
+        "TelemetryDeck Android SDK dependency added (com.telemetrydeck:kotlin-sdk)",
+        "AnalyticsService @Singleton: initialize() with TelemetryDeck app ID from BuildConfig",
+        "20+ event types matching iOS: sign_in, sign_up, sign_out, check_in_completed, check_in_offline_queued, check_in_offline_synced, mood_submitted, dashboard_viewed, on_demand_sent, receiver_invited, receiver_removed, settings_saved, report_exported, history_viewed, subscription_started, subscription_restored, subscription_view_opened, onboarding_started, onboarding_completed, onboarding_step_viewed, notification_permission_granted, notification_permission_denied, alert_viewed, alert_dismissed, app_opened, app_backgrounded",
+        "track(event, properties) method wrapping TelemetryDeck.signal()",
+        "trackScreen(name) method for screen views",
+        "No PII in analytics (no email, phone, name, or user IDs)",
+        "Analytics disabled in debug builds (BuildConfig.DEBUG check)",
+        "Analytics calls sprinkled throughout ViewModels at appropriate points"
+      ],
+      "priority": 53,
+      "passes": false,
+      "notes": "Same TelemetryDeck service as iOS. Event names must match for cross-platform analytics."
+    },
+    {
+      "id": "US-A054",
+      "title": "Implement accessibility (TalkBack) support",
+      "description": "As a visually impaired user, I want full TalkBack support so that I can use Wellvo independently on Android.",
+      "acceptanceCriteria": [
+        "ReceiverHomeScreen: check-in button has contentDescription 'I'm OK check-in button' and stateDescription",
+        "DashboardScreen: each receiver card has contentDescription with name, status, and streak",
+        "All bottom navigation items have contentDescription",
+        "Mood selector buttons have contentDescription (e.g., 'Select mood: Happy')",
+        "Calendar heatmap cells have contentDescription with date and status",
+        "Settings toggles have contentDescription describing what they control",
+        "Focus order (traversalIndex) is logical top-to-bottom on every screen",
+        "Minimum touch target size: 48dp × 48dp on all interactive elements",
+        "Color is not sole differentiator for status (icons/text accompany colors)",
+        "Dynamic text scaling tested at largest font size without layout breakage"
+      ],
+      "priority": 54,
+      "passes": false,
+      "notes": "Match iOS accessibility implementation. Android uses contentDescription instead of accessibilityLabel."
+    },
+    {
+      "id": "US-A055",
+      "title": "Implement deep linking for invite URLs",
+      "description": "As a receiver who received an SMS invite, I want tapping the link to open the app and auto-route to setup.",
+      "acceptanceCriteria": [
+        "Android App Links configured for wellvo.net domain",
+        "Intent filter in AndroidManifest.xml: scheme https, host wellvo.net, pathPrefix /invite",
+        "assetlinks.json hosted at wellvo.net/.well-known/assetlinks.json (or document requirement)",
+        "MainActivity handles incoming intent: extracts invite token from URL query parameter",
+        "If authenticated: auto-accept invite via FamilyService.acceptInvite(token), route to receiver onboarding",
+        "If not authenticated: store token in SharedPreferences, route to auth, then process after auth",
+        "Custom scheme fallback: wellvo://invite?token=<token> for cases where App Links don't work",
+        "Deep link handling in NavHost: navigate to ReceiverOnboardingScreen with invite context"
+      ],
+      "priority": 55,
+      "passes": false,
+      "notes": "Android equivalent of iOS deep linking (wellvo://invite). Android App Links provide verified HTTPS linking."
+    },
+    {
+      "id": "US-A056",
+      "title": "Implement data export and account deletion",
+      "description": "As a user, I want to export all my data and delete my account to exercise my privacy rights.",
+      "acceptanceCriteria": [
+        "Export My Data: calls export_user_data Supabase RPC, downloads JSON response",
+        "JSON saved to Downloads directory via MediaStore (or app cache + share intent)",
+        "Success snackbar: 'Data exported successfully'",
+        "Delete Account: double-confirmation flow — first dialog warns, second dialog requires typing 'DELETE'",
+        "delete_user_account RPC called on final confirmation",
+        "After deletion: clear all local data (Room, SharedPreferences, EncryptedSharedPreferences), sign out, navigate to auth",
+        "Loading state during both operations",
+        "Error handling with retry for network failures"
+      ],
+      "priority": 56,
+      "passes": false,
+      "notes": "GDPR compliance. Match iOS export and deletion flows. Same Supabase RPCs."
+    },
+    {
+      "id": "US-A057",
+      "title": "Implement Google account linking",
+      "description": "As a user who signed up with email, I want to link my Google account so that I can use one-tap sign-in in the future.",
+      "acceptanceCriteria": [
+        "SettingsScreen 'Link Google Account' button visible when no Google identity linked",
+        "Triggers Google Sign-In flow to get ID token",
+        "Calls Supabase Auth linkIdentity or custom edge function to link Google identity",
+        "On success: button changes to 'Google Account Linked ✓' (non-interactive)",
+        "AuthViewModel.hasLinkedGoogle StateFlow, linkGoogleAccount() method",
+        "Check for existing Google link on settings load",
+        "Error handling: already linked, network failure, cancelled by user"
+      ],
+      "priority": 57,
+      "passes": false,
+      "notes": "Android equivalent of iOS 'Link Apple ID'. Google Sign-In instead of Apple Sign-In."
+    },
+    {
+      "id": "US-A058",
+      "title": "Add edge function support for FCM push notifications",
+      "description": "As the backend, I need to send push notifications via FCM (in addition to APNs) so that Android receivers get check-in reminders.",
+      "acceptanceCriteria": [
+        "New shared/fcm.ts module in edge-functions: sends push via FCM HTTP v1 API",
+        "FCM service account credentials loaded from environment variable (FIREBASE_SERVICE_ACCOUNT_JSON)",
+        "sendFCMNotification(token, title, body, data) function using FCM v1 API with OAuth2 bearer token",
+        "Data payload includes: checkin_request_id, receiver_id, receiver_name, notification_type",
+        "push_tokens table queried with platform filter: 'ios' → APNs, 'android' → FCM",
+        "Existing notification-sending functions updated to check platform and route to APNs or FCM accordingly",
+        "FCM token errors (invalid/unregistered) mark token as is_active=false",
+        "Logging for FCM send success and failure"
+      ],
+      "priority": 58,
+      "passes": false,
+      "notes": "CRITICAL backend change. The existing edge functions only support APNs. Must add FCM support for Android push to work. This may require a new edge function or modifying existing ones."
+    },
+    {
+      "id": "US-A059",
+      "title": "Add haptic feedback throughout the app",
+      "description": "As a user, I want tactile feedback on key actions so that interactions feel responsive.",
+      "acceptanceCriteria": [
+        "Check-in success: HapticFeedbackType.Confirm (vibration pattern)",
+        "Button presses on important actions: HapticFeedbackType.LongPress",
+        "Error states: short vibration pattern",
+        "Mood selection: light tap feedback",
+        "Kid response buttons: medium tap feedback",
+        "Use Compose LocalHapticFeedback.current.performHapticFeedback()",
+        "Haptics disabled gracefully if device doesn't support vibration",
+        "Respect system haptic settings (don't vibrate if system vibration is off)"
+      ],
+      "priority": 59,
+      "passes": false,
+      "notes": "Match iOS UINotificationFeedbackGenerator and UIImpactFeedbackGenerator feedback points."
+    },
+    {
+      "id": "US-A060",
+      "title": "Write unit tests for core business logic",
+      "description": "As a developer, I want automated tests so that regressions are caught before release.",
+      "acceptanceCriteria": [
+        "Test dependencies added: JUnit 5, Mockk, Turbine (for Flow testing), kotlinx-coroutines-test",
+        "AuthViewModelTest: sign-in state transitions, validation logic, error handling (5+ test cases)",
+        "DashboardViewModelTest: streak calculation, weekly summary computation, receiver card building (5+ test cases)",
+        "ReceiverViewModelTest: check-in status tracking, next check-in time computation for all 3 schedule types (5+ test cases)",
+        "OfflineCheckInServiceTest: queue, sync, retry logic (3+ test cases)",
+        "SubscriptionServiceTest: tier mapping, hasAccess logic (3+ test cases)",
+        "CheckInServiceTest: API call construction, error handling (3+ test cases)",
+        "All tests pass with ./gradlew test",
+        "Minimum 25 test cases total"
+      ],
+      "priority": 60,
+      "passes": false,
+      "notes": "Match iOS WellvoTests coverage. Use Mockk for mocking Supabase and Android framework classes."
+    },
+    {
+      "id": "US-A061",
+      "title": "Write Compose UI tests for critical flows",
+      "description": "As a developer, I want UI tests so that screen rendering and navigation regressions are caught.",
+      "acceptanceCriteria": [
+        "Compose UI test dependencies: compose-ui-test-junit4, compose-ui-test-manifest",
+        "AuthScreenTest: all three auth options visible, phone OTP flow renders correctly, validation errors display",
+        "ReceiverHomeScreenTest: check-in button visible and clickable, status card appears after check-in, mood selector appears",
+        "DashboardScreenTest: receiver cards render with correct status, weekly summary displays",
+        "OnboardingTest: all 7 steps navigable, back button works, form inputs functional",
+        "Navigation test: role-based routing works (owner → tabs, receiver → home, viewer → read-only tabs)",
+        "All UI tests pass with ./gradlew connectedAndroidTest or ./gradlew testDebugUnitTest (with Robolectric)",
+        "Minimum 10 UI test cases"
+      ],
+      "priority": 61,
+      "passes": false,
+      "notes": "Jetpack Compose testing APIs. Consider Robolectric for faster local execution without emulator."
+    },
+    {
+      "id": "US-A062",
+      "title": "Configure GitHub Actions CI for Android builds",
+      "description": "As a developer, I want automated CI so that every push is built and tested.",
+      "acceptanceCriteria": [
+        "New .github/workflows/android-build.yml workflow",
+        "Triggers on: push to main, push to android/** paths, pull requests",
+        "Steps: checkout, setup JDK 17, setup Gradle, run ./gradlew assembleDebug, run ./gradlew test",
+        "Cache Gradle dependencies for faster builds",
+        "Fail on test failures",
+        "Build artifact (APK) uploaded as workflow artifact (retained 7 days)",
+        "Secrets configured for Supabase credentials (injected as environment variables)",
+        "Workflow completes in under 10 minutes"
+      ],
+      "priority": 62,
+      "passes": false,
+      "notes": "Add alongside existing iOS and edge-function CI workflows."
+    },
+    {
+      "id": "US-A063",
+      "title": "Prepare Google Play Store listing and release signing",
+      "description": "As a developer, I want the app ready for Play Store submission with proper signing and metadata.",
+      "acceptanceCriteria": [
+        "Release keystore generated (document process, DO NOT commit keystore)",
+        "Signing config in build.gradle.kts reads from environment variables for CI",
+        "ProGuard rules finalized: app runs correctly in release mode with minification",
+        "AndroidManifest.xml: all required permissions declared with maxSdkVersion where applicable",
+        "App icon: adaptive icon with Wellvo logo (foreground layer) and green background (background layer), in mipmap-* density folders",
+        "Feature graphic: 1024x500px banner for Play Store listing",
+        "Launcher icon meets Play Store requirements (512x512 PNG)",
+        "Version code and name strategy documented",
+        "App builds successfully with ./gradlew assembleRelease"
+      ],
+      "priority": 63,
+      "passes": false,
+      "notes": "Final release preparation. App signing keys should be managed via Play App Signing."
+    },
+    {
+      "id": "US-A064",
+      "title": "Add splash screen with Android 12+ SplashScreen API",
+      "description": "As a user, I want a branded splash screen while the app initializes.",
+      "acceptanceCriteria": [
+        "AndroidX SplashScreen dependency added (core-splashscreen)",
+        "SplashScreen theme configured in styles.xml with Wellvo logo as windowSplashScreenAnimatedIcon",
+        "Green brand color as windowSplashScreenBackground",
+        "MainActivity.installSplashScreen() called in onCreate() before setContent()",
+        "Splash screen holds while checking auth state (setKeepOnScreenCondition)",
+        "Transitions smoothly to auth screen or main content",
+        "Works correctly on Android 12+ (native) and pre-12 (compat library)",
+        "No flash of white/default theme before splash"
+      ],
+      "priority": 64,
+      "passes": false,
+      "notes": "Use the official AndroidX SplashScreen API for backwards compatibility."
+    },
+    {
+      "id": "US-A065",
+      "title": "Add Material Design 3 theming and Wellvo brand polish",
+      "description": "As a user, I want a polished UI that matches the Wellvo brand identity.",
+      "acceptanceCriteria": [
+        "Custom MaterialTheme with Wellvo color scheme: primary green (#22C55E), onPrimary white, surface white, error red",
+        "Dark theme support: dark color scheme with appropriate contrast",
+        "Typography: system default (Roboto) with consistent text styles across app",
+        "Shape: rounded corners (12dp for cards, 24dp for buttons, 50% for circular elements)",
+        "All screens use consistent spacing (16dp horizontal padding, 8dp/16dp vertical spacing)",
+        "Status card backgrounds match iOS: green for checked in, yellow for pending, red for missed, gray for no data",
+        "Transitions: shared element transitions between screens where appropriate",
+        "Bottom navigation with Material 3 NavigationBar styling",
+        "Dynamic color support on Android 12+ (Material You) as opt-in"
+      ],
+      "priority": 65,
+      "passes": false,
+      "notes": "Polish pass to match iOS visual quality. Wellvo green is the primary brand color."
     }
   ]
 }

@@ -5,10 +5,11 @@ Wellvo (marketed as "Alive") is a daily check-in app for families. Owners send c
 
 ## Tech Stack
 - **iOS App**: Swift 5.9+, SwiftUI, MVVM, iOS 16+, StoreKit 2
+- **Android App**: Kotlin 1.9+, Jetpack Compose, MVVM, API 26+ (Android 8.0+), Google Play Billing
 - **Edge Functions**: Deno (TypeScript), single HTTP server routing to 7 function handlers
 - **Database**: PostgreSQL via self-hosted Supabase, RLS, pg_cron
 - **Website**: React + TypeScript + Vite, deployed to Cloudflare Pages
-- **CI/CD**: GitHub Actions (iOS build, edge function Docker deploy, Supabase migrations)
+- **CI/CD**: GitHub Actions (iOS build, Android build, edge function Docker deploy, Supabase migrations)
 - **Hosting**: Contabo VPS via Coolify (Docker)
 
 ## Directory Structure
@@ -29,6 +30,17 @@ website/                # React + Vite website
   src/
     pages/              # Home, Pricing, Privacy, Terms, Support, NotFound
     components/         # Header, Footer, Layout, ErrorBoundary
+android/                # Android app (Gradle/Kotlin project)
+  app/
+    src/main/
+      java/net/wellvo/android/
+        di/             # Hilt dependency injection modules
+        data/           # Models, Room entities, DAOs
+        network/        # API service, error handling, retry
+        services/       # Auth, CheckIn, Family, Location, Push, Offline, Subscription, Analytics
+        viewmodels/     # Auth, Dashboard, Onboarding, Receiver, Settings, History, Family
+        ui/             # Jetpack Compose screens organized by feature
+        util/           # Configuration, SecureStorage, Extensions
 supabase/migrations/    # SQL migrations (00001-00006)
 .github/workflows/      # CI/CD pipelines
 coolify/                # Deployment guide and backup script
@@ -48,6 +60,11 @@ docker compose up --build
 
 # iOS (requires Xcode on macOS)
 xcodebuild -project ios/Wellvo.xcodeproj -scheme Wellvo build
+
+# Android (requires JDK 17+)
+cd android && ./gradlew assembleDebug         # Debug build
+cd android && ./gradlew assembleRelease       # Release build
+cd android && ./gradlew test                  # Unit tests
 ```
 
 ## Key Architecture Decisions
@@ -60,8 +77,13 @@ xcodebuild -project ios/Wellvo.xcodeproj -scheme Wellvo build
 
 ## Common Gotchas
 - iOS: Supabase config comes from Info.plist, injected via BuildConfig.xcconfig
+- Android: Supabase config comes from BuildConfig fields, set in build.gradle.kts from local.properties
+- Android: EncryptedSharedPreferences replaces iOS Keychain for secure storage
+- Android: FCM replaces APNs — edge functions must support both platforms (check push_tokens.platform)
+- Android: WorkManager for background tasks (heartbeat, location) — minimum 15-min interval
+- Android: POST_NOTIFICATIONS runtime permission required on Android 13+ (API 33)
 - Edge functions: Deno, not Node.js — use Deno APIs and import maps (deno.json)
-- CORS: iOS native apps don't send Origin headers; CORS logic must allow missing Origin
+- CORS: Native apps (iOS + Android) don't send Origin headers; CORS logic must allow missing Origin
 - Rate limiter: In-memory, not shared across instances (fine for current single-container setup)
 - Website: Cloudflare Pages reads _headers and _redirects from public/ directory
 - Migrations: Each migration wraps in BEGIN/COMMIT; verify with table/RLS/trigger counts
