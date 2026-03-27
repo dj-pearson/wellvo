@@ -469,7 +469,7 @@
         "loadDashboard() fetches family, members, today's check-ins, alerts"
       ],
       "priority": 26,
-      "passes": false,
+      "passes": true,
       "notes": "Core owner screen. Match iOS DashboardView layout. ReceiverStatusCard data class mirrors iOS."
     },
     {

@@ -46,7 +46,8 @@ fun WellvoNavHost(
             )
         }
         composable(Route.OwnerTabs.route) {
-            OwnerTabsScreen()
+            val userId = (authState as? AuthState.Authenticated)?.user?.id ?: ""
+            OwnerTabsScreen(userId = userId)
         }
         composable(Route.ReceiverHome.route) {
             ReceiverHomeScreen()

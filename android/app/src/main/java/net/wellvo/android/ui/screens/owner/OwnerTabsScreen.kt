@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import net.wellvo.android.viewmodels.DashboardViewModel
 
 private data class OwnerTabItem(
     val label: String,
@@ -38,7 +40,7 @@ private val ownerTabs = listOf(
 )
 
 @Composable
-fun OwnerTabsScreen() {
+fun OwnerTabsScreen(userId: String = "") {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     Scaffold(
@@ -55,18 +57,30 @@ fun OwnerTabsScreen() {
             }
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = ownerTabs[selectedTab].label,
-                style = MaterialTheme.typography.headlineMedium
-            )
+        when (selectedTab) {
+            0 -> {
+                val dashboardViewModel: DashboardViewModel = hiltViewModel()
+                DashboardScreen(
+                    viewModel = dashboardViewModel,
+                    userId = userId,
+                    modifier = Modifier.padding(innerPadding)
+                )
+            }
+            else -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = ownerTabs[selectedTab].label,
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+                }
+            }
         }
     }
 }
