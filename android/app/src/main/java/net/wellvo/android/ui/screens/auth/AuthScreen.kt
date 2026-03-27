@@ -1,5 +1,8 @@
 package net.wellvo.android.ui.screens.auth
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,6 +18,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -22,14 +28,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -37,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -54,7 +60,7 @@ fun AuthScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    var selectedTab by remember { mutableIntStateOf(0) }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     Column(
         modifier = Modifier
@@ -64,6 +70,8 @@ fun AuthScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(64.dp))
+
+        // Logo and tagline
         Text(
             text = "Wellvo",
             style = MaterialTheme.typography.displayLarge,
@@ -75,20 +83,18 @@ fun AuthScreen(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(40.dp))
 
-        GoogleSignInButton(
-            isLoading = state.isGoogleLoading,
-            enabled = !state.isLoading && !state.isGoogleLoading,
-            onClick = { viewModel.signInWithGoogle(context) }
+        // Phone OTP — primary, prominent
+        PhoneAuthSection(
+            state = state,
+            viewModel = viewModel,
+            onDismissKeyboard = { keyboardController?.hide() }
         )
 
-        if (state.isGoogleLoading && state.errorMessage != null) {
-            ErrorText(state.errorMessage)
-        }
+        Spacer(modifier = Modifier.height(24.dp))
 
-        Spacer(modifier = Modifier.height(16.dp))
-
+        // Divider
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -103,23 +109,29 @@ fun AuthScreen(
             HorizontalDivider(modifier = Modifier.weight(1f))
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        TabRow(selectedTabIndex = selectedTab) {
-            Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }) {
-                Text("Phone", modifier = Modifier.padding(16.dp))
-            }
-            Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }) {
-                Text("Email", modifier = Modifier.padding(16.dp))
-            }
-        }
-
         Spacer(modifier = Modifier.height(24.dp))
 
-        when (selectedTab) {
-            0 -> PhoneAuthSection(state = state, viewModel = viewModel)
-            1 -> EmailAuthSection(state = state, viewModel = viewModel)
+        // Google Sign-In
+        GoogleSignInButton(
+            isLoading = state.isGoogleLoading,
+            enabled = !state.isLoading && !state.isGoogleLoading,
+            onClick = { viewModel.signInWithGoogle(context) }
+        )
+
+        if (state.isGoogleLoading && state.errorMessage != null) {
+            ErrorText(state.errorMessage)
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Email/Password — expandable section
+        EmailExpandableSection(
+            state = state,
+            viewModel = viewModel,
+            onDismissKeyboard = { keyboardController?.hide() }
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
@@ -158,14 +170,21 @@ private fun GoogleSignInButton(
 @Composable
 private fun PhoneAuthSection(
     state: AuthUiState,
-    viewModel: AuthViewModel
+    viewModel: AuthViewModel,
+    onDismissKeyboard: () -> Unit
 ) {
     val otpFocusRequester = remember { FocusRequester() }
 
     if (!state.isAwaitingOTP) {
         Text(
-            text = "Enter your phone number",
+            text = "Sign in with your phone",
             style = MaterialTheme.typography.titleLarge
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "We'll text you a verification code",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -177,15 +196,26 @@ private fun PhoneAuthSection(
                 keyboardType = KeyboardType.Phone,
                 imeAction = ImeAction.Done
             ),
-            keyboardActions = KeyboardActions(onDone = { viewModel.sendOTP() }),
+            keyboardActions = KeyboardActions(onDone = {
+                onDismissKeyboard()
+                viewModel.sendOTP()
+            }),
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isLoading
+            enabled = !state.isLoading && !state.isGoogleLoading
         )
 
-        ErrorText(state.errorMessage)
+        if (!state.isGoogleLoading) {
+            ErrorText(state.errorMessage)
+        }
         Spacer(modifier = Modifier.height(24.dp))
-        LoadingOrButton(isLoading = state.isLoading, label = "Send Code", onClick = viewModel::sendOTP)
+
+        LoadingOrButton(
+            isLoading = state.isLoading,
+            label = "Send Code",
+            enabled = !state.isGoogleLoading,
+            onClick = viewModel::sendOTP
+        )
     } else {
         Text(
             text = "Enter verification code",
@@ -207,7 +237,10 @@ private fun PhoneAuthSection(
                 keyboardType = KeyboardType.Number,
                 imeAction = ImeAction.Done
             ),
-            keyboardActions = KeyboardActions(onDone = { viewModel.verifyOTP() }),
+            keyboardActions = KeyboardActions(onDone = {
+                onDismissKeyboard()
+                viewModel.verifyOTP()
+            }),
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
@@ -215,9 +248,18 @@ private fun PhoneAuthSection(
             enabled = !state.isLoading
         )
 
+        LaunchedEffect(Unit) {
+            otpFocusRequester.requestFocus()
+        }
+
         ErrorText(state.errorMessage)
         Spacer(modifier = Modifier.height(24.dp))
-        LoadingOrButton(isLoading = state.isLoading, label = "Verify", onClick = viewModel::verifyOTP)
+
+        LoadingOrButton(
+            isLoading = state.isLoading,
+            label = "Verify",
+            onClick = viewModel::verifyOTP
+        )
 
         Spacer(modifier = Modifier.height(8.dp))
         TextButton(onClick = viewModel::backToPhoneEntry) {
@@ -227,66 +269,102 @@ private fun PhoneAuthSection(
 }
 
 @Composable
-private fun EmailAuthSection(
+private fun EmailExpandableSection(
     state: AuthUiState,
-    viewModel: AuthViewModel
+    viewModel: AuthViewModel,
+    onDismissKeyboard: () -> Unit
 ) {
-    if (state.isSignUp) {
-        OutlinedTextField(
-            value = state.displayName,
-            onValueChange = viewModel::updateDisplayName,
-            label = { Text("Display Name") },
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isLoading
+    var expanded by remember { mutableStateOf(false) }
+
+    TextButton(
+        onClick = { expanded = !expanded },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(
+            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            contentDescription = if (expanded) "Collapse email sign-in" else "Expand email sign-in",
+            modifier = Modifier.size(20.dp)
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = if (expanded) "Hide email sign-in" else "Sign in with email",
+            style = MaterialTheme.typography.bodyLarge
+        )
     }
 
-    OutlinedTextField(
-        value = state.email,
-        onValueChange = viewModel::updateEmail,
-        label = { Text("Email") },
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.Email,
-            imeAction = ImeAction.Next
-        ),
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !state.isLoading
-    )
-    Spacer(modifier = Modifier.height(12.dp))
+    AnimatedVisibility(
+        visible = expanded,
+        enter = expandVertically(),
+        exit = shrinkVertically()
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
 
-    OutlinedTextField(
-        value = state.password,
-        onValueChange = viewModel::updatePassword,
-        label = { Text("Password") },
-        visualTransformation = PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.Password,
-            imeAction = ImeAction.Done
-        ),
-        keyboardActions = KeyboardActions(onDone = { viewModel.signInWithEmail() }),
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !state.isLoading
-    )
+            if (state.isSignUp) {
+                OutlinedTextField(
+                    value = state.displayName,
+                    onValueChange = viewModel::updateDisplayName,
+                    label = { Text("Display Name") },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !state.isLoading
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
-    ErrorText(state.errorMessage)
-    Spacer(modifier = Modifier.height(24.dp))
-    LoadingOrButton(
-        isLoading = state.isLoading,
-        label = if (state.isSignUp) "Create Account" else "Sign In",
-        onClick = viewModel::signInWithEmail
-    )
+            OutlinedTextField(
+                value = state.email,
+                onValueChange = viewModel::updateEmail,
+                label = { Text("Email") },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next
+                ),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.isLoading
+            )
+            Spacer(modifier = Modifier.height(12.dp))
 
-    Spacer(modifier = Modifier.height(8.dp))
-    TextButton(onClick = viewModel::toggleSignUp) {
-        Text(
-            if (state.isSignUp) "Already have an account? Sign In"
-            else "Don't have an account? Sign Up"
-        )
+            OutlinedTextField(
+                value = state.password,
+                onValueChange = viewModel::updatePassword,
+                label = { Text("Password") },
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = {
+                    onDismissKeyboard()
+                    viewModel.signInWithEmail()
+                }),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.isLoading
+            )
+
+            ErrorText(state.errorMessage)
+            Spacer(modifier = Modifier.height(24.dp))
+
+            LoadingOrButton(
+                isLoading = state.isLoading,
+                label = if (state.isSignUp) "Create Account" else "Sign In",
+                onClick = viewModel::signInWithEmail
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            TextButton(onClick = viewModel::toggleSignUp) {
+                Text(
+                    if (state.isSignUp) "Already have an account? Sign In"
+                    else "Don't have an account? Sign Up"
+                )
+            }
+        }
     }
 }
 
@@ -307,6 +385,7 @@ private fun ErrorText(message: String?) {
 private fun LoadingOrButton(
     isLoading: Boolean,
     label: String,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     if (isLoading) {
@@ -314,7 +393,8 @@ private fun LoadingOrButton(
     } else {
         Button(
             onClick = onClick,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = enabled
         ) {
             Text(label)
         }

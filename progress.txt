@@ -291,3 +291,38 @@ Patterns: AuthViewModel.observeSessionStatus() collects supabase.auth.sessionSta
 Implemented: Auto-join and pairing code flows for Android
 Files changed: network/ApiService.kt (added RedeemCodeResponse, AutoJoinResponse, AutoJoinResult data classes; redeemCode() and autoJoin() now return typed responses; removed unused RedeemCodeRequest/AutoJoinRequest), viewmodels/PairingCodeViewModel.kt (new — state: code, isLoading, errorMessage, success, familyName, checkinTime; redeemPairingCode() calls redeem-code edge function), ui/screens/onboarding/PairingCodeScreen.kt (full implementation — 6-digit input, submit, animated success state with family name and check-in time display), viewmodels/AuthViewModel.kt (added pendingAutoJoin StateFlow, checkAutoJoin() called after authentication, clearAutoJoin()), MainActivity.kt (wired pendingAutoJoin, isNewUser detection, routes auto-join matches to ReceiverOnboarding), ui/navigation/WellvoNavHost.kt (PairingCodeScreen gets onComplete callback routing to ReceiverHome)
 Patterns: Auto-join check runs on every authentication via fetchUserAndAuthenticate(). ApiService.autoJoin() calls edge function with empty body (server uses auth token to get phone). PairingCodeViewModel validates 6-digit input, handles success/already_member/error responses. PairingCodeScreen uses AnimatedVisibility for entry→success transition. Navigation: pairing code success → ReceiverHome with popUpTo(0).
+
+--- Iteration 43: US-A016 (2026-03-26) ---
+Implemented: Restructured AuthScreen to make Phone OTP the primary prominent flow
+Files changed: ui/screens/auth/AuthScreen.kt (restructured layout)
+Patterns: Phone OTP section shown first as the prominent primary option (no tab). "or" divider separates from secondary options. Google Sign-In button below divider. Email/Password in an expandable section (AnimatedVisibility with expand/collapse toggle) instead of tabs. Auto-focus on OTP input field via LaunchedEffect + FocusRequester. Keyboard dismissed on submit via LocalSoftwareKeyboardController. Error messages scoped to active auth method (phone errors hidden during Google loading).
+
+--- Iteration 44: US-A017 (2026-03-26) ---
+Implemented: Owner onboarding 7-step wizard with SavedStateHandle persistence
+Files changed: viewmodels/OnboardingViewModel.kt (new), ui/screens/onboarding/OnboardingScreen.kt (rewritten), ui/navigation/WellvoNavHost.kt (onComplete routing)
+Patterns: OnboardingStep enum (Welcome→UserType→CreateFamily→ChoosePlan→AddReceiver→Notifications→Complete). UserTypeSelection enum with aging_parent/teenager/other. SavedStateHandle persists familyName, receiverName, receiverPhone, selectedPlan, checkinHour/Minute, currentStep across config changes. CreateFamily inserts to families + family_members tables via Supabase Postgrest. InviteReceiver calls invite-receiver edge function via ApiService. Notification step uses ActivityResultContracts.RequestPermission for POST_NOTIFICATIONS (API 33+). TimePicker for check-in time. LinearProgressIndicator + back button header. Complete step routes to OwnerTabs via onComplete callback.
+
+--- Iteration 45: US-A018 (2026-03-26) ---
+Implemented: Receiver onboarding 3-step flow with progress dots
+Files changed: viewmodels/ReceiverOnboardingViewModel.kt (new), ui/screens/onboarding/ReceiverOnboardingScreen.kt (rewritten), ui/navigation/WellvoNavHost.kt (onComplete routing)
+Patterns: 3 steps: Welcome (greeting + check-in time display) → Notifications (POST_NOTIFICATIONS permission) → Complete ("You're all set!"). ReceiverOnboardingViewModel loads receiver_settings via Supabase to get checkinTime. formatTime() converts "HH:mm" to 12-hour display. acceptInvite() handles invite token flow. Progress dots (filled circle for current, outline for others). Notification denied warning shown on complete step. Routes to ReceiverHome on "Start Using Wellvo".
+
+--- Iteration 46: US-A019 (2026-03-26) ---
+Implemented: FamilyService with full family CRUD and member management
+Files changed: services/FamilyService.kt (new)
+Patterns: @Singleton with @Inject constructor. createFamily() inserts to families + family_members. getFamily() looks up via family_members join. getFamilyMembers() uses Columns.raw("*, users(*)") for joined user data. getCurrentUserRole() queries by userId+familyId. inviteReceiver() delegates to ApiService.inviteReceiver(). removeMember() PATCHes status to "deactivated". acceptInvite/redeemPairingCode/checkAutoJoin delegate to ApiService. transferOwnership() updates 3 rows: target member→owner, current user→viewer, family→new owner_id. All methods throw WellvoError.
+
+--- Iteration 47: US-A020 + US-A021 (2026-03-26) ---
+Implemented: Receiver check-in screen + CheckInService
+Files changed: services/CheckInService.kt (new), viewmodels/ReceiverViewModel.kt (new), ui/screens/receiver/ReceiverHomeScreen.kt (rewritten)
+Patterns: CheckInService wraps all check-in edge functions: processCheckinResponse, confirmDelivery, onDemandCheckin. todayCheckInStatus/checkInHistory query checkins table with date filters. getTodayPendingRequest finds pending checkin_requests. getBatteryLevel() static method via BatteryManager. ReceiverViewModel loads member, settings, and today's status on init. checkIn() calls processCheckinResponse then refreshes status. Mood selector shown after check-in (FlowRow of FilterChips). submitMood() PATCHes checkins table. ReceiverHomeScreen: large 200dp circular green "I'm OK" button, loading spinner during check-in, "You're all set!" card with time and mood after check-in, haptic feedback on success, error state with retry, next check-in time at bottom.
+
+--- Iteration 48: US-A022 + US-A023 (2026-03-26) ---
+Implemented: Mood selector (standard + kid mode), location label selector, and kid response buttons
+Files changed: ui/screens/receiver/MoodSelector.kt (new), ui/screens/receiver/LocationLabelSelector.kt (new), ui/screens/receiver/KidResponseButtons.kt (new), ui/screens/receiver/ReceiverHomeScreen.kt (updated to use new composables), viewmodels/ReceiverViewModel.kt (added isKidMode, location label, kid response state + methods)
+Patterns: MoodSelector: standard mode shows 3 moods, kid mode shows all 8. Each mood is a tappable OutlinedCard with emoji + label. LocationLabelSelector: 6 options (Home/School/Friend's House/Park/Store/Other) in FlowRow. KidResponseButtons: 3 action buttons (Pick me up/orange, Can I stay longer/blue, SOS/red) in Row. Flow: check-in → mood selector → (kid mode only) location selector → kid response buttons. Each step is skippable. All selectors PATCH the checkins table on submit.
+
+--- Iteration 49: US-A024 + US-A025 (2026-03-26) ---
+Implemented: Offline check-in service with Room sync + next check-in time computation
+Files changed: services/OfflineCheckInService.kt (new), viewmodels/ReceiverViewModel.kt (added offline state exposure, computeNextCheckInTime), ui/screens/receiver/ReceiverHomeScreen.kt (offline banner + pending count)
+Patterns: OfflineCheckInService monitors connectivity via ConnectivityManager.NetworkCallback. performCheckIn() tries online first, queues to Room on failure. syncPendingCheckIns() triggered on network available. isOffline/pendingOfflineCount StateFlows for UI. ReceiverHomeScreen shows red offline banner and tertiary pending-sync count. computeNextCheckInTime handles Daily/WeekdayWeekend/Custom schedule types with timezone, "today"/"tomorrow" labels, schedule paused state.

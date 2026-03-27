@@ -36,7 +36,14 @@ fun WellvoNavHost(
             AuthScreen()
         }
         composable(Route.Onboarding.route) {
-            OnboardingScreen()
+            OnboardingScreen(
+                onComplete = {
+                    navController.navigate(Route.OwnerTabs.route) {
+                        popUpTo(0) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            )
         }
         composable(Route.OwnerTabs.route) {
             OwnerTabsScreen()
@@ -58,7 +65,15 @@ fun WellvoNavHost(
             )
         }
         composable(Route.ReceiverOnboarding.route) {
-            ReceiverOnboardingScreen(inviteToken = pendingInviteToken)
+            ReceiverOnboardingScreen(
+                inviteToken = pendingInviteToken,
+                onComplete = {
+                    navController.navigate(Route.ReceiverHome.route) {
+                        popUpTo(0) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            )
         }
     }
 

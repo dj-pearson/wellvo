@@ -279,7 +279,7 @@
         "Material Design 3 styling consistent with Wellvo brand"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": "Match iOS AuthView layout and flow. Phone OTP should be the most prominent option."
     },
     {
@@ -299,7 +299,7 @@
         "State preserved across configuration changes (SavedStateHandle)"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": "Exact mirror of iOS OnboardingView. 7-step wizard with back/forward navigation."
     },
     {
@@ -316,7 +316,7 @@
         "Handles notification permission denied gracefully (warns but allows proceeding)"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "notes": "Simpler than owner onboarding. 3 steps: welcome → notifications → done."
     },
     {
@@ -337,7 +337,7 @@
         "All methods throw WellvoError on failure"
       ],
       "priority": 19,
-      "passes": false,
+      "passes": true,
       "notes": "Direct port of iOS FamilyService. All edge function calls use the same endpoints."
     },
     {
@@ -356,7 +356,7 @@
         "Loads today's check-in status on screen entry"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": "This is THE core receiver experience. Must be dead simple. Match iOS ReceiverHomeView exactly."
     },
     {
@@ -375,7 +375,7 @@
         "Location obtained from FusedLocationProviderClient"
       ],
       "priority": 21,
-      "passes": false,
+      "passes": true,
       "notes": "Direct port of iOS CheckInService. Same edge function endpoints."
     },
     {
@@ -393,7 +393,7 @@
         "ReceiverViewModel.selectedMood state, submitMood() method"
       ],
       "priority": 22,
-      "passes": false,
+      "passes": true,
       "notes": "Match iOS mood emojis and grid layout exactly. Standard vs kid mode determined by receiverSettings.receiverMode."
     },
     {
@@ -412,7 +412,7 @@
         "All kid mode UI only visible when receiverSettings.receiverMode == .kid"
       ],
       "priority": 23,
-      "passes": false,
+      "passes": true,
       "notes": "Kid mode adds location and response features after the basic check-in. Match iOS ReceiverHomeView kid mode section."
     },
     {
@@ -432,7 +432,7 @@
         "ReceiverHomeScreen shows 'X check-ins pending sync' when pendingOfflineCount > 0"
       ],
       "priority": 24,
-      "passes": false,
+      "passes": true,
       "notes": "Direct port of iOS OfflineCheckInService. Uses Room instead of SwiftData, ConnectivityManager instead of NWPathMonitor."
     },
     {
@@ -450,7 +450,7 @@
         "nextCheckInTime displayed on ReceiverHomeScreen below check-in button"
       ],
       "priority": 25,
-      "passes": false,
+      "passes": true,
       "notes": "Match iOS ReceiverViewModel.computeNextCheckInTime() logic for all 3 schedule types."
     },
     {
