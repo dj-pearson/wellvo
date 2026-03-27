@@ -9,6 +9,7 @@ import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.postgresChangeFlow
 import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.RealtimeChannel
+import io.github.jan.supabase.realtime.realtime
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -98,6 +99,9 @@ class DashboardViewModel @Inject constructor(
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     private var currentUserId: String? = null
+    private var realtimeChannel: RealtimeChannel? = null
+    private var realtimeJob: Job? = null
+    private var subscribedFamilyId: String? = null
 
     fun loadDashboard(userId: String) {
         currentUserId = userId
@@ -168,6 +172,7 @@ class DashboardViewModel @Inject constructor(
                 _receiverCards.value = cards
                 _weeklySummary.value = computeWeeklySummary(weeklyCheckIns, receivers.size)
                 loadAlerts(fetchedFamily.id)
+                subscribeToRealtime(fetchedFamily.id)
             } catch (e: WellvoError) {
                 _errorMessage.value = e.localizedMessage
             } catch (e: Exception) {
@@ -207,6 +212,46 @@ class DashboardViewModel @Inject constructor(
 
     fun clearError() {
         _errorMessage.value = null
+    }
+
+    private suspend fun subscribeToRealtime(familyId: String) {
+        // Don't re-subscribe if already listening to the same family
+        if (subscribedFamilyId == familyId && realtimeChannel != null) return
+
+        // Unsubscribe from any existing channel
+        realtimeJob?.cancel()
+        realtimeChannel?.let {
+            try { supabase.realtime.removeChannel(it) } catch (_: Exception) {}
+        }
+
+        try {
+            val channel = supabase.channel("checkins:$familyId")
+
+            val changeFlow = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                table = "checkins"
+                filter = "family_id=eq.$familyId"
+            }
+
+            realtimeJob = changeFlow.onEach {
+                // On any change (INSERT, UPDATE, DELETE), reload the dashboard
+                currentUserId?.let { userId -> loadDashboard(userId) }
+            }.launchIn(viewModelScope)
+
+            channel.subscribe()
+            realtimeChannel = channel
+            subscribedFamilyId = familyId
+        } catch (_: Exception) {
+            // Realtime is non-critical; pull-to-refresh is the fallback
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        realtimeJob?.cancel()
+        realtimeJob = null
+        subscribedFamilyId = null
+        // Channel cleanup happens automatically when viewModelScope is cancelled
+        realtimeChannel = null
     }
 
     private suspend fun loadAlerts(familyId: String) {

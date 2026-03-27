@@ -331,3 +331,8 @@ Patterns: OfflineCheckInService monitors connectivity via ConnectivityManager.Ne
 Implemented: Owner dashboard screen with DashboardViewModel and DashboardScreen composable
 Files changed: viewmodels/DashboardViewModel.kt (new), ui/screens/owner/DashboardScreen.kt (new), ui/screens/owner/OwnerTabsScreen.kt (updated to wire DashboardScreen), ui/navigation/WellvoNavHost.kt (passes userId to OwnerTabsScreen)
 Patterns: DashboardViewModel loads family, receivers, today's check-ins, 30-day history, alerts via FamilyService/CheckInService/Supabase. Streak calculation walks backward from today through check-in date set. Weekly summary: consistency %, avg time, total check-ins, mood breakdown. Pull-to-refresh via PullToRefreshBox. ReceiverStatusCard with avatar, status color/icon, streak, mood, location, kid response badge, "Check on" button. AlertsBanner with dismiss. TodayTimelineCard with status dots and timeline bars. Snackbar for errors.
+
+--- Iteration 51: US-A027 (2026-03-26) ---
+Implemented: Real-time dashboard updates via Supabase Realtime
+Files changed: viewmodels/DashboardViewModel.kt (added realtime subscription), ui/screens/owner/DashboardScreen.kt (added notification permission banner, modifier parameter)
+Patterns: DashboardViewModel subscribes to Supabase Realtime postgresChangeFlow on checkins table filtered by familyId. On any change event, triggers full dashboard reload. subscribedFamilyId guard prevents duplicate subscriptions on re-renders. Channel cleaned up in onCleared(). NotificationPermissionBanner checks NotificationManagerCompat.areNotificationsEnabled() and shows "Enable" button linking to app notification settings. Pull-to-refresh remains as fallback.

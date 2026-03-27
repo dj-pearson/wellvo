@@ -486,7 +486,7 @@
         "No UI jank: updates applied on main dispatcher"
       ],
       "priority": 27,
-      "passes": false,
+      "passes": true,
       "notes": "Uses Supabase Realtime Postgres Changes. Same approach as iOS but with Kotlin coroutine flows."
     },
     {
