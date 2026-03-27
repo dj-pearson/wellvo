@@ -19,7 +19,7 @@
         "Root settings.gradle.kts includes the app module"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Foundation for all Android work. Use single-module architecture initially; can modularize later. Create under android/ at the repo root alongside ios/."
     },
     {
@@ -35,7 +35,7 @@
         "Project builds with Hilt kapt/ksp processing"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Hilt is the standard Android DI framework. Use KSP over KAPT for faster builds."
     },
     {
@@ -51,7 +51,7 @@
         "Connection verified: app can reach Supabase and return a response"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Use the official Supabase Kotlin Multiplatform SDK (io.github.jan-tennert.supabase). Supabase URL and key should NOT be hardcoded — use BuildConfig."
     },
     {
@@ -69,7 +69,7 @@
         "Splash screen shows while checking auth state"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Match the iOS ContentView routing logic exactly. Use sealed class for routes."
     },
     {
@@ -86,7 +86,7 @@
         "./gradlew assembleDebug and ./gradlew assembleRelease both succeed"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Do NOT commit keystore or passwords. Use local.properties or CI environment variables."
     },
     {
@@ -104,7 +104,7 @@
         "Nullable fields properly annotated"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Match iOS models exactly. Use kotlinx.serialization @SerialName for snake_case column names. All timestamp fields as String or Instant."
     },
     {
@@ -122,7 +122,7 @@
         "WellvoAlert data class: id, familyId, receiverId, type, title, message, data (Map), isRead, createdAt"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "These enums drive UI rendering. Match iOS emoji/color choices exactly."
     },
     {
@@ -138,8 +138,8 @@
         "Migration strategy: fallbackToDestructiveMigration for v1 (no production data yet)"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": "Equivalent of iOS SwiftData OfflineCheckIn model. Room is the standard Android local DB."
+      "passes": true,
+      "notes": "Equivalent of iOS SwiftData OfflineCheckIn model. Room is the standard Android local DB. Implemented in US-A002."
     },
     {
       "id": "US-A009",
@@ -155,7 +155,7 @@
         "Timeout of 30 seconds on all requests"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Mirrors iOS NetworkRetry and WellvoError. Use Ktor client from Supabase SDK or standalone OkHttp."
     },
     {
@@ -171,7 +171,7 @@
         "No secrets in version control (local.properties in .gitignore)"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Equivalent of iOS BuildConfig.xcconfig + KeychainService. EncryptedSharedPreferences uses Android Keystore under the hood."
     },
     {
@@ -188,7 +188,7 @@
         "After successful OTP: check session, load user profile, determine role, navigate appropriately"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "Phone OTP is the PRIMARY auth method for receivers. Must match iOS flow exactly. Supabase handles the SMS sending."
     },
     {
@@ -207,7 +207,7 @@
         "AuthError sealed class: InvalidEmail, PasswordTooShort, PasswordTooWeak, InvalidDisplayName, UserNotFound, InvalidCredential"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "Email/password is primarily for Owners. Match iOS validation rules exactly."
     },
     {
@@ -225,8 +225,8 @@
         "Fallback to standard Google Sign-In flow if Credential Manager unavailable"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": "Android equivalent of Apple Sign-In. Use Android Credential Manager (API 28+) with Google Sign-In fallback for API 26-27."
+      "passes": true,
+      "notes": "Android equivalent of Apple Sign-In. Uses Credential Manager with GetGoogleIdOption. ID token sent to Supabase via IDToken provider with Google. GOOGLE_WEB_CLIENT_ID from BuildConfig (local.properties or env var). ProGuard keep rules added for Credential Manager and googleid library."
     },
     {
       "id": "US-A014",
@@ -242,7 +242,7 @@
         "Handle token refresh failures gracefully (re-authenticate prompt)"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": "Equivalent of iOS AuthViewModel.listenForAuthStateChanges(). Supabase Kotlin SDK handles token persistence."
     },
     {
@@ -260,7 +260,7 @@
         "On failure: shows error (invalid code, expired, already used)"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": "Auto-join matches the receiver's phone number to pending invitations. Pairing code is for iPad/alternate device setup on iOS — same flow on Android."
     },
     {

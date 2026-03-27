@@ -82,6 +82,72 @@ CI runs migrations automatically on push to `main` (requires GitHub environment 
 - `prd.json` — User stories with completion status (Ralph loop format)
 - `progress.txt` — Append-only implementation log
 
+## Ralph — Autonomous Build Loop
+
+Ralph (from [Snarktank](https://snarktank.dev)) is an autonomous AI development loop that uses Claude Code CLI to implement user stories from `prd.json` one at a time, unattended.
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `ralph.ps1` | Main loop script — reads `prd.json`, picks next incomplete story, runs Claude Code |
+| `ralph-prompt.md` | Instructions sent to Claude Code each iteration |
+| `ralph-headless.ps1` | Windowless launcher — runs Ralph in a hidden background process |
+| `prd.json` | User stories with `"passes": true/false` status |
+| `progress.txt` | Append-only log updated after each completed story |
+| `.ralph-logs/` | Per-story and session logs (gitignored) |
+
+### Running Ralph
+
+**Interactive** (shows progress in terminal):
+```powershell
+.\ralph.ps1
+.\ralph.ps1 -MaxIterations 50 -MaxTurns 100
+.\ralph.ps1 -StopOnFail
+```
+
+**Headless** (no window, runs in background):
+```powershell
+.\ralph-headless.ps1
+.\ralph-headless.ps1 -MaxIterations 50 -MaxTurns 100
+```
+
+### Monitoring a Headless Run
+
+```powershell
+# Tail the session log
+Get-Content .ralph-logs\ralph-session_*.log -Wait -Tail 20
+
+# Check source control for changes
+git log --oneline -10
+```
+
+### Stopping Ralph
+
+```powershell
+# Read the saved PID and stop it
+Stop-Process -Id (Get-Content .ralph-logs\ralph.pid)
+```
+
+### How It Works
+
+1. Reads `prd.json` and finds the first story where `"passes": false` (lowest priority number)
+2. Sends `ralph-prompt.md` to Claude Code CLI in non-interactive mode (`-p` flag)
+3. Claude implements the story, updates `prd.json` and `progress.txt`, and commits
+4. Loop repeats until all stories pass or max iterations reached
+5. Each iteration is logged to `.ralph-logs/` with the story ID and timestamp
+
+### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `-MaxIterations` | 120 | Maximum loop iterations before stopping |
+| `-MaxTurns` | 75 | Max Claude Code turns per story (limits context usage) |
+| `-Delay` | 10 | Seconds to pause between iterations |
+| `-StopOnFail` | off | Stop the loop if Claude exits with an error |
+
+Commits are co-authored by `Ralph <ralph@snarktank.dev>`.
+
 ## License
 
 All rights reserved. Copyright 2026 Pearson Media LLC.

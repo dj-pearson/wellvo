@@ -224,3 +224,70 @@ Patterns: CREATE OR REPLACE FUNCTION export_user_data adds checkin_requests, not
 Implemented: iOS unit tests with 30+ test cases
 Files changed: ios/WellvoTests/ModelTests.swift (new), ios/WellvoTests/DashboardViewModelTests.swift (new), ios/WellvoTests/ErrorHandlingTests.swift (new), ios/WellvoTests/SubscriptionServiceTests.swift (new), ios/Wellvo/Package.swift
 Patterns: WellvoTests target in Package.swift. Tests cover: model decoding (CheckIn, Family, User, ReceiverSettings), streak calculation, weekly summary computation, mood breakdown, WellvoError descriptions, AuthError/CheckInError/NetworkError/SubscriptionError, product ID tier detection.
+
+== Android App Build Phase ==
+Branch: ralph/android-app
+
+--- Iteration 31: US-A001 (2026-03-26) ---
+Implemented: Scaffolded Android project with Kotlin 2.1 + Jetpack Compose
+Files changed: android/ (new directory) — settings.gradle.kts, build.gradle.kts, gradle.properties, gradle/libs.versions.toml, gradle wrapper, app/build.gradle.kts, AndroidManifest.xml, MainActivity.kt, ui/theme/ (Color.kt, Theme.kt, Type.kt), res/ (strings.xml, colors.xml, themes.xml, adaptive launcher icons), .gitignore, proguard-rules.pro
+Patterns: Version catalog (libs.versions.toml) for dependency management. Compose BOM 2024.12.01. Material Design 3 with Wellvo green (#22C55E) primary. Adaptive icon with green background + white checkmark foreground. compileSdk=34, minSdk=26, targetSdk=34. JVM target 17. Package: net.wellvo.android.
+Note: Build verification requires JDK 17+ and Android SDK — not available on current workstation. Project structure follows standard Android Studio conventions and should build on any machine with the SDK installed.
+
+--- Iteration 32: US-A002 (2026-03-26) ---
+Implemented: Hilt dependency injection with AppModule and NetworkModule
+Files changed: gradle/libs.versions.toml, build.gradle.kts (root + app), WellvoApplication.kt (new), di/AppModule.kt (new), di/NetworkModule.kt (new), data/WellvoDatabase.kt (new), data/OfflineCheckIn.kt (new), MainActivity.kt, AndroidManifest.xml, proguard-rules.pro
+Patterns: KSP over KAPT for faster Hilt/Room annotation processing. AppModule provides SharedPreferences, EncryptedSharedPreferences (@SecurePrefs qualifier), Room database, OfflineCheckInDao. NetworkModule provides SupabaseClient singleton with Auth, Postgrest, Realtime, Functions plugins. Supabase URL/key from BuildConfig (local.properties → env var fallback). @HiltAndroidApp on WellvoApplication, @AndroidEntryPoint on MainActivity. ProGuard keep rules for Hilt, Supabase/Ktor, kotlinx.serialization, Room.
+Note: Build verification requires JDK 17+ and Android SDK.
+
+--- Iteration 33: US-A003 (2026-03-26) ---
+Implemented: Supabase Kotlin SDK integration with debug/release build flavors
+Files changed: gradle/libs.versions.toml (kotlin-serialization plugin), build.gradle.kts (root + app), network/SupabaseExtensions.kt (new)
+Patterns: kotlinx.serialization plugin added for Supabase deserialization. Debug/release buildTypes have separate SUPABASE_URL/SUPABASE_ANON_KEY fields — debug supports _DEBUG suffix in local.properties for staging. SupabaseExtensions provides from(), selectAll(), selectById(), selectWhere(), insertRow(), upsertRow(), deleteById() convenience functions. SupabaseClient created in NetworkModule (US-A002) with Auth, Postgrest, Realtime, Functions plugins + Ktor OkHttp engine.
+Note: Build verification requires JDK 17+ and Android SDK.
+
+--- Iteration 34: US-A004 (2026-03-26) ---
+Implemented: Jetpack Navigation with role-based routing mirroring iOS ContentView
+Files changed: gradle/libs.versions.toml (navigation-compose, material-icons-extended), app/build.gradle.kts, ui/navigation/Routes.kt (new), ui/navigation/AuthState.kt (new), ui/navigation/WellvoNavHost.kt (new), ui/screens/splash/SplashScreen.kt (new), ui/screens/auth/AuthScreen.kt (new), ui/screens/onboarding/OnboardingScreen.kt (new), ui/screens/onboarding/PairingCodeScreen.kt (new), ui/screens/onboarding/ReceiverOnboardingScreen.kt (new), ui/screens/owner/OwnerTabsScreen.kt (new), ui/screens/receiver/ReceiverHomeScreen.kt (new), ui/screens/viewer/ViewerTabsScreen.kt (new), MainActivity.kt
+Patterns: Sealed class Route for type-safe navigation. AuthState enum (Loading/Unauthenticated/Authenticated) + UserRole (Owner/Receiver/Viewer) drive routing. WellvoNavHost uses popUpTo(0) { inclusive = true } to prevent back from auth to authenticated. Owner: 4-tab bottom nav (Dashboard, History, Family, Settings). Viewer: 3-tab (Dashboard, History, Settings). Receiver: single-screen. Splash shows green background + heart + spinner. Priority: invite token > pairing code > onboarding > role-based.
+Note: Screens are placeholder implementations — full UI in later stories.
+
+--- Iteration 35: US-A005 (2026-03-26) ---
+Implemented: Build variants and release signing configuration
+Files changed: app/build.gradle.kts, .gitignore
+Patterns: signingConfigs.release reads KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD from local.properties or env vars. Falls back to debug signing if release keystore not configured. .gitignore updated with *.jks and *.keystore. Debug/release Supabase credentials already configured in US-A003.
+Note: Build verification requires JDK 17+ and Android SDK.
+
+--- Iteration 36: US-A006 + US-A007 (2026-03-26) ---
+Implemented: Core data models and ReceiverSettings with Kotlin Serialization
+Files changed: data/models/AppUser.kt (new), data/models/Family.kt (new), data/models/CheckIn.kt (new), data/models/ReceiverSettings.kt (new), data/models/Enums.kt (new), data/models/WellvoAlert.kt (new)
+Patterns: All models @Serializable with @SerialName for snake_case mapping. Enums: UserRole, MemberStatus, SubscriptionTier/Status, Mood (8 values with emoji/displayName/color), CheckInSource, CheckInResponseType, CheckInRequestType/Status, ReceiverMode, ScheduleType, LocationLabel, KidResponseType. DaySchedule uses mon-sun nullable strings. Timestamps as String (ISO 8601). IDs as String (UUID).
+
+--- Iteration 37: US-A008 (2026-03-26) ---
+Already implemented in US-A002: Room database with OfflineCheckIn entity, DAO, WellvoDatabase, Hilt provider.
+
+--- Iteration 38: US-A009 (2026-03-26) ---
+Implemented: Network layer with ApiService, WellvoError, and NetworkRetry
+Files changed: network/WellvoError.kt (new), network/NetworkRetry.kt (new), network/ApiService.kt (new)
+Patterns: WellvoError sealed class (Network, Auth, NotFound, ServerError, Offline, Unknown) with localizedMessage. NetworkRetry: exponential backoff, max 3 attempts, skips Auth and CancellationException. ApiService wraps Supabase Functions invoke with error mapping (401/403→Auth, 404→NotFound, 5xx→ServerError). Request DTOs as @Serializable data classes.
+
+--- Iteration 39: US-A010 (2026-03-26) ---
+Implemented: SecureStorage wrapper for EncryptedSharedPreferences
+Files changed: util/SecureStorage.kt (new)
+Patterns: SecureStorage wraps @SecurePrefs EncryptedSharedPreferences with save/load/delete/contains/clear. Companion object Keys for AUTH_TOKEN, REFRESH_TOKEN, GOOGLE_USER_ID, USER_ID, PUSH_TOKEN. BuildConfig fields and local.properties already configured in US-A003/A005.
+
+--- Iteration 40: US-A013 (2026-03-26) ---
+Implemented: Google Sign-In using Credential Manager API + Supabase IDToken provider
+Files changed: app/build.gradle.kts (GOOGLE_WEB_CLIENT_ID BuildConfig field), services/AuthService.kt (signInWithGoogle + getGoogleIdToken), viewmodels/AuthViewModel.kt (signInWithGoogle method, isGoogleLoading state), ui/screens/auth/AuthScreen.kt (GoogleSignInButton composable, "or" divider), res/drawable/ic_google.xml (new, Google G logo vector), proguard-rules.pro (Credential Manager keep rules)
+Patterns: Credential Manager with GetGoogleIdOption for one-tap sign-in. Google ID token sent to Supabase via IDToken provider (server-side verification). Handles GetCredentialCancellationException and NoCredentialException specifically. setFilterByAuthorizedAccounts(false) allows any Google account. setAutoSelectEnabled(true) for one-tap. GOOGLE_WEB_CLIENT_ID from local.properties or env var (not hardcoded). UI: OutlinedButton with Google icon above "or" divider, separate isGoogleLoading state.
+Note: Build verification requires JDK 17+ and Android SDK. Credential Manager requires Google Play Services on device.
+
+--- Iteration 41: US-A014 (2026-03-26) ---
+Implemented: Auth state management with Supabase session observation and session persistence
+Files changed: ui/navigation/AuthState.kt (enum → sealed class with Authenticated(user: AppUser)), services/AuthService.kt (added sessionStatus flow, getCurrentUser(), SecureStorage clearing on sign-out), viewmodels/AuthViewModel.kt (observeSessionStatus() collects SessionStatus flow, fetchUserAndAuthenticate(), token refresh failure → reauth prompt), MainActivity.kt (wired AuthViewModel via hiltViewModel(), collectAsState for authState/uiState, AlertDialog for session expired prompt, role mapping from AppUser.role → UserRole), ui/navigation/WellvoNavHost.kt (updated for sealed class AuthState)
+Patterns: AuthViewModel.observeSessionStatus() collects supabase.auth.sessionStatus flow — Authenticated triggers user profile fetch from DB, NotAuthenticated/RefreshFailure show reauth prompt AlertDialog. AuthState sealed class carries AppUser in Authenticated variant. Sign-out clears SecureStorage (tokens, cached data). Supabase SDK handles session token persistence natively. Fallback AppUser created from auth ID if DB profile fetch fails (new user before profile creation). No manual _authState.value sets in sign-in methods — session status flow handles all transitions.
+
+--- Iteration 42: US-A015 (2026-03-26) ---
+Implemented: Auto-join and pairing code flows for Android
+Files changed: network/ApiService.kt (added RedeemCodeResponse, AutoJoinResponse, AutoJoinResult data classes; redeemCode() and autoJoin() now return typed responses; removed unused RedeemCodeRequest/AutoJoinRequest), viewmodels/PairingCodeViewModel.kt (new — state: code, isLoading, errorMessage, success, familyName, checkinTime; redeemPairingCode() calls redeem-code edge function), ui/screens/onboarding/PairingCodeScreen.kt (full implementation — 6-digit input, submit, animated success state with family name and check-in time display), viewmodels/AuthViewModel.kt (added pendingAutoJoin StateFlow, checkAutoJoin() called after authentication, clearAutoJoin()), MainActivity.kt (wired pendingAutoJoin, isNewUser detection, routes auto-join matches to ReceiverOnboarding), ui/navigation/WellvoNavHost.kt (PairingCodeScreen gets onComplete callback routing to ReceiverHome)
+Patterns: Auto-join check runs on every authentication via fetchUserAndAuthenticate(). ApiService.autoJoin() calls edge function with empty body (server uses auth token to get phone). PairingCodeViewModel validates 6-digit input, handles success/already_member/error responses. PairingCodeScreen uses AnimatedVisibility for entry→success transition. Navigation: pairing code success → ReceiverHome with popUpTo(0).

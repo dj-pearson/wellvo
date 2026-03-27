@@ -57,6 +57,9 @@ e2e-tests/node_modules/
 # Logs
 *.log
 
+# Ralph logs
+.ralph-logs/
+
 # Temporary
 tmp/
 temp/

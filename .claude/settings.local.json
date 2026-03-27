@@ -25,7 +25,15 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "Bash(find /c/Users/dpearson/Documents/Wellvo/wellvo/ios/Wellvo -name *UITests* -o -name *Test*)",
-      "Bash(grep -r \"PRODUCT_NAME\\\\|PRODUCT_BUNDLE_IDENTIFIER\\\\|CFBundleDisplayName\\\\|MARKETING_VERSION\" /c/Users/pears/Documents/Wellvo/wellvo/ios/*.pbxproj)"
+      "Bash(grep -r \"PRODUCT_NAME\\\\|PRODUCT_BUNDLE_IDENTIFIER\\\\|CFBundleDisplayName\\\\|MARKETING_VERSION\" /c/Users/pears/Documents/Wellvo/wellvo/ios/*.pbxproj)",
+      "Bash(find C:Userspears -name *.ps1)",
+      "Bash(find C:UserspearsDocumentsLoci -name *.ralph* -o -name *snarktank*)",
+      "Bash(find C:UserspearsDocumentsSeddly -name *.ralph* -o -name *snarktank*)",
+      "Bash(npm list:*)",
+      "Bash(grep -r \"ralph\\\\|snarktank\" C:UserspearsDocumentsWellvowellvo. --include=*.json --include=*.md)",
+      "Bash(git -C C:UserspearsDocumentsGradeThreadGradeThread log --oneline --grep=ralph)",
+      "Bash(taskkill //F //PID 97544)",
+      "Bash(taskkill //F //PID 62540)"
     ]
   }
 }
