@@ -18,6 +18,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 
 private val PickUpColor = Color(0xFFF97316)   // orange
@@ -44,6 +46,8 @@ fun KidResponseButtons(
     onSubmit: () -> Unit,
     onSkip: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -61,7 +65,10 @@ fun KidResponseButtons(
             kidResponseOptions.forEach { option ->
                 val isSelected = selectedResponse == option.id
                 OutlinedButton(
-                    onClick = { onSelect(option.id) },
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onSelect(option.id)
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .padding(horizontal = 4.dp),
@@ -84,7 +91,10 @@ fun KidResponseButtons(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (selectedResponse != null) {
-            Button(onClick = onSubmit, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onSubmit()
+            }, modifier = Modifier.fillMaxWidth()) {
                 Text("Send")
             }
             Spacer(modifier = Modifier.height(4.dp))

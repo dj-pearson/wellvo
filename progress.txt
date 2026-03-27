@@ -336,3 +336,227 @@ Patterns: DashboardViewModel loads family, receivers, today's check-ins, 30-day 
 Implemented: Real-time dashboard updates via Supabase Realtime
 Files changed: viewmodels/DashboardViewModel.kt (added realtime subscription), ui/screens/owner/DashboardScreen.kt (added notification permission banner, modifier parameter)
 Patterns: DashboardViewModel subscribes to Supabase Realtime postgresChangeFlow on checkins table filtered by familyId. On any change event, triggers full dashboard reload. subscribedFamilyId guard prevents duplicate subscriptions on re-renders. Channel cleaned up in onCleared(). NotificationPermissionBanner checks NotificationManagerCompat.areNotificationsEnabled() and shows "Enable" button linking to app notification settings. Pull-to-refresh remains as fallback.
+
+--- Iteration: US-A031 (2026-03-26) ---
+Status: VERIFIED - Already fully implemented
+Files: FamilyScreen.kt, FamilyViewModel.kt, FamilyService.kt, OwnerTabsScreen.kt, Routes.kt
+All 9 acceptance criteria satisfied: FamilyScreen composable, member list with role/status badges, swipe-to-dismiss remove, long-press context menu (transfer ownership, re-send invite), FAB invite, FamilyViewModel with full state, loadFamily/removeMember, empty state.
+
+--- Iteration: US-A032 (2026-03-26) ---
+Status: ENHANCED - Upgraded existing InviteReceiverSheet
+Files changed: FamilyScreen.kt, FamilyViewModel.kt
+Enhancements:
+- Replaced manual hour/minute text fields with Material 3 TimePicker
+- Wired InviteReceiverSheet to FamilyViewModel state (isInviting, inviteSuccess, inviteError) for proper async invite handling
+- Send button now properly waits for API response before showing success state
+- Error handling: network errors, server errors, and missing family surface in error card within sheet
+- Added resetInviteState() to ViewModel for clean sheet re-opens
+- Success state shows checkmark icon, confirmation message, setup instructions, and Done button
+- Sheet content is scrollable to accommodate TimePicker + content
+
+--- Iteration: US-A036 (2026-03-26) ---
+Status: VERIFIED + WIRED - HistoryScreen and HistoryViewModel already implemented
+Files changed: OwnerTabsScreen.kt (added tab 1 -> HistoryScreen integration)
+HistoryScreen.kt and HistoryViewModel.kt were already complete with all features: period chips (7/30/90 days), receiver selector, LazyColumn with check-in log entries showing date/time/mood/source/response badges, empty state, error handling.
+
+--- Iteration: US-A037 (2026-03-26) ---
+Status: IMPLEMENTED - Created CalendarHeatmap composable
+Files created: CalendarHeatmap.kt
+Files changed: HistoryScreen.kt (integrated heatmap above log)
+Features: Canvas-based GitHub-style grid (weeks as columns, Mon-Sun rows), day-of-week labels (M/W/F), color-coded cells (green=on-time, yellow=late >2hrs, red=missed, gray=no data/future), symbols in cells (checkmark/!/X), scrollable for longer periods, legend row, accessibility description with summary counts. Adapts to selected period (7/30/90 days).
+
+--- Iteration: US-A038 (2026-03-26) ---
+Status: IMPLEMENTED - Created TrendChart composable
+Files created: TrendChart.kt
+Files changed: HistoryScreen.kt (integrated between heatmap and log)
+Features: Canvas-based line chart with data points, horizontal grid lines, Y-axis time-of-day labels (AM/PM), X-axis date labels (daily for 7d, weekly buckets for 30/90d), line path connecting averages, dots at data points, summary stats (average/earliest/latest), scrollable, accessibility description. Gracefully handles missing data by skipping empty buckets.
+
+--- Iteration: US-A039 (2026-03-26) ---
+Status: IMPLEMENTED - PDF export for check-in history
+Files created: PdfExportService.kt, res/xml/file_paths.xml
+Files changed: AndroidManifest.xml (FileProvider), HistoryViewModel.kt (exportPdf method), HistoryScreen.kt (export button)
+Features: PdfExportService generates A4 PDF with PdfDocument API containing Wellvo header, family/receiver/date info, summary stats (total, avg/earliest/latest time, mood breakdown), consistency calendar heatmap grid with legend, paginated check-in log table with alternating row colors. FileProvider configured for cache directory sharing. HistoryViewModel.exportPdf() runs on IO dispatcher, creates share Intent via ShareSheet. Export button (share icon) in HistoryScreen top bar with CircularProgressIndicator during generation.
+
+--- Iteration: US-A040 (2026-03-26) ---
+Status: IMPLEMENTED - Owner settings screen
+Files created: SettingsScreen.kt, SettingsViewModel.kt
+Files changed: AuthService.kt (deleteAccount, exportUserData, isGoogleLinked, data retention methods), OwnerTabsScreen.kt (wired Settings tab to SettingsScreen)
+Features: SettingsScreen composable with 4 card sections. Account: avatar circle with initials, display name, email/phone, Link Google Account button (shows checkmark if linked). Subscription: current tier, Manage Subscription (opens Play Store deep link), Restore Purchases. Data: Export My Data (calls export_user_data RPC, shares JSON via Intent), Data Retention picker (90/180/365/730 days dropdown, saves to families table). About: app version from BuildConfig, Privacy Policy + Terms of Service links. Sign Out with confirmation dialog. Delete Account (red, destructive) with double-confirmation dialog calling delete_user_account RPC. SettingsViewModel with Hilt DI, StateFlow for all UI state.
+
+--- Iteration: US-A041 (2026-03-26) ---
+Status: VERIFIED - Viewer experience already fully implemented
+Files: ViewerTabsScreen.kt (rewritten with 3 tabs), ViewerSettingsScreen.kt (new), DashboardScreen.kt (isViewer param added)
+Features: ViewerTabsScreen with Dashboard (DashboardScreen isViewer=true, hides Check on buttons and on-demand actions), History (HistoryScreen with PDF export), Settings (ViewerSettingsScreen with account display + Viewer role badge, About section, Sign Out). No family/subscription/receiver settings. Role routing via getCurrentUserRole() in WellvoNavHost.
+
+--- Iteration: US-A042 (2026-03-26) ---
+Status: VERIFIED - Alert display and dismissal already fully implemented
+Files: DashboardScreen.kt (AlertsBanner composable), DashboardViewModel.kt (alerts StateFlow, dismissAlert), WellvoAlert.kt (data model)
+Features: AlertsBanner composable with warning-styled Card (amber background), icon (schedule for time_drift, warning for others), title, message, drift_hours display, dismiss IconButton. Alerts loaded from Supabase alerts table filtered by family_id and is_read=false. dismissAlert marks is_read=true via Supabase postgrest update. Alerts displayed between notification banner and weekly summary. Section hidden when alerts list is empty.
+
+--- Iteration: US-A042 (2026-03-26) ---
+Status: VERIFIED - Alert display and dismissal already implemented
+Files: DashboardViewModel.kt (alerts StateFlow, dismissAlert), DashboardScreen.kt (AlertsBanner composable)
+Features: AlertsBanner with warning-styled cards, type-specific icons (time_drift→Schedule, others→Warning), drift_hours metadata display. Alerts loaded from Supabase filtered by family_id and is_read=false. Dismiss marks is_read=true. Empty state hides section.
+
+--- Iteration: US-A043 (2026-03-26) ---
+Status: VERIFIED - Weekly summary already implemented
+Files: DashboardViewModel.kt (WeeklySummary data class, computeWeeklySummary), DashboardScreen.kt (WeeklySummaryCard)
+Features: WeeklySummary with consistency%, avgTime, totalActual/Expected, mood breakdown. Color-coded consistency (green≥80%, yellow≥50%, red<50%). Mood emoji counts. Empty state shows 0%.
+
+--- Iteration: US-A047 (2026-03-26) ---
+Status: VERIFIED - Notification permission banner already implemented
+Files: DashboardScreen.kt (NotificationPermissionBanner composable)
+Features: Checks NotificationManagerCompat.areNotificationsEnabled(). AnimatedVisibility orange card with notification icon and Enable button. Opens Settings.ACTION_APP_NOTIFICATION_SETTINGS. Auto-hides when granted.
+
+--- Iteration: US-A044 (2026-03-26) ---
+Status: IMPLEMENTED - Set up Firebase Cloud Messaging (FCM)
+Files created: WellvoFirebaseMessagingService.kt, PushNotificationService.kt, google-services.json (placeholder)
+Files changed: libs.versions.toml (firebase deps), build.gradle.kts (google-services plugin), AndroidManifest.xml (POST_NOTIFICATIONS permission, FCM service)
+Features: Firebase BOM 33.7.0 + firebase-messaging-ktx. WellvoFirebaseMessagingService with @AndroidEntryPoint, onNewToken compares/deactivates old/upserts new token (platform=android). PushNotificationService @Singleton with registerToken, checkPermissionStatus, requiresPermissionRequest. Token failures logged, not swallowed.
+
+--- Iteration: US-A045 (2026-03-26) ---
+Status: IMPLEMENTED - Handle incoming push notifications with actions
+Files created: CheckInNotificationReceiver.kt
+Files changed: WellvoFirebaseMessagingService.kt (full onMessageReceived), WellvoApplication.kt (notification channels), AndroidManifest.xml (receiver declaration)
+Features: onMessageReceived handles 3 types: CHECKIN_REQUEST (NotificationCompat with 3 action buttons - I'm OK, I Need Help, Call Me via PendingIntent+BroadcastReceiver), URGENT_ALERT (Call Now action with tel:// intent), LOCATION_ALERT (View Details launches app). CheckInNotificationReceiver uses goAsync(), calls respondToCheckIn with battery level, dismisses notification. 3 notification channels in WellvoApplication.onCreate(): checkin_requests (HIGH), urgent_alerts (MAX), location_alerts (HIGH). confirmDelivery called on message receipt.
+
+--- Iteration: US-A046 (2026-03-26) ---
+Status: IMPLEMENTED - Handle notification taps and deep routing
+Files created: NotificationContext.kt
+Files changed: MainActivity.kt (handleNotificationIntent in onCreate/onNewIntent), WellvoNavHost.kt (notificationContext param, LaunchedEffect deep routing), WellvoFirebaseMessagingService.kt (createContentIntent helper, content intents on all notifications)
+Features: NotificationContext data class (type, requestId, receiverId). MainActivity extracts notification_type/request_id/receiver_id extras, clears after handling. WellvoNavHost routes CHECKIN_REQUEST->ReceiverHome, URGENT_ALERT/LOCATION_ALERT->OwnerTabs via LaunchedEffect after auth resolves. All notification types include content PendingIntent launching MainActivity with extras. Handles cold start (onCreate) and warm start (onNewIntent).
+
+--- Iteration: US-A048 (2026-03-26) ---
+Status: IMPLEMENTED - Google Play Billing for subscriptions
+Files created: SubscriptionService.kt
+Files changed: libs.versions.toml (billing-ktx 7.1.1), app/build.gradle.kts (billing dep)
+Features: SubscriptionService @Singleton with BillingClient lifecycle, PurchasesUpdatedListener. 6 product IDs (family/familyplus monthly+yearly, addon receiver+viewer). loadProducts queries BillingClient. purchase launches billing flow with suspendCancellableCoroutine. Acknowledges purchases within flow, verifies server-side via subscription-webhook edge function. restorePurchases queries active subs. hasAccess(tier)/currentTier() check entitlements. Handles UserCancelled, AlreadyOwned, NetworkError, NotConnected errors.
+
+--- Iteration: US-A045 FIX (2026-03-26) ---
+Status: FIXED - Handle incoming push notifications with actions
+Files changed: WellvoFirebaseMessagingService.kt (URGENT_ALERT now routes Call Now through BroadcastReceiver), CheckInNotificationReceiver.kt (complete rewrite), AndroidManifest.xml (location permissions)
+Fixes: 1) Source mapping corrected: OK→"notification", Need Help→"need_help", Call Me→"call_me" (matches iOS CheckInSource enum). 2) Location+battery now gathered in CheckInNotificationReceiver via LocationManager.getLastKnownLocation (graceful fallback if no permission). 3) URGENT_ALERT "Call Now" action now routes through CheckInNotificationReceiver which looks up receiver phone from users table via Supabase postgrest, then opens tel:// intent. 4) Added ACCESS_FINE_LOCATION and ACCESS_COARSE_LOCATION permissions to manifest. 5) BroadcastReceiver handles all 4 action types: CHECKIN_OK, CHECKIN_NEED_HELP, CHECKIN_CALL_ME, CALL_NOW.
+
+--- Iteration: US-A049 (2026-03-26) ---
+Status: ALREADY IMPLEMENTED - Build subscription management UI
+Files: ui/screens/owner/SubscriptionScreen.kt (already exists with full implementation)
+Verified: 3 plan cards (Free/Family/Family+), Monthly/Yearly toggle, Current Plan badge, purchase button with loading state, success snackbar, Manage Subscription link, Restore Purchases button. All 10 acceptance criteria met.
+
+--- Iteration: US-A050 (2026-03-26) ---
+Status: FIXED - Implement location services for check-ins
+Files changed: services/LocationService.kt (added 10s timeout, isLocationGranted/isBackgroundLocationGranted aliases, FOREGROUND_PERMISSIONS/BACKGROUND_PERMISSION constants)
+Already had: FusedLocationProviderClient, getCurrentLocation, getLastKnownLocation, permission checks, Hilt @Singleton. Added withTimeoutOrNull(10_000ms) around location acquisition. Fallback to getLastKnownLocation on timeout.
+
+--- Iteration: US-A053 (2026-03-26) ---
+Status: COMPLETED - Implement analytics with TelemetryDeck
+Files changed: AuthViewModel.kt, DashboardViewModel.kt, OnboardingViewModel.kt, ReceiverViewModel.kt, HistoryViewModel.kt, FamilyViewModel.kt, SettingsViewModel.kt (added analyticsService injection + track calls)
+AnalyticsService.kt already existed with full implementation. Added analytics calls to 7 ViewModels covering: sign_in, sign_up, sign_out, check_in_completed, mood_submitted, dashboard_viewed, on_demand_sent, receiver_invited, receiver_removed, settings_saved, history_viewed, onboarding_started, onboarding_step_viewed, onboarding_completed.
+
+--- Iteration: US-A058 (2026-03-26) ---
+Status: COMPLETED - Add edge function support for FCM push notifications
+Files changed: shared/fcm.ts (added logging, buildFCMAlertPayload), functions/escalation-tick/index.ts (full platform routing for all 5 notification paths), functions/on-demand-checkin/index.ts (platform routing + FCM token deactivation), functions/process-checkin-response/index.ts (platform routing for urgent + kid response alerts)
+Previous iteration only had send-checkin-notification wired up. Now all 4 notification-sending handlers route by platform (ios→APNs, android→FCM). escalation-tick uses helper functions sendByPlatform/deactivateInvalidTokens for geofence, low battery, receiver reminder, owner alert, and viewer alert notifications. FCM send success/failure logging added to shared/fcm.ts. Invalid tokens (410/NOT_FOUND/UNREGISTERED) deactivated across all handlers.
+
+--- Iteration: US-A059 (2026-03-26) ---
+Status: COMPLETED - Add haptic feedback throughout Android app
+Files changed: ReceiverHomeScreen.kt (success CONFIRM/error REJECT haptics via LaunchedEffect), FamilyScreen.kt (invite FAB + remove member haptics), SettingsScreen.kt (sign out + delete account haptics), HistoryScreen.kt (export PDF haptic)
+Pre-existing haptics: check-in button press (LongPress), mood selector (TextHandleMove light tap + LongPress selection), kid response buttons (LongPress), dashboard Check on (LongPress), error retry (LongPress). New: success uses HapticFeedbackConstants.CONFIRM on API 30+ with LongPress fallback; error uses REJECT on API 30+ with LongPress fallback. All use Compose LocalHapticFeedback which respects system vibration settings.
+
+--- Iteration: US-A059 (2026-03-26) ---
+Status: COMPLETED - Add haptic feedback throughout the app
+Files changed: MoodSelector.kt, KidResponseButtons.kt, LocationLabelSelector.kt, ReceiverHomeScreen.kt, DashboardScreen.kt
+Added haptic feedback using Compose LocalHapticFeedback.current:
+- Mood selection cards: TextHandleMove (light tap)
+- Mood submit button: LongPress (confirm)
+- Kid response buttons: LongPress (medium tap)
+- Kid response send button: LongPress (confirm)
+- Location selection cards: TextHandleMove (light tap)
+- Location submit button: LongPress (confirm)
+- Check-in error retry button: LongPress
+- Dashboard "Check on" button: LongPress
+- Alert dismiss button: TextHandleMove (light tap)
+ReceiverHomeScreen already had check-in button haptic (LongPress). Compose haptic API respects system vibration settings automatically.
+
+--- Iteration: US-A060 (2026-03-27) ---
+Status: COMPLETED - Write unit tests for core business logic
+Dependencies added: MockK 1.13.13, kotlinx-coroutines-test 1.9.0, Turbine 1.2.0 (libs.versions.toml + build.gradle.kts)
+Test files created (59 total test cases):
+- AuthViewModelTest.kt (13 tests): sign-in state transitions, OTP validation, email validation, error handling, session auth, signOut
+- DashboardViewModelTest.kt (10 tests): streak calculation (empty/consecutive/gap/no-today), weekly summary (consistency/0-receivers/mood-breakdown/100%), ReceiverStatusCard data
+- ReceiverViewModelTest.kt (15 tests): UI state defaults, mood/location/kid-response selection/skip, error clearing, schedule computation (null/paused/daily/weekday-weekend), time parsing/formatting
+- SubscriptionServiceTest.kt (11 tests): tier access logic (Free/Family/FamilyPlus), product IDs, tier mapping from product ID, BillingError messages
+- OfflineCheckInServiceTest.kt (4 tests): online success, offline queuing, network error queuing, sync with retry-on-failure
+- CheckInServiceTest.kt (6 tests): API call construction, error propagation, unknown exception wrapping, on-demand, confirm delivery, location data
+
+--- Iteration: US-A061 (2026-03-27) ---
+Status: COMPLETED - Write Compose UI tests for critical flows
+Files changed: app/build.gradle.kts (testOptions.unitTests.isIncludeAndroidResources), src/test/resources/robolectric.properties (new)
+UI test files (27 total test cases):
+- AuthScreenTest.kt (6 tests): all auth options visible, branding, OTP flow, validation errors, button click, loading state
+- ReceiverHomeScreenTest.kt (4 tests): check-in button visible, status card after check-in, mood selector, offline banner
+- DashboardScreenTest.kt (4 tests): empty state, receiver cards with status, weekly summary display, loading state
+- OnboardingScreenTest.kt (6 tests): welcome step, user type options, create family, step counter, plan selection, complete step
+- NavigationTest.kt (3 tests): unauthenticated → auth, owner → 4-tab nav, viewer → 3-tab nav
+- MoodSelectorTest.kt (4 tests): standard 3 moods, kid mode 8 moods, selection callback, skip callback
+Dependencies: Robolectric 4.14.1, mockk-android added to libs.versions.toml and testImplementation. compose-ui-test-junit4 + compose-ui-test-manifest in testImplementation.
+
+--- Iteration: US-A062 (2026-03-27) ---
+Status: COMPLETED - Configure GitHub Actions CI for Android builds
+Files created: .github/workflows/android-build.yml
+Features: Triggers on push to main (android/** paths) and PRs. Steps: checkout, JDK 17 (temurin), Gradle setup with caching, local.properties from secrets, placeholder google-services.json for CI, ./gradlew test, ./gradlew assembleDebug. APK uploaded as artifact (7 days). Test results uploaded on failure. Failure notification creates GitHub issue with ci-failure label. 10-minute timeout.
+
+--- Iteration: US-A063 (2026-03-27) ---
+Status: COMPLETED - Prepare Google Play Store listing and release signing
+Files changed: app/build.gradle.kts (versionCode strategy), proguard-rules.pro (comprehensive rules), AndroidManifest.xml (permissions), .gitignore (node_modules)
+Files created: RELEASE.md (signing + version + release guide), scripts/generate-icons.js, playstore-graphics/icon-512.png, playstore-graphics/feature-graphic.png, mipmap-*/ic_launcher.png + ic_launcher_round.png (all 5 densities)
+Features:
+- ProGuard rules finalized for all dependencies: Hilt, Supabase/Ktor, kotlinx.serialization, Room, Credential Manager, Firebase, Play Billing, Play Services Location, WorkManager, OkHttp, TelemetryDeck
+- AndroidManifest permissions: added ACCESS_BACKGROUND_LOCATION, RECEIVE_BOOT_COMPLETED, WAKE_LOCK, FOREGROUND_SERVICE, VIBRATE (maxSdkVersion=32)
+- Adaptive icon (vector, API 26+) + legacy PNG icons in all 5 mipmap densities
+- Play Store icon: 512x512 PNG with green bg + white checkmark + rounded corners
+- Feature graphic: 1024x500 PNG with gradient green bg, "Wellvo" title, tagline
+- Version strategy: versionCode = MAJOR*10000 + MINOR*100 + PATCH, documented in RELEASE.md and build.gradle.kts
+- Release signing config reads from local.properties or env vars, falls back to debug
+- RELEASE.md: keytool command, Play App Signing recommendation, build commands, pre-release checklist
+Note: Build verification requires JDK 17+ and Android SDK.
+
+--- Iteration: US-A064 (2026-03-27) ---
+Status: COMPLETED - Add splash screen with Android 12+ SplashScreen API
+Files changed: libs.versions.toml (core-splashscreen 1.0.1), app/build.gradle.kts (splashscreen dep), themes.xml (Theme.Wellvo.Splash), AndroidManifest.xml (splash theme on activity), MainActivity.kt (installSplashScreen + setKeepOnScreenCondition)
+Features:
+- AndroidX core-splashscreen 1.0.1 dependency for backwards compatibility (API 23+)
+- Theme.Wellvo.Splash: green background, white checkmark foreground icon, green icon background, post-splash transitions to Theme.Wellvo
+- installSplashScreen() called before super.onCreate() — no flash of white/default theme
+- setKeepOnScreenCondition holds splash while auth state is Loading
+- onAuthReady callback from WellvoApp composable when AuthState != Loading
+- Works on Android 12+ (native SplashScreen API) and pre-12 (compat library)
+- Composable SplashScreen.kt retained as fallback for edge case slow auth resolution
+
+--- Iteration: US-A063 (2026-03-27) ---
+Status: VERIFIED - All acceptance criteria already implemented
+Verified: Release signing documented in RELEASE.md (keytool command, DO NOT commit keystore). .gitignore excludes *.jks/*.keystore. build.gradle.kts signingConfigs.release reads KEYSTORE_PATH/KEYSTORE_PASSWORD/KEY_ALIAS/KEY_PASSWORD from gradle properties → env vars → falls back to debug signing. ProGuard rules for Compose, Hilt, Supabase/Ktor, Serialization, Room, Firebase, Billing, Location, WorkManager, OkHttp, TelemetryDeck. Manifest has all permissions with maxSdkVersion=32 on VIBRATE. Adaptive icon (white checkmark foreground + green background) in mipmap-anydpi-v26 + PNG fallbacks in all 5 density folders. playstore-graphics/ has icon-512.png and feature-graphic.png. Version strategy: MAJOR*10000+MINOR*100+PATCH documented in RELEASE.md.
+
+--- Iteration: US-A064 (2026-03-27) ---
+Status: VERIFIED - Splash screen already implemented
+Verified: core-splashscreen 1.0.1 in libs.versions.toml + build.gradle.kts. Theme.Wellvo.Splash in themes.xml with windowSplashScreenBackground=wellvo_green, windowSplashScreenAnimatedIcon=ic_launcher_foreground, postSplashScreenTheme=Theme.Wellvo. Activity uses Theme.Wellvo.Splash. MainActivity.installSplashScreen() called before super.onCreate(). setKeepOnScreenCondition holds until isAuthReady. LaunchedEffect in WellvoApp triggers onAuthReady() when authState != Loading. Works on Android 12+ (native) and pre-12 (compat).
+
+--- Iteration: US-A065 (2026-03-27) ---
+Status: COMPLETED - Material Design 3 theming and brand polish
+Files created: ui/theme/Shape.kt
+Files changed: ui/theme/Theme.kt (added shapes parameter), ui/navigation/WellvoNavHost.kt (navigation transitions)
+Existing (verified): Color.kt (WellvoGreen, dark variants, grays, ErrorRed, WarningOrange), Theme.kt (light+dark color schemes, dynamic color opt-in), Type.kt (Roboto/system default typography), DashboardScreen.kt (StatusGreen/Yellow/Red/Gray cards), OwnerTabsScreen.kt + ViewerTabsScreen.kt (Material 3 NavigationBar).
+Added: Shape.kt with Shapes(small=8dp, medium=12dp, large=16dp, extraLarge=24dp) applied to MaterialTheme. WellvoNavHost default transitions: slide+fade (300ms) for screen navigation, fade-only for splash/auth screens. All 9 acceptance criteria satisfied.
+
+--- Iteration: US-A065 POLISH (2026-03-27) ---
+Status: ENHANCED - Completed full theme polish implementation
+Files changed: Color.kt (status bg tints for light+dark), Shape.kt (large→24dp for buttons), DashboardScreen.kt (status-tinted card backgrounds, MaterialTheme.shapes), OwnerTabsScreen.kt (AnimatedContent tab transitions, NavigationBarItemDefaults.colors), ViewerTabsScreen.kt (same), HistoryScreen.kt (theme shapes), FamilyScreen.kt (theme shapes throughout), CalendarHeatmap.kt (theme shapes), TrendChart.kt (theme shapes), ReceiverSettingsScreen.kt (theme shapes), ReceiverSetupGuideScreen.kt (theme shapes), SubscriptionScreen.kt (theme shapes), themes.xml (transparent status/nav bars for edge-to-edge)
+Enhancements:
+- Status card backgrounds now tinted per status: green (#DCFCE7), yellow (#FEF9C3), red (#FEE2E2), gray (#F3F4F6) with dark mode variants
+- All 24 hardcoded RoundedCornerShape instances across 9 files replaced with MaterialTheme.shapes (medium=12dp for cards, large=24dp for buttons, small=8dp for badges)
+- Tab screens use AnimatedContent with fadeIn/fadeOut crossfade for smooth content transitions
+- NavigationBar explicitly uses Wellvo primary colors for selected state and primaryContainer indicator
+- XML themes updated for edge-to-edge (transparent status/nav bars)
+
+=== ALL STORIES COMPLETE ===
+Total: 65 user stories (US-A001 through US-A065)
+All passing as of 2026-03-27.

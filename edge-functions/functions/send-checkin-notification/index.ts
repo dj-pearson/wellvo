@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification, buildCheckinPayload } from "../../shared/apns.ts";
+import { sendFCMNotification, buildFCMCheckinPayload } from "../../shared/fcm.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 
 interface SendCheckinRequest {
@@ -15,10 +16,10 @@ export async function handleSendCheckinNotification(req: Request, _auth: AuthRes
   const body: SendCheckinRequest = await req.json();
   const { receiver_id, family_id, type, is_retry, notification_log_id } = body;
 
-  // Get the receiver's push tokens
+  // Get the receiver's push tokens with platform info
   const { data: tokens, error: tokenError } = await supabaseAdmin
     .from("push_tokens")
-    .select("token")
+    .select("token, platform")
     .eq("user_id", receiver_id)
     .eq("is_active", true);
 
@@ -70,37 +71,37 @@ export async function handleSendCheckinNotification(req: Request, _auth: AuthRes
     .single();
 
   const requestId = existingRequest?.id || crypto.randomUUID();
+  const displayName = user?.display_name || "Your family";
 
-  const payload = buildCheckinPayload(
-    user?.display_name || "Your family",
-    requestId,
-    type,
-    undefined,
-    receiverMode
-  );
+  // Build payloads for each platform
+  const apnsPayload = buildCheckinPayload(displayName, requestId, type, undefined, receiverMode);
+  const fcmPayload = buildFCMCheckinPayload(displayName, requestId, receiver_id, type, undefined, receiverMode);
 
-  // Send to all active tokens
+  // Send to all active tokens, routing by platform
   const results = await Promise.all(
-    tokens.map((t: { token: string }) =>
-      sendPushNotification(t.token, payload, {
-        collapseId: `checkin-${family_id}`,
-      })
-    )
+    tokens.map((t: { token: string; platform: string }) => {
+      if (t.platform === "android") {
+        return sendFCMNotification(t.token, fcmPayload);
+      } else {
+        // Default to APNs (ios or unknown platform)
+        return sendPushNotification(t.token, apnsPayload, {
+          collapseId: `checkin-${family_id}`,
+        });
+      }
+    })
   );
 
   // Log notifications with retry tracking
   for (const result of results) {
     if (is_retry && notification_log_id) {
-      // Update existing log entry for retry
       await supabaseAdmin
         .from("notification_log")
         .update({
           status: result.success ? "sent" : "failed",
-          retry_count: supabaseAdmin.rpc ? undefined : undefined, // incremented by pg function
+          retry_count: supabaseAdmin.rpc ? undefined : undefined,
         })
         .eq("id", notification_log_id);
     } else {
-      // New notification — set initial retry schedule (2 min from now)
       await supabaseAdmin.from("notification_log").insert({
         user_id: receiver_id,
         checkin_request_id: requestId,
@@ -114,17 +115,29 @@ export async function handleSendCheckinNotification(req: Request, _auth: AuthRes
     }
   }
 
-  // Deactivate tokens that returned 410 (expired)
+  // Deactivate tokens that returned errors indicating invalid/expired tokens
   for (let i = 0; i < results.length; i++) {
-    if (results[i].statusCode === 410) {
+    const isInvalidToken =
+      results[i].statusCode === 410 || // APNs expired
+      results[i].reason === "NOT_FOUND" || // FCM unregistered
+      results[i].reason === "UNREGISTERED"; // FCM unregistered
+
+    if (isInvalidToken) {
       await supabaseAdmin
         .from("push_tokens")
         .update({ is_active: false })
         .eq("token", tokens[i].token);
+
+      console.log(`Deactivated invalid ${tokens[i].platform} token for user ${receiver_id}`);
     }
   }
 
   const successCount = results.filter((r) => r.success).length;
+
+  console.log(
+    `Notification sent: receiver=${receiver_id}, type=${type}, ` +
+    `total=${results.length}, success=${successCount}, failed=${results.length - successCount}`
+  );
 
   return new Response(
     JSON.stringify({

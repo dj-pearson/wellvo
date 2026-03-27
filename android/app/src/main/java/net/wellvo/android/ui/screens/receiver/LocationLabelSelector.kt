@@ -18,6 +18,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,6 +47,8 @@ fun LocationLabelSelector(
     onSubmit: () -> Unit,
     onSkip: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -62,7 +66,10 @@ fun LocationLabelSelector(
         ) {
             locationOptions.forEach { option ->
                 OutlinedCard(
-                    onClick = { onSelect(option.id) },
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSelect(option.id)
+                    },
                     modifier = Modifier
                         .padding(4.dp)
                         .width(100.dp),
@@ -93,7 +100,10 @@ fun LocationLabelSelector(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (selectedLabel != null) {
-            Button(onClick = onSubmit, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onSubmit()
+            }, modifier = Modifier.fillMaxWidth()) {
                 Text("Submit Location")
             }
             Spacer(modifier = Modifier.height(4.dp))

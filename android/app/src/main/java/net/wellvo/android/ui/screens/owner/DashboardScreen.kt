@@ -60,7 +60,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.core.app.NotificationManagerCompat
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -71,12 +73,21 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.isSystemInDarkTheme
 import net.wellvo.android.data.models.KidResponseType
 import net.wellvo.android.data.models.LocationLabel
 import net.wellvo.android.data.models.Mood
 import net.wellvo.android.data.models.WellvoAlert
 import net.wellvo.android.data.models.emoji
 import net.wellvo.android.data.models.displayName
+import net.wellvo.android.ui.theme.StatusGreenBg
+import net.wellvo.android.ui.theme.StatusGreenBgDark
+import net.wellvo.android.ui.theme.StatusYellowBg
+import net.wellvo.android.ui.theme.StatusYellowBgDark
+import net.wellvo.android.ui.theme.StatusRedBg
+import net.wellvo.android.ui.theme.StatusRedBgDark
+import net.wellvo.android.ui.theme.StatusGrayBg
+import net.wellvo.android.ui.theme.StatusGrayBgDark
 import net.wellvo.android.viewmodels.DashboardViewModel
 import net.wellvo.android.viewmodels.ReceiverCheckInStatus
 import net.wellvo.android.viewmodels.ReceiverStatusCard
@@ -104,18 +115,33 @@ private fun ReceiverCheckInStatus.icon(): ImageVector = when (this) {
     ReceiverCheckInStatus.NoData -> Icons.Default.RemoveCircle
 }
 
+@Composable
+private fun ReceiverCheckInStatus.cardBackground(): Color {
+    val isDark = isSystemInDarkTheme()
+    return when (this) {
+        ReceiverCheckInStatus.CheckedIn -> if (isDark) StatusGreenBgDark else StatusGreenBg
+        ReceiverCheckInStatus.Pending -> if (isDark) StatusYellowBgDark else StatusYellowBg
+        ReceiverCheckInStatus.Missed -> if (isDark) StatusRedBgDark else StatusRedBg
+        ReceiverCheckInStatus.NoData -> if (isDark) StatusGrayBgDark else StatusGrayBg
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
     userId: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isViewer: Boolean = false
 ) {
     val receiverCards by viewModel.receiverCards.collectAsState()
     val weeklySummary by viewModel.weeklySummary.collectAsState()
     val alerts by viewModel.alerts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val successMessage by viewModel.successMessage.collectAsState()
+    val sendingCheckInFor by viewModel.sendingCheckInFor.collectAsState()
+    val cooldownUntil by viewModel.cooldownUntil.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(userId) {
@@ -126,6 +152,13 @@ fun DashboardScreen(
         errorMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(successMessage) {
+        successMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearSuccessMessage()
         }
     }
 
@@ -187,7 +220,10 @@ fun DashboardScreen(
                         items(receiverCards, key = { it.id }) { card ->
                             ReceiverStatusCardView(
                                 card = card,
-                                onCheckOn = { viewModel.sendOnDemandCheckIn(card.id) }
+                                isSending = if (isViewer) false else card.id in sendingCheckInFor,
+                                cooldownEndMs = if (isViewer) 0L else cooldownUntil[card.id] ?: 0L,
+                                onCheckOn = { viewModel.sendOnDemandCheckIn(card.id) },
+                                showCheckOnButton = !isViewer
                             )
                         }
 
@@ -241,7 +277,7 @@ private fun EmptyState() {
 @Composable
 private fun WeeklySummaryCard(summary: WeeklySummary) {
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
@@ -344,10 +380,27 @@ private fun StatBubble(
 
 // -- Today's Timeline Card --
 
+private val timelineStatusOrder = mapOf(
+    ReceiverCheckInStatus.CheckedIn to 0,
+    ReceiverCheckInStatus.Pending to 1,
+    ReceiverCheckInStatus.Missed to 2,
+    ReceiverCheckInStatus.NoData to 3
+)
+
 @Composable
 private fun TodayTimelineCard(cards: List<ReceiverStatusCard>) {
+    val sortedCards = remember(cards) {
+        cards.sortedWith(
+            compareBy<ReceiverStatusCard> { timelineStatusOrder[it.status] ?: 3 }
+                .thenBy { card ->
+                    // Within checked-in, sort by check-in time ascending
+                    card.checkedInTime?.let { parseTimeProgress(it) } ?: Float.MAX_VALUE
+                }
+        )
+    }
+
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
@@ -360,81 +413,132 @@ private fun TodayTimelineCard(cards: List<ReceiverStatusCard>) {
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-            cards.forEach { card ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp)
-                        .semantics {
-                            contentDescription = "${card.name}: ${
-                                if (card.checkedInTime != null) "checked in at ${formatTimeShort(card.checkedInTime)}"
-                                else card.status.label
-                            }"
-                        },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Status dot
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(card.status.color())
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Text(
-                        text = card.name,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    // Status icon + time/label
-                    Icon(
-                        imageVector = card.status.icon(),
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = card.status.color()
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-
-                    val timeText = card.checkedInTime?.let { formatTimeShort(it) }
-                    Text(
-                        text = timeText ?: card.status.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (timeText != null) MaterialTheme.colorScheme.onSurfaceVariant
-                                else card.status.color()
-                    )
-
-                    // Timeline bar
-                    Spacer(modifier = Modifier.width(8.dp))
-                    TimelineBar(
-                        checkedInTime = card.checkedInTime,
-                        statusColor = card.status.color()
-                    )
-                }
+            sortedCards.forEach { card ->
+                ReceiverTimelineComposable(card = card)
             }
         }
     }
 }
 
 @Composable
-private fun TimelineBar(checkedInTime: String?, statusColor: Color) {
-    Box(
+private fun ReceiverTimelineComposable(card: ReceiverStatusCard) {
+    Column(
         modifier = Modifier
-            .width(60.dp)
-            .height(4.dp)
-            .clip(RoundedCornerShape(2.dp))
-            .background(MaterialTheme.colorScheme.outlineVariant)
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+            .semantics {
+                contentDescription = "${card.name}: ${
+                    if (card.checkedInTime != null) "checked in at ${formatTimeShort(card.checkedInTime)}"
+                    else card.status.label
+                }"
+            }
     ) {
-        if (checkedInTime != null) {
-            val progress = parseTimeProgress(checkedInTime)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Colored status dot
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(fraction = progress.coerceIn(0.02f, 1f))
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(statusColor)
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(card.status.color())
             )
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+                text = card.name,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f)
+            )
+
+            // Status text or time
+            if (card.checkedInTime != null) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = card.status.color()
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = formatTimeShort(card.checkedInTime),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Icon(
+                    imageVector = card.status.icon(),
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = card.status.color()
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = card.status.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = card.status.color()
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // 24-hour horizontal timeline bar
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 18.dp) // align with text after dot
+        ) {
+            Box(modifier = Modifier.weight(1f)) {
+                // Background track
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
+
+                if (card.checkedInTime != null) {
+                    val progress = parseTimeProgress(card.checkedInTime)
+                    // Filled portion up to check-in time
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction = progress.coerceIn(0.02f, 1f))
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(card.status.color())
+                    )
+
+                    // Time label positioned at check-in point on the bar
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                    ) {
+                        Text(
+                            text = formatTimeShort(card.checkedInTime),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = androidx.compose.ui.unit.sp(9)
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .align(
+                                    if (progress < 0.5f) Alignment.TopStart
+                                    else Alignment.TopEnd
+                                )
+                                .padding(top = 8.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Add spacing for the time label below the bar
+        if (card.checkedInTime != null) {
+            Spacer(modifier = Modifier.height(10.dp))
         }
     }
 }
@@ -443,10 +547,11 @@ private fun TimelineBar(checkedInTime: String?, statusColor: Color) {
 
 @Composable
 private fun AlertsBanner(alerts: List<WellvoAlert>, onDismiss: (WellvoAlert) -> Unit) {
+    val haptic = LocalHapticFeedback.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         alerts.forEach { alert ->
             Card(
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.medium,
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xFFFFF7ED)
                 )
@@ -485,7 +590,10 @@ private fun AlertsBanner(alerts: List<WellvoAlert>, onDismiss: (WellvoAlert) -> 
                         }
                     }
 
-                    IconButton(onClick = { onDismiss(alert) }) {
+                    IconButton(onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onDismiss(alert)
+                    }) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Dismiss alert",
@@ -503,22 +611,42 @@ private fun AlertsBanner(alerts: List<WellvoAlert>, onDismiss: (WellvoAlert) -> 
 @Composable
 private fun ReceiverStatusCardView(
     card: ReceiverStatusCard,
-    onCheckOn: () -> Unit
+    isSending: Boolean = false,
+    cooldownEndMs: Long = 0L,
+    onCheckOn: () -> Unit,
+    showCheckOnButton: Boolean = true
 ) {
+    val haptic = LocalHapticFeedback.current
+    val currentTimeMs = remember { mutableStateOf(System.currentTimeMillis()) }
+    val isOnCooldown = cooldownEndMs > currentTimeMs.value
+
+    // Refresh current time every second while on cooldown
+    LaunchedEffect(cooldownEndMs) {
+        if (cooldownEndMs > 0L) {
+            while (System.currentTimeMillis() < cooldownEndMs) {
+                currentTimeMs.value = System.currentTimeMillis()
+                kotlinx.coroutines.delay(1000)
+            }
+            currentTimeMs.value = System.currentTimeMillis()
+        }
+    }
+
+    val cardBg = card.status.cardBackground()
+
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier
             .fillMaxWidth()
             .shadow(
                 elevation = 2.dp,
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 ambientColor = Color.Black.copy(alpha = 0.05f)
             )
             .semantics {
                 contentDescription = "${card.name}, ${card.status.label}, ${card.streak} day streak"
             },
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = cardBg
         )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -599,7 +727,7 @@ private fun ReceiverStatusCardView(
                         .padding(top = 12.dp)
                         .background(
                             Color(0xFFF97316).copy(alpha = 0.1f),
-                            RoundedCornerShape(8.dp)
+                            MaterialTheme.shapes.small
                         )
                         .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -693,24 +821,49 @@ private fun ReceiverStatusCardView(
                 KidResponseBadge(rawValue = response)
             }
 
-            // Check on button
-            if (card.status != ReceiverCheckInStatus.CheckedIn) {
+            // Check on button (disabled for checked-in receivers and during cooldown)
+            if (showCheckOnButton && card.status != ReceiverCheckInStatus.CheckedIn) {
                 Spacer(modifier = Modifier.height(12.dp))
+                val buttonEnabled = !isSending && !isOnCooldown
                 Button(
-                    onClick = onCheckOn,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onCheckOn()
+                    },
                     modifier = Modifier.fillMaxWidth(),
+                    enabled = buttonEnabled,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFF97316)
+                        containerColor = Color(0xFFF97316),
+                        disabledContainerColor = Color(0xFFF97316).copy(alpha = 0.4f)
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.large
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.NotificationsOff,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Check on ${card.name}")
+                    if (isSending) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Sending...")
+                    } else if (isOnCooldown) {
+                        val secondsLeft = ((cooldownEndMs - currentTimeMs.value) / 1000).coerceAtLeast(0)
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Wait ${secondsLeft}s")
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Check on ${card.name}")
+                    }
                 }
             }
         }
@@ -765,7 +918,7 @@ private fun NotificationPermissionBanner() {
 
     AnimatedVisibility(visible = !notificationsEnabled.value) {
         Card(
-            shape = RoundedCornerShape(12.dp),
+            shape = MaterialTheme.shapes.medium,
             colors = CardDefaults.cardColors(
                 containerColor = Color(0xFFFFF7ED)
             )

@@ -24,6 +24,7 @@ import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.Locale
 import net.wellvo.android.network.WellvoError
+import net.wellvo.android.services.AnalyticsService
 import net.wellvo.android.services.CheckInService
 import net.wellvo.android.services.OfflineCheckInService
 import javax.inject.Inject
@@ -52,7 +53,8 @@ data class ReceiverUiState(
 class ReceiverViewModel @Inject constructor(
     private val supabase: SupabaseClient,
     private val checkInService: CheckInService,
-    private val offlineCheckInService: OfflineCheckInService
+    private val offlineCheckInService: OfflineCheckInService,
+    private val analyticsService: AnalyticsService
 ) : ViewModel() {
 
     val isOffline: StateFlow<Boolean> = offlineCheckInService.isOffline
@@ -141,6 +143,7 @@ class ReceiverViewModel @Inject constructor(
                     source = "app"
                 )
 
+                analyticsService.track(AnalyticsService.CHECK_IN_COMPLETED)
                 val updatedCheckIn = checkInService.todayCheckInStatus(receiverId, familyId)
 
                 _uiState.value = _uiState.value.copy(
@@ -179,6 +182,7 @@ class ReceiverViewModel @Inject constructor(
                     }) {
                         filter { eq("id", checkIn.id) }
                     }
+                analyticsService.track(AnalyticsService.MOOD_SUBMITTED, mapOf("mood" to mood.name))
                 _uiState.value = _uiState.value.copy(
                     showMoodSelector = false,
                     lastCheckIn = checkIn.copy(mood = mood),

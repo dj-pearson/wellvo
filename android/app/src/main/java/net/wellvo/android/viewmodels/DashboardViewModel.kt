@@ -28,6 +28,7 @@ import net.wellvo.android.data.models.MemberStatus
 import net.wellvo.android.data.models.UserRole
 import net.wellvo.android.data.models.WellvoAlert
 import net.wellvo.android.data.models.emoji
+import net.wellvo.android.services.AnalyticsService
 import net.wellvo.android.services.CheckInService
 import net.wellvo.android.services.FamilyService
 import net.wellvo.android.network.WellvoError
@@ -77,7 +78,8 @@ private data class PushTokenRecord(
 class DashboardViewModel @Inject constructor(
     private val supabase: SupabaseClient,
     private val checkInService: CheckInService,
-    private val familyService: FamilyService
+    private val familyService: FamilyService,
+    private val analyticsService: AnalyticsService
 ) : ViewModel() {
 
     private val _family = MutableStateFlow<Family?>(null)
@@ -98,6 +100,15 @@ class DashboardViewModel @Inject constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _successMessage = MutableStateFlow<String?>(null)
+    val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
+
+    private val _sendingCheckInFor = MutableStateFlow<Set<String>>(emptySet())
+    val sendingCheckInFor: StateFlow<Set<String>> = _sendingCheckInFor.asStateFlow()
+
+    private val _cooldownUntil = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val cooldownUntil: StateFlow<Map<String, Long>> = _cooldownUntil.asStateFlow()
+
     private var currentUserId: String? = null
     private var realtimeChannel: RealtimeChannel? = null
     private var realtimeJob: Job? = null
@@ -108,6 +119,7 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
+            analyticsService.track(AnalyticsService.DASHBOARD_VIEWED)
 
             try {
                 val fetchedFamily = familyService.getFamily(userId) ?: run {
@@ -185,13 +197,24 @@ class DashboardViewModel @Inject constructor(
 
     fun sendOnDemandCheckIn(receiverId: String) {
         val familyId = _family.value?.id ?: return
+        val receiverName = _receiverCards.value.find { it.id == receiverId }?.name ?: "receiver"
         viewModelScope.launch {
+            _sendingCheckInFor.value = _sendingCheckInFor.value + receiverId
             try {
                 checkInService.sendOnDemandCheckIn(familyId = familyId, receiverId = receiverId)
+                analyticsService.track(AnalyticsService.ON_DEMAND_SENT)
+                _successMessage.value = "Check-in request sent to $receiverName"
+                _cooldownUntil.value = _cooldownUntil.value + (receiverId to (System.currentTimeMillis() + 60_000))
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Failed to send check-in request."
+            } finally {
+                _sendingCheckInFor.value = _sendingCheckInFor.value - receiverId
             }
         }
+    }
+
+    fun clearSuccessMessage() {
+        _successMessage.value = null
     }
 
     fun dismissAlert(alert: WellvoAlert) {

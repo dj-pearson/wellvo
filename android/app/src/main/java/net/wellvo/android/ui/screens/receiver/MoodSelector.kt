@@ -19,6 +19,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +38,7 @@ fun MoodSelector(
     onSkip: () -> Unit
 ) {
     val moods = if (isKidMode) Mood.entries else Mood.entries.take(3)
+    val haptic = LocalHapticFeedback.current
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -56,7 +59,10 @@ fun MoodSelector(
                 MoodCard(
                     mood = mood,
                     isSelected = selectedMood == mood,
-                    onClick = { onSelectMood(mood) }
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSelectMood(mood)
+                    }
                 )
             }
         }
@@ -64,7 +70,10 @@ fun MoodSelector(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (selectedMood != null) {
-            Button(onClick = onSubmit, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onSubmit()
+            }, modifier = Modifier.fillMaxWidth()) {
                 Text("Submit Mood")
             }
             Spacer(modifier = Modifier.height(4.dp))

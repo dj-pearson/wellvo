@@ -28,12 +28,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -51,8 +56,37 @@ fun ReceiverHomeScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val haptic = LocalHapticFeedback.current
+    val view = LocalView.current
     val isOffline by viewModel.isOffline.collectAsState()
     val pendingOfflineCount by viewModel.pendingOfflineCount.collectAsState()
+
+    // Track previous state to detect transitions
+    var wasCheckedIn by remember { mutableStateOf(state.hasCheckedInToday) }
+    var hadError by remember { mutableStateOf(state.errorMessage != null) }
+
+    // Success haptic — fires when check-in completes
+    LaunchedEffect(state.hasCheckedInToday) {
+        if (state.hasCheckedInToday && !wasCheckedIn) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+            } else {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+        }
+        wasCheckedIn = state.hasCheckedInToday
+    }
+
+    // Error haptic — fires when an error appears
+    LaunchedEffect(state.errorMessage) {
+        if (state.errorMessage != null && !hadError) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                view.performHapticFeedback(android.view.HapticFeedbackConstants.REJECT)
+            } else {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+        }
+        hadError = state.errorMessage != null
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Offline banner
@@ -103,7 +137,10 @@ fun ReceiverHomeScreen(
             state.errorMessage != null && !state.hasCheckedInToday -> {
                 ErrorState(
                     message = state.errorMessage!!,
-                    onRetry = viewModel::retry
+                    onRetry = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.retry()
+                    }
                 )
             }
             state.hasCheckedInToday -> {

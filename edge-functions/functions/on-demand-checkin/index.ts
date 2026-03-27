@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification, buildCheckinPayload } from "../../shared/apns.ts";
+import { sendFCMNotification, buildFCMCheckinPayload } from "../../shared/fcm.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 
 interface OnDemandRequest {
@@ -93,32 +94,38 @@ export async function handleOnDemandCheckin(req: Request, auth: AuthResult): Pro
   // Send push notification
   const { data: tokens } = await supabaseAdmin
     .from("push_tokens")
-    .select("token")
+    .select("token, platform")
     .eq("user_id", receiver_id)
     .eq("is_active", true);
 
   if (tokens?.length) {
-    const payload = buildCheckinPayload(
-      owner?.display_name || "Your family",
-      request.id,
-      "on_demand"
-    );
+    const displayName = owner?.display_name || "Your family";
+    const apnsPayload = buildCheckinPayload(displayName, request.id, "on_demand");
+    const fcmPayload = buildFCMCheckinPayload(displayName, request.id, receiver_id, "on_demand");
 
     const results = await Promise.all(
-      tokens.map((t: { token: string }) =>
-        sendPushNotification(t.token, payload, {
+      tokens.map((t: { token: string; platform: string }) => {
+        if (t.platform === "android") {
+          return sendFCMNotification(t.token, fcmPayload);
+        }
+        return sendPushNotification(t.token, apnsPayload, {
           collapseId: `ondemand-${family_id}`,
-        })
-      )
+        });
+      })
     );
 
-    // Deactivate expired tokens
+    // Deactivate expired/invalid tokens
     for (let i = 0; i < results.length; i++) {
-      if (results[i].statusCode === 410) {
+      const isInvalid =
+        results[i].statusCode === 410 ||
+        results[i].reason === "NOT_FOUND" ||
+        results[i].reason === "UNREGISTERED";
+      if (isInvalid) {
         await supabaseAdmin
           .from("push_tokens")
           .update({ is_active: false })
           .eq("token", tokens[i].token);
+        console.log(`Deactivated invalid ${tokens[i].platform} token for user ${receiver_id}`);
       }
     }
   }

@@ -18,3 +18,15 @@ val Gray900 = Color(0xFF111827)
 
 val ErrorRed = Color(0xFFEF4444)
 val WarningOrange = Color(0xFFF59E0B)
+
+// Status card background tints
+val StatusGreenBg = Color(0xFFDCFCE7)
+val StatusYellowBg = Color(0xFFFEF9C3)
+val StatusRedBg = Color(0xFFFEE2E2)
+val StatusGrayBg = Color(0xFFF3F4F6)
+
+// Status card background tints (dark theme)
+val StatusGreenBgDark = Color(0xFF14532D)
+val StatusYellowBgDark = Color(0xFF713F12)
+val StatusRedBgDark = Color(0xFF7F1D1D)
+val StatusGrayBgDark = Color(0xFF374151)

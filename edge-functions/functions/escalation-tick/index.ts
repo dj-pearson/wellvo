@@ -1,8 +1,52 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification, buildCheckinPayload } from "../../shared/apns.ts";
+import { sendFCMNotification, buildFCMCheckinPayload, buildFCMAlertPayload } from "../../shared/fcm.ts";
 import { sendSMS, buildEscalationSMS } from "../../shared/sms.ts";
 import { logInfo, logWarn, logError } from "../../shared/logger.ts";
 import type { AuthResult } from "../../shared/auth.ts";
+
+interface PushToken {
+  token: string;
+  platform: string;
+}
+
+async function sendByPlatform(
+  tokens: PushToken[],
+  apnsPayload: Record<string, unknown>,
+  fcmTitle: string,
+  fcmBody: string,
+  fcmData: Record<string, string>,
+  apnsOptions?: { priority?: number; collapseId?: string },
+): Promise<{ success: boolean; statusCode: number; reason?: string }[]> {
+  return Promise.all(
+    tokens.map((t) => {
+      if (t.platform === "android") {
+        return sendFCMNotification(t.token, buildFCMAlertPayload(fcmTitle, fcmBody, fcmData));
+      }
+      return sendPushNotification(t.token, apnsPayload, apnsOptions);
+    })
+  );
+}
+
+async function deactivateInvalidTokens(
+  tokens: PushToken[],
+  results: { success: boolean; statusCode: number; reason?: string }[],
+  userId: string,
+): Promise<void> {
+  for (let i = 0; i < results.length; i++) {
+    const isInvalid =
+      results[i].statusCode === 410 ||
+      results[i].reason === "NOT_FOUND" ||
+      results[i].reason === "UNREGISTERED";
+    if (isInvalid) {
+      await supabaseAdmin
+        .from("push_tokens")
+        .update({ is_active: false })
+        .eq("token", tokens[i].token);
+      console.log(`Deactivated invalid ${tokens[i].platform} token for user ${userId}`);
+    }
+  }
+}
 
 interface EscalationRequest {
   request_id?: string;
@@ -33,19 +77,18 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
     if (family?.owner_id) {
       const { data: ownerTokens } = await supabaseAdmin
         .from("push_tokens")
-        .select("token")
+        .select("token, platform")
         .eq("user_id", family.owner_id)
         .eq("is_active", true);
 
       if (ownerTokens?.length) {
         const displayName = body.display_name || "A family member";
         const distance = body.distance_meters ? Math.round(body.distance_meters) : "unknown";
+        const alertTitle = "Location Alert";
+        const alertBody = `${displayName} may have left their safe zone (${distance}m from home).`;
         const payload = {
           aps: {
-            alert: {
-              title: "Location Alert",
-              body: `${displayName} may have left their safe zone (${distance}m from home).`,
-            },
+            alert: { title: alertTitle, body: alertBody },
             sound: "urgent.caf",
             "interruption-level": "critical" as const,
             "thread-id": `geofence-${family_id}`,
@@ -54,11 +97,12 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
           receiver_id,
         };
 
-        await Promise.all(
-          ownerTokens.map((t: { token: string }) =>
-            sendPushNotification(t.token, payload, { priority: 10 })
-          )
+        const results = await sendByPlatform(
+          ownerTokens, payload, alertTitle, alertBody,
+          { type: "geofence_alert", receiver_id },
+          { priority: 10 },
         );
+        await deactivateInvalidTokens(ownerTokens, results, family.owner_id);
       }
     }
 
@@ -74,19 +118,18 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
     if (targetOwnerId) {
       const { data: ownerTokens } = await supabaseAdmin
         .from("push_tokens")
-        .select("token")
+        .select("token, platform")
         .eq("user_id", targetOwnerId)
         .eq("is_active", true);
 
       if (ownerTokens?.length) {
         const displayName = body.display_name || "A family member";
         const batteryPct = body.battery_level != null ? Math.round(body.battery_level * 100) : "low";
+        const alertTitle = "Low Battery Warning";
+        const alertBody = `${displayName}'s phone battery is at ${batteryPct}%. If they miss their check-in, their phone may be off.`;
         const payload = {
           aps: {
-            alert: {
-              title: "Low Battery Warning",
-              body: `${displayName}'s phone battery is at ${batteryPct}%. If they miss their check-in, their phone may be off.`,
-            },
+            alert: { title: alertTitle, body: alertBody },
             sound: "default",
             "interruption-level": "time-sensitive" as const,
             "thread-id": `battery-${family_id}`,
@@ -95,11 +138,12 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
           receiver_id,
         };
 
-        await Promise.all(
-          ownerTokens.map((t: { token: string }) =>
-            sendPushNotification(t.token, payload, { priority: 10 })
-          )
+        const results = await sendByPlatform(
+          ownerTokens, payload, alertTitle, alertBody,
+          { type: "low_battery_alert", receiver_id },
+          { priority: 10 },
         );
+        await deactivateInvalidTokens(ownerTokens, results, targetOwnerId);
       }
     }
 
@@ -113,17 +157,22 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
     // Step 1: Second reminder to receiver
     const { data: receiverTokens } = await supabaseAdmin
       .from("push_tokens")
-      .select("token")
+      .select("token, platform")
       .eq("user_id", receiver_id)
       .eq("is_active", true);
 
     if (receiverTokens?.length) {
-      const payload = buildCheckinPayload("", request_id, "escalation", escalation_step);
-      await Promise.all(
-        receiverTokens.map((t: { token: string }) =>
-          sendPushNotification(t.token, payload, { priority: 10 })
-        )
+      const apnsPayload = buildCheckinPayload("", request_id, "escalation", escalation_step);
+      const fcmPayload = buildFCMCheckinPayload("", request_id || "", receiver_id, "escalation", escalation_step);
+      const results = await Promise.all(
+        receiverTokens.map((t: PushToken) => {
+          if (t.platform === "android") {
+            return sendFCMNotification(t.token, fcmPayload);
+          }
+          return sendPushNotification(t.token, apnsPayload, { priority: 10 });
+        })
       );
+      await deactivateInvalidTokens(receiverTokens, results, receiver_id);
     }
 
     await supabaseAdmin.from("notification_log").insert({
@@ -136,7 +185,7 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
     // Step 2: Alert to Owner
     const { data: ownerTokens } = await supabaseAdmin
       .from("push_tokens")
-      .select("token")
+      .select("token, platform")
       .eq("user_id", owner_id)
       .eq("is_active", true);
 
@@ -147,12 +196,11 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       .single();
 
     if (ownerTokens?.length) {
+      const alertTitle = "Missed Check-In";
+      const alertBody = `${receiver?.display_name || "Your family member"} hasn't checked in yet. They've been reminded twice.`;
       const payload = {
         aps: {
-          alert: {
-            title: "Missed Check-In",
-            body: `${receiver?.display_name || "Your family member"} hasn't checked in yet. They've been reminded twice.`,
-          },
+          alert: { title: alertTitle, body: alertBody },
           sound: "urgent.caf",
           "interruption-level": "time-sensitive" as const,
           "thread-id": `alert-${request_id}`,
@@ -161,11 +209,12 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
         type: "owner_alert",
       };
 
-      await Promise.all(
-        ownerTokens.map((t: { token: string }) =>
-          sendPushNotification(t.token, payload, { priority: 10 })
-        )
+      const results = await sendByPlatform(
+        ownerTokens, payload, alertTitle, alertBody,
+        { checkin_request_id: request_id || "", type: "owner_alert", receiver_id },
+        { priority: 10 },
       );
+      await deactivateInvalidTokens(ownerTokens, results, owner_id!);
     }
 
     // SMS fallback for owner — send if push tokens are missing or as supplement
@@ -237,17 +286,16 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       for (const viewer of viewers) {
         const { data: viewerTokens } = await supabaseAdmin
           .from("push_tokens")
-          .select("token")
+          .select("token, platform")
           .eq("user_id", viewer.user_id)
           .eq("is_active", true);
 
         if (viewerTokens?.length) {
+          const alertTitle = "Family Alert";
+          const alertBody = `${receiver?.display_name || "A family member"} has missed their check-in today.`;
           const payload = {
             aps: {
-              alert: {
-                title: "Family Alert",
-                body: `${receiver?.display_name || "A family member"} has missed their check-in today.`,
-              },
+              alert: { title: alertTitle, body: alertBody },
               sound: "default",
               "interruption-level": "active" as const,
             },
@@ -255,11 +303,11 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
             type: "viewer_alert",
           };
 
-          await Promise.all(
-            viewerTokens.map((t: { token: string }) =>
-              sendPushNotification(t.token, payload)
-            )
+          const results = await sendByPlatform(
+            viewerTokens, payload, alertTitle, alertBody,
+            { checkin_request_id: request_id || "", type: "viewer_alert", receiver_id },
           );
+          await deactivateInvalidTokens(viewerTokens, results, viewer.user_id);
         }
 
         // SMS fallback for viewers with phone numbers

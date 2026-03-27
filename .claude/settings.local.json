@@ -33,7 +33,11 @@
       "Bash(grep -r \"ralph\\\\|snarktank\" C:UserspearsDocumentsWellvowellvo. --include=*.json --include=*.md)",
       "Bash(git -C C:UserspearsDocumentsGradeThreadGradeThread log --oneline --grep=ralph)",
       "Bash(taskkill //F //PID 97544)",
-      "Bash(taskkill //F //PID 62540)"
+      "Bash(taskkill //F //PID 62540)",
+      "Bash(tasklist)",
+      "Bash(tasklist:*)",
+      "Bash(powershell -Command \"Get-Process -Id 82580 -ErrorAction SilentlyContinue | Select-Object Id,Name,StartTime\")",
+      "Bash(powershell -Command \"Get-CimInstance Win32_Process | Where-Object { \\\\$_.ParentProcessId -eq 82580 } | Select-Object ProcessId,Name,CommandLine | Format-List\")"
     ]
   }
 }

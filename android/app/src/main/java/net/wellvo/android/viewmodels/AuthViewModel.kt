@@ -13,6 +13,7 @@ import net.wellvo.android.data.models.AppUser
 import net.wellvo.android.network.ApiService
 import net.wellvo.android.network.AutoJoinResult
 import net.wellvo.android.network.WellvoError
+import net.wellvo.android.services.AnalyticsService
 import net.wellvo.android.services.AuthService
 import net.wellvo.android.ui.navigation.AuthState
 import net.wellvo.android.util.Validation
@@ -35,7 +36,8 @@ data class AuthUiState(
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val authService: AuthService,
-    private val apiService: ApiService
+    private val apiService: ApiService,
+    private val analyticsService: AnalyticsService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -173,6 +175,7 @@ class AuthViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             try {
                 authService.verifyPhoneOTP(phone, code)
+                analyticsService.track(AnalyticsService.SIGN_IN)
                 _uiState.value = _uiState.value.copy(isLoading = false)
             } catch (e: WellvoError) {
                 _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = e.localizedMessage)
@@ -209,8 +212,10 @@ class AuthViewModel @Inject constructor(
             try {
                 if (state.isSignUp) {
                     authService.signUpWithEmail(state.email, state.password, state.displayName)
+                    analyticsService.track(AnalyticsService.SIGN_UP)
                 } else {
                     authService.signInWithEmail(state.email, state.password)
+                    analyticsService.track(AnalyticsService.SIGN_IN)
                 }
                 _uiState.value = _uiState.value.copy(isLoading = false)
             } catch (e: WellvoError) {
@@ -224,6 +229,7 @@ class AuthViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isGoogleLoading = true, errorMessage = null)
             try {
                 authService.signInWithGoogle(context)
+                analyticsService.track(AnalyticsService.SIGN_IN)
                 _uiState.value = _uiState.value.copy(isGoogleLoading = false)
             } catch (e: WellvoError) {
                 _uiState.value = _uiState.value.copy(isGoogleLoading = false, errorMessage = e.localizedMessage)
@@ -233,6 +239,7 @@ class AuthViewModel @Inject constructor(
 
     fun signOut() {
         viewModelScope.launch {
+            analyticsService.track(AnalyticsService.SIGN_OUT)
             authService.signOut()
             _uiState.value = AuthUiState()
         }

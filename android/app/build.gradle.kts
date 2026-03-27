@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -15,7 +16,9 @@ android {
         applicationId = "net.wellvo.android"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
+        // Version strategy: versionCode = MAJOR*10000 + MINOR*100 + PATCH
+        // See android/RELEASE.md for details
+        versionCode = 10000
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -46,6 +49,7 @@ android {
             buildConfigField("String", "SUPABASE_URL", "\"${project.findProperty("SUPABASE_URL_DEBUG") ?: project.findProperty("SUPABASE_URL") ?: System.getenv("SUPABASE_URL") ?: "https://your-project.supabase.co"}\"")
             buildConfigField("String", "SUPABASE_ANON_KEY", "\"${project.findProperty("SUPABASE_ANON_KEY_DEBUG") ?: project.findProperty("SUPABASE_ANON_KEY") ?: System.getenv("SUPABASE_ANON_KEY") ?: "your-anon-key"}\"")
             buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${project.findProperty("GOOGLE_WEB_CLIENT_ID_DEBUG") ?: project.findProperty("GOOGLE_WEB_CLIENT_ID") ?: System.getenv("GOOGLE_WEB_CLIENT_ID") ?: ""}\"")
+            buildConfigField("String", "TELEMETRY_DECK_APP_ID", "\"${project.findProperty("TELEMETRY_DECK_APP_ID") ?: System.getenv("TELEMETRY_DECK_APP_ID") ?: ""}\"")
         }
         release {
             isMinifyEnabled = true
@@ -58,6 +62,7 @@ android {
             buildConfigField("String", "SUPABASE_URL", "\"${project.findProperty("SUPABASE_URL") ?: System.getenv("SUPABASE_URL") ?: "https://your-project.supabase.co"}\"")
             buildConfigField("String", "SUPABASE_ANON_KEY", "\"${project.findProperty("SUPABASE_ANON_KEY") ?: System.getenv("SUPABASE_ANON_KEY") ?: "your-anon-key"}\"")
             buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${project.findProperty("GOOGLE_WEB_CLIENT_ID") ?: System.getenv("GOOGLE_WEB_CLIENT_ID") ?: ""}\"")
+            buildConfigField("String", "TELEMETRY_DECK_APP_ID", "\"${project.findProperty("TELEMETRY_DECK_APP_ID") ?: System.getenv("TELEMETRY_DECK_APP_ID") ?: ""}\"")
         }
     }
 
@@ -73,6 +78,12 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
     }
 }
 
@@ -115,7 +126,36 @@ dependencies {
     // Security
     implementation(libs.security.crypto)
 
+    // Firebase
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
+
+    // Google Play Billing
+    implementation(libs.billing.ktx)
+
+    // Location Services
+    implementation(libs.play.services.location)
+
+    // WorkManager
+    implementation(libs.work.runtime.ktx)
+    implementation(libs.hilt.work)
+
+    // Splash Screen
+    implementation(libs.splashscreen)
+
+    // Analytics
+    implementation(libs.telemetry.deck)
+
     testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.mockk.android)
+    testImplementation(libs.androidx.junit)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.ui.test.junit4)
+    testImplementation(libs.androidx.ui.test.manifest)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

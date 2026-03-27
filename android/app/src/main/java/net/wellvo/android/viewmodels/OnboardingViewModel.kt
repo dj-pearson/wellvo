@@ -21,6 +21,7 @@ import kotlinx.serialization.json.put
 import net.wellvo.android.data.models.Family
 import net.wellvo.android.network.ApiService
 import net.wellvo.android.network.WellvoError
+import net.wellvo.android.services.AnalyticsService
 import net.wellvo.android.services.AuthService
 import javax.inject.Inject
 
@@ -60,7 +61,8 @@ data class OnboardingUiState(
 class OnboardingViewModel @Inject constructor(
     private val supabase: SupabaseClient,
     private val apiService: ApiService,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    private val analyticsService: AnalyticsService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -77,6 +79,10 @@ class OnboardingViewModel @Inject constructor(
         )
     )
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
+
+    init {
+        analyticsService.track(AnalyticsService.ONBOARDING_STARTED)
+    }
 
     val stepIndex: Int
         get() = OnboardingStep.entries.indexOf(_uiState.value.currentStep)
@@ -221,9 +227,11 @@ class OnboardingViewModel @Inject constructor(
             val nextStep = steps[currentIndex + 1]
             _uiState.value = _uiState.value.copy(currentStep = nextStep, errorMessage = null)
             savedStateHandle["currentStep"] = nextStep.name
+            analyticsService.track(AnalyticsService.ONBOARDING_STEP_VIEWED, mapOf("step" to nextStep.name))
         }
         if (_uiState.value.currentStep == OnboardingStep.Complete) {
             _uiState.value = _uiState.value.copy(isComplete = true)
+            analyticsService.track(AnalyticsService.ONBOARDING_COMPLETED)
         }
     }
 

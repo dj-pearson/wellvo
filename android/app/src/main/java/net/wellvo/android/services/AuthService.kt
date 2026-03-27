@@ -18,7 +18,10 @@ import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
+import io.github.jan.supabase.postgrest.rpc
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import net.wellvo.android.BuildConfig
 import net.wellvo.android.data.models.AppUser
 import net.wellvo.android.network.WellvoError
@@ -169,6 +172,54 @@ class AuthService @Inject constructor(
             supabase.auth.refreshCurrentSession()
         } catch (e: Exception) {
             throw mapAuthError(e)
+        }
+    }
+
+    suspend fun exportUserData(): String {
+        val userId = currentUserId() ?: throw WellvoError.Auth("Not signed in.")
+        val result = supabase.postgrest.rpc(
+            "export_user_data",
+            buildJsonObject { put("p_user_id", JsonPrimitive(userId)) }
+        )
+        return result.data
+    }
+
+    suspend fun deleteAccount() {
+        val userId = currentUserId() ?: throw WellvoError.Auth("Not signed in.")
+        supabase.postgrest.rpc(
+            "delete_user_account",
+            buildJsonObject { put("p_user_id", JsonPrimitive(userId)) }
+        )
+        signOut()
+    }
+
+    suspend fun isGoogleLinked(): Boolean {
+        val user = supabase.auth.currentUserOrNull() ?: return false
+        return user.identities?.any { it.provider == "google" } == true
+    }
+
+    suspend fun updateDataRetention(familyId: String, days: Int) {
+        supabase.postgrest.from("families")
+            .update(buildJsonObject { put("data_retention_days", JsonPrimitive(days)) }) {
+                filter { eq("id", familyId) }
+            }
+    }
+
+    suspend fun getDataRetention(familyId: String): Int {
+        @kotlinx.serialization.Serializable
+        data class RetentionResult(
+            @kotlinx.serialization.SerialName("data_retention_days")
+            val dataRetentionDays: Int
+        )
+        return try {
+            supabase.postgrest.from("families")
+                .select(Columns.list("data_retention_days")) {
+                    filter { eq("id", familyId) }
+                }
+                .decodeSingle<RetentionResult>()
+                .dataRetentionDays
+        } catch (_: Exception) {
+            365
         }
     }
 

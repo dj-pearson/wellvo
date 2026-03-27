@@ -1,4 +1,6 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
+import { sendPushNotification } from "../../shared/apns.ts";
+import { sendFCMNotification, buildFCMAlertPayload } from "../../shared/fcm.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 
 function haversineDistance(
@@ -206,20 +208,16 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
 
       // Send urgent push to owner
       if (family?.owner_id) {
-        const { sendPushNotification } = await import("../../shared/apns.ts");
         const { data: ownerTokens } = await supabaseAdmin
           .from("push_tokens")
-          .select("token")
+          .select("token, platform")
           .eq("user_id", family.owner_id)
           .eq("is_active", true);
 
         if (ownerTokens?.length) {
           const urgentPayload = {
             aps: {
-              alert: {
-                title: alertTitle,
-                body: alertMessage,
-              },
+              alert: { title: alertTitle, body: alertMessage },
               sound: "urgent.caf",
               category: "URGENT_ALERT",
               "interruption-level": "critical" as const,
@@ -230,11 +228,35 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
             type: effectiveType,
           };
 
-          await Promise.all(
-            ownerTokens.map((t: { token: string }) =>
-              sendPushNotification(t.token, urgentPayload, { priority: 10 })
-            )
+          const fcmData: Record<string, string> = {
+            checkin_id: String(checkIn.id),
+            receiver_id: receiverId!,
+            type: effectiveType,
+            notification_type: "urgent_alert",
+          };
+
+          const results = await Promise.all(
+            ownerTokens.map((t: { token: string; platform: string }) => {
+              if (t.platform === "android") {
+                return sendFCMNotification(t.token, buildFCMAlertPayload(alertTitle, alertMessage, fcmData));
+              }
+              return sendPushNotification(t.token, urgentPayload, { priority: 10 });
+            })
           );
+
+          for (let i = 0; i < results.length; i++) {
+            const isInvalid =
+              results[i].statusCode === 410 ||
+              results[i].reason === "NOT_FOUND" ||
+              results[i].reason === "UNREGISTERED";
+            if (isInvalid) {
+              await supabaseAdmin
+                .from("push_tokens")
+                .update({ is_active: false })
+                .eq("token", ownerTokens[i].token);
+              console.log(`Deactivated invalid ${ownerTokens[i].platform} token for user ${family.owner_id}`);
+            }
+          }
         }
       }
     } else if (isKidInfoResponse) {
@@ -262,20 +284,16 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
 
       // Send non-urgent push to owner
       if (family?.owner_id) {
-        const { sendPushNotification } = await import("../../shared/apns.ts");
         const { data: ownerTokens } = await supabaseAdmin
           .from("push_tokens")
-          .select("token")
+          .select("token, platform")
           .eq("user_id", family.owner_id)
           .eq("is_active", true);
 
         if (ownerTokens?.length) {
           const infoPayload = {
             aps: {
-              alert: {
-                title: kidLabel,
-                body: kidMessage,
-              },
+              alert: { title: kidLabel, body: kidMessage },
               sound: "default",
               category: "KID_RESPONSE",
               "thread-id": `kid-${familyId}`,
@@ -286,11 +304,35 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
             type: body.kid_response_type,
           };
 
-          await Promise.all(
-            ownerTokens.map((t: { token: string }) =>
-              sendPushNotification(t.token, infoPayload, { priority: 5 })
-            )
+          const fcmData: Record<string, string> = {
+            checkin_id: String(checkIn.id),
+            receiver_id: receiverId!,
+            type: body.kid_response_type || "",
+            notification_type: "kid_response",
+          };
+
+          const results = await Promise.all(
+            ownerTokens.map((t: { token: string; platform: string }) => {
+              if (t.platform === "android") {
+                return sendFCMNotification(t.token, buildFCMAlertPayload(kidLabel, kidMessage, fcmData));
+              }
+              return sendPushNotification(t.token, infoPayload, { priority: 5 });
+            })
           );
+
+          for (let i = 0; i < results.length; i++) {
+            const isInvalid =
+              results[i].statusCode === 410 ||
+              results[i].reason === "NOT_FOUND" ||
+              results[i].reason === "UNREGISTERED";
+            if (isInvalid) {
+              await supabaseAdmin
+                .from("push_tokens")
+                .update({ is_active: false })
+                .eq("token", ownerTokens[i].token);
+              console.log(`Deactivated invalid ${ownerTokens[i].platform} token for user ${family.owner_id}`);
+            }
+          }
         }
       }
     }

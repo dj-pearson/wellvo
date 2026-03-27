@@ -11,8 +11,8 @@ val MoodHungry = Color(0xFFEF4444)
 val MoodScared = Color(0xFF3B82F6)
 val MoodHavingFun = Color(0xFFEC4899)
 
-val KidResponsePickUp = Color(0xFF3B82F6)
-val KidResponseStayLonger = Color(0xFF22C55E)
+val KidResponsePickUp = Color(0xFFF97316)
+val KidResponseStayLonger = Color(0xFF3B82F6)
 val KidResponseSos = Color(0xFFEF4444)
 
 fun Mood.emoji(): String = when (this) {

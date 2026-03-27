@@ -1,6 +1,11 @@
 package net.wellvo.android.ui.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -22,17 +27,45 @@ fun WellvoNavHost(
     isOnboarding: Boolean,
     pendingInviteToken: String?,
     showPairingCode: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    notificationContext: NotificationContext? = null,
+    onNotificationHandled: () -> Unit = {}
 ) {
+    val transitionDuration = 300
+
     NavHost(
         navController = navController,
         startDestination = Route.Splash.route,
-        modifier = modifier
+        modifier = modifier,
+        enterTransition = {
+            fadeIn(animationSpec = tween(transitionDuration)) +
+                slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(transitionDuration))
+        },
+        exitTransition = {
+            fadeOut(animationSpec = tween(transitionDuration)) +
+                slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(transitionDuration))
+        },
+        popEnterTransition = {
+            fadeIn(animationSpec = tween(transitionDuration)) +
+                slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(transitionDuration))
+        },
+        popExitTransition = {
+            fadeOut(animationSpec = tween(transitionDuration)) +
+                slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(transitionDuration))
+        }
     ) {
-        composable(Route.Splash.route) {
+        composable(
+            Route.Splash.route,
+            enterTransition = { fadeIn(tween(transitionDuration)) },
+            exitTransition = { fadeOut(tween(transitionDuration)) }
+        ) {
             SplashScreen()
         }
-        composable(Route.Auth.route) {
+        composable(
+            Route.Auth.route,
+            enterTransition = { fadeIn(tween(transitionDuration)) },
+            exitTransition = { fadeOut(tween(transitionDuration)) }
+        ) {
             AuthScreen()
         }
         composable(Route.Onboarding.route) {
@@ -53,7 +86,8 @@ fun WellvoNavHost(
             ReceiverHomeScreen()
         }
         composable(Route.ViewerTabs.route) {
-            ViewerTabsScreen()
+            val userId = (authState as? AuthState.Authenticated)?.user?.id ?: ""
+            ViewerTabsScreen(userId = userId)
         }
         composable(Route.PairingCode.route) {
             PairingCodeScreen(
@@ -99,5 +133,26 @@ fun WellvoNavHost(
             popUpTo(0) { inclusive = true }
             launchSingleTop = true
         }
+    }
+
+    // Handle notification deep routing after auth is resolved
+    LaunchedEffect(notificationContext, authState) {
+        if (notificationContext == null || authState !is AuthState.Authenticated) return@LaunchedEffect
+
+        val deepRoute = when (notificationContext.type) {
+            "CHECKIN_REQUEST" -> Route.ReceiverHome.route
+            "URGENT_ALERT" -> Route.OwnerTabs.route
+            "LOCATION_ALERT" -> Route.OwnerTabs.route
+            else -> null
+        }
+
+        if (deepRoute != null && navController.currentBackStackEntry?.destination?.route != deepRoute) {
+            navController.navigate(deepRoute) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+
+        onNotificationHandled()
     }
 }
