@@ -1,8 +1,10 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
+import { isValidTimezone } from "../../shared/validation.ts";
 
 interface RedeemRequest {
   code: string;
+  timezone?: string;
 }
 
 /**
@@ -29,6 +31,14 @@ export async function handleRedeemCode(
   if (!/^\d{6}$/.test(code)) {
     return new Response(
       JSON.stringify({ error: "Please enter a valid 6-digit code" }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  // Validate timezone if provided
+  if (body.timezone && !isValidTimezone(body.timezone)) {
+    return new Response(
+      JSON.stringify({ error: "Invalid timezone. Must be a valid IANA timezone" }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
@@ -111,7 +121,7 @@ export async function handleRedeemCode(
     await supabaseAdmin.from("receiver_settings").upsert({
       family_member_id: memberId,
       checkin_time: invite.checkin_time || "08:00",
-      timezone: "America/New_York",
+      timezone: body.timezone || "America/New_York",
     });
   }
 

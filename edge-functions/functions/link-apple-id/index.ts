@@ -81,10 +81,10 @@ export async function handleLinkAppleId(
       );
     }
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Token verification failed";
+    // Log detailed error server-side, return generic message to client
+    console.error("Apple token verification failed:", err instanceof Error ? err.message : err);
     return new Response(
-      JSON.stringify({ error: `Invalid Apple identity token: ${message}` }),
+      JSON.stringify({ error: "Invalid identity token" }),
       { status: 401, headers }
     );
   }

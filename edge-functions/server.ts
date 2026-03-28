@@ -5,11 +5,24 @@
  * Runs as a Docker container alongside self-hosted Supabase on Coolify.
  */
 
-const PORT = parseInt(Deno.env.get("PORT") || "9000");
+// =============================================================================
+// Environment variable validation — fail fast on misconfiguration
+// =============================================================================
+const REQUIRED_ENV_VARS = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "JWT_SECRET"] as const;
+
+for (const varName of REQUIRED_ENV_VARS) {
+  const value = Deno.env.get(varName);
+  if (!value || value.trim() === "") {
+    console.error(`FATAL: Required environment variable ${varName} is missing or empty. Server cannot start.`);
+    Deno.exit(1);
+  }
+}
+
+const PORT = parseInt(Deno.env.get("PORT") || "9000"); // Optional, defaults to 9000
 
 // Import auth
 import { verifyRequest, type AuthResult } from "./shared/auth.ts";
-import { checkRateLimit } from "./shared/rate-limiter.ts";
+import { checkRateLimit, checkServiceRoleRateLimit } from "./shared/rate-limiter.ts";
 import { logInfo, logError, withRequestLogging } from "./shared/logger.ts";
 
 // Import function handlers
@@ -114,8 +127,20 @@ async function handler(req: Request): Promise<Response> {
     });
   }
 
-  // Rate limiting (service-role requests from pg_cron bypass rate limits)
-  if (!auth.isServiceRole && auth.userId) {
+  // Rate limiting
+  if (auth.isServiceRole) {
+    // Service role has separate, higher rate limits
+    const rateLimitResult = checkServiceRoleRateLimit(path);
+    if (!rateLimitResult.allowed) {
+      return new Response(JSON.stringify({ error: "Too many requests" }), {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": String(rateLimitResult.retryAfterSeconds),
+        },
+      });
+    }
+  } else if (auth.userId) {
     const rateLimitResult = checkRateLimit(auth.userId, path);
     if (!rateLimitResult.allowed) {
       return new Response(JSON.stringify({ error: "Too many requests" }), {

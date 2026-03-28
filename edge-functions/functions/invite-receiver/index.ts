@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendSMS } from "../../shared/sms.ts";
 import type { AuthResult } from "../../shared/auth.ts";
-import { isValidUUID, isValidTime24H, truncateString, sanitizeDisplayName } from "../../shared/validation.ts";
+import { isValidUUID, isValidTime24H, isValidTimezone, truncateString, sanitizeDisplayName } from "../../shared/validation.ts";
 
 interface InviteRequest {
   action?: "create" | "accept";
@@ -10,6 +10,7 @@ interface InviteRequest {
   name?: string;
   phone?: string;
   checkin_time?: string;
+  timezone?: string;
   // Accept invite
   token?: string;
 }
@@ -55,6 +56,15 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   if (checkin_time && !isValidTime24H(checkin_time)) {
     return new Response(
       JSON.stringify({ error: "Invalid checkin_time format. Use HH:MM (24-hour)" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Validate timezone if provided
+  const timezone = body.timezone;
+  if (timezone && !isValidTimezone(timezone)) {
+    return new Response(
+      JSON.stringify({ error: "Invalid timezone. Must be a valid IANA timezone" }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -259,7 +269,7 @@ async function acceptInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
     await supabaseAdmin.from("receiver_settings").upsert({
       family_member_id: memberId,
       checkin_time: invite.checkin_time || "08:00",
-      timezone: "America/New_York", // Updated by the app after joining
+      timezone: body.timezone || "America/New_York",
     });
   }
 
