@@ -1,9 +1,26 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
+import { isValidTimezone } from "../../shared/validation.ts";
 
 interface RedeemRequest {
   code: string;
+  timezone?: string;
 }
+
+// Brute-force protection: track failed attempts per user
+const failedAttempts = new Map<string, { count: number; lockedUntil: number }>();
+const MAX_FAILED_ATTEMPTS = 10;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
+// Clean up expired lockouts every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of failedAttempts) {
+    if (entry.lockedUntil < now) {
+      failedAttempts.delete(key);
+    }
+  }
+}, 600_000);
 
 /**
  * Redeem a 6-digit pairing code to join a family.
@@ -23,12 +40,34 @@ export async function handleRedeemCode(
     );
   }
 
+  // Check lockout status
+  const attempts = failedAttempts.get(auth.userId);
+  if (attempts && attempts.count >= MAX_FAILED_ATTEMPTS && Date.now() < attempts.lockedUntil) {
+    const retryAfterSeconds = Math.ceil((attempts.lockedUntil - Date.now()) / 1000);
+    return new Response(
+      JSON.stringify({
+        error: "Too many failed attempts. Please try again later.",
+        locked: true,
+        retryAfterSeconds,
+      }),
+      { status: 429, headers: { "Content-Type": "application/json", "Retry-After": String(retryAfterSeconds) } },
+    );
+  }
+
   const body: RedeemRequest = await req.json();
   const code = (body.code || "").trim();
 
   if (!/^\d{6}$/.test(code)) {
     return new Response(
       JSON.stringify({ error: "Please enter a valid 6-digit code" }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  // Validate timezone if provided
+  if (body.timezone && !isValidTimezone(body.timezone)) {
+    return new Response(
+      JSON.stringify({ error: "Invalid timezone. Must be a valid IANA timezone" }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
@@ -43,11 +82,26 @@ export async function handleRedeemCode(
     .single();
 
   if (inviteError || !invite) {
+    // Track failed attempt for brute-force protection
+    const current = failedAttempts.get(auth.userId!) || { count: 0, lockedUntil: 0 };
+    current.count++;
+    if (current.count >= MAX_FAILED_ATTEMPTS) {
+      current.lockedUntil = Date.now() + LOCKOUT_DURATION_MS;
+    }
+    failedAttempts.set(auth.userId!, current);
+
+    const remaining = MAX_FAILED_ATTEMPTS - current.count;
     return new Response(
-      JSON.stringify({ error: "Invalid or expired code. Please check and try again." }),
+      JSON.stringify({
+        error: "Invalid or expired code. Please check and try again.",
+        attemptsRemaining: Math.max(0, remaining),
+      }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
+
+  // Reset failed attempts on successful code lookup
+  failedAttempts.delete(auth.userId!);
 
   // Check if user is already a member of this family
   const { data: existingMember } = await supabaseAdmin
@@ -111,7 +165,7 @@ export async function handleRedeemCode(
     await supabaseAdmin.from("receiver_settings").upsert({
       family_member_id: memberId,
       checkin_time: invite.checkin_time || "08:00",
-      timezone: "America/New_York",
+      timezone: body.timezone || "America/New_York",
     });
   }
 

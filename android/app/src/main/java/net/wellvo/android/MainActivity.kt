@@ -64,12 +64,28 @@ class MainActivity : ComponentActivity() {
         handleDeepLinkIntent(intent)
     }
 
+    private val knownNotificationTypes = setOf(
+        "CHECKIN_REQUEST", "URGENT_ALERT", "LOCATION_ALERT", "CHECKIN_REMINDER"
+    )
+
+    private val uuidPattern = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+    private val hexTokenPattern = Regex("^[0-9a-fA-F]+$")
+
     private fun handleNotificationIntent(intent: Intent?) {
         val type = intent?.getStringExtra("notification_type") ?: return
+        // Validate notification_type against known values
+        if (type !in knownNotificationTypes) {
+            intent.removeExtra("notification_type")
+            return
+        }
+        // Validate request_id and receiver_id as UUID format
+        val requestId = intent.getStringExtra("request_id")?.takeIf { uuidPattern.matches(it) }
+        val receiverId = intent.getStringExtra("receiver_id")?.takeIf { uuidPattern.matches(it) }
+
         notificationContext = NotificationContext(
             type = type,
-            requestId = intent.getStringExtra("request_id"),
-            receiverId = intent.getStringExtra("receiver_id")
+            requestId = requestId,
+            receiverId = receiverId
         )
         intent.removeExtra("notification_type")
         intent.removeExtra("request_id")
@@ -82,7 +98,7 @@ class MainActivity : ComponentActivity() {
         // Handle https://wellvo.net/invite?token=<token>
         if (data.host == "wellvo.net" && data.path?.startsWith("/invite") == true) {
             val token = data.getQueryParameter("token")
-            if (token != null) {
+            if (token != null && isValidInviteToken(token)) {
                 pendingInviteToken = token
                 intent?.data = null
             }
@@ -91,11 +107,15 @@ class MainActivity : ComponentActivity() {
         // Handle wellvo://invite?token=<token>
         if (data.scheme == "wellvo" && data.host == "invite") {
             val token = data.getQueryParameter("token")
-            if (token != null) {
+            if (token != null && isValidInviteToken(token)) {
                 pendingInviteToken = token
                 intent?.data = null
             }
         }
+    }
+
+    private fun isValidInviteToken(token: String): Boolean {
+        return token.length <= 500 && hexTokenPattern.matches(token)
     }
 }
 

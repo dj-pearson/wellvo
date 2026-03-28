@@ -159,7 +159,7 @@ async function tryMatchPhone(
     await supabaseAdmin.from("receiver_settings").upsert({
       family_member_id: memberId,
       checkin_time: invite.checkin_time || "08:00",
-      timezone: "America/New_York",
+      timezone: "America/New_York", // Default; updated by the app after joining
     });
   }
 

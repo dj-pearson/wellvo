@@ -28,15 +28,17 @@ final class AuthViewModel: ObservableObject {
     @Published var isAwaitingOTP = false
 
     /// The raw nonce generated for the current Apple Sign-In attempt.
-    /// Backed by UserDefaults so it survives view recreation and SwiftUI lifecycle events.
+    /// Stored in Keychain so it survives view recreation and SwiftUI lifecycle events.
     private var currentRawNonce: String? {
-        get { UserDefaults.standard.string(forKey: "apple_signin_nonce") }
+        get { KeychainService.load(key: "apple_signin_nonce") }
         set {
             if let newValue {
-                UserDefaults.standard.set(newValue, forKey: "apple_signin_nonce")
+                _ = KeychainService.save(key: "apple_signin_nonce", value: newValue)
             } else {
-                UserDefaults.standard.removeObject(forKey: "apple_signin_nonce")
+                KeychainService.delete(key: "apple_signin_nonce")
             }
+            // Migrate: remove old UserDefaults storage
+            UserDefaults.standard.removeObject(forKey: "apple_signin_nonce")
         }
     }
 

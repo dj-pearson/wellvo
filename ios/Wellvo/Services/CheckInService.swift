@@ -30,13 +30,17 @@ actor CheckInService {
 
         if let mood = mood { body["mood"] = mood.rawValue }
         if let loc = location {
-            body["latitude"] = String(loc.latitude)
-            body["longitude"] = String(loc.longitude)
-            if let accuracy = loc.accuracy {
-                body["location_accuracy_meters"] = String(accuracy)
+            // Validate location bounds before sending
+            if loc.latitude >= -90 && loc.latitude <= 90 &&
+               loc.longitude >= -180 && loc.longitude <= 180 {
+                body["latitude"] = String(loc.latitude)
+                body["longitude"] = String(loc.longitude)
+                if let accuracy = loc.accuracy, accuracy >= 0, accuracy <= 100000 {
+                    body["location_accuracy_meters"] = String(accuracy)
+                }
             }
         }
-        if let battery = batteryLevel {
+        if let battery = batteryLevel, battery >= 0, battery <= 1 {
             body["battery_level"] = String(battery)
         }
         if let locationLabel {

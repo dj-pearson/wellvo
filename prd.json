@@ -1256,8 +1256,8 @@
         "Optional variables (ALLOWED_ORIGIN, PORT) have documented defaults"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": "auth.ts lines 8-10 use fallback values that mask missing config. server.ts line 8 defaults PORT."
+      "passes": true,
+      "notes": "DONE. server.ts validates SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET at startup with Deno.exit(1) on failure. auth.ts and supabase.ts use non-null assertions. PORT defaults to 9000, ALLOWED_ORIGIN defaults to https://wellvo.net."
     },
     {
       "id": "US-SEC005",
@@ -1270,8 +1270,8 @@
         "Migration added as new numbered migration file"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": "CRITICAL: 00004 migration SECURITY DEFINER functions accept any UUID without authorization check."
+      "passes": true,
+      "notes": "DONE. 00018_security_hardening.sql adds auth.uid() IS NOT NULL and auth.uid() = p_owner_id checks to both increment_max_receivers and increment_max_viewers."
     },
     {
       "id": "US-SEC006",
@@ -1285,8 +1285,8 @@
         "Migration added as new numbered migration file"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": "00001 migration lines 75-87 have no CHECK constraints on numeric fields."
+      "passes": true,
+      "notes": "DONE. 00018_security_hardening.sql adds CHECK constraints: grace_period_minutes > 0, reminder_interval_minutes > 0."
     },
     {
       "id": "US-SEC007",
@@ -1300,8 +1300,8 @@
         "Migration from old storage to new storage handled gracefully"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": "CRITICAL iOS: SupabaseService.swift lines 31-41, AuthViewModel.swift lines 31-41, PushNotificationService.swift lines 33/56."
+      "passes": true,
+      "notes": "DONE. SupabaseService.syncAccessTokenToExtension now saves to Keychain instead of UserDefaults (with migration). AuthViewModel.currentRawNonce now uses KeychainService (with migration). PushNotificationService.registerToken now uses KeychainService for lastPushToken (with migration from UserDefaults)."
     },
     {
       "id": "US-SEC008",
@@ -1316,8 +1316,8 @@
         "Both platforms: Invalid tokens silently rejected (no error shown to user)"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": "iOS WellvoApp.swift lines 41-52, Android MainActivity.kt lines 79-98."
+      "passes": true,
+      "notes": "DONE. iOS: WellvoApp.swift verifies URL scheme (wellvo/https), validates token as hex string with max 500 chars. Android: MainActivity validates deep link token format and length. Both silently reject invalid tokens."
     },
     {
       "id": "US-SEC009",
@@ -1331,8 +1331,8 @@
         "AndroidManifest references network security config"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": "CRITICAL Android: AndroidManifest.xml line 17 has allowBackup=true. No network_security_config.xml exists."
+      "passes": true,
+      "notes": "DONE. allowBackup=false in AndroidManifest.xml. network_security_config.xml created with cleartextTrafficPermitted=false, system CAs for production, user CAs for debug."
     },
     {
       "id": "US-SEC010",
@@ -1347,8 +1347,8 @@
         "After 10 failed attempts, lock out for 15 minutes"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": "6-digit code = 1M combinations. PairingCodeEntryView.swift lines 70-78 has no rate limiting."
+      "passes": true,
+      "notes": "DONE. Server: redeem-code has 5 req/min rate limit + in-memory brute-force tracker (10 failed attempts = 15-min lockout). iOS: PairingCodeEntryView has exponential backoff, failed attempt counter, 10-attempt lockout. Android: PairingCodeViewModel has same client-side protections."
     },
     {
       "id": "US-SEC011",
@@ -1362,8 +1362,8 @@
         "All platforms: User IDs and request IDs not included in user-facing error messages"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": "link-apple-id/index.ts lines 84-89 exposes token verification reason. iOS WellvoError.swift exposes network error details."
+      "passes": true,
+      "notes": "DONE. link-apple-id returns generic 'Invalid identity token' to client, logs detailed error server-side. server.ts catch returns generic 'Internal server error'. No other edge functions expose internal details."
     },
     {
       "id": "US-SEC012",
@@ -1376,8 +1376,8 @@
         "Migration added as new numbered migration file"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": "00005 and 00010 migrations use != comparison which fails silently if auth.uid() returns NULL."
+      "passes": true,
+      "notes": "DONE. 00018_security_hardening.sql rewrites export_user_data and delete_user_account with explicit auth.uid() IS NULL check raising 'Not authenticated'."
     },
     {
       "id": "US-SEC013",
@@ -1391,8 +1391,8 @@
         "Both platforms: Error messages in logs do not contain PII"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": "iOS AppDelegate.swift, LocationService.swift. Android WellvoFirebaseMessagingService.kt, CheckInNotificationReceiver.kt."
+      "passes": true,
+      "notes": "DONE. iOS: AppDelegate print statements sanitized — removed error.localizedDescription, receiverId, and other PII. Android: WellvoFirebaseMessagingService message data logging gated behind BuildConfig.DEBUG. CheckInNotificationReceiver: requestId removed from logs, receiverId removed from dialer logs."
     },
     {
       "id": "US-SEC014",
@@ -1406,8 +1406,8 @@
         "Migration added as new numbered migration file"
       ],
       "priority": 14,
-      "passes": false,
-      "notes": "00006 migration lines 122-150 has RLS enabled but only SELECT policies."
+      "passes": true,
+      "notes": "DONE. 00018_security_hardening.sql adds DELETE policy 'Owners can delete family alerts' on alerts table. UPDATE policy already existed in 00006. Receivers/viewers cannot modify or delete."
     },
     {
       "id": "US-SEC015",
@@ -1420,8 +1420,8 @@
         "Analytics beacon can send data without console errors"
       ],
       "priority": 15,
-      "passes": false,
-      "notes": "website/public/_headers CSP blocks Cloudflare analytics beacon connections."
+      "passes": true,
+      "notes": "DONE. _headers CSP updated: script-src includes https://static.cloudflareinsights.com, connect-src includes https://cloudflareinsights.com. No other directives loosened."
     },
     {
       "id": "US-SEC016",
@@ -1449,8 +1449,8 @@
         "Error messages guide user to create stronger password"
       ],
       "priority": 17,
-      "passes": false,
-      "notes": "iOS AuthService.swift lines 305-315 requires only 8 chars. No max length. No common password check."
+      "passes": true,
+      "notes": "DONE. iOS: AuthService.validatePassword now requires 10+ chars, max 128, checks against top 30 common passwords, updated error messages. Android: AuthService.validatePassword added with same rules (10+ chars, max 128, common password check), called before signUpWithEmail."
     },
     {
       "id": "US-SEC018",
@@ -1478,8 +1478,8 @@
         "Database CHECK constraint validates timezone column against pg_timezone_names"
       ],
       "priority": 19,
-      "passes": false,
-      "notes": "invite-receiver/index.ts line 95, redeem-code, auto-join all hardcode timezone without validation."
+      "passes": true,
+      "notes": "DONE. Added isValidTimezone() to shared/validation.ts using Intl.supportedValuesOf('timeZone'). invite-receiver and redeem-code accept optional timezone param, validate against IANA DB, default to America/New_York. auto-join uses default with comment."
     },
     {
       "id": "US-SEC020",
@@ -1492,8 +1492,8 @@
         "Legitimate pg_cron calls not affected under normal operation"
       ],
       "priority": 20,
-      "passes": false,
-      "notes": "server.ts lines 104-116 bypass rate limiting entirely for service role."
+      "passes": true,
+      "notes": "DONE. Added checkServiceRoleRateLimit() with global 200 req/min limit and per-endpoint limits. server.ts now rate limits service role requests separately. Returns 429 with Retry-After header."
     },
     {
       "id": "US-SEC021",
@@ -1508,8 +1508,8 @@
         "Maximum phone number length enforced (20 chars)"
       ],
       "priority": 21,
-      "passes": false,
-      "notes": "sms.ts lines 76-85 only accepts US numbers. Limits international adoption."
+      "passes": true,
+      "notes": "DONE. sms.ts normalizePhone now validates E.164 format (+[1-9][0-9]{1,14}), handles US numbers without country code, enforces max 20 chars. invite-receiver updated from isValidUSPhone to isValidPhone supporting E.164 international + US formats."
     },
     {
       "id": "US-SEC022",
@@ -1522,8 +1522,8 @@
         "Log messages do not include raw intent extra values in production"
       ],
       "priority": 22,
-      "passes": false,
-      "notes": "MainActivity.kt lines 68-77 extracts intent extras without validation."
+      "passes": true,
+      "notes": "DONE. MainActivity.handleNotificationIntent validates notification_type against known enum set, validates request_id and receiver_id as UUID format via regex. Invalid extras silently ignored. Log messages no longer include raw intent extra values."
     },
     {
       "id": "US-SEC023",
@@ -1536,8 +1536,8 @@
         "Migration added as new numbered migration file"
       ],
       "priority": 23,
-      "passes": false,
-      "notes": "00002 migration lines 149-161 has no DELETE policy for checkin_requests."
+      "passes": true,
+      "notes": "DONE. 00018_security_hardening.sql adds DELETE policy 'Owners can delete family requests' on checkin_requests using is_family_owner(). Receivers cannot delete (audit preservation)."
     },
     {
       "id": "US-SEC024",
@@ -1551,8 +1551,8 @@
         "Invalid values silently excluded from request body"
       ],
       "priority": 24,
-      "passes": false,
-      "notes": "CheckInService.swift lines 32-37 sends location without bounds checking."
+      "passes": true,
+      "notes": "DONE. CheckInService.checkIn validates lat/lng (-90/90, -180/180), accuracy (0-100km), battery (0-1) before including in request body. LocationService.reportLocation validates same bounds. Background location delegate validates before sending. Invalid values silently excluded."
     },
     {
       "id": "US-SEC025",
@@ -1565,8 +1565,8 @@
         "Error message shown if name exceeds limit"
       ],
       "priority": 25,
-      "passes": false,
-      "notes": "iOS OnboardingViewModel.swift lines 42-59 has no max length check."
+      "passes": true,
+      "notes": "DONE. iOS: OnboardingViewModel.createFamily trims and validates familyName <= 100 chars with error message. Android: OnboardingViewModel.updateFamilyName enforces 100-char limit on input, createFamily validates before submission. Edge functions already validate name fields via shared validation.ts."
     }
   ]
 }

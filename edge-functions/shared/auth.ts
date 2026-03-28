@@ -5,9 +5,10 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "http://supabase-kong:8000";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const JWT_SECRET = Deno.env.get("JWT_SECRET") || "";
+// These are validated at server startup (server.ts) — safe to assert non-null
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const _JWT_SECRET = Deno.env.get("JWT_SECRET")!;
 
 export interface AuthResult {
   authenticated: boolean;

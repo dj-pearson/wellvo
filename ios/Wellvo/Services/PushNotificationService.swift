@@ -30,7 +30,12 @@ actor PushNotificationService {
         }
 
         // Check if token has changed before sending to server
-        let storedToken = UserDefaults.standard.string(forKey: "lastPushToken")
+        // Migrate: check old UserDefaults first, then Keychain
+        if let oldToken = UserDefaults.standard.string(forKey: "lastPushToken") {
+            _ = KeychainService.save(key: "lastPushToken", value: oldToken)
+            UserDefaults.standard.removeObject(forKey: "lastPushToken")
+        }
+        let storedToken = KeychainService.load(key: "lastPushToken")
         guard token != storedToken else { return }
 
         do {
@@ -53,7 +58,7 @@ actor PushNotificationService {
                 ])
                 .execute()
 
-            UserDefaults.standard.set(token, forKey: "lastPushToken")
+            _ = KeychainService.save(key: "lastPushToken", value: token)
         } catch {
             throw WellvoError.network(error)
         }

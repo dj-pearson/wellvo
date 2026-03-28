@@ -615,3 +615,103 @@ Patterns: Shared validation.ts module with reusable validators: isValidUUID (RFC
 Implemented: Display name sanitization in all notification payloads
 Files changed: edge-functions/shared/validation.ts (sanitizeDisplayName function), edge-functions/functions/process-checkin-response/index.ts, edge-functions/functions/escalation-tick/index.ts, edge-functions/functions/invite-receiver/index.ts
 Patterns: sanitizeDisplayName() strips HTML tags via regex, removes Unicode control characters (preserving printable + newline), replaces newlines with spaces, trims, and truncates to 100 chars. Applied in: process-checkin-response (urgent alert + kid response notification bodies), escalation-tick (geofence alert, low battery alert, missed check-in owner alert, viewer alert, and SMS bodies for both owner and viewer escalation), invite-receiver (SMS message body).
+
+--- Iteration SEC-4: US-SEC004 (2026-03-28) ---
+Implemented: Environment variable validation at edge functions startup
+Files changed: edge-functions/server.ts, edge-functions/shared/auth.ts, edge-functions/shared/supabase.ts
+Patterns: server.ts validates SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET are non-empty at startup, exits with Deno.exit(1) and clear error message on failure. auth.ts and supabase.ts changed from fallback defaults to non-null assertions (safe since server.ts validates first). PORT defaults to 9000, ALLOWED_ORIGIN defaults to https://wellvo.net (both optional with documented defaults).
+
+--- Iteration SEC-5: US-SEC005 (2026-03-28) ---
+Implemented: Authorization check for increment_max_receivers/viewers RPC functions
+Files changed: supabase/migrations/00018_security_hardening.sql
+Patterns: Both functions now check auth.uid() IS NOT NULL (raises 'Not authenticated') and auth.uid() = p_owner_id (raises 'Unauthorized: caller is not the family owner') before executing the UPDATE.
+
+--- Iteration SEC-6: US-SEC006 (2026-03-28) ---
+Implemented: CHECK constraints on receiver_settings numeric fields
+Files changed: supabase/migrations/00018_security_hardening.sql
+Patterns: Added chk_grace_period_positive (grace_period_minutes > 0) and chk_reminder_interval_positive (reminder_interval_minutes > 0) constraints.
+
+--- Iteration SEC-9: US-SEC009 (2026-03-28) ---
+Implemented: Disabled Android backup and added network security config
+Files changed: android/app/src/main/AndroidManifest.xml, android/app/src/main/res/xml/network_security_config.xml (new)
+Patterns: allowBackup=false in manifest. network_security_config.xml: cleartextTrafficPermitted=false, system CAs trusted in production, debug-overrides allow user CAs. Manifest references networkSecurityConfig.
+
+--- Iteration SEC-11: US-SEC011 (2026-03-28) ---
+Implemented: Sanitized error messages to prevent information disclosure
+Files changed: edge-functions/functions/link-apple-id/index.ts
+Patterns: Apple token verification error now returns generic "Invalid identity token" to client. Detailed error logged server-side via console.error. server.ts catch already returns generic "Internal server error".
+
+--- Iteration SEC-12: US-SEC012 (2026-03-28) ---
+Implemented: Null authentication checks in GDPR RPC functions
+Files changed: supabase/migrations/00018_security_hardening.sql
+Patterns: export_user_data and delete_user_account now check auth.uid() IS NULL before the != comparison, raising 'Not authenticated'. Prevents silent bypass when auth.uid() returns NULL (NULL != UUID evaluates to NULL, not TRUE).
+
+--- Iteration SEC-14: US-SEC014 (2026-03-28) ---
+Implemented: DELETE RLS policy for alerts table
+Files changed: supabase/migrations/00018_security_hardening.sql
+Patterns: Added "Owners can delete family alerts" DELETE policy using family_id IN (SELECT id FROM families WHERE owner_id = auth.uid()). UPDATE policy already existed in 00006. Receivers and viewers cannot modify or delete alerts.
+
+--- Iteration SEC-15: US-SEC015 (2026-03-28) ---
+Implemented: CSP connect-src for Cloudflare analytics
+Files changed: website/public/_headers
+Patterns: script-src extended with https://static.cloudflareinsights.com. connect-src extended with https://cloudflareinsights.com. No other CSP directives loosened. Website build verified clean.
+
+--- Iteration SEC-19: US-SEC019 (2026-03-28) ---
+Implemented: Timezone validation in edge functions
+Files changed: edge-functions/shared/validation.ts, edge-functions/functions/invite-receiver/index.ts, edge-functions/functions/redeem-code/index.ts, edge-functions/functions/auto-join/index.ts
+Patterns: Added isValidTimezone() using Intl.supportedValuesOf('timeZone') with lazy-init cache. invite-receiver and redeem-code accept optional timezone param in request body, validated before use, defaulting to America/New_York. auto-join retains default (no request body for timezone in auto-match flow). Returns 400 for invalid timezone.
+
+--- Iteration SEC-20: US-SEC020 (2026-03-28) ---
+Implemented: Service role rate limiting
+Files changed: edge-functions/shared/rate-limiter.ts, edge-functions/server.ts
+Patterns: Added checkServiceRoleRateLimit() with global 200 req/min limit and per-endpoint limits (4x user limits for configured endpoints, 2x default for others). server.ts now applies rate limiting to service role requests instead of bypassing. Returns 429 with Retry-After header. Normal pg_cron operation unaffected under standard load.
+
+--- Iteration SEC-23: US-SEC023 (2026-03-28) ---
+Implemented: DELETE RLS policy for checkin_requests
+Files changed: supabase/migrations/00018_security_hardening.sql
+Patterns: Added "Owners can delete family requests" DELETE policy using is_family_owner(family_id). Receivers cannot delete their own requests (audit trail preservation). Service role can still delete via admin operations.
+
+--- Iteration SEC-7: US-SEC007 (2026-03-28) ---
+Implemented: Move iOS sensitive data from UserDefaults to Keychain
+Files changed: ios/Wellvo/Services/SupabaseService.swift, ios/Wellvo/ViewModels/AuthViewModel.swift, ios/Wellvo/Services/PushNotificationService.swift
+Patterns: SupabaseService.syncAccessTokenToExtension saves access token to Keychain via KeychainService.save() instead of UserDefaults(suiteName:). AuthViewModel.currentRawNonce uses KeychainService for get/set/delete instead of UserDefaults.standard. PushNotificationService.registerToken stores lastPushToken in Keychain. All three include migration: check old UserDefaults, migrate to Keychain, remove old entry.
+
+--- Iteration SEC-8: US-SEC008 (2026-03-28) ---
+Implemented: Deep link token validation on iOS and Android
+Files changed: ios/Wellvo/App/WellvoApp.swift, android/app/src/main/java/net/wellvo/android/MainActivity.kt
+Patterns: iOS: handleDeepLink verifies URL scheme (wellvo/https), validates token as hex string via regex, enforces max 500 chars, silently rejects invalid. Android: handleDeepLinkIntent uses isValidInviteToken() checking hex pattern and 500-char max. handleNotificationIntent validates notification_type against known set, request_id/receiver_id against UUID regex.
+
+--- Iteration SEC-10: US-SEC010 (2026-03-28) ---
+Implemented: Rate limiting for pairing code submission
+Files changed: edge-functions/shared/rate-limiter.ts, edge-functions/functions/redeem-code/index.ts, ios/Wellvo/Views/Onboarding/PairingCodeEntryView.swift, android/app/src/main/java/net/wellvo/android/viewmodels/PairingCodeViewModel.kt
+Patterns: Server: /redeem-code endpoint has 5 req/min rate limit. In-memory brute-force tracker per userId: 10 failed attempts triggers 15-min lockout with 429 + retryAfterSeconds. Successful redemption resets counter. iOS: PairingCodeEntryView adds failedAttempts counter, exponential backoff delay (2^n seconds, max 16s), 10-attempt lockout for 15 min, shows remaining attempts. Android: PairingCodeViewModel adds same client-side protections with PairingCodeUiState.failedAttempts/isLockedOut.
+
+--- Iteration SEC-13: US-SEC013 (2026-03-28) ---
+Implemented: Remove sensitive data from iOS and Android debug logs
+Files changed: ios/Wellvo/App/AppDelegate.swift, android/app/src/main/java/net/wellvo/android/services/WellvoFirebaseMessagingService.kt, android/app/src/main/java/net/wellvo/android/services/CheckInNotificationReceiver.kt
+Patterns: iOS: All print() statements in AppDelegate sanitized — removed error.localizedDescription, receiverId, and other PII from log output. Android: WellvoFirebaseMessagingService message data logging gated behind BuildConfig.DEBUG. CheckInNotificationReceiver: requestId removed from "Processing check-in" log, receiverId removed from dialer/phone lookup logs.
+
+--- Iteration SEC-17: US-SEC017 (2026-03-28) ---
+Implemented: Strengthen password validation requirements
+Files changed: ios/Wellvo/Services/AuthService.swift, android/app/src/main/java/net/wellvo/android/services/AuthService.kt
+Patterns: iOS: Minimum raised from 8 to 10 chars. Max 128 chars added. Common password check against 30-entry set. Error messages updated to reflect new requirements. Android: validatePassword() added to AuthService with same rules (10+ chars, max 128, uppercase/lowercase/digit, common password check). Called before signUpWithEmail. Error messages guide user to create stronger password.
+
+--- Iteration SEC-21: US-SEC021 (2026-03-28) ---
+Implemented: E.164 international phone number validation
+Files changed: edge-functions/shared/sms.ts, edge-functions/functions/invite-receiver/index.ts
+Patterns: sms.ts normalizePhone expanded: validates E.164 (+[1-9][0-9]{1,14}), handles US 10/11-digit without country code, enforces max 20 chars. invite-receiver: isValidUSPhone replaced with isValidPhone accepting E.164 international format + US formats. Error message updated to mention E.164.
+
+--- Iteration SEC-22: US-SEC022 (2026-03-28) ---
+Implemented: Android intent extras validation (combined with SEC-008)
+Files changed: android/app/src/main/java/net/wellvo/android/MainActivity.kt
+Patterns: handleNotificationIntent validates notification_type against knownNotificationTypes set (CHECKIN_REQUEST, URGENT_ALERT, LOCATION_ALERT, CHECKIN_REMINDER). request_id and receiver_id validated as UUID via regex pattern. Invalid extras silently ignored. Debug log messages no longer include raw intent values.
+
+--- Iteration SEC-24: US-SEC024 (2026-03-28) ---
+Implemented: Bounds checking for iOS location and battery data
+Files changed: ios/Wellvo/Services/CheckInService.swift, ios/Wellvo/Services/LocationService.swift
+Patterns: CheckInService.checkIn: lat/lng validated (-90/90, -180/180) before including in body. Accuracy validated (0-100km). Battery validated (0-1). LocationService.reportLocation: same bounds checks with early return on invalid. Background delegate method: validates coordinates and accuracy before building request body. Invalid values silently excluded.
+
+--- Iteration SEC-25: US-SEC025 (2026-03-28) ---
+Implemented: Family name input length validation
+Files changed: ios/Wellvo/ViewModels/OnboardingViewModel.swift, android/app/src/main/java/net/wellvo/android/viewmodels/OnboardingViewModel.kt
+Patterns: iOS: createFamily trims whitespace and validates familyName <= 100 chars, shows error if exceeded. Android: updateFamilyName enforces 100-char max on input (truncates). createFamily validates trimmed name <= 100 chars with error message. Edge functions already validate name fields via shared validation.ts truncateString.

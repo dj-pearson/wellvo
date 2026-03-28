@@ -39,12 +39,20 @@ struct WellvoApp: App {
     }
 
     private func handleDeepLink(_ url: URL) {
+        // Verify URL scheme is one we expect
+        guard url.scheme == "wellvo" || url.scheme == "https" else { return }
+
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true),
               let host = components.host else { return }
 
         switch host {
-        case "invite":
+        case "invite", "wellvo.net":
             if let token = components.queryItems?.first(where: { $0.name == "token" })?.value {
+                // Validate token: must be hex string, bounded length
+                guard token.count <= 500,
+                      token.range(of: "^[0-9a-fA-F]+$", options: .regularExpression) != nil else {
+                    return // Silently reject invalid tokens
+                }
                 appState.pendingInviteToken = token
             }
         default:

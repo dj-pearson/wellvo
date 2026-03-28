@@ -62,6 +62,7 @@ class AuthService @Inject constructor(
     }
 
     suspend fun signUpWithEmail(email: String, password: String, displayName: String) {
+        validatePassword(password)
         try {
             supabase.auth.signUpWith(Email) {
                 this.email = email
@@ -223,7 +224,34 @@ class AuthService @Inject constructor(
         }
     }
 
+    private fun validatePassword(password: String) {
+        if (password.length < 10) {
+            throw WellvoError.Auth("Password must be at least 10 characters.")
+        }
+        if (password.length > 128) {
+            throw WellvoError.Auth("Password must be 128 characters or fewer.")
+        }
+        val hasUpper = password.any { it.isUpperCase() }
+        val hasLower = password.any { it.isLowerCase() }
+        val hasDigit = password.any { it.isDigit() }
+        if (!hasUpper || !hasLower || !hasDigit) {
+            throw WellvoError.Auth("Password must contain uppercase, lowercase, and a number. Avoid common passwords.")
+        }
+        if (password.lowercase() in commonPasswords) {
+            throw WellvoError.Auth("This password is too common. Please choose a stronger password.")
+        }
+    }
+
     companion object {
+        private val commonPasswords = setOf(
+            "password", "123456789", "1234567890", "qwerty1234", "iloveyou1",
+            "password1", "password12", "password123", "letmein123", "welcome123",
+            "monkey1234", "dragon1234", "master1234", "qwertyuiop", "1234567891",
+            "trustno1a", "sunshine12", "princess12", "football12", "charlie123",
+            "shadow1234", "michael123", "jennifer12", "hunter1234", "thomas1234",
+            "jordan1234", "mustang123", "access1234", "123456789a", "abcdefghij",
+        )
+
         fun normalizePhone(phone: String): String {
             val digits = phone.replace(Regex("[^\\d]"), "")
             return when {

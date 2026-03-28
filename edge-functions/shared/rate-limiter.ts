@@ -24,10 +24,15 @@ setInterval(() => {
 const ENDPOINT_LIMITS: Record<string, number> = {
   "/invite-receiver": 5,
   "/on-demand-checkin": 10,
+  "/redeem-code": 5, // Stricter limit: 6-digit code = 1M combinations
 };
 
 const DEFAULT_LIMIT = 30; // requests per minute
 const WINDOW_MS = 60_000; // 1 minute
+
+// Service role rate limits (separate from user limits)
+const SERVICE_ROLE_GLOBAL_LIMIT = 200; // requests per minute across all endpoints
+const SERVICE_ROLE_KEY = "__service_role__";
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -57,5 +62,44 @@ export function checkRateLimit(userId: string, endpoint: string): RateLimitResul
   }
 
   entry.count++;
+  return { allowed: true };
+}
+
+/**
+ * Check rate limit for service role requests.
+ * Uses a global limit across all endpoints to prevent abuse of a leaked service role key.
+ */
+export function checkServiceRoleRateLimit(endpoint: string): RateLimitResult {
+  const now = Date.now();
+
+  // Global service role limit
+  const globalKey = `${SERVICE_ROLE_KEY}:__global__`;
+  const globalEntry = store.get(globalKey);
+
+  if (!globalEntry || now - globalEntry.windowStart >= WINDOW_MS) {
+    store.set(globalKey, { count: 1, windowStart: now });
+  } else if (globalEntry.count >= SERVICE_ROLE_GLOBAL_LIMIT) {
+    const retryAfterSeconds = Math.ceil((globalEntry.windowStart + WINDOW_MS - now) / 1000);
+    return { allowed: false, retryAfterSeconds };
+  } else {
+    globalEntry.count++;
+  }
+
+  // Per-endpoint service role limit
+  const endpointKey = `${SERVICE_ROLE_KEY}:${endpoint}`;
+  const endpointLimit = ENDPOINT_LIMITS[endpoint] ? ENDPOINT_LIMITS[endpoint] * 4 : DEFAULT_LIMIT * 2;
+  const endpointEntry = store.get(endpointKey);
+
+  if (!endpointEntry || now - endpointEntry.windowStart >= WINDOW_MS) {
+    store.set(endpointKey, { count: 1, windowStart: now });
+    return { allowed: true };
+  }
+
+  if (endpointEntry.count >= endpointLimit) {
+    const retryAfterSeconds = Math.ceil((endpointEntry.windowStart + WINDOW_MS - now) / 1000);
+    return { allowed: false, retryAfterSeconds };
+  }
+
+  endpointEntry.count++;
   return { allowed: true };
 }

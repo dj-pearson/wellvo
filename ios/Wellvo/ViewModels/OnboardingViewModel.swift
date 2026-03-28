@@ -40,10 +40,16 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     func createFamily() async {
-        guard !familyName.isEmpty else {
+        let trimmed = familyName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
             errorMessage = "Please enter a family name"
             return
         }
+        guard trimmed.count <= 100 else {
+            errorMessage = "Family name must be 100 characters or fewer"
+            return
+        }
+        familyName = trimmed
 
         isLoading = true
         errorMessage = nil

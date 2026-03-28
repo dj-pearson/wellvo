@@ -10,6 +10,9 @@ struct PairingCodeEntryView: View {
     @State private var errorMessage: String?
     @State private var joinedSuccessfully = false
     @State private var checkinTimeDisplay = "8:00 AM"
+    @State private var failedAttempts = 0
+    @State private var isLockedOut = false
+    @State private var lockoutEndTime: Date?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -139,7 +142,21 @@ struct PairingCodeEntryView: View {
     // MARK: - Submit
 
     private func submitCode() async {
-        guard code.count == 6, !isSubmitting else { return }
+        guard code.count == 6, !isSubmitting, !isLockedOut else { return }
+
+        // Check lockout
+        if let lockoutEnd = lockoutEndTime, Date() < lockoutEnd {
+            let remaining = Int(lockoutEnd.timeIntervalSinceNow / 60) + 1
+            errorMessage = "Too many failed attempts. Try again in \(remaining) minute\(remaining == 1 ? "" : "s")."
+            isLockedOut = true
+            return
+        }
+
+        // Exponential backoff delay between attempts
+        if failedAttempts > 0 {
+            let delay = min(pow(2.0, Double(failedAttempts - 1)), 16.0)
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+        }
 
         isSubmitting = true
         errorMessage = nil
@@ -148,8 +165,16 @@ struct PairingCodeEntryView: View {
             let response = try await FamilyService.shared.redeemPairingCode(code)
 
             if let error = response.error {
-                errorMessage = error
+                failedAttempts += 1
+                if failedAttempts >= 10 {
+                    lockoutEndTime = Date().addingTimeInterval(15 * 60)
+                    isLockedOut = true
+                    errorMessage = "Too many failed attempts. Try again in 15 minutes."
+                } else {
+                    errorMessage = "\(error) (\(10 - failedAttempts) attempts remaining)"
+                }
             } else if response.success == true {
+                failedAttempts = 0
                 if let time = response.checkinTime {
                     checkinTimeDisplay = formatCheckinTime(time)
                 }

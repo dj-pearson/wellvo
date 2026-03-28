@@ -53,6 +53,22 @@ export function sanitizeDisplayName(name: string, maxLength = 100): string {
 }
 
 /**
+ * Validate a timezone string against IANA timezone database.
+ * Returns true if the timezone is valid.
+ */
+let _validTimezones: Set<string> | null = null;
+function getValidTimezones(): Set<string> {
+  if (!_validTimezones) {
+    _validTimezones = new Set(Intl.supportedValuesOf("timeZone"));
+  }
+  return _validTimezones;
+}
+
+export function isValidTimezone(tz: string): boolean {
+  return getValidTimezones().has(tz);
+}
+
+/**
  * Validate and return an error Response if any of the checks fail.
  * Returns null if all validations pass.
  */

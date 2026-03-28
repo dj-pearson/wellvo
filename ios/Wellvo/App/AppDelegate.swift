@@ -27,7 +27,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             do {
                 try await PushNotificationService.shared.registerToken(token)
             } catch {
-                print("[PushNotification] Token registration failed: \(error.localizedDescription)")
+                print("[PushNotification] Token registration failed")
             }
         }
     }
@@ -36,7 +36,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         _ application: UIApplication,
         didFailToRegisterForRemoteNotificationsWithError error: Error
     ) {
-        print("Failed to register for remote notifications: \(error.localizedDescription)")
+        print("[PushNotification] Failed to register for remote notifications")
     }
 
     // MARK: - UNUserNotificationCenterDelegate
@@ -164,7 +164,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 .value
 
             guard let phone = users.first?.phone, !phone.isEmpty else {
-                print("[Call] No phone number found for receiver \(receiverId)")
+                print("[Call] No phone number found for receiver")
                 return
             }
 
@@ -197,7 +197,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                     batteryLevel: battery
                 )
             } catch {
-                print("[CheckIn] Notification response failed: \(error.localizedDescription)")
+                print("[CheckIn] Notification response failed")
             }
         }
     }
