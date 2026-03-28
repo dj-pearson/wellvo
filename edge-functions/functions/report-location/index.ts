@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
+import { isValidUUID, validateLocationFields, isValidLatitude, isValidLongitude } from "../../shared/validation.ts";
 
 interface ReportLocationRequest {
   family_id: string;
@@ -40,6 +41,27 @@ export async function handleReportLocation(req: Request, auth: AuthResult): Prom
 
   const body: ReportLocationRequest = await req.json();
   const { family_id, latitude, longitude, accuracy_meters, battery_level } = body;
+
+  // Validate required fields and formats
+  if (!family_id || !isValidUUID(family_id)) {
+    return new Response(
+      JSON.stringify({ error: "Invalid or missing family_id" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  if (!isValidLatitude(latitude) || !isValidLongitude(longitude)) {
+    return new Response(
+      JSON.stringify({ error: "Invalid coordinates: latitude must be -90 to 90, longitude -180 to 180" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  const locationError = validateLocationFields({ latitude, longitude, location_accuracy_meters: accuracy_meters, battery_level });
+  if (locationError) {
+    return new Response(
+      JSON.stringify({ error: locationError }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
   const receiverId = auth.userId!;
 

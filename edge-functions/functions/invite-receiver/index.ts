@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendSMS } from "../../shared/sms.ts";
 import type { AuthResult } from "../../shared/auth.ts";
+import { isValidUUID, isValidTime24H, truncateString, sanitizeDisplayName } from "../../shared/validation.ts";
 
 interface InviteRequest {
   action?: "create" | "accept";
@@ -30,6 +31,30 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   if (!family_id || !name || !phone) {
     return new Response(
       JSON.stringify({ error: "family_id, name, and phone are required" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Validate UUID format
+  if (!isValidUUID(family_id)) {
+    return new Response(
+      JSON.stringify({ error: "Invalid family_id format" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Validate name length
+  if (name.trim().length === 0 || name.length > 255) {
+    return new Response(
+      JSON.stringify({ error: "Name must be between 1 and 255 characters" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Validate checkin_time format if provided
+  if (checkin_time && !isValidTime24H(checkin_time)) {
+    return new Response(
+      JSON.stringify({ error: "Invalid checkin_time format. Use HH:MM (24-hour)" }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -111,8 +136,9 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   // The receiver just needs to download the app and sign in with this phone number —
   // auto-join will match them to this invite automatically.
   // The pairing code is included so they can set up on an iPad or other device.
+  const safeName = sanitizeDisplayName(name);
   const smsBody =
-    `${name}, your family wants to check in with you daily using Wellvo. ` +
+    `${safeName}, your family wants to check in with you daily using Wellvo. ` +
     `Download the app and sign in with this phone number to get started: ` +
     `https://apps.apple.com/app/alive-daily-checkin/id6742044109\n\n` +
     `Setting up on an iPad? Use this code: ${pairingCode}`;
@@ -136,6 +162,14 @@ async function acceptInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   if (!token) {
     return new Response(
       JSON.stringify({ error: "Invite token is required" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Validate token format (hex string, expected 64 chars from 32 bytes)
+  if (token.length > 500 || !/^[0-9a-f]+$/i.test(token)) {
+    return new Response(
+      JSON.stringify({ error: "Invalid invite token format" }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }

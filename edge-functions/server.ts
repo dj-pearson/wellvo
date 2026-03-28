@@ -69,6 +69,8 @@ function corsHeaders(req?: Request): Record<string, string> {
   return {};
 }
 
+const MAX_BODY_SIZE = 102400; // 100 KB
+
 async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname;
@@ -78,6 +80,17 @@ async function handler(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ status: "ok", service: "wellvo-edge-functions" }), {
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  // Enforce request body size limit for POST requests
+  if (req.method === "POST") {
+    const contentLength = req.headers.get("Content-Length");
+    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
+      return new Response(
+        JSON.stringify({ error: "Request body too large" }),
+        { status: 413, headers: { "Content-Type": "application/json", ...corsHeaders(req) } }
+      );
+    }
   }
 
   // CORS preflight

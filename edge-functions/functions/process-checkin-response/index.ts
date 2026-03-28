@@ -2,6 +2,7 @@ import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification } from "../../shared/apns.ts";
 import { sendFCMNotification, buildFCMAlertPayload } from "../../shared/fcm.ts";
 import type { AuthResult } from "../../shared/auth.ts";
+import { isValidUUID, validateLocationFields, sanitizeDisplayName, truncateString } from "../../shared/validation.ts";
 
 function haversineDistance(
   lat1: number, lon1: number,
@@ -39,6 +40,38 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
   let familyId = body.family_id;
   const source = body.source || "app";
   const responseType = body.response_type || "ok";
+
+  // Validate UUID formats
+  if (requestId && !isValidUUID(requestId)) {
+    return new Response(
+      JSON.stringify({ error: "Invalid checkin_request_id format" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  if (receiverId && !isValidUUID(receiverId)) {
+    return new Response(
+      JSON.stringify({ error: "Invalid receiver_id format" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  if (familyId && !isValidUUID(familyId)) {
+    return new Response(
+      JSON.stringify({ error: "Invalid family_id format" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Validate location and battery fields
+  const locationError = validateLocationFields(body);
+  if (locationError) {
+    return new Response(
+      JSON.stringify({ error: locationError }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Truncate string fields
+  if (body.location_label) body.location_label = truncateString(body.location_label, 500);
 
   // If responding by request ID, look it up
   if (requestId && !receiverId) {
@@ -181,7 +214,7 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
       .eq("id", receiverId)
       .single();
 
-    const displayName = receiver?.display_name || "A family member";
+    const displayName = sanitizeDisplayName(receiver?.display_name || "A family member");
 
     if (isUrgent) {
       const effectiveType = body.kid_response_type === "sos" ? "need_help" : responseType;

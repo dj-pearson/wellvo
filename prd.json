@@ -1193,6 +1193,380 @@
       "priority": 65,
       "passes": true,
       "notes": "All acceptance criteria met. Custom MaterialTheme with Wellvo green (#22C55E) primary, dark theme with proper contrast. Roboto typography. Shapes: 8dp small, 12dp medium (cards), 24dp large (buttons). Status card backgrounds: green/yellow/red/gray tinted per status in both light and dark themes. AnimatedContent crossfade transitions between tabs. Material 3 NavigationBar with explicit Wellvo-branded colors. Dynamic color opt-in (dynamicColor=false default). All screens use MaterialTheme.shapes instead of hardcoded RoundedCornerShape. Edge-to-edge with transparent system bars."
+    },
+    {
+      "id": "US-SEC001",
+      "title": "Add request body size limits to edge functions server",
+      "description": "As a developer, I want request body size limits enforced so that oversized payloads cannot exhaust server memory or cause DoS.",
+      "acceptanceCriteria": [
+        "Maximum request body size of 100KB enforced before JSON parsing",
+        "Content-Length header checked and requests >100KB rejected with 413 status",
+        "Requests without Content-Length are still parsed but body size is checked post-read",
+        "Error response includes clear message: 'Request body too large'",
+        "Health check and OPTIONS requests are not affected"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "DONE. Added MAX_BODY_SIZE (100KB) check in server.ts handler before routing. Content-Length header checked on POST requests. Returns 413 with CORS headers."
+    },
+    {
+      "id": "US-SEC002",
+      "title": "Add input validation and bounds checking to all edge function endpoints",
+      "description": "As a developer, I want all user-supplied values validated for type, range, and format so that invalid data cannot corrupt the database or cause logic errors.",
+      "acceptanceCriteria": [
+        "Latitude validated: -90 to 90 range in process-checkin-response, report-location",
+        "Longitude validated: -180 to 180 range in process-checkin-response, report-location",
+        "Battery level validated: 0 to 1 range in process-checkin-response, report-location, heartbeat",
+        "Location accuracy validated: non-negative, max 100000 meters",
+        "UUID format validated for receiver_id, family_id, checkin_request_id before DB queries",
+        "String fields (name, location_label) length-limited to 500 chars",
+        "checkin_time validated as HH:MM 24-hour format",
+        "app_version string length-limited to 50 chars in heartbeat",
+        "Invalid inputs return 400 with descriptive error messages",
+        "Shared validation utility created for reuse across functions"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "DONE. Created shared/validation.ts with isValidUUID, isValidLatitude, isValidLongitude, isValidBatteryLevel, isValidAccuracyMeters, isValidTime24H, truncateString, sanitizeDisplayName, validateLocationFields. Applied to process-checkin-response (UUID + location + battery + string), report-location (UUID + lat/lng + battery + accuracy), heartbeat (battery + app_version), invite-receiver (UUID + name length + checkin_time + invite token format)."
+    },
+    {
+      "id": "US-SEC003",
+      "title": "Sanitize display names in notification payloads",
+      "description": "As a developer, I want display names sanitized before use in notification bodies so that notification injection or XSS via push payloads is prevented.",
+      "acceptanceCriteria": [
+        "Display names stripped of HTML/script tags before use in push notification bodies",
+        "Display names truncated to 100 characters max",
+        "Control characters removed from display names",
+        "Sanitization applied in process-checkin-response and escalation-tick notification builders",
+        "Sanitization applied in SMS message body construction in invite-receiver"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "DONE. sanitizeDisplayName() strips HTML tags, control chars, newlines and truncates to 100 chars. Applied in process-checkin-response (urgent/kid alert bodies), escalation-tick (geofence, low battery, missed check-in, viewer alerts, SMS bodies), invite-receiver (SMS body)."
+    },
+    {
+      "id": "US-SEC004",
+      "title": "Validate environment variables at edge functions startup",
+      "description": "As a developer, I want required environment variables validated at server startup so that misconfiguration is caught immediately rather than causing silent failures.",
+      "acceptanceCriteria": [
+        "SUPABASE_URL validated as non-empty at startup",
+        "SUPABASE_SERVICE_ROLE_KEY validated as non-empty at startup",
+        "JWT_SECRET validated as non-empty at startup",
+        "Server exits with clear error message if any required variable is missing",
+        "Optional variables (ALLOWED_ORIGIN, PORT) have documented defaults"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "auth.ts lines 8-10 use fallback values that mask missing config. server.ts line 8 defaults PORT."
+    },
+    {
+      "id": "US-SEC005",
+      "title": "Add authorization check to increment_max_receivers/viewers RPC functions",
+      "description": "As a developer, I want the database RPC functions for incrementing receiver/viewer slots to verify the caller is the family owner so that unauthorized users cannot escalate privileges.",
+      "acceptanceCriteria": [
+        "increment_max_receivers validates auth.uid() = p_owner_id",
+        "increment_max_viewers validates auth.uid() = p_owner_id",
+        "Unauthorized calls raise exception with appropriate error",
+        "Migration added as new numbered migration file"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "CRITICAL: 00004 migration SECURITY DEFINER functions accept any UUID without authorization check."
+    },
+    {
+      "id": "US-SEC006",
+      "title": "Add CHECK constraints to receiver_settings numeric fields",
+      "description": "As a developer, I want database CHECK constraints on numeric fields so that invalid values cannot be stored.",
+      "acceptanceCriteria": [
+        "grace_period_minutes constrained to > 0",
+        "reminder_interval_minutes constrained to > 0",
+        "geofence_radius_meters constrained to > 0",
+        "last_battery_level constrained to BETWEEN 0 AND 1 where stored",
+        "Migration added as new numbered migration file"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "00001 migration lines 75-87 have no CHECK constraints on numeric fields."
+    },
+    {
+      "id": "US-SEC007",
+      "title": "Move iOS sensitive data from UserDefaults to Keychain",
+      "description": "As a developer, I want authentication tokens and nonces stored in Keychain instead of UserDefaults so that sensitive data is encrypted at rest.",
+      "acceptanceCriteria": [
+        "Supabase access token stored in Keychain instead of shared UserDefaults",
+        "Apple Sign-In nonce stored in Keychain instead of standard UserDefaults",
+        "Push notification token stored in Keychain instead of UserDefaults",
+        "Existing KeychainService utility used for all secure storage",
+        "Migration from old storage to new storage handled gracefully"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "CRITICAL iOS: SupabaseService.swift lines 31-41, AuthViewModel.swift lines 31-41, PushNotificationService.swift lines 33/56."
+    },
+    {
+      "id": "US-SEC008",
+      "title": "Add deep link token validation on iOS and Android",
+      "description": "As a developer, I want deep link invite tokens validated for format and length before processing so that malformed tokens cannot cause unexpected behavior.",
+      "acceptanceCriteria": [
+        "iOS: URL scheme verified before processing deep link",
+        "iOS: Token format validated (hex string, expected length)",
+        "iOS: Token length bounded (max 500 chars)",
+        "Android: Deep link token format validated before storing as pendingInviteToken",
+        "Android: Intent extras validated for notification_type against known values",
+        "Both platforms: Invalid tokens silently rejected (no error shown to user)"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "iOS WellvoApp.swift lines 41-52, Android MainActivity.kt lines 79-98."
+    },
+    {
+      "id": "US-SEC009",
+      "title": "Disable Android backup and add network security config",
+      "description": "As a developer, I want Android backup disabled and explicit network security configuration so that sensitive data cannot be extracted via backup and TLS is enforced.",
+      "acceptanceCriteria": [
+        "android:allowBackup set to false in AndroidManifest.xml",
+        "network_security_config.xml created with cleartextTrafficPermitted=false",
+        "Only system CAs trusted in production builds",
+        "Debug builds can optionally trust user-added CAs",
+        "AndroidManifest references network security config"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "CRITICAL Android: AndroidManifest.xml line 17 has allowBackup=true. No network_security_config.xml exists."
+    },
+    {
+      "id": "US-SEC010",
+      "title": "Add rate limiting to pairing code submission",
+      "description": "As a developer, I want pairing code submissions rate-limited so that brute-force attacks on 6-digit codes are prevented.",
+      "acceptanceCriteria": [
+        "Server-side: redeem-code endpoint has stricter rate limit (5 req/min)",
+        "iOS: Client-side delay between pairing code attempts (exponential backoff)",
+        "iOS: Failed attempt counter shown to user",
+        "Android: Client-side delay between pairing code attempts",
+        "Android: Failed attempt counter shown to user",
+        "After 10 failed attempts, lock out for 15 minutes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "6-digit code = 1M combinations. PairingCodeEntryView.swift lines 70-78 has no rate limiting."
+    },
+    {
+      "id": "US-SEC011",
+      "title": "Sanitize error messages to prevent information disclosure",
+      "description": "As a developer, I want error messages sanitized so that internal implementation details are not exposed to clients.",
+      "acceptanceCriteria": [
+        "Edge functions: Generic error messages returned to clients, detailed errors logged server-side only",
+        "link-apple-id: Apple token verification errors return generic 'Invalid identity token' without reason details",
+        "iOS: Network error localizedDescription not shown in production (generic message instead)",
+        "Android: Exception messages not displayed to users (generic messages instead)",
+        "All platforms: User IDs and request IDs not included in user-facing error messages"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "link-apple-id/index.ts lines 84-89 exposes token verification reason. iOS WellvoError.swift exposes network error details."
+    },
+    {
+      "id": "US-SEC012",
+      "title": "Add null authentication checks to GDPR RPC functions",
+      "description": "As a developer, I want GDPR export and delete functions to explicitly check for null auth.uid() so that edge cases cannot bypass authorization.",
+      "acceptanceCriteria": [
+        "export_user_data checks auth.uid() IS NOT NULL before comparing to p_user_id",
+        "delete_user_account checks auth.uid() IS NOT NULL before comparing to p_user_id",
+        "Both functions raise 'Not authenticated' if auth.uid() is NULL",
+        "Migration added as new numbered migration file"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "00005 and 00010 migrations use != comparison which fails silently if auth.uid() returns NULL."
+    },
+    {
+      "id": "US-SEC013",
+      "title": "Remove sensitive data from iOS and Android debug logs",
+      "description": "As a developer, I want sensitive data (user IDs, tokens, coordinates, request IDs) removed from log output so that device logs cannot leak PII.",
+      "acceptanceCriteria": [
+        "iOS: All print() statements with user IDs, coordinates, or tokens replaced with sanitized versions",
+        "iOS: Use os.log with privacy levels for debug logging",
+        "Android: All Log.d() calls with sensitive IDs gated behind BuildConfig.DEBUG",
+        "Android: Sensitive identifiers (request_id, user_id) not included in log messages",
+        "Both platforms: Error messages in logs do not contain PII"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "iOS AppDelegate.swift, LocationService.swift. Android WellvoFirebaseMessagingService.kt, CheckInNotificationReceiver.kt."
+    },
+    {
+      "id": "US-SEC014",
+      "title": "Add missing RLS policies for alerts table modifications",
+      "description": "As a developer, I want explicit UPDATE and DELETE RLS policies on the alerts table so that access control is complete and auditable.",
+      "acceptanceCriteria": [
+        "Owners can UPDATE alerts for their family (e.g., mark as read/dismissed)",
+        "Owners can DELETE alerts for their family",
+        "Receivers cannot modify or delete alerts",
+        "Viewers cannot modify or delete alerts",
+        "Migration added as new numbered migration file"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "00006 migration lines 122-150 has RLS enabled but only SELECT policies."
+    },
+    {
+      "id": "US-SEC015",
+      "title": "Add CSP connect-src for Cloudflare analytics on website",
+      "description": "As a developer, I want the Content Security Policy updated to allow Cloudflare analytics connections so that analytics works without CSP violations.",
+      "acceptanceCriteria": [
+        "connect-src directive includes https://cloudflareinsights.com",
+        "script-src directive includes https://static.cloudflareinsights.com",
+        "No other CSP directives are loosened",
+        "Analytics beacon can send data without console errors"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "website/public/_headers CSP blocks Cloudflare analytics beacon connections."
+    },
+    {
+      "id": "US-SEC016",
+      "title": "Add certificate pinning for Supabase connections",
+      "description": "As a developer, I want certificate pinning for Supabase API connections so that MITM attacks via compromised CAs are prevented.",
+      "acceptanceCriteria": [
+        "iOS: URLSession delegate validates Supabase server certificate",
+        "Android: network_security_config.xml includes certificate pins for Supabase domain",
+        "Pin rotation strategy documented (backup pins included)",
+        "Pinning failures logged for monitoring"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "Both iOS and Android use default TLS without certificate pinning."
+    },
+    {
+      "id": "US-SEC017",
+      "title": "Strengthen password validation requirements",
+      "description": "As a developer, I want password validation strengthened to NIST guidelines so that user accounts are better protected.",
+      "acceptanceCriteria": [
+        "Minimum password length increased to 10 characters",
+        "Maximum password length set to 128 characters",
+        "Common password check against top 1000 list",
+        "iOS and Android validation logic updated consistently",
+        "Error messages guide user to create stronger password"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "iOS AuthService.swift lines 305-315 requires only 8 chars. No max length. No common password check."
+    },
+    {
+      "id": "US-SEC018",
+      "title": "Encrypt Room database on Android",
+      "description": "As a developer, I want the Room database encrypted so that offline check-in data is protected at rest.",
+      "acceptanceCriteria": [
+        "SQLCipher dependency added to Android project",
+        "Room database created with SupportFactory for encryption",
+        "Encryption key stored securely via EncryptedSharedPreferences",
+        "Existing unencrypted data migrated on upgrade",
+        "Database encryption verified in tests"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "AppModule.kt lines 54-63 creates unencrypted Room database."
+    },
+    {
+      "id": "US-SEC019",
+      "title": "Add timezone validation to edge functions and database",
+      "description": "As a developer, I want timezone strings validated against IANA timezone database so that invalid timezones cannot cause scheduling errors.",
+      "acceptanceCriteria": [
+        "Edge functions validate timezone parameter against Intl.supportedValuesOf('timeZone')",
+        "invite-receiver defaults to 'America/New_York' only if no timezone provided",
+        "Invalid timezone returns 400 error",
+        "Database CHECK constraint validates timezone column against pg_timezone_names"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "invite-receiver/index.ts line 95, redeem-code, auto-join all hardcode timezone without validation."
+    },
+    {
+      "id": "US-SEC020",
+      "title": "Add service role rate limiting to edge functions",
+      "description": "As a developer, I want separate rate limits for service role requests so that a leaked service role key cannot be used for unlimited requests.",
+      "acceptanceCriteria": [
+        "Global rate limit applied to service role requests (e.g., 200 req/min)",
+        "Per-endpoint rate limits for service role maintained separately from user limits",
+        "Rate limit exceeded returns 429 with Retry-After header",
+        "Legitimate pg_cron calls not affected under normal operation"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "server.ts lines 104-116 bypass rate limiting entirely for service role."
+    },
+    {
+      "id": "US-SEC021",
+      "title": "Validate phone number format for international support",
+      "description": "As a developer, I want phone number validation expanded to support E.164 international format so that non-US users can be invited.",
+      "acceptanceCriteria": [
+        "Phone validation accepts E.164 format: +[1-9][0-9]{1,14}",
+        "Edge functions sms.ts updated with E.164 validation",
+        "invite-receiver updated to use expanded validation",
+        "iOS phone normalization updated for international numbers",
+        "Android phone normalization updated for international numbers",
+        "Maximum phone number length enforced (20 chars)"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": "sms.ts lines 76-85 only accepts US numbers. Limits international adoption."
+    },
+    {
+      "id": "US-SEC022",
+      "title": "Add Android intent extras validation",
+      "description": "As a developer, I want all Android intent extras validated against known values so that malicious intents cannot cause crashes or information disclosure.",
+      "acceptanceCriteria": [
+        "notification_type validated against known enum values",
+        "request_id and receiver_id validated as UUID format",
+        "Invalid intent extras silently ignored (no crash)",
+        "Log messages do not include raw intent extra values in production"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": "MainActivity.kt lines 68-77 extracts intent extras without validation."
+    },
+    {
+      "id": "US-SEC023",
+      "title": "Add missing RLS delete policies for checkin_requests",
+      "description": "As a developer, I want explicit DELETE RLS policies on checkin_requests so that the audit trail is protected.",
+      "acceptanceCriteria": [
+        "Owners can delete checkin_requests for their family",
+        "Receivers cannot delete their own requests (audit preservation)",
+        "Service role can delete via admin operations",
+        "Migration added as new numbered migration file"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": "00002 migration lines 149-161 has no DELETE policy for checkin_requests."
+    },
+    {
+      "id": "US-SEC024",
+      "title": "Add bounds checking to iOS location and battery data",
+      "description": "As a developer, I want location coordinates and battery level validated on iOS before sending to server so that invalid data is caught early.",
+      "acceptanceCriteria": [
+        "Latitude validated: -90 to 90 in CheckInService before sending",
+        "Longitude validated: -180 to 180 in CheckInService before sending",
+        "Battery level validated: 0 to 1 range before sending",
+        "Location accuracy validated: non-negative, max 100km",
+        "Invalid values silently excluded from request body"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": "CheckInService.swift lines 32-37 sends location without bounds checking."
+    },
+    {
+      "id": "US-SEC025",
+      "title": "Add family name input length validation",
+      "description": "As a developer, I want family name input length-limited so that excessively long strings cannot cause UI or database issues.",
+      "acceptanceCriteria": [
+        "iOS: familyName trimmed and limited to 100 characters in OnboardingViewModel",
+        "Android: familyName trimmed and limited to 100 characters in OnboardingViewModel",
+        "Edge functions: name fields validated for length in all endpoints",
+        "Error message shown if name exceeds limit"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": "iOS OnboardingViewModel.swift lines 42-59 has no max length check."
     }
   ]
 }
