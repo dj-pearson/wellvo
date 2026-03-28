@@ -4,6 +4,7 @@ import { sendFCMNotification, buildFCMCheckinPayload, buildFCMAlertPayload } fro
 import { sendSMS, buildEscalationSMS } from "../../shared/sms.ts";
 import { logInfo, logWarn, logError } from "../../shared/logger.ts";
 import type { AuthResult } from "../../shared/auth.ts";
+import { sanitizeDisplayName } from "../../shared/validation.ts";
 
 interface PushToken {
   token: string;
@@ -82,7 +83,7 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
         .eq("is_active", true);
 
       if (ownerTokens?.length) {
-        const displayName = body.display_name || "A family member";
+        const displayName = sanitizeDisplayName(body.display_name || "A family member");
         const distance = body.distance_meters ? Math.round(body.distance_meters) : "unknown";
         const alertTitle = "Location Alert";
         const alertBody = `${displayName} may have left their safe zone (${distance}m from home).`;
@@ -123,7 +124,7 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
         .eq("is_active", true);
 
       if (ownerTokens?.length) {
-        const displayName = body.display_name || "A family member";
+        const displayName = sanitizeDisplayName(body.display_name || "A family member");
         const batteryPct = body.battery_level != null ? Math.round(body.battery_level * 100) : "low";
         const alertTitle = "Low Battery Warning";
         const alertBody = `${displayName}'s phone battery is at ${batteryPct}%. If they miss their check-in, their phone may be off.`;
@@ -197,7 +198,8 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
 
     if (ownerTokens?.length) {
       const alertTitle = "Missed Check-In";
-      const alertBody = `${receiver?.display_name || "Your family member"} hasn't checked in yet. They've been reminded twice.`;
+      const safeReceiverName = sanitizeDisplayName(receiver?.display_name || "Your family member");
+      const alertBody = `${safeReceiverName} hasn't checked in yet. They've been reminded twice.`;
       const payload = {
         aps: {
           alert: { title: alertTitle, body: alertBody },
@@ -244,7 +246,7 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
 
     if (smsEnabled && ownerUser?.phone) {
       const smsBody = buildEscalationSMS(
-        receiver?.display_name || "A family member",
+        safeReceiverName,
         "owner_alert"
       );
       logInfo("Sending owner escalation SMS", { path: "/escalation-tick", userId: owner_id });
@@ -292,7 +294,8 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
 
         if (viewerTokens?.length) {
           const alertTitle = "Family Alert";
-          const alertBody = `${receiver?.display_name || "A family member"} has missed their check-in today.`;
+          const safeViewerReceiverName = sanitizeDisplayName(receiver?.display_name || "A family member");
+          const alertBody = `${safeViewerReceiverName} has missed their check-in today.`;
           const payload = {
             aps: {
               alert: { title: alertTitle, body: alertBody },
@@ -319,7 +322,7 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
 
         if (viewerUser?.phone) {
           const smsBody = buildEscalationSMS(
-            receiver?.display_name || "A family member",
+            safeViewerReceiverName,
             "viewer_alert"
           );
           logInfo("Sending viewer escalation SMS", { path: "/escalation-tick", userId: viewer.user_id });

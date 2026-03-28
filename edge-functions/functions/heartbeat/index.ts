@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
+import { isValidBatteryLevel, truncateString } from "../../shared/validation.ts";
 
 interface HeartbeatRequest {
   battery_level?: number;
@@ -26,11 +27,17 @@ export async function handleHeartbeat(req: Request, auth: AuthResult): Promise<R
   };
 
   if (body.battery_level != null) {
+    if (!isValidBatteryLevel(body.battery_level)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid battery_level: must be between 0 and 1" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
     updates.last_battery_level = body.battery_level;
   }
 
   if (body.app_version) {
-    updates.last_app_version = body.app_version;
+    updates.last_app_version = truncateString(body.app_version, 50);
   }
 
   const { error } = await supabaseAdmin
