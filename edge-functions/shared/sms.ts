@@ -73,16 +73,40 @@ export async function sendSMS(to: string, body: string): Promise<SMSResult> {
   }
 }
 
+/**
+ * Normalize and validate phone number to E.164 format.
+ * Accepts: +[1-9][0-9]{1,14} (international E.164)
+ * Also handles US numbers without country code (10 or 11 digits).
+ * Maximum 20 characters to prevent abuse.
+ */
 function normalizePhone(phone: string): string | null {
+  if (phone.length > 20) return null;
+
   // Strip all non-digit characters except leading +
   const cleaned = phone.replace(/[^\d+]/g, "");
-  if (cleaned.length < 10) return null;
 
-  // Add +1 for US numbers without country code
+  // If no country code, try US normalization
   if (!cleaned.startsWith("+")) {
-    return `+1${cleaned}`;
+    const digits = cleaned.replace(/\D/g, "");
+    if (digits.length === 10 && digits[0] >= "2") {
+      return `+1${digits}`;
+    }
+    if (digits.length === 11 && digits.startsWith("1") && digits[1] >= "2") {
+      return `+${digits}`;
+    }
+    // Try as-is with + prefix for other formats
+    if (digits.length >= 7 && digits.length <= 15) {
+      return `+${digits}`;
+    }
+    return null;
   }
-  return cleaned;
+
+  // Validate E.164 format: +[1-9][0-9]{1,14}
+  if (/^\+[1-9]\d{1,14}$/.test(cleaned)) {
+    return cleaned;
+  }
+
+  return null;
 }
 
 export function buildEscalationSMS(

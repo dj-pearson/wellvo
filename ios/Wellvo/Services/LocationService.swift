@@ -90,15 +90,19 @@ class LocationService: NSObject, CLLocationManagerDelegate {
     func reportLocation(familyId: UUID, batteryLevel: Double? = nil) async {
         guard let location = await getCurrentLocation() else { return }
 
+        // Validate location bounds before sending
+        guard location.latitude >= -90, location.latitude <= 90,
+              location.longitude >= -180, location.longitude <= 180 else { return }
+
         var body: [String: String] = [
             "family_id": familyId.uuidString,
             "latitude": String(location.latitude),
             "longitude": String(location.longitude),
         ]
-        if let accuracy = location.accuracy {
+        if let accuracy = location.accuracy, accuracy >= 0, accuracy <= 100000 {
             body["accuracy_meters"] = String(accuracy)
         }
-        if let battery = batteryLevel {
+        if let battery = batteryLevel, battery >= 0, battery <= 1 {
             body["battery_level"] = String(battery)
         }
 
@@ -121,16 +125,24 @@ class LocationService: NSObject, CLLocationManagerDelegate {
         // Otherwise this is a background significant location change — report it
         guard let location = locations.last, let familyId = activeFamilyId else { return }
 
+        // Validate location bounds before sending
+        let lat = location.coordinate.latitude
+        let lng = location.coordinate.longitude
+        guard lat >= -90, lat <= 90, lng >= -180, lng <= 180 else { return }
+
         UIDevice.current.isBatteryMonitoringEnabled = true
         let batteryLevel = UIDevice.current.batteryLevel
-        let battery: Double? = batteryLevel >= 0 ? Double(batteryLevel) : nil
+        let battery: Double? = (batteryLevel >= 0 && batteryLevel <= 1) ? Double(batteryLevel) : nil
 
         var body: [String: String] = [
             "family_id": familyId.uuidString,
-            "latitude": String(location.coordinate.latitude),
-            "longitude": String(location.coordinate.longitude),
-            "accuracy_meters": String(location.horizontalAccuracy),
+            "latitude": String(lat),
+            "longitude": String(lng),
         ]
+        let accuracy = location.horizontalAccuracy
+        if accuracy >= 0, accuracy <= 100000 {
+            body["accuracy_meters"] = String(accuracy)
+        }
         if let battery = battery {
             body["battery_level"] = String(battery)
         }

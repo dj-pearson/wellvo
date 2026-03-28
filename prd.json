@@ -1300,8 +1300,8 @@
         "Migration from old storage to new storage handled gracefully"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": "CRITICAL iOS: SupabaseService.swift lines 31-41, AuthViewModel.swift lines 31-41, PushNotificationService.swift lines 33/56."
+      "passes": true,
+      "notes": "DONE. SupabaseService.syncAccessTokenToExtension now saves to Keychain instead of UserDefaults (with migration). AuthViewModel.currentRawNonce now uses KeychainService (with migration). PushNotificationService.registerToken now uses KeychainService for lastPushToken (with migration from UserDefaults)."
     },
     {
       "id": "US-SEC008",
@@ -1316,8 +1316,8 @@
         "Both platforms: Invalid tokens silently rejected (no error shown to user)"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": "iOS WellvoApp.swift lines 41-52, Android MainActivity.kt lines 79-98."
+      "passes": true,
+      "notes": "DONE. iOS: WellvoApp.swift verifies URL scheme (wellvo/https), validates token as hex string with max 500 chars. Android: MainActivity validates deep link token format and length. Both silently reject invalid tokens."
     },
     {
       "id": "US-SEC009",
@@ -1347,8 +1347,8 @@
         "After 10 failed attempts, lock out for 15 minutes"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": "6-digit code = 1M combinations. PairingCodeEntryView.swift lines 70-78 has no rate limiting."
+      "passes": true,
+      "notes": "DONE. Server: redeem-code has 5 req/min rate limit + in-memory brute-force tracker (10 failed attempts = 15-min lockout). iOS: PairingCodeEntryView has exponential backoff, failed attempt counter, 10-attempt lockout. Android: PairingCodeViewModel has same client-side protections."
     },
     {
       "id": "US-SEC011",
@@ -1391,8 +1391,8 @@
         "Both platforms: Error messages in logs do not contain PII"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": "iOS AppDelegate.swift, LocationService.swift. Android WellvoFirebaseMessagingService.kt, CheckInNotificationReceiver.kt."
+      "passes": true,
+      "notes": "DONE. iOS: AppDelegate print statements sanitized — removed error.localizedDescription, receiverId, and other PII. Android: WellvoFirebaseMessagingService message data logging gated behind BuildConfig.DEBUG. CheckInNotificationReceiver: requestId removed from logs, receiverId removed from dialer logs."
     },
     {
       "id": "US-SEC014",
@@ -1449,8 +1449,8 @@
         "Error messages guide user to create stronger password"
       ],
       "priority": 17,
-      "passes": false,
-      "notes": "iOS AuthService.swift lines 305-315 requires only 8 chars. No max length. No common password check."
+      "passes": true,
+      "notes": "DONE. iOS: AuthService.validatePassword now requires 10+ chars, max 128, checks against top 30 common passwords, updated error messages. Android: AuthService.validatePassword added with same rules (10+ chars, max 128, common password check), called before signUpWithEmail."
     },
     {
       "id": "US-SEC018",
@@ -1508,8 +1508,8 @@
         "Maximum phone number length enforced (20 chars)"
       ],
       "priority": 21,
-      "passes": false,
-      "notes": "sms.ts lines 76-85 only accepts US numbers. Limits international adoption."
+      "passes": true,
+      "notes": "DONE. sms.ts normalizePhone now validates E.164 format (+[1-9][0-9]{1,14}), handles US numbers without country code, enforces max 20 chars. invite-receiver updated from isValidUSPhone to isValidPhone supporting E.164 international + US formats."
     },
     {
       "id": "US-SEC022",
@@ -1522,8 +1522,8 @@
         "Log messages do not include raw intent extra values in production"
       ],
       "priority": 22,
-      "passes": false,
-      "notes": "MainActivity.kt lines 68-77 extracts intent extras without validation."
+      "passes": true,
+      "notes": "DONE. MainActivity.handleNotificationIntent validates notification_type against known enum set, validates request_id and receiver_id as UUID format via regex. Invalid extras silently ignored. Log messages no longer include raw intent extra values."
     },
     {
       "id": "US-SEC023",
@@ -1551,8 +1551,8 @@
         "Invalid values silently excluded from request body"
       ],
       "priority": 24,
-      "passes": false,
-      "notes": "CheckInService.swift lines 32-37 sends location without bounds checking."
+      "passes": true,
+      "notes": "DONE. CheckInService.checkIn validates lat/lng (-90/90, -180/180), accuracy (0-100km), battery (0-1) before including in request body. LocationService.reportLocation validates same bounds. Background location delegate validates before sending. Invalid values silently excluded."
     },
     {
       "id": "US-SEC025",
@@ -1565,8 +1565,8 @@
         "Error message shown if name exceeds limit"
       ],
       "priority": 25,
-      "passes": false,
-      "notes": "iOS OnboardingViewModel.swift lines 42-59 has no max length check."
+      "passes": true,
+      "notes": "DONE. iOS: OnboardingViewModel.createFamily trims and validates familyName <= 100 chars with error message. Android: OnboardingViewModel.updateFamilyName enforces 100-char limit on input, createFamily validates before submission. Edge functions already validate name fields via shared validation.ts."
     }
   ]
 }

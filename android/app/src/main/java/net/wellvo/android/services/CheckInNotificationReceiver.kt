@@ -71,7 +71,9 @@ class CheckInNotificationReceiver : BroadcastReceiver() {
             else -> "notification"
         }
 
-        Log.d(TAG, "Processing check-in response: source=$source, requestId=$requestId")
+        if (net.wellvo.android.BuildConfig.DEBUG) {
+            Log.d(TAG, "Processing check-in response: source=$source")
+        }
 
         val batteryLevel = CheckInService.getBatteryLevel(context)
         val location = getLastKnownLocation(context)
@@ -118,9 +120,9 @@ class CheckInNotificationReceiver : BroadcastReceiver() {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
                     }
                     context.startActivity(callIntent)
-                    Log.d(TAG, "Opened dialer for receiver $receiverId")
+                    Log.d(TAG, "Opened dialer for receiver")
                 } else {
-                    Log.w(TAG, "No phone number found for receiver $receiverId")
+                    Log.w(TAG, "No phone number found for receiver")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to look up receiver phone", e)

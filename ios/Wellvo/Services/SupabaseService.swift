@@ -32,12 +32,16 @@ final class SupabaseService {
         sharedDefaults?.set(urlString, forKey: "supabase_url")
     }
 
-    /// Writes the current access token to shared App Group storage
+    /// Writes the current access token to Keychain (shared via App Group)
     /// so the Notification Service Extension can confirm delivery.
     /// Call this after successful auth and on token refresh.
     func syncAccessTokenToExtension() async {
         guard let session = try? await client.auth.session else { return }
+        // Migrate: remove old UserDefaults storage
         let sharedDefaults = UserDefaults(suiteName: "group.com.wellvo.ios")
-        sharedDefaults?.set(session.accessToken, forKey: "supabase_access_token")
+        if sharedDefaults?.string(forKey: "supabase_access_token") != nil {
+            sharedDefaults?.removeObject(forKey: "supabase_access_token")
+        }
+        _ = KeychainService.save(key: "supabase_access_token", value: session.accessToken)
     }
 }

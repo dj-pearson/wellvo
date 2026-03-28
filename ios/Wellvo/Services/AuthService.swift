@@ -302,14 +302,29 @@ actor AuthService {
         }
     }
 
+    private static let commonPasswords: Set<String> = [
+        "password", "123456789", "1234567890", "qwerty1234", "iloveyou1",
+        "password1", "password12", "password123", "letmein123", "welcome123",
+        "monkey1234", "dragon1234", "master1234", "qwertyuiop", "1234567891",
+        "trustno1A", "sunshine12", "princess12", "football12", "charlie123",
+        "shadow1234", "michael123", "jennifer12", "hunter1234", "thomas1234",
+        "jordan1234", "mustang123", "access1234", "123456789a", "abcdefghij",
+    ]
+
     private func validatePassword(_ password: String) throws {
-        guard password.count >= 8 else {
+        guard password.count >= 10 else {
             throw AuthError.passwordTooShort
+        }
+        guard password.count <= 128 else {
+            throw AuthError.passwordTooWeak
         }
         let hasUppercase = password.contains(where: { $0.isUppercase })
         let hasLowercase = password.contains(where: { $0.isLowercase })
         let hasNumber = password.contains(where: { $0.isNumber })
         guard hasUppercase && hasLowercase && hasNumber else {
+            throw AuthError.passwordTooWeak
+        }
+        guard !Self.commonPasswords.contains(password.lowercased()) else {
             throw AuthError.passwordTooWeak
         }
     }
@@ -363,8 +378,8 @@ enum AuthError: LocalizedError {
         case .missingNonce: return "Sign-in security check failed. Please try again."
         case .userNotFound: return "User not found."
         case .invalidEmail: return "Please enter a valid email address."
-        case .passwordTooShort: return "Password must be at least 8 characters."
-        case .passwordTooWeak: return "Password must contain uppercase, lowercase, and a number."
+        case .passwordTooShort: return "Password must be at least 10 characters."
+        case .passwordTooWeak: return "Password must contain uppercase, lowercase, and a number. Avoid common passwords."
         case .invalidDisplayName: return "Please enter your name."
         case .credentialRevoked: return "Your Apple ID access has been revoked. Please sign in again."
         }

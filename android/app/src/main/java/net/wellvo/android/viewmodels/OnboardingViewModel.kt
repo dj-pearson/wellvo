@@ -95,8 +95,10 @@ class OnboardingViewModel @Inject constructor(
     }
 
     fun updateFamilyName(name: String) {
-        _uiState.value = _uiState.value.copy(familyName = name, errorMessage = null)
-        savedStateHandle["familyName"] = name
+        // Enforce max length of 100 characters
+        val trimmed = if (name.length > 100) name.take(100) else name
+        _uiState.value = _uiState.value.copy(familyName = trimmed, errorMessage = null)
+        savedStateHandle["familyName"] = trimmed
     }
 
     fun updateReceiverName(name: String) {
@@ -124,6 +126,10 @@ class OnboardingViewModel @Inject constructor(
         val name = _uiState.value.familyName.trim()
         if (name.isEmpty()) {
             _uiState.value = _uiState.value.copy(errorMessage = "Please enter a family name.")
+            return
+        }
+        if (name.length > 100) {
+            _uiState.value = _uiState.value.copy(errorMessage = "Family name must be 100 characters or fewer.")
             return
         }
 

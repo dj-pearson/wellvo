@@ -670,3 +670,48 @@ Patterns: Added checkServiceRoleRateLimit() with global 200 req/min limit and pe
 Implemented: DELETE RLS policy for checkin_requests
 Files changed: supabase/migrations/00018_security_hardening.sql
 Patterns: Added "Owners can delete family requests" DELETE policy using is_family_owner(family_id). Receivers cannot delete their own requests (audit trail preservation). Service role can still delete via admin operations.
+
+--- Iteration SEC-7: US-SEC007 (2026-03-28) ---
+Implemented: Move iOS sensitive data from UserDefaults to Keychain
+Files changed: ios/Wellvo/Services/SupabaseService.swift, ios/Wellvo/ViewModels/AuthViewModel.swift, ios/Wellvo/Services/PushNotificationService.swift
+Patterns: SupabaseService.syncAccessTokenToExtension saves access token to Keychain via KeychainService.save() instead of UserDefaults(suiteName:). AuthViewModel.currentRawNonce uses KeychainService for get/set/delete instead of UserDefaults.standard. PushNotificationService.registerToken stores lastPushToken in Keychain. All three include migration: check old UserDefaults, migrate to Keychain, remove old entry.
+
+--- Iteration SEC-8: US-SEC008 (2026-03-28) ---
+Implemented: Deep link token validation on iOS and Android
+Files changed: ios/Wellvo/App/WellvoApp.swift, android/app/src/main/java/net/wellvo/android/MainActivity.kt
+Patterns: iOS: handleDeepLink verifies URL scheme (wellvo/https), validates token as hex string via regex, enforces max 500 chars, silently rejects invalid. Android: handleDeepLinkIntent uses isValidInviteToken() checking hex pattern and 500-char max. handleNotificationIntent validates notification_type against known set, request_id/receiver_id against UUID regex.
+
+--- Iteration SEC-10: US-SEC010 (2026-03-28) ---
+Implemented: Rate limiting for pairing code submission
+Files changed: edge-functions/shared/rate-limiter.ts, edge-functions/functions/redeem-code/index.ts, ios/Wellvo/Views/Onboarding/PairingCodeEntryView.swift, android/app/src/main/java/net/wellvo/android/viewmodels/PairingCodeViewModel.kt
+Patterns: Server: /redeem-code endpoint has 5 req/min rate limit. In-memory brute-force tracker per userId: 10 failed attempts triggers 15-min lockout with 429 + retryAfterSeconds. Successful redemption resets counter. iOS: PairingCodeEntryView adds failedAttempts counter, exponential backoff delay (2^n seconds, max 16s), 10-attempt lockout for 15 min, shows remaining attempts. Android: PairingCodeViewModel adds same client-side protections with PairingCodeUiState.failedAttempts/isLockedOut.
+
+--- Iteration SEC-13: US-SEC013 (2026-03-28) ---
+Implemented: Remove sensitive data from iOS and Android debug logs
+Files changed: ios/Wellvo/App/AppDelegate.swift, android/app/src/main/java/net/wellvo/android/services/WellvoFirebaseMessagingService.kt, android/app/src/main/java/net/wellvo/android/services/CheckInNotificationReceiver.kt
+Patterns: iOS: All print() statements in AppDelegate sanitized — removed error.localizedDescription, receiverId, and other PII from log output. Android: WellvoFirebaseMessagingService message data logging gated behind BuildConfig.DEBUG. CheckInNotificationReceiver: requestId removed from "Processing check-in" log, receiverId removed from dialer/phone lookup logs.
+
+--- Iteration SEC-17: US-SEC017 (2026-03-28) ---
+Implemented: Strengthen password validation requirements
+Files changed: ios/Wellvo/Services/AuthService.swift, android/app/src/main/java/net/wellvo/android/services/AuthService.kt
+Patterns: iOS: Minimum raised from 8 to 10 chars. Max 128 chars added. Common password check against 30-entry set. Error messages updated to reflect new requirements. Android: validatePassword() added to AuthService with same rules (10+ chars, max 128, uppercase/lowercase/digit, common password check). Called before signUpWithEmail. Error messages guide user to create stronger password.
+
+--- Iteration SEC-21: US-SEC021 (2026-03-28) ---
+Implemented: E.164 international phone number validation
+Files changed: edge-functions/shared/sms.ts, edge-functions/functions/invite-receiver/index.ts
+Patterns: sms.ts normalizePhone expanded: validates E.164 (+[1-9][0-9]{1,14}), handles US 10/11-digit without country code, enforces max 20 chars. invite-receiver: isValidUSPhone replaced with isValidPhone accepting E.164 international format + US formats. Error message updated to mention E.164.
+
+--- Iteration SEC-22: US-SEC022 (2026-03-28) ---
+Implemented: Android intent extras validation (combined with SEC-008)
+Files changed: android/app/src/main/java/net/wellvo/android/MainActivity.kt
+Patterns: handleNotificationIntent validates notification_type against knownNotificationTypes set (CHECKIN_REQUEST, URGENT_ALERT, LOCATION_ALERT, CHECKIN_REMINDER). request_id and receiver_id validated as UUID via regex pattern. Invalid extras silently ignored. Debug log messages no longer include raw intent values.
+
+--- Iteration SEC-24: US-SEC024 (2026-03-28) ---
+Implemented: Bounds checking for iOS location and battery data
+Files changed: ios/Wellvo/Services/CheckInService.swift, ios/Wellvo/Services/LocationService.swift
+Patterns: CheckInService.checkIn: lat/lng validated (-90/90, -180/180) before including in body. Accuracy validated (0-100km). Battery validated (0-1). LocationService.reportLocation: same bounds checks with early return on invalid. Background delegate method: validates coordinates and accuracy before building request body. Invalid values silently excluded.
+
+--- Iteration SEC-25: US-SEC025 (2026-03-28) ---
+Implemented: Family name input length validation
+Files changed: ios/Wellvo/ViewModels/OnboardingViewModel.swift, android/app/src/main/java/net/wellvo/android/viewmodels/OnboardingViewModel.kt
+Patterns: iOS: createFamily trims whitespace and validates familyName <= 100 chars, shows error if exceeded. Android: updateFamilyName enforces 100-char max on input (truncates). createFamily validates trimmed name <= 100 chars with error message. Edge functions already validate name fields via shared validation.ts truncateString.

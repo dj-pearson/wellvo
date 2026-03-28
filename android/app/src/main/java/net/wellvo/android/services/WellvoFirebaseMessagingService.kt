@@ -97,7 +97,9 @@ class WellvoFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        Log.d(TAG, "Message received: type=${message.data["type"]}")
+        if (net.wellvo.android.BuildConfig.DEBUG) {
+            Log.d(TAG, "Message received: type=${message.data["type"]}")
+        }
 
         val data = message.data
         val type = data["type"] ?: return

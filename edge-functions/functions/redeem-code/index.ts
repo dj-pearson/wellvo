@@ -7,6 +7,21 @@ interface RedeemRequest {
   timezone?: string;
 }
 
+// Brute-force protection: track failed attempts per user
+const failedAttempts = new Map<string, { count: number; lockedUntil: number }>();
+const MAX_FAILED_ATTEMPTS = 10;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
+// Clean up expired lockouts every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of failedAttempts) {
+    if (entry.lockedUntil < now) {
+      failedAttempts.delete(key);
+    }
+  }
+}, 600_000);
+
 /**
  * Redeem a 6-digit pairing code to join a family.
  *
@@ -22,6 +37,20 @@ export async function handleRedeemCode(
     return new Response(
       JSON.stringify({ error: "Authentication required" }),
       { status: 401, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  // Check lockout status
+  const attempts = failedAttempts.get(auth.userId);
+  if (attempts && attempts.count >= MAX_FAILED_ATTEMPTS && Date.now() < attempts.lockedUntil) {
+    const retryAfterSeconds = Math.ceil((attempts.lockedUntil - Date.now()) / 1000);
+    return new Response(
+      JSON.stringify({
+        error: "Too many failed attempts. Please try again later.",
+        locked: true,
+        retryAfterSeconds,
+      }),
+      { status: 429, headers: { "Content-Type": "application/json", "Retry-After": String(retryAfterSeconds) } },
     );
   }
 
@@ -53,11 +82,26 @@ export async function handleRedeemCode(
     .single();
 
   if (inviteError || !invite) {
+    // Track failed attempt for brute-force protection
+    const current = failedAttempts.get(auth.userId!) || { count: 0, lockedUntil: 0 };
+    current.count++;
+    if (current.count >= MAX_FAILED_ATTEMPTS) {
+      current.lockedUntil = Date.now() + LOCKOUT_DURATION_MS;
+    }
+    failedAttempts.set(auth.userId!, current);
+
+    const remaining = MAX_FAILED_ATTEMPTS - current.count;
     return new Response(
-      JSON.stringify({ error: "Invalid or expired code. Please check and try again." }),
+      JSON.stringify({
+        error: "Invalid or expired code. Please check and try again.",
+        attemptsRemaining: Math.max(0, remaining),
+      }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
+
+  // Reset failed attempts on successful code lookup
+  failedAttempts.delete(auth.userId!);
 
   // Check if user is already a member of this family
   const { data: existingMember } = await supabaseAdmin

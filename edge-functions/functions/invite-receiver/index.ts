@@ -69,10 +69,10 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
     );
   }
 
-  // Validate phone number format (US numbers)
-  if (!isValidUSPhone(phone)) {
+  // Validate phone number format (E.164 international or US)
+  if (phone.length > 20 || !isValidPhone(phone)) {
     return new Response(
-      JSON.stringify({ error: "Invalid phone number. Please use a valid US phone number (e.g., (555) 123-4567, 555-123-4567, or +15551234567)." }),
+      JSON.stringify({ error: "Invalid phone number. Please use E.164 format (e.g., +15551234567) or a valid US number." }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -305,12 +305,17 @@ function generatePairingCode(): string {
 }
 
 /**
- * Validate US phone number formats:
- * (xxx) xxx-xxxx, xxx-xxx-xxxx, +1xxxxxxxxxx, xxxxxxxxxx
+ * Validate phone number: E.164 international format or US formats.
+ * E.164: +[1-9][0-9]{1,14}
+ * US: (xxx) xxx-xxxx, xxx-xxx-xxxx, +1xxxxxxxxxx, xxxxxxxxxx
  */
-function isValidUSPhone(phone: string): boolean {
-  // Strip all non-digit characters except leading +
+function isValidPhone(phone: string): boolean {
   const stripped = phone.replace(/[\s\-().]/g, "");
-  // Match: 10 digits, or +1 followed by 10 digits, or 1 followed by 10 digits
-  return /^(\+?1)?[2-9]\d{9}$/.test(stripped);
+  // E.164 international format
+  if (/^\+[1-9]\d{1,14}$/.test(stripped)) return true;
+  // US number without country code (10 digits starting with 2-9)
+  if (/^[2-9]\d{9}$/.test(stripped)) return true;
+  // US number with leading 1 (11 digits)
+  if (/^1[2-9]\d{9}$/.test(stripped)) return true;
+  return false;
 }
