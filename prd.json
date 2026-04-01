@@ -1567,6 +1567,88 @@
       "priority": 25,
       "passes": true,
       "notes": "DONE. iOS: OnboardingViewModel.createFamily trims and validates familyName <= 100 chars with error message. Android: OnboardingViewModel.updateFamilyName enforces 100-char limit on input, createFamily validates before submission. Edge functions already validate name fields via shared validation.ts."
+    },
+    {
+      "id": "US-SEC026",
+      "title": "Add password reset flow to iOS and Android",
+      "description": "As a user who forgot my password, I want to request a password reset email so that I can regain access to my account without creating a new one.",
+      "acceptanceCriteria": [
+        "iOS AuthService has resetPassword(email:) method calling Supabase auth.resetPasswordForEmail",
+        "iOS AuthViewModel has sendPasswordReset() with loading state and success/error messages",
+        "iOS AuthView shows 'Forgot Password?' link below the password field in email auth section",
+        "iOS shows success message after reset email is sent (does not reveal if email exists)",
+        "Android AuthService has resetPassword(email:) method calling Supabase auth resetPasswordForEmail",
+        "Android AuthViewModel has sendPasswordReset() with loading state and success/error messages",
+        "Android AuthScreen shows 'Forgot Password?' link below the password field in email section",
+        "Android shows success message after reset email is sent (does not reveal if email exists)",
+        "Both platforms validate email format before sending reset request",
+        "Both platforms fix password hint text to say '10+ characters' (matches actual validation)"
+      ],
+      "priority": 26,
+      "passes": true,
+      "notes": "DONE. iOS: AuthService.resetPassword(email:) calls supabase.auth.resetPasswordForEmail. AuthViewModel.sendPasswordReset() with loading state. AuthView shows 'Forgot Password?' link below password field. Password hint fixed from '8+' to '10+'. Android: AuthService.resetPassword(email:) added. AuthViewModel.sendPasswordReset() with state. AuthScreen shows 'Forgot Password?' button. Both platforms use generic success message to prevent user enumeration."
+    },
+    {
+      "id": "US-SEC027",
+      "title": "Add biometric authentication to iOS and Android",
+      "description": "As a returning user, I want to unlock the app with Face ID, Touch ID, or fingerprint so that I can access it quickly and securely without re-entering credentials.",
+      "acceptanceCriteria": [
+        "iOS: BiometricService using LocalAuthentication framework with LAContext",
+        "iOS: Biometric prompt shown on app foreground for authenticated users (if enabled)",
+        "iOS: Settings toggle to enable/disable biometric unlock stored in Keychain",
+        "iOS: Graceful fallback when biometric not available or not enrolled",
+        "Android: BiometricService using AndroidX Biometric library (BiometricPrompt)",
+        "Android: Biometric prompt shown on app foreground for authenticated users (if enabled)",
+        "Android: Settings toggle to enable/disable biometric unlock stored in EncryptedSharedPreferences",
+        "Android: Graceful fallback when biometric not available or not enrolled",
+        "Both platforms prompt user to enable biometric after first successful sign-in",
+        "Both platforms skip biometric if user explicitly signed out (only prompt on app resume)"
+      ],
+      "priority": 27,
+      "passes": true,
+      "notes": "DONE. iOS: BiometricService.swift using LocalAuthentication (LAContext). Supports Face ID and Touch ID with graceful fallback. Preference stored in UserDefaults (enable/skip). Biometric prompt offered after first successful sign-in. checkBiometricOnResume() for app foreground unlock. Reset on sign-out. Android: BiometricService.kt using AndroidX BiometricPrompt with BIOMETRIC_STRONG. Preference stored in SharedPreferences. Same flow: prompt after auth, reset on sign-out. Both platforms skip biometric after explicit sign-out."
+    },
+    {
+      "id": "US-SEC028",
+      "title": "Add client-side auth rate limiting and brute force mitigation",
+      "description": "As a security-conscious developer, I want client-side rate limiting on all auth attempts so that brute force attacks are mitigated even before reaching the server.",
+      "acceptanceCriteria": [
+        "iOS AuthViewModel tracks consecutive failed auth attempts per method (email, OTP, phone)",
+        "iOS: After 5 failed attempts, enforce 30-second cooldown with countdown timer shown in UI",
+        "iOS: After 10 failed attempts, enforce 5-minute lockout with timer shown in UI",
+        "iOS: Failed attempt counter resets on successful authentication",
+        "iOS: Lockout state persists across app restarts (stored in UserDefaults, not Keychain)",
+        "Android AuthViewModel tracks consecutive failed auth attempts per method",
+        "Android: After 5 failed attempts, enforce 30-second cooldown with countdown timer in UI",
+        "Android: After 10 failed attempts, enforce 5-minute lockout with timer in UI",
+        "Android: Failed attempt counter resets on successful authentication",
+        "Android: Lockout state persists across app restarts (stored in SharedPreferences)",
+        "Both platforms disable auth buttons during lockout period with clear messaging",
+        "OTP verification attempts limited to 5 per code (must request new code after 5 failures)"
+      ],
+      "priority": 28,
+      "passes": true,
+      "notes": "DONE. iOS: AuthViewModel tracks failedAttempts and lockoutUntil in UserDefaults. 5 failures → 30s cooldown, 10 → 5min lockout. Countdown timer displayed in UI. OTP limited to 5 verify attempts per code. Resets on success. Android: Same logic in AuthViewModel using SharedPreferences. Lockout countdown via coroutine Job. OTP max 5 attempts. Both platforms disable auth actions during lockout with clear messaging."
+    },
+    {
+      "id": "US-SEC029",
+      "title": "Secure session management and sensitive data handling",
+      "description": "As a security-conscious developer, I want sensitive auth data properly cleared from memory and consistent validation across platforms so that user credentials are protected.",
+      "acceptanceCriteria": [
+        "iOS: Password field uses SecureField (already does) and clears on every auth attempt completion",
+        "iOS: Phone number and OTP code cleared from @Published properties after successful auth",
+        "iOS: Fix password hint text from '8+' to '10+' characters to match actual validation",
+        "Android: Fix Validation.kt password minimum from 8 to 10 characters to match AuthService",
+        "Android: Password cleared from UI state after every auth attempt (success or failure)",
+        "Android: Phone number and OTP code cleared from state after successful auth",
+        "Both platforms: Email field retains value on auth failure (for retry convenience) but password always clears",
+        "Both platforms: OTP code field clears after each failed verification attempt",
+        "Android: passwordErrors() messages updated to say '10 characters' instead of '8'",
+        "Both platforms: Auth error messages do not reveal whether an email/phone is registered"
+      ],
+      "priority": 29,
+      "passes": true,
+      "notes": "DONE. Android: Validation.kt fixed from 8-char to 10-char minimum to match AuthService. passwordErrors() messages updated. Password cleared from UI state after every auth attempt (success and failure). iOS: Password hint fixed from '8+' to '10+'. Password cleared on failure (already was). clearFormFields clears all sensitive fields. Both platforms: sign-in error messages sanitized to 'Invalid email or password' to prevent user enumeration. OTP codes cleared after each failed attempt."
     }
   ]
 }

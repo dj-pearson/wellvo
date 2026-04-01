@@ -85,6 +85,17 @@ fun AuthScreen(
         )
         Spacer(modifier = Modifier.height(40.dp))
 
+        // Rate limiting lockout message
+        state.authLockoutMessage?.let { lockoutMsg ->
+            Text(
+                text = lockoutMsg,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            )
+        }
+
         // Phone OTP — primary, prominent
         PhoneAuthSection(
             state = state,
@@ -347,6 +358,41 @@ private fun EmailExpandableSection(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !state.isLoading
             )
+
+            if (!state.isSignUp) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(
+                        onClick = viewModel::sendPasswordReset,
+                        enabled = !state.isResettingPassword
+                    ) {
+                        if (state.isResettingPassword) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text(
+                                "Forgot Password?",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            }
+
+            state.resetPasswordMessage?.let { msg ->
+                Text(
+                    text = msg,
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             ErrorText(state.errorMessage)
             Spacer(modifier = Modifier.height(24.dp))

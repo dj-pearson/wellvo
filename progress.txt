@@ -715,3 +715,29 @@ Patterns: CheckInService.checkIn: lat/lng validated (-90/90, -180/180) before in
 Implemented: Family name input length validation
 Files changed: ios/Wellvo/ViewModels/OnboardingViewModel.swift, android/app/src/main/java/net/wellvo/android/viewmodels/OnboardingViewModel.kt
 Patterns: iOS: createFamily trims whitespace and validates familyName <= 100 chars, shows error if exceeded. Android: updateFamilyName enforces 100-char max on input (truncates). createFamily validates trimmed name <= 100 chars with error message. Edge functions already validate name fields via shared validation.ts truncateString.
+
+-- Phase 7: Mobile App Auth Security & UX Hardening --
+US-SEC026: DONE - Password reset flow (iOS + Android)
+US-SEC027: DONE - Biometric authentication (iOS + Android)
+US-SEC028: DONE - Client-side auth rate limiting (iOS + Android)
+US-SEC029: DONE - Secure session management and sensitive data handling
+
+--- Iteration SEC-26: US-SEC026 (2026-04-01) ---
+Implemented: Password reset flow for iOS and Android
+Files changed: ios/Wellvo/Services/AuthService.swift, ios/Wellvo/ViewModels/AuthViewModel.swift, ios/Wellvo/Views/Auth/AuthView.swift, android/app/src/main/java/net/wellvo/android/services/AuthService.kt, android/app/src/main/java/net/wellvo/android/viewmodels/AuthViewModel.kt, android/app/src/main/java/net/wellvo/android/ui/screens/auth/AuthScreen.kt
+Patterns: Both platforms: AuthService.resetPassword(email:) calls Supabase auth.resetPasswordForEmail. AuthViewModel tracks isResettingPassword and resetPasswordMessage state. UI shows "Forgot Password?" link below password field in email auth section. Generic success message ("If an account exists...") prevents user enumeration. Password hint text fixed from "8+" to "10+" to match actual validation (10-char minimum).
+
+--- Iteration SEC-27: US-SEC027 (2026-04-01) ---
+Implemented: Biometric authentication for iOS and Android
+Files changed: ios/Wellvo/Services/BiometricService.swift (new), ios/Wellvo/ViewModels/AuthViewModel.swift, android/app/src/main/java/net/wellvo/android/services/BiometricService.kt (new), android/app/src/main/java/net/wellvo/android/viewmodels/AuthViewModel.kt
+Patterns: iOS: BiometricService actor using LocalAuthentication LAContext. Supports Face ID/Touch ID with graceful fallback. Preferences in UserDefaults (isEnabled, hasBeenSkipped). checkBiometricOnResume() for app foreground lock. Prompt offered after first successful sign-in. Reset on sign-out. Android: BiometricService using AndroidX BiometricPrompt with BIOMETRIC_STRONG authenticators. suspendCancellableCoroutine for async auth. Preferences in SharedPreferences. Same lifecycle: prompt after auth, skip after explicit sign-out.
+
+--- Iteration SEC-28: US-SEC028 (2026-04-01) ---
+Implemented: Client-side auth rate limiting and brute force mitigation
+Files changed: ios/Wellvo/ViewModels/AuthViewModel.swift, android/app/src/main/java/net/wellvo/android/viewmodels/AuthViewModel.kt, android/app/src/main/java/net/wellvo/android/ui/screens/auth/AuthScreen.kt
+Patterns: Both platforms: Track consecutive failed auth attempts. 5 failures → 30s cooldown, 10 failures → 5min lockout. Countdown timer shown in UI. Lockout persists across app restarts (iOS: UserDefaults, Android: SharedPreferences). OTP verification limited to 5 attempts per code — must request new code after. All counters reset on successful auth. Lockout message displayed prominently in auth UI. Auth buttons disabled during lockout.
+
+--- Iteration SEC-29: US-SEC029 (2026-04-01) ---
+Implemented: Secure session management and sensitive data handling
+Files changed: android/app/src/main/java/net/wellvo/android/util/Validation.kt, ios/Wellvo/Views/Auth/AuthView.swift, ios/Wellvo/ViewModels/AuthViewModel.swift, android/app/src/main/java/net/wellvo/android/viewmodels/AuthViewModel.kt
+Patterns: Android: Validation.kt password minimum fixed from 8 to 10 chars to match AuthService (was inconsistent). passwordErrors() messages updated. Password cleared from state after every auth attempt. iOS: Password hint text corrected. Sign-in error messages sanitized to generic "Invalid email or password" on both platforms to prevent user enumeration. OTP code cleared after each failed verification attempt. Phone/OTP cleared on successful auth via clearFormFields.

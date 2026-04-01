@@ -220,9 +220,35 @@ struct AuthView: View {
                 }
 
             if isSignUp {
-                Text("Password must be 8+ characters with uppercase, lowercase, and a number.")
+                Text("Password must be 10+ characters with uppercase, lowercase, and a number.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+            }
+
+            if !isSignUp {
+                HStack {
+                    Spacer()
+                    Button {
+                        Task { await authViewModel.sendPasswordReset() }
+                    } label: {
+                        if authViewModel.isResettingPassword {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Text("Forgot Password?")
+                                .font(.caption)
+                                .foregroundStyle(.green)
+                        }
+                    }
+                    .disabled(authViewModel.isResettingPassword)
+                }
+            }
+
+            if let resetMessage = authViewModel.resetPasswordMessage {
+                Text(resetMessage)
+                    .font(.caption)
+                    .foregroundStyle(.green)
+                    .multilineTextAlignment(.center)
             }
 
             Button {

@@ -140,6 +140,14 @@ class AuthService @Inject constructor(
         }
     }
 
+    suspend fun resetPassword(email: String) {
+        try {
+            supabase.auth.resetPasswordForEmail(email.trim().lowercase())
+        } catch (e: Exception) {
+            throw mapAuthError(e)
+        }
+    }
+
     suspend fun getCurrentUser(): AppUser? {
         val userId = currentUserId() ?: return null
         return try {

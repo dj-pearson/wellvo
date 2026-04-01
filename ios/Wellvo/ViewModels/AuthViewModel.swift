@@ -27,6 +27,34 @@ final class AuthViewModel: ObservableObject {
     @Published var otpCode = ""
     @Published var isAwaitingOTP = false
 
+    // Password reset
+    @Published var isResettingPassword = false
+    @Published var resetPasswordMessage: String?
+
+    // Biometric
+    @Published var showBiometricPrompt = false
+    @Published var biometricLocked = false
+
+    // Rate limiting
+    @Published var authLockoutMessage: String?
+    @Published var authLockoutSecondsRemaining: Int = 0
+    private var failedAttempts: Int {
+        get { UserDefaults.standard.integer(forKey: "auth_failed_attempts") }
+        set { UserDefaults.standard.set(newValue, forKey: "auth_failed_attempts") }
+    }
+    private var lockoutUntil: Date? {
+        get {
+            let ts = UserDefaults.standard.double(forKey: "auth_lockout_until")
+            return ts > 0 ? Date(timeIntervalSince1970: ts) : nil
+        }
+        set {
+            UserDefaults.standard.set(newValue?.timeIntervalSince1970 ?? 0, forKey: "auth_lockout_until")
+        }
+    }
+    private var lockoutTimer: Task<Void, Never>?
+    private var otpVerifyAttempts: Int = 0
+    private static let maxOTPAttempts = 5
+
     /// The raw nonce generated for the current Apple Sign-In attempt.
     /// Stored in Keychain so it survives view recreation and SwiftUI lifecycle events.
     private var currentRawNonce: String? {
@@ -146,6 +174,7 @@ final class AuthViewModel: ObservableObject {
                 currentRawNonce = nil
                 authState = .authenticated
                 clearFormFields()
+                await checkBiometricSetupPrompt()
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -221,6 +250,7 @@ final class AuthViewModel: ObservableObject {
             errorMessage = "Please fill in all fields"
             return
         }
+        guard !isLockedOut() else { return }
 
         isLoading = true
         errorMessage = nil
@@ -228,10 +258,14 @@ final class AuthViewModel: ObservableObject {
         do {
             currentUser = try await AuthService.shared.signInWithEmail(email: email, password: password)
             authState = .authenticated
+            resetFailedAttempts()
             clearFormFields()
+            await checkBiometricSetupPrompt()
         } catch {
-            errorMessage = error.localizedDescription
+            // Don't reveal if email exists — use generic message for sign-in failures
+            errorMessage = "Invalid email or password. Please try again."
             password = "" // Clear password on failure
+            recordFailedAttempt()
         }
 
         isLoading = false
@@ -242,6 +276,7 @@ final class AuthViewModel: ObservableObject {
             errorMessage = "Please fill in all fields"
             return
         }
+        guard !isLockedOut() else { return }
 
         isLoading = true
         errorMessage = nil
@@ -253,10 +288,13 @@ final class AuthViewModel: ObservableObject {
                 displayName: displayName
             )
             authState = .authenticated
+            resetFailedAttempts()
             clearFormFields()
+            await checkBiometricSetupPrompt()
         } catch {
             errorMessage = error.localizedDescription
             password = "" // Clear password on failure
+            recordFailedAttempt()
         }
 
         isLoading = false
@@ -270,6 +308,7 @@ final class AuthViewModel: ObservableObject {
             errorMessage = "Please enter a valid phone number"
             return
         }
+        guard !isLockedOut() else { return }
 
         isLoading = true
         errorMessage = nil
@@ -277,8 +316,10 @@ final class AuthViewModel: ObservableObject {
         do {
             try await AuthService.shared.sendPhoneOTP(phone: phoneNumber)
             isAwaitingOTP = true
+            otpVerifyAttempts = 0
         } catch {
             errorMessage = "Could not send verification code. Please try again."
+            recordFailedAttempt()
         }
 
         isLoading = false
@@ -289,6 +330,16 @@ final class AuthViewModel: ObservableObject {
             errorMessage = "Please enter the 6-digit code"
             return
         }
+        guard !isLockedOut() else { return }
+
+        otpVerifyAttempts += 1
+        if otpVerifyAttempts > Self.maxOTPAttempts {
+            errorMessage = "Too many attempts. Please request a new code."
+            isAwaitingOTP = false
+            otpCode = ""
+            otpVerifyAttempts = 0
+            return
+        }
 
         isLoading = true
         errorMessage = nil
@@ -296,24 +347,82 @@ final class AuthViewModel: ObservableObject {
         do {
             currentUser = try await AuthService.shared.verifyPhoneOTP(phone: phoneNumber, code: otpCode)
             authState = .authenticated
+            resetFailedAttempts()
             clearFormFields()
+            await checkBiometricSetupPrompt()
         } catch {
-            errorMessage = "Invalid code. Please try again."
+            errorMessage = "Invalid code. Please try again. (\(Self.maxOTPAttempts - otpVerifyAttempts) attempts remaining)"
             otpCode = ""
+            recordFailedAttempt()
         }
 
         isLoading = false
     }
 
+    // MARK: - Password Reset
+
+    func sendPasswordReset() async {
+        guard !email.isEmpty else {
+            errorMessage = "Please enter your email address"
+            return
+        }
+
+        isResettingPassword = true
+        errorMessage = nil
+        resetPasswordMessage = nil
+
+        do {
+            try await AuthService.shared.resetPassword(email: email)
+            // Always show same message to avoid user enumeration
+            resetPasswordMessage = "If an account exists with that email, you'll receive a password reset link."
+        } catch {
+            // Don't reveal whether the email exists
+            resetPasswordMessage = "If an account exists with that email, you'll receive a password reset link."
+        }
+
+        isResettingPassword = false
+    }
+
     func signOut() async {
         do {
             try await AuthService.shared.signOut()
+            await BiometricService.shared.reset()
             currentUser = nil
             authState = .unauthenticated
+            biometricLocked = false
             clearFormFields()
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    // MARK: - Biometric Authentication
+
+    /// Check if biometric should be presented on app resume.
+    func checkBiometricOnResume() async {
+        guard authState == .authenticated else { return }
+        let biometric = BiometricService.shared
+        guard await biometric.isEnabled, await biometric.isBiometricAvailable() else { return }
+
+        biometricLocked = true
+        let success = await biometric.authenticate()
+        biometricLocked = !success
+    }
+
+    /// After first successful sign-in, check if we should offer biometric setup.
+    func checkBiometricSetupPrompt() async {
+        guard await BiometricService.shared.shouldPromptToEnable() else { return }
+        showBiometricPrompt = true
+    }
+
+    func enableBiometric() async {
+        await BiometricService.shared.setEnabled(true)
+        showBiometricPrompt = false
+    }
+
+    func skipBiometric() async {
+        await BiometricService.shared.setSkipped(true)
+        showBiometricPrompt = false
     }
 
     // MARK: - Apple Credential Revocation
@@ -341,6 +450,66 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Rate Limiting
+
+    /// Check if auth is currently locked out. Returns true if locked.
+    private func isLockedOut() -> Bool {
+        if let until = lockoutUntil, until > Date() {
+            startLockoutCountdown(until: until)
+            return true
+        }
+        // Clear stale lockout
+        if lockoutUntil != nil {
+            lockoutUntil = nil
+            authLockoutMessage = nil
+            authLockoutSecondsRemaining = 0
+        }
+        return false
+    }
+
+    /// Record a failed auth attempt and apply lockout if threshold reached.
+    private func recordFailedAttempt() {
+        failedAttempts += 1
+        let count = failedAttempts
+
+        if count >= 10 {
+            let lockout = Date().addingTimeInterval(300) // 5 minutes
+            lockoutUntil = lockout
+            startLockoutCountdown(until: lockout)
+        } else if count >= 5 {
+            let lockout = Date().addingTimeInterval(30) // 30 seconds
+            lockoutUntil = lockout
+            startLockoutCountdown(until: lockout)
+        }
+    }
+
+    /// Reset failed attempts on successful auth.
+    private func resetFailedAttempts() {
+        failedAttempts = 0
+        lockoutUntil = nil
+        authLockoutMessage = nil
+        authLockoutSecondsRemaining = 0
+        otpVerifyAttempts = 0
+        lockoutTimer?.cancel()
+    }
+
+    private func startLockoutCountdown(until date: Date) {
+        lockoutTimer?.cancel()
+        lockoutTimer = Task {
+            while !Task.isCancelled {
+                let remaining = Int(date.timeIntervalSinceNow)
+                if remaining <= 0 {
+                    authLockoutMessage = nil
+                    authLockoutSecondsRemaining = 0
+                    break
+                }
+                authLockoutSecondsRemaining = remaining
+                authLockoutMessage = "Too many failed attempts. Try again in \(remaining)s."
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+        }
+    }
+
     // MARK: - Helpers
 
     private func clearFormFields() {
@@ -350,5 +519,6 @@ final class AuthViewModel: ObservableObject {
         phoneNumber = ""
         otpCode = ""
         isAwaitingOTP = false
+        resetPasswordMessage = nil
     }
 }
