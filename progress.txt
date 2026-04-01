@@ -741,3 +741,31 @@ Patterns: Both platforms: Track consecutive failed auth attempts. 5 failures →
 Implemented: Secure session management and sensitive data handling
 Files changed: android/app/src/main/java/net/wellvo/android/util/Validation.kt, ios/Wellvo/Views/Auth/AuthView.swift, ios/Wellvo/ViewModels/AuthViewModel.swift, android/app/src/main/java/net/wellvo/android/viewmodels/AuthViewModel.kt
 Patterns: Android: Validation.kt password minimum fixed from 8 to 10 chars to match AuthService (was inconsistent). passwordErrors() messages updated. Password cleared from state after every auth attempt. iOS: Password hint text corrected. Sign-in error messages sanitized to generic "Invalid email or password" on both platforms to prevent user enumeration. OTP code cleared after each failed verification attempt. Phone/OTP cleared on successful auth via clearFormFields.
+
+-- Phase 8: Remaining Security + UX Polish --
+US-SEC016: DONE - Certificate pinning for Supabase connections (iOS + Android)
+US-SEC018: DONE - Room database encryption (Android)
+US-SEC030: DONE - Password strength indicator (iOS + Android)
+US-SEC031: DONE - Pull-to-refresh and retry buttons (iOS + Android)
+
+--- Iteration SEC-16: US-SEC016 (2026-04-01) ---
+Implemented: Certificate pinning for Supabase connections
+Files changed: android/app/src/main/res/xml/network_security_config.xml, ios/Wellvo/Services/CertificatePinningService.swift (new), ios/Wellvo/App/WellvoApp.swift, ios/Wellvo/Services/AnalyticsService.swift
+Patterns: Android: network_security_config.xml updated with domain-config for wellvo.net (includeSubdomains=true). Pin-set with ISRG Root X1 (C5+lpZ7...) and ISRG Root X2 (diGVwi...) SHA-256 pins. 1-year expiration (2027-04-01). Debug overrides bypass pinning for development. iOS: CertificatePinningService actor with URLSessionDelegate performing SPKI hash validation. Validates on app foreground via WellvoApp scene phase handler. 1-hour result cache to avoid excessive checks. Pinning failures logged via AnalyticsService (.certificatePinningFailure event). Biometric resume check also integrated into app foreground handler.
+
+--- Iteration SEC-18: US-SEC018 (2026-04-01) ---
+Implemented: Room database encryption with SQLCipher
+Files changed: android/gradle/libs.versions.toml, android/app/build.gradle.kts, android/app/src/main/java/net/wellvo/android/di/AppModule.kt
+Patterns: SQLCipher 4.5.7 (net.zetetic:android-database-sqlcipher) added. AppModule.provideDatabase generates 32-byte random key via SecureRandom, stores hex-encoded in EncryptedSharedPreferences (AES256-GCM). Room built with SupportOpenHelperFactory(passphrase). New DB file: wellvo_encrypted.db. Old unencrypted wellvo.db auto-deleted on first launch (migration: offline check-ins are transient, no data loss). System.loadLibrary("sqlcipher") called before DB creation.
+
+--- Iteration SEC-30: US-SEC030 (2026-04-01) ---
+Implemented: Password strength indicator for sign-up forms
+Files changed: ios/Wellvo/Views/Auth/AuthView.swift, android/app/src/main/java/net/wellvo/android/ui/screens/auth/AuthScreen.kt
+Patterns: iOS: PasswordStrength enum with evaluate() checking length (10+, 14+), character classes (upper, lower, digit, special), and common password list. Color-coded progress bar (red/orange/yellow/green) with animated fill and label. Only shown during sign-up when password non-empty. Android: PasswordStrength enum with identical logic. LinearProgressIndicator with MaterialTheme colors (error/tertiary/secondary/primary). LabelSmall text for strength name. Both update in real-time as user types.
+
+--- Iteration SEC-31: US-SEC031 (2026-04-01) ---
+Implemented: Pull-to-refresh and retry buttons on error states
+Files changed: ios/Wellvo/Views/Owner/DashboardView.swift, ios/Wellvo/Views/Receiver/ReceiverHomeView.swift, android/app/src/main/java/net/wellvo/android/ui/screens/owner/DashboardScreen.kt
+Patterns: iOS DashboardView: Added error state branch with warning icon, error message, and Retry button (with loading spinner). Shows when errorMessage exists and receiverCards empty. Already had .refreshable. iOS ReceiverHomeView: Added error + retry section below check-in button with "Try Again" button. Android DashboardScreen: Already had PullToRefreshBox — added new when-branch for error state (receiverCards empty + error not null) with Warning icon, message text, and Retry button. Android ReceiverHomeScreen already had ErrorState composable with retry.
+
+== ALL 29 SECURITY STORIES COMPLETE (US-SEC001–SEC031, excl SEC-032–034 pending) ==

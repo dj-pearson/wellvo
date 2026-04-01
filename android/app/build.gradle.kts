@@ -125,6 +125,7 @@ dependencies {
 
     // Security
     implementation(libs.security.crypto)
+    implementation(libs.sqlcipher)
 
     // Firebase
     implementation(platform(libs.firebase.bom))

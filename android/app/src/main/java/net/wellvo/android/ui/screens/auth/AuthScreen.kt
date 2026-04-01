@@ -54,6 +54,41 @@ import net.wellvo.android.R
 import net.wellvo.android.viewmodels.AuthUiState
 import net.wellvo.android.viewmodels.AuthViewModel
 
+// Password strength evaluation
+private enum class PasswordStrength(val label: String, val progress: Float) {
+    WEAK("Weak", 0.25f),
+    FAIR("Fair", 0.5f),
+    GOOD("Good", 0.75f),
+    STRONG("Strong", 1.0f);
+
+    companion object {
+        private val commonPasswords = setOf(
+            "password", "123456789", "1234567890", "qwerty1234", "iloveyou1",
+            "password1", "password12", "password123",
+        )
+
+        fun evaluate(password: String): PasswordStrength {
+            if (password.isEmpty()) return WEAK
+            if (password.lowercase() in commonPasswords) return WEAK
+
+            var score = 0
+            if (password.length >= 10) score++
+            if (password.length >= 14) score++
+            if (password.any { it.isUpperCase() }) score++
+            if (password.any { it.isLowerCase() }) score++
+            if (password.any { it.isDigit() }) score++
+            if (password.any { !it.isLetter() && !it.isDigit() }) score++
+
+            return when (score) {
+                in 0..2 -> WEAK
+                3 -> FAIR
+                in 4..5 -> GOOD
+                else -> STRONG
+            }
+        }
+    }
+}
+
 @Composable
 fun AuthScreen(
     viewModel: AuthViewModel = hiltViewModel()
@@ -358,6 +393,32 @@ private fun EmailExpandableSection(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !state.isLoading
             )
+
+            // Password strength indicator (sign-up only)
+            if (state.isSignUp && state.password.isNotEmpty()) {
+                val strength = PasswordStrength.evaluate(state.password)
+                val strengthColor = when (strength) {
+                    PasswordStrength.WEAK -> MaterialTheme.colorScheme.error
+                    PasswordStrength.FAIR -> MaterialTheme.colorScheme.tertiary
+                    PasswordStrength.GOOD -> MaterialTheme.colorScheme.secondary
+                    PasswordStrength.STRONG -> MaterialTheme.colorScheme.primary
+                }
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { strength.progress },
+                        modifier = Modifier.fillMaxWidth().height(4.dp),
+                        color = strengthColor,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = strength.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = strengthColor
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+            }
 
             if (!state.isSignUp) {
                 Row(

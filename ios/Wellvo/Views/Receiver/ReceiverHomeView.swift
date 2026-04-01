@@ -73,6 +73,30 @@ struct ReceiverHomeView: View {
                         checkInButton
                     }
 
+                    // Error with retry
+                    if let errorMessage = viewModel.errorMessage {
+                        VStack(spacing: 12) {
+                            Text(errorMessage)
+                                .font(.subheadline)
+                                .foregroundStyle(.red)
+                                .multilineTextAlignment(.center)
+
+                            Button {
+                                Task { await viewModel.performCheckIn() }
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "arrow.clockwise")
+                                    Text("Try Again")
+                                }
+                                .font(.subheadline.weight(.semibold))
+                                .frame(minWidth: 120, minHeight: 36)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.green)
+                        }
+                        .padding(.horizontal)
+                    }
+
                     Spacer()
                         .frame(height: 20)
 

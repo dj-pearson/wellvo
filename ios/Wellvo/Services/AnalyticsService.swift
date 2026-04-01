@@ -55,6 +55,9 @@ actor AnalyticsService {
         // App lifecycle
         case appOpened = "app.opened"
         case appBackgrounded = "app.backgrounded"
+
+        // Security
+        case certificatePinningFailure = "security.certificate_pinning_failure"
     }
 
     // MARK: - Initialization

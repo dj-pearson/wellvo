@@ -1434,8 +1434,8 @@
         "Pinning failures logged for monitoring"
       ],
       "priority": 16,
-      "passes": false,
-      "notes": "Both iOS and Android use default TLS without certificate pinning."
+      "passes": true,
+      "notes": "DONE. Android: network_security_config.xml updated with pin-set for wellvo.net (includeSubdomains). Pins to ISRG Root X1 and ISRG Root X2 (Let's Encrypt roots). 1-year expiration with documented rotation strategy. Debug builds bypass pinning. iOS: CertificatePinningService.swift using URLSession delegate with SHA-256 SPKI pin validation. Validates on app launch with 1-hour cache. Logs pinning failures via AnalyticsService."
     },
     {
       "id": "US-SEC017",
@@ -1464,8 +1464,8 @@
         "Database encryption verified in tests"
       ],
       "priority": 18,
-      "passes": false,
-      "notes": "AppModule.kt lines 54-63 creates unencrypted Room database."
+      "passes": true,
+      "notes": "DONE. SQLCipher 4.5.7 added to gradle dependencies (libs.versions.toml + build.gradle.kts). AppModule.kt generates 32-byte random encryption key stored in EncryptedSharedPreferences. Room DB created with SupportOpenHelperFactory(passphrase). Old unencrypted wellvo.db automatically deleted on upgrade (offline check-ins are transient). New encrypted DB at wellvo_encrypted.db."
     },
     {
       "id": "US-SEC019",
@@ -1649,6 +1649,96 @@
       "priority": 29,
       "passes": true,
       "notes": "DONE. Android: Validation.kt fixed from 8-char to 10-char minimum to match AuthService. passwordErrors() messages updated. Password cleared from UI state after every auth attempt (success and failure). iOS: Password hint fixed from '8+' to '10+'. Password cleared on failure (already was). clearFormFields clears all sensitive fields. Both platforms: sign-in error messages sanitized to 'Invalid email or password' to prevent user enumeration. OTP codes cleared after each failed attempt."
+    },
+    {
+      "id": "US-SEC030",
+      "title": "Add password strength indicator to sign-up forms",
+      "description": "As a user creating an account, I want a visual password strength indicator so that I can see in real-time how strong my password is before submitting.",
+      "acceptanceCriteria": [
+        "iOS: Password strength bar (weak/fair/good/strong) shown below password field during sign-up",
+        "iOS: Color-coded indicator (red/orange/yellow/green) with text label",
+        "iOS: Strength updates in real-time as user types",
+        "iOS: Checks length, character diversity, and common password list",
+        "Android: Same password strength bar in sign-up email section",
+        "Android: Color-coded with MaterialTheme colors",
+        "Android: Real-time updates via Compose state",
+        "Both platforms: Indicator only shown during sign-up (not sign-in)"
+      ],
+      "priority": 30,
+      "passes": true,
+      "notes": "DONE. iOS: PasswordStrength enum evaluates length, character diversity, common password list. Color-coded bar (red/orange/yellow/green) with label below password field during sign-up. Animated progress with .easeInOut. Android: PasswordStrength enum with same logic. LinearProgressIndicator with MaterialTheme colors. Only shown during sign-up when password is non-empty."
+    },
+    {
+      "id": "US-SEC031",
+      "title": "Add pull-to-refresh and retry buttons on error states",
+      "description": "As a user, I want pull-to-refresh and retry buttons when something fails so that I can recover without force-closing the app.",
+      "acceptanceCriteria": [
+        "iOS: DashboardView supports pull-to-refresh to reload family data",
+        "iOS: Error states show a 'Retry' button that re-triggers the failed operation",
+        "iOS: ReceiverHomeView error state includes retry button for check-in",
+        "Android: DashboardScreen supports pull-to-refresh (SwipeRefresh)",
+        "Android: Error states show a 'Retry' button",
+        "Android: ReceiverHomeScreen error state includes retry button",
+        "Both platforms: Retry button has loading state while retrying",
+        "Both platforms: Pull-to-refresh shows standard platform indicator"
+      ],
+      "priority": 31,
+      "passes": true,
+      "notes": "DONE. iOS: DashboardView shows error state with retry button when load fails (icon + message + Retry button with loading state). ReceiverHomeView shows error message with 'Try Again' button after failed check-in. Both use .refreshable for pull-to-refresh. Android: DashboardScreen already had PullToRefreshBox — added inline error state with Retry button (icon + message + button) when receiverCards empty + error. ReceiverHomeScreen already had ErrorState composable with retry."
+    },
+    {
+      "id": "US-SEC032",
+      "title": "Add confirmation dialogs for destructive actions",
+      "description": "As a user, I want confirmation dialogs before irreversible actions so that I don't accidentally remove family members or delete data.",
+      "acceptanceCriteria": [
+        "iOS: Alert confirmation before removing a family member with member name shown",
+        "iOS: Alert confirmation before deleting account with typed confirmation",
+        "iOS: Alert confirmation before signing out (if biometric enabled)",
+        "Android: AlertDialog confirmation before removing a family member",
+        "Android: AlertDialog confirmation before deleting account with typed confirmation",
+        "Android: AlertDialog confirmation before signing out (if biometric enabled)",
+        "Both platforms: Destructive action buttons styled in red/error color",
+        "Both platforms: Cancel is the default/prominent action"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": "Prevents accidental data loss. Especially important for family member removal and account deletion."
+    },
+    {
+      "id": "US-SEC033",
+      "title": "Add dark mode support with custom theme",
+      "description": "As a user, I want the app to look good in dark mode with proper contrast and branded colors so that I can use it comfortably at night.",
+      "acceptanceCriteria": [
+        "iOS: Custom dark mode color set with green primary on dark backgrounds",
+        "iOS: All status indicator colors have dark mode variants with sufficient contrast",
+        "iOS: Check-in button maintains visibility in dark mode",
+        "iOS: Text and icons have proper contrast ratios (WCAG AA minimum)",
+        "Android: Custom dark theme in MaterialTheme with branded colors",
+        "Android: All status indicator colors have dark mode variants",
+        "Android: Compose surfaces use proper dark elevation tones",
+        "Both platforms: Automatic system theme switching respected"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": "iOS uses system dark mode by default. Android uses Material3 defaults. Both need custom branded dark theme variants."
+    },
+    {
+      "id": "US-SEC034",
+      "title": "Add loading skeletons for dashboard and history views",
+      "description": "As a user, I want skeleton placeholder screens while data loads so that the app feels responsive instead of showing a blank spinner.",
+      "acceptanceCriteria": [
+        "iOS: DashboardView shows skeleton cards matching the layout while loading",
+        "iOS: History view shows skeleton calendar/list while loading",
+        "iOS: Skeletons use shimmer animation (respects reduceMotion)",
+        "Android: DashboardScreen shows skeleton composables while loading",
+        "Android: HistoryScreen shows skeleton composables while loading",
+        "Android: Skeletons use shimmer animation (respects reduce motion preference)",
+        "Both platforms: Skeleton matches actual content layout dimensions",
+        "Both platforms: Transition from skeleton to real content is smooth"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": "Current loading states show plain ProgressView/CircularProgressIndicator. Skeleton screens improve perceived performance."
     }
   ]
 }
