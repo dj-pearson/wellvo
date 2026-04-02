@@ -70,6 +70,14 @@
 		/* New Services */
 		B1C00009 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00009; };
 		B1C0000A /* HeartbeatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C0000A; };
+		B1C0000B /* BiometricService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C0000B; };
+		B1C0000C /* CertificatePinningService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C0000C; };
+		/* Utilities */
+		B1D00004 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00004; };
+		/* Views/Components */
+		B1F00012 /* SkeletonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00012; };
+		/* Views/Auth */
+		B1F00013 /* PasswordStrength.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00013; };
 		/* UI Tests */
 		B2U00001 /* WellvoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00001; };
 		B2U00002 /* OwnerFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00002; };
@@ -101,10 +109,13 @@
 		F1C00008 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
 		F1C00009 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		F1C0000A /* HeartbeatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartbeatService.swift; sourceTree = "<group>"; };
+		F1C0000B /* BiometricService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricService.swift; sourceTree = "<group>"; };
+		F1C0000C /* CertificatePinningService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertificatePinningService.swift; sourceTree = "<group>"; };
 		/* Utilities */
 		F1D00001 /* Configuration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
 		F1D00002 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		F1D00003 /* NetworkRetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkRetry.swift; sourceTree = "<group>"; };
+		F1D00004 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
 		/* ViewModels */
 		F1E00001 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
 		F1E00002 /* DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModel.swift; sourceTree = "<group>"; };
@@ -128,6 +139,8 @@
 		F1F0000D /* ReceiverSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverSettingsView.swift; sourceTree = "<group>"; };
 		F1F0000E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		F1F0000F /* ViewerTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerTabView.swift; sourceTree = "<group>"; };
+		F1F00012 /* SkeletonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonView.swift; sourceTree = "<group>"; };
+		F1F00013 /* PasswordStrength.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordStrength.swift; sourceTree = "<group>"; };
 		/* Resources */
 		F1G00001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		/* Config */
@@ -253,6 +266,8 @@
 			children = (
 				F1C00001 /* AnalyticsService.swift */,
 				F1C00002 /* AuthService.swift */,
+				F1C0000B /* BiometricService.swift */,
+				F1C0000C /* CertificatePinningService.swift */,
 				F1C00003 /* CheckInService.swift */,
 				F1C00004 /* FamilyService.swift */,
 				F1C0000A /* HeartbeatService.swift */,
@@ -268,6 +283,7 @@
 		G1D00001 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				F1D00004 /* Colors.swift */,
 				F1D00001 /* Configuration.swift */,
 				F1D00002 /* KeychainService.swift */,
 				F1D00003 /* NetworkRetry.swift */,
@@ -290,6 +306,7 @@
 			isa = PBXGroup;
 			children = (
 				G1F00002 /* Auth */,
+				G1F00008 /* Components */,
 				G1F00003 /* Onboarding */,
 				G1F00004 /* Owner */,
 				G1F00005 /* Receiver */,
@@ -303,8 +320,17 @@
 			isa = PBXGroup;
 			children = (
 				F1F00001 /* AuthView.swift */,
+				F1F00013 /* PasswordStrength.swift */,
 			);
 			path = Auth;
+			sourceTree = "<group>";
+		};
+		G1F00008 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				F1F00012 /* SkeletonView.swift */,
+			);
+			path = Components;
 			sourceTree = "<group>";
 		};
 		G1F00003 /* Onboarding */ = {
@@ -493,6 +519,11 @@
 				B1F0000F /* ViewerTabView.swift in Sources */,
 				B1C00009 /* LocationService.swift in Sources */,
 				B1C0000A /* HeartbeatService.swift in Sources */,
+				B1C0000B /* BiometricService.swift in Sources */,
+				B1C0000C /* CertificatePinningService.swift in Sources */,
+				B1D00004 /* Colors.swift in Sources */,
+				B1F00012 /* SkeletonView.swift in Sources */,
+				B1F00013 /* PasswordStrength.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
