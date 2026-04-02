@@ -31,6 +31,7 @@ struct ViewerTabView: View {
 /// Minimal settings for Viewers — account info and sign out only.
 struct ViewerSettingsView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
+    @State private var showSignOutConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -79,11 +80,19 @@ struct ViewerSettingsView: View {
 
                 Section {
                     Button("Sign Out", role: .destructive) {
-                        Task { await authViewModel.signOut() }
+                        showSignOutConfirmation = true
                     }
                 }
             }
             .navigationTitle("Settings")
+            .alert("Sign Out", isPresented: $showSignOutConfirmation) {
+                Button("Sign Out", role: .destructive) {
+                    Task { await authViewModel.signOut() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Are you sure you want to sign out?")
+            }
         }
     }
 }

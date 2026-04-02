@@ -70,6 +70,15 @@ struct WellvoApp: App {
             // Re-register push token on every foreground
             Task { await reRegisterPushToken() }
             Task { await AnalyticsService.shared.track(.appOpened) }
+            // Validate server certificate pins
+            Task {
+                let valid = await CertificatePinningService.shared.validateServerCertificate()
+                if !valid {
+                    await AnalyticsService.shared.track(.certificatePinningFailure)
+                }
+            }
+            // Biometric check on app resume
+            Task { await authViewModel.checkBiometricOnResume() }
         case .background:
             Task { await AnalyticsService.shared.track(.appBackgrounded) }
             break

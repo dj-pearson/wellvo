@@ -715,3 +715,77 @@ Patterns: CheckInService.checkIn: lat/lng validated (-90/90, -180/180) before in
 Implemented: Family name input length validation
 Files changed: ios/Wellvo/ViewModels/OnboardingViewModel.swift, android/app/src/main/java/net/wellvo/android/viewmodels/OnboardingViewModel.kt
 Patterns: iOS: createFamily trims whitespace and validates familyName <= 100 chars, shows error if exceeded. Android: updateFamilyName enforces 100-char max on input (truncates). createFamily validates trimmed name <= 100 chars with error message. Edge functions already validate name fields via shared validation.ts truncateString.
+
+-- Phase 7: Mobile App Auth Security & UX Hardening --
+US-SEC026: DONE - Password reset flow (iOS + Android)
+US-SEC027: DONE - Biometric authentication (iOS + Android)
+US-SEC028: DONE - Client-side auth rate limiting (iOS + Android)
+US-SEC029: DONE - Secure session management and sensitive data handling
+
+--- Iteration SEC-26: US-SEC026 (2026-04-01) ---
+Implemented: Password reset flow for iOS and Android
+Files changed: ios/Wellvo/Services/AuthService.swift, ios/Wellvo/ViewModels/AuthViewModel.swift, ios/Wellvo/Views/Auth/AuthView.swift, android/app/src/main/java/net/wellvo/android/services/AuthService.kt, android/app/src/main/java/net/wellvo/android/viewmodels/AuthViewModel.kt, android/app/src/main/java/net/wellvo/android/ui/screens/auth/AuthScreen.kt
+Patterns: Both platforms: AuthService.resetPassword(email:) calls Supabase auth.resetPasswordForEmail. AuthViewModel tracks isResettingPassword and resetPasswordMessage state. UI shows "Forgot Password?" link below password field in email auth section. Generic success message ("If an account exists...") prevents user enumeration. Password hint text fixed from "8+" to "10+" to match actual validation (10-char minimum).
+
+--- Iteration SEC-27: US-SEC027 (2026-04-01) ---
+Implemented: Biometric authentication for iOS and Android
+Files changed: ios/Wellvo/Services/BiometricService.swift (new), ios/Wellvo/ViewModels/AuthViewModel.swift, android/app/src/main/java/net/wellvo/android/services/BiometricService.kt (new), android/app/src/main/java/net/wellvo/android/viewmodels/AuthViewModel.kt
+Patterns: iOS: BiometricService actor using LocalAuthentication LAContext. Supports Face ID/Touch ID with graceful fallback. Preferences in UserDefaults (isEnabled, hasBeenSkipped). checkBiometricOnResume() for app foreground lock. Prompt offered after first successful sign-in. Reset on sign-out. Android: BiometricService using AndroidX BiometricPrompt with BIOMETRIC_STRONG authenticators. suspendCancellableCoroutine for async auth. Preferences in SharedPreferences. Same lifecycle: prompt after auth, skip after explicit sign-out.
+
+--- Iteration SEC-28: US-SEC028 (2026-04-01) ---
+Implemented: Client-side auth rate limiting and brute force mitigation
+Files changed: ios/Wellvo/ViewModels/AuthViewModel.swift, android/app/src/main/java/net/wellvo/android/viewmodels/AuthViewModel.kt, android/app/src/main/java/net/wellvo/android/ui/screens/auth/AuthScreen.kt
+Patterns: Both platforms: Track consecutive failed auth attempts. 5 failures → 30s cooldown, 10 failures → 5min lockout. Countdown timer shown in UI. Lockout persists across app restarts (iOS: UserDefaults, Android: SharedPreferences). OTP verification limited to 5 attempts per code — must request new code after. All counters reset on successful auth. Lockout message displayed prominently in auth UI. Auth buttons disabled during lockout.
+
+--- Iteration SEC-29: US-SEC029 (2026-04-01) ---
+Implemented: Secure session management and sensitive data handling
+Files changed: android/app/src/main/java/net/wellvo/android/util/Validation.kt, ios/Wellvo/Views/Auth/AuthView.swift, ios/Wellvo/ViewModels/AuthViewModel.swift, android/app/src/main/java/net/wellvo/android/viewmodels/AuthViewModel.kt
+Patterns: Android: Validation.kt password minimum fixed from 8 to 10 chars to match AuthService (was inconsistent). passwordErrors() messages updated. Password cleared from state after every auth attempt. iOS: Password hint text corrected. Sign-in error messages sanitized to generic "Invalid email or password" on both platforms to prevent user enumeration. OTP code cleared after each failed verification attempt. Phone/OTP cleared on successful auth via clearFormFields.
+
+-- Phase 8: Remaining Security + UX Polish --
+US-SEC016: DONE - Certificate pinning for Supabase connections (iOS + Android)
+US-SEC018: DONE - Room database encryption (Android)
+US-SEC030: DONE - Password strength indicator (iOS + Android)
+US-SEC031: DONE - Pull-to-refresh and retry buttons (iOS + Android)
+
+--- Iteration SEC-16: US-SEC016 (2026-04-01) ---
+Implemented: Certificate pinning for Supabase connections
+Files changed: android/app/src/main/res/xml/network_security_config.xml, ios/Wellvo/Services/CertificatePinningService.swift (new), ios/Wellvo/App/WellvoApp.swift, ios/Wellvo/Services/AnalyticsService.swift
+Patterns: Android: network_security_config.xml updated with domain-config for wellvo.net (includeSubdomains=true). Pin-set with ISRG Root X1 (C5+lpZ7...) and ISRG Root X2 (diGVwi...) SHA-256 pins. 1-year expiration (2027-04-01). Debug overrides bypass pinning for development. iOS: CertificatePinningService actor with URLSessionDelegate performing SPKI hash validation. Validates on app foreground via WellvoApp scene phase handler. 1-hour result cache to avoid excessive checks. Pinning failures logged via AnalyticsService (.certificatePinningFailure event). Biometric resume check also integrated into app foreground handler.
+
+--- Iteration SEC-18: US-SEC018 (2026-04-01) ---
+Implemented: Room database encryption with SQLCipher
+Files changed: android/gradle/libs.versions.toml, android/app/build.gradle.kts, android/app/src/main/java/net/wellvo/android/di/AppModule.kt
+Patterns: SQLCipher 4.5.7 (net.zetetic:android-database-sqlcipher) added. AppModule.provideDatabase generates 32-byte random key via SecureRandom, stores hex-encoded in EncryptedSharedPreferences (AES256-GCM). Room built with SupportOpenHelperFactory(passphrase). New DB file: wellvo_encrypted.db. Old unencrypted wellvo.db auto-deleted on first launch (migration: offline check-ins are transient, no data loss). System.loadLibrary("sqlcipher") called before DB creation.
+
+--- Iteration SEC-30: US-SEC030 (2026-04-01) ---
+Implemented: Password strength indicator for sign-up forms
+Files changed: ios/Wellvo/Views/Auth/AuthView.swift, android/app/src/main/java/net/wellvo/android/ui/screens/auth/AuthScreen.kt
+Patterns: iOS: PasswordStrength enum with evaluate() checking length (10+, 14+), character classes (upper, lower, digit, special), and common password list. Color-coded progress bar (red/orange/yellow/green) with animated fill and label. Only shown during sign-up when password non-empty. Android: PasswordStrength enum with identical logic. LinearProgressIndicator with MaterialTheme colors (error/tertiary/secondary/primary). LabelSmall text for strength name. Both update in real-time as user types.
+
+--- Iteration SEC-31: US-SEC031 (2026-04-01) ---
+Implemented: Pull-to-refresh and retry buttons on error states
+Files changed: ios/Wellvo/Views/Owner/DashboardView.swift, ios/Wellvo/Views/Receiver/ReceiverHomeView.swift, android/app/src/main/java/net/wellvo/android/ui/screens/owner/DashboardScreen.kt
+Patterns: iOS DashboardView: Added error state branch with warning icon, error message, and Retry button (with loading spinner). Shows when errorMessage exists and receiverCards empty. Already had .refreshable. iOS ReceiverHomeView: Added error + retry section below check-in button with "Try Again" button. Android DashboardScreen: Already had PullToRefreshBox — added new when-branch for error state (receiverCards empty + error not null) with Warning icon, message text, and Retry button. Android ReceiverHomeScreen already had ErrorState composable with retry.
+
+-- Phase 9: UX Polish & Final Items --
+US-SEC032: DONE - Confirmation dialogs for destructive actions (iOS + Android)
+US-SEC033: DONE - Dark mode support with custom theme (iOS + Android)
+US-SEC034: DONE - Loading skeletons for dashboard/history (iOS + Android)
+
+--- Iteration SEC-32: US-SEC032 (2026-04-02) ---
+Implemented: Confirmation dialogs for destructive actions
+Files changed: ios/Wellvo/Views/Owner/FamilyView.swift, ios/Wellvo/Views/Settings/SettingsView.swift, ios/Wellvo/Views/Viewer/ViewerTabView.swift
+Patterns: iOS: Added .alert confirmation for family member removal (FamilyView, shows member name, Cancel as default). Added sign-out confirmation alert to SettingsView and ViewerSettingsView. Delete account already had confirmation dialog. Android: Already had all confirmation dialogs (AlertDialog for remove member, sign out, delete account in FamilyScreen, SettingsScreen, ViewerSettingsScreen). No changes needed on Android.
+
+--- Iteration SEC-33: US-SEC033 (2026-04-02) ---
+Implemented: Dark mode support with custom branded theme
+Files changed: ios/Wellvo/Utilities/Colors.swift (new), ios/Wellvo/Assets.xcassets/WellvoGreen.colorset (new), ios/Wellvo/Assets.xcassets/WellvoGreenDark.colorset (new), ios/Wellvo/Assets.xcassets/StatusGreenBg.colorset (new), ios/Wellvo/Assets.xcassets/StatusYellowBg.colorset (new), ios/Wellvo/Assets.xcassets/StatusRedBg.colorset (new), ios/Wellvo/Assets.xcassets/StatusGrayBg.colorset (new), ios/Wellvo/Assets.xcassets/AccentColor.colorset/Contents.json
+Patterns: iOS: Created Colors.swift with Color extensions for branded adaptive colors. Added 6 color sets to Assets.xcassets with explicit light/dark variants. AccentColor updated with dark variant (#86EFAC lighter green for contrast). WellvoGreen: #22C55E light, #86EFAC dark. Status backgrounds: dark variants use deeper tones (e.g., #14532D for green). Android already had full Material3 dark/light scheme in Theme.kt.
+
+--- Iteration SEC-34: US-SEC034 (2026-04-02) ---
+Implemented: Loading skeleton placeholders for dashboard and history
+Files changed: ios/Wellvo/Views/Components/SkeletonView.swift (new), ios/Wellvo/Views/Owner/DashboardView.swift, ios/Wellvo/Views/Owner/HistoryView.swift, android/app/src/main/java/net/wellvo/android/ui/components/SkeletonViews.kt (new), android/app/src/main/java/net/wellvo/android/ui/screens/owner/DashboardScreen.kt, android/app/src/main/java/net/wellvo/android/ui/screens/owner/HistoryScreen.kt
+Patterns: iOS: SkeletonView with shimmer LinearGradient animation (respects accessibilityReduceMotion). DashboardSkeletonView matches weekly summary card + 2 receiver cards. HistorySkeletonView matches calendar grid + stats row. Uses systemGray5/4 for theme-adaptive backgrounds. Android: SkeletonViews.kt with shimmer Brush animation (infiniteRepeatable tween). DashboardSkeletonView and HistorySkeletonView composables with Card containers and theme-aware surfaceVariant colors. Both replace ProgressView/CircularProgressIndicator with content-matching skeletons.
+
+== ALL 34 STORIES COMPLETE (US-SEC001–SEC034) ==

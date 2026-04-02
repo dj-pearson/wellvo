@@ -258,6 +258,15 @@ actor AuthService {
         return phone.hasPrefix("+") ? phone : "+\(digits)"
     }
 
+    // MARK: - Password Reset
+
+    /// Send a password reset email. Does not reveal whether the email exists.
+    func resetPassword(email: String) async throws {
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        try validateEmail(trimmedEmail)
+        try await supabase.auth.resetPasswordForEmail(trimmedEmail)
+    }
+
     // MARK: - Session Management
 
     func signOut() async throws {

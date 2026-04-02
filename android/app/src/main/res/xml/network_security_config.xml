@@ -7,7 +7,23 @@
         </trust-anchors>
     </base-config>
 
-    <!-- Debug builds can optionally trust user-added CAs -->
+    <!--
+        Certificate pinning for Supabase domain (wellvo.net and subdomains).
+        Pins to Let's Encrypt ISRG Root X1 (primary) and ISRG Root X2 (backup).
+        Expiration set to 1 year — update pins before expiry.
+        If your Supabase domain differs from *.wellvo.net, update the domain below.
+    -->
+    <domain-config>
+        <domain includeSubdomains="true">wellvo.net</domain>
+        <pin-set expiration="2027-04-01">
+            <!-- ISRG Root X1 (Let's Encrypt primary root) -->
+            <pin digest="SHA-256">C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</pin>
+            <!-- ISRG Root X2 (Let's Encrypt backup root) -->
+            <pin digest="SHA-256">diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvVFZE8zmgzI=</pin>
+        </pin-set>
+    </domain-config>
+
+    <!-- Debug builds can optionally trust user-added CAs (pinning bypassed in debug) -->
     <debug-overrides>
         <trust-anchors>
             <certificates src="user" />

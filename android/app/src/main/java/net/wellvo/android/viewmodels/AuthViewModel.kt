@@ -1,10 +1,13 @@
 package net.wellvo.android.viewmodels
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.auth.status.SessionStatus
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,6 +18,7 @@ import net.wellvo.android.network.AutoJoinResult
 import net.wellvo.android.network.WellvoError
 import net.wellvo.android.services.AnalyticsService
 import net.wellvo.android.services.AuthService
+import net.wellvo.android.services.BiometricService
 import net.wellvo.android.ui.navigation.AuthState
 import net.wellvo.android.util.Validation
 import javax.inject.Inject
@@ -30,18 +34,39 @@ data class AuthUiState(
     val password: String = "",
     val displayName: String = "",
     val isSignUp: Boolean = false,
-    val showReauthPrompt: Boolean = false
+    val showReauthPrompt: Boolean = false,
+    val isResettingPassword: Boolean = false,
+    val resetPasswordMessage: String? = null,
+    val showBiometricSetupPrompt: Boolean = false,
+    val biometricLocked: Boolean = false,
+    val authLockoutMessage: String? = null,
+    val authLockoutSecondsRemaining: Int = 0
 )
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val authService: AuthService,
     private val apiService: ApiService,
-    private val analyticsService: AnalyticsService
+    private val analyticsService: AnalyticsService,
+    val biometricService: BiometricService,
+    private val prefs: SharedPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
+
+    // Rate limiting
+    private var failedAttempts: Int
+        get() = prefs.getInt("auth_failed_attempts", 0)
+        set(value) { prefs.edit().putInt("auth_failed_attempts", value).apply() }
+    private var lockoutUntilMs: Long
+        get() = prefs.getLong("auth_lockout_until", 0L)
+        set(value) { prefs.edit().putLong("auth_lockout_until", value).apply() }
+    private var lockoutCountdownJob: Job? = null
+    private var otpVerifyAttempts = 0
+    private companion object {
+        const val MAX_OTP_ATTEMPTS = 5
+    }
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
@@ -84,6 +109,7 @@ class AuthViewModel @Inject constructor(
         if (user != null) {
             checkAutoJoin()
             _authState.value = AuthState.Authenticated(user = user)
+            checkBiometricSetupPrompt()
         } else {
             val userId = authService.currentUserId()
             if (userId != null) {
@@ -150,13 +176,16 @@ class AuthViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(errorMessage = "Please enter a valid US phone number.")
             return
         }
+        if (isLockedOut()) return
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             try {
                 authService.sendPhoneOTP(phone)
+                otpVerifyAttempts = 0
                 _uiState.value = _uiState.value.copy(isLoading = false, isAwaitingOTP = true)
             } catch (e: WellvoError) {
+                recordFailedAttempt()
                 _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = e.localizedMessage)
             }
         }
@@ -170,15 +199,34 @@ class AuthViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(errorMessage = "Please enter the 6-digit code.")
             return
         }
+        if (isLockedOut()) return
+
+        otpVerifyAttempts++
+        if (otpVerifyAttempts > MAX_OTP_ATTEMPTS) {
+            _uiState.value = _uiState.value.copy(
+                errorMessage = "Too many attempts. Please request a new code.",
+                isAwaitingOTP = false,
+                otpCode = ""
+            )
+            otpVerifyAttempts = 0
+            return
+        }
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             try {
                 authService.verifyPhoneOTP(phone, code)
                 analyticsService.track(AnalyticsService.SIGN_IN)
+                resetFailedAttempts()
                 _uiState.value = _uiState.value.copy(isLoading = false)
             } catch (e: WellvoError) {
-                _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = e.localizedMessage)
+                recordFailedAttempt()
+                val remaining = MAX_OTP_ATTEMPTS - otpVerifyAttempts
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = "${e.localizedMessage} ($remaining attempts remaining)",
+                    otpCode = ""
+                )
             }
         }
     }
@@ -206,6 +254,7 @@ class AuthViewModel @Inject constructor(
             _uiState.value = state.copy(errorMessage = "Please enter your password.")
             return
         }
+        if (isLockedOut()) return
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
@@ -217,11 +266,41 @@ class AuthViewModel @Inject constructor(
                     authService.signInWithEmail(state.email, state.password)
                     analyticsService.track(AnalyticsService.SIGN_IN)
                 }
-                _uiState.value = _uiState.value.copy(isLoading = false)
+                resetFailedAttempts()
+                _uiState.value = _uiState.value.copy(isLoading = false, password = "")
             } catch (e: WellvoError) {
-                _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = e.localizedMessage)
+                recordFailedAttempt()
+                // Don't reveal if email exists — use generic message for sign-in failures
+                val safeMessage = if (state.isSignUp) e.localizedMessage else "Invalid email or password. Please try again."
+                _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = safeMessage, password = "")
             }
         }
+    }
+
+    fun sendPasswordReset() {
+        val state = _uiState.value
+        if (!Validation.isValidEmail(state.email)) {
+            _uiState.value = state.copy(errorMessage = "Please enter a valid email address.")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isResettingPassword = true, errorMessage = null, resetPasswordMessage = null)
+            try {
+                authService.resetPassword(state.email)
+            } catch (_: Exception) {
+                // Don't reveal whether the email exists
+            }
+            // Always show same message to avoid user enumeration
+            _uiState.value = _uiState.value.copy(
+                isResettingPassword = false,
+                resetPasswordMessage = "If an account exists with that email, you'll receive a password reset link."
+            )
+        }
+    }
+
+    fun clearResetMessage() {
+        _uiState.value = _uiState.value.copy(resetPasswordMessage = null)
     }
 
     fun signInWithGoogle(context: Context) {
@@ -240,12 +319,94 @@ class AuthViewModel @Inject constructor(
     fun signOut() {
         viewModelScope.launch {
             analyticsService.track(AnalyticsService.SIGN_OUT)
+            biometricService.reset()
             authService.signOut()
             _uiState.value = AuthUiState()
         }
     }
 
+    // MARK: - Biometric
+
+    fun checkBiometricSetupPrompt() {
+        if (biometricService.shouldPromptToEnable()) {
+            _uiState.value = _uiState.value.copy(showBiometricSetupPrompt = true)
+        }
+    }
+
+    fun enableBiometric() {
+        biometricService.isEnabled = true
+        _uiState.value = _uiState.value.copy(showBiometricSetupPrompt = false)
+    }
+
+    fun skipBiometric() {
+        biometricService.hasBeenSkipped = true
+        _uiState.value = _uiState.value.copy(showBiometricSetupPrompt = false)
+    }
+
+    fun setBiometricLocked(locked: Boolean) {
+        _uiState.value = _uiState.value.copy(biometricLocked = locked)
+    }
+
     fun backToPhoneEntry() {
         _uiState.value = _uiState.value.copy(isAwaitingOTP = false, otpCode = "", errorMessage = null)
+        otpVerifyAttempts = 0
+    }
+
+    // MARK: - Rate Limiting
+
+    private fun isLockedOut(): Boolean {
+        val until = lockoutUntilMs
+        if (until > 0 && System.currentTimeMillis() < until) {
+            startLockoutCountdown(until)
+            return true
+        }
+        if (until > 0) {
+            lockoutUntilMs = 0
+            _uiState.value = _uiState.value.copy(authLockoutMessage = null, authLockoutSecondsRemaining = 0)
+        }
+        return false
+    }
+
+    private fun recordFailedAttempt() {
+        failedAttempts += 1
+        val count = failedAttempts
+        when {
+            count >= 10 -> {
+                val until = System.currentTimeMillis() + 300_000 // 5 minutes
+                lockoutUntilMs = until
+                startLockoutCountdown(until)
+            }
+            count >= 5 -> {
+                val until = System.currentTimeMillis() + 30_000 // 30 seconds
+                lockoutUntilMs = until
+                startLockoutCountdown(until)
+            }
+        }
+    }
+
+    private fun resetFailedAttempts() {
+        failedAttempts = 0
+        lockoutUntilMs = 0
+        otpVerifyAttempts = 0
+        lockoutCountdownJob?.cancel()
+        _uiState.value = _uiState.value.copy(authLockoutMessage = null, authLockoutSecondsRemaining = 0)
+    }
+
+    private fun startLockoutCountdown(untilMs: Long) {
+        lockoutCountdownJob?.cancel()
+        lockoutCountdownJob = viewModelScope.launch {
+            while (true) {
+                val remaining = ((untilMs - System.currentTimeMillis()) / 1000).toInt()
+                if (remaining <= 0) {
+                    _uiState.value = _uiState.value.copy(authLockoutMessage = null, authLockoutSecondsRemaining = 0)
+                    break
+                }
+                _uiState.value = _uiState.value.copy(
+                    authLockoutMessage = "Too many failed attempts. Try again in ${remaining}s.",
+                    authLockoutSecondsRemaining = remaining
+                )
+                delay(1000)
+            }
+        }
     }
 }

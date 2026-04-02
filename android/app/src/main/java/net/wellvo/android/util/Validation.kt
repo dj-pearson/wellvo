@@ -6,7 +6,7 @@ object Validation {
     }
 
     fun isValidPassword(password: String): Boolean {
-        return password.length >= 8 &&
+        return password.length >= 10 &&
                 password.any { it.isUpperCase() } &&
                 password.any { it.isLowerCase() } &&
                 password.any { it.isDigit() }
@@ -14,7 +14,7 @@ object Validation {
 
     fun passwordErrors(password: String): String? {
         return when {
-            password.length < 8 -> "Password must be at least 8 characters."
+            password.length < 10 -> "Password must be at least 10 characters."
             !password.any { it.isUpperCase() } -> "Password must contain an uppercase letter."
             !password.any { it.isLowerCase() } -> "Password must contain a lowercase letter."
             !password.any { it.isDigit() } -> "Password must contain a number."

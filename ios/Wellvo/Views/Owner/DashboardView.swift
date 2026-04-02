@@ -7,9 +7,38 @@ struct DashboardView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                if viewModel.isLoading && viewModel.receiverCards.isEmpty {
-                    ProgressView("Loading...")
-                        .padding(.top, 100)
+                if viewModel.isLoading && viewModel.receiverCards.isEmpty && viewModel.errorMessage == nil {
+                    DashboardSkeletonView()
+                } else if let errorMessage = viewModel.errorMessage, viewModel.receiverCards.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 40))
+                            .foregroundStyle(.orange)
+                        Text(errorMessage)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Button {
+                            Task { await viewModel.loadDashboard() }
+                        } label: {
+                            HStack(spacing: 8) {
+                                if viewModel.isLoading {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Image(systemName: "arrow.clockwise")
+                                }
+                                Text("Retry")
+                            }
+                            .fontWeight(.semibold)
+                            .frame(minWidth: 120, minHeight: 44)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.green)
+                        .disabled(viewModel.isLoading)
+                    }
+                    .padding(.top, 80)
+                    .padding(.horizontal, 32)
                 } else if viewModel.receiverCards.isEmpty {
                     emptyState
                 } else {

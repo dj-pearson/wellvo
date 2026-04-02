@@ -53,8 +53,7 @@ struct HistoryView: View {
                     }
 
                     if isLoading {
-                        ProgressView()
-                            .padding(.top, 60)
+                        HistorySkeletonView()
                     } else if checkIns.isEmpty {
                         VStack(spacing: 12) {
                             Image(systemName: "calendar.badge.exclamationmark")

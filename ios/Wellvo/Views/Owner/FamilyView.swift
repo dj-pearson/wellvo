@@ -10,6 +10,8 @@ struct FamilyView: View {
     @State private var showTransferAlert = false
     @State private var transferTarget: FamilyMember?
     @State private var errorMessage: String?
+    @State private var memberToRemove: FamilyMember?
+    @State private var showRemoveConfirmation = false
 
     private var isOwner: Bool { appState.currentUserRole == .owner }
 
@@ -45,7 +47,8 @@ struct FamilyView: View {
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             if isOwner && member.role != .owner {
                                 Button("Remove", role: .destructive) {
-                                    Task { await removeMember(member) }
+                                    memberToRemove = member
+                                    showRemoveConfirmation = true
                                 }
                             }
                         }
@@ -102,6 +105,16 @@ struct FamilyView: View {
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("Are you sure you want to transfer ownership to \(transferTarget?.user?.displayName ?? "this member")? You will become a Viewer and lose control of settings and billing.")
+            }
+            .alert("Remove Member", isPresented: $showRemoveConfirmation) {
+                Button("Remove", role: .destructive) {
+                    if let member = memberToRemove {
+                        Task { await removeMember(member) }
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Are you sure you want to remove \(memberToRemove?.user?.displayName ?? "this member") from your family? They will no longer receive check-in requests.")
             }
         }
     }

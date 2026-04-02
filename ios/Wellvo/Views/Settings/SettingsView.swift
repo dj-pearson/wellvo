@@ -7,6 +7,7 @@ struct SettingsView: View {
     @StateObject private var subscriptionService = SubscriptionService.shared
     @Environment(\.colorScheme) private var colorScheme
     @State private var showDeleteConfirmation = false
+    @State private var showSignOutConfirmation = false
     @State private var isExportingData = false
     @State private var exportedData: String?
     @State private var showExportSheet = false
@@ -143,7 +144,7 @@ struct SettingsView: View {
                 // Sign Out
                 Section {
                     Button("Sign Out", role: .destructive) {
-                        Task { await authViewModel.signOut() }
+                        showSignOutConfirmation = true
                     }
                 }
 
@@ -157,6 +158,14 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .alert("Sign Out", isPresented: $showSignOutConfirmation) {
+                Button("Sign Out", role: .destructive) {
+                    Task { await authViewModel.signOut() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Are you sure you want to sign out? You'll need to sign in again to access your family.")
+            }
             .alert("Delete Account", isPresented: $showDeleteConfirmation) {
                 Button("Delete Everything", role: .destructive) {
                     Task { await deleteAccount() }
