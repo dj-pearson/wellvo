@@ -1701,8 +1701,8 @@
         "Both platforms: Cancel is the default/prominent action"
       ],
       "priority": 32,
-      "passes": false,
-      "notes": "Prevents accidental data loss. Especially important for family member removal and account deletion."
+      "passes": true,
+      "notes": "DONE. iOS: Added confirmation alert for family member removal in FamilyView.swift (shows member name). Added sign-out confirmation alerts to SettingsView.swift and ViewerTabView.swift (ViewerSettingsView). Delete account already had confirmation. Android: Already had all confirmation dialogs (FamilyScreen, SettingsScreen, ViewerSettingsScreen) with AlertDialogs for remove member, sign out, and delete account."
     },
     {
       "id": "US-SEC033",
@@ -1719,8 +1719,8 @@
         "Both platforms: Automatic system theme switching respected"
       ],
       "priority": 33,
-      "passes": false,
-      "notes": "iOS uses system dark mode by default. Android uses Material3 defaults. Both need custom branded dark theme variants."
+      "passes": true,
+      "notes": "DONE. iOS: Created Colors.swift with Color extensions for branded colors (wellvoGreen, statusGreenBg, etc.). Added 6 color sets to Assets.xcassets with explicit light/dark variants (WellvoGreen, WellvoGreenDark, StatusGreenBg, StatusYellowBg, StatusRedBg, StatusGrayBg). Updated AccentColor.colorset with dark variant (#86EFAC). Android: Already had full Material3 dark theme in Theme.kt with DarkColorScheme, and dark status background variants in Color.kt. Both platforms auto-switch with system theme."
     },
     {
       "id": "US-SEC034",
@@ -1737,8 +1737,8 @@
         "Both platforms: Transition from skeleton to real content is smooth"
       ],
       "priority": 34,
-      "passes": false,
-      "notes": "Current loading states show plain ProgressView/CircularProgressIndicator. Skeleton screens improve perceived performance."
+      "passes": true,
+      "notes": "DONE. iOS: Created SkeletonView.swift with shimmer animation (respects reduceMotion). DashboardSkeletonView matches weekly summary + receiver card layout. HistorySkeletonView matches calendar grid + stats row. Integrated into DashboardView and HistoryView replacing ProgressView. Android: Created SkeletonViews.kt with shimmer brush animation. DashboardSkeletonView and HistorySkeletonView composables. Integrated into DashboardScreen and HistoryScreen. Both use theme-aware colors."
     }
   ]
 }

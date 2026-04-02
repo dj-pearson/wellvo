@@ -170,16 +170,7 @@ fun DashboardScreen(
         ) {
             when {
                 isLoading && receiverCards.isEmpty -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = StatusGreen)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text("Loading...", style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
+                    net.wellvo.android.ui.components.DashboardSkeletonView()
                 }
 
                 receiverCards.isEmpty && !isLoading && errorMessage != null -> {

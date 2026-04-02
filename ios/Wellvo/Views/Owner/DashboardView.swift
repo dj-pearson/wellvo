@@ -8,8 +8,7 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 if viewModel.isLoading && viewModel.receiverCards.isEmpty && viewModel.errorMessage == nil {
-                    ProgressView("Loading...")
-                        .padding(.top, 100)
+                    DashboardSkeletonView()
                 } else if let errorMessage = viewModel.errorMessage, viewModel.receiverCards.isEmpty {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle")

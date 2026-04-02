@@ -160,14 +160,7 @@ fun HistoryScreen(
 
             if (isLoading && checkIns.isEmpty()) {
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
+                    net.wellvo.android.ui.components.HistorySkeletonView()
                 }
             } else if (checkIns.isEmpty()) {
                 item {

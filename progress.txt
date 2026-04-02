@@ -768,4 +768,24 @@ Implemented: Pull-to-refresh and retry buttons on error states
 Files changed: ios/Wellvo/Views/Owner/DashboardView.swift, ios/Wellvo/Views/Receiver/ReceiverHomeView.swift, android/app/src/main/java/net/wellvo/android/ui/screens/owner/DashboardScreen.kt
 Patterns: iOS DashboardView: Added error state branch with warning icon, error message, and Retry button (with loading spinner). Shows when errorMessage exists and receiverCards empty. Already had .refreshable. iOS ReceiverHomeView: Added error + retry section below check-in button with "Try Again" button. Android DashboardScreen: Already had PullToRefreshBox — added new when-branch for error state (receiverCards empty + error not null) with Warning icon, message text, and Retry button. Android ReceiverHomeScreen already had ErrorState composable with retry.
 
-== ALL 29 SECURITY STORIES COMPLETE (US-SEC001–SEC031, excl SEC-032–034 pending) ==
+-- Phase 9: UX Polish & Final Items --
+US-SEC032: DONE - Confirmation dialogs for destructive actions (iOS + Android)
+US-SEC033: DONE - Dark mode support with custom theme (iOS + Android)
+US-SEC034: DONE - Loading skeletons for dashboard/history (iOS + Android)
+
+--- Iteration SEC-32: US-SEC032 (2026-04-02) ---
+Implemented: Confirmation dialogs for destructive actions
+Files changed: ios/Wellvo/Views/Owner/FamilyView.swift, ios/Wellvo/Views/Settings/SettingsView.swift, ios/Wellvo/Views/Viewer/ViewerTabView.swift
+Patterns: iOS: Added .alert confirmation for family member removal (FamilyView, shows member name, Cancel as default). Added sign-out confirmation alert to SettingsView and ViewerSettingsView. Delete account already had confirmation dialog. Android: Already had all confirmation dialogs (AlertDialog for remove member, sign out, delete account in FamilyScreen, SettingsScreen, ViewerSettingsScreen). No changes needed on Android.
+
+--- Iteration SEC-33: US-SEC033 (2026-04-02) ---
+Implemented: Dark mode support with custom branded theme
+Files changed: ios/Wellvo/Utilities/Colors.swift (new), ios/Wellvo/Assets.xcassets/WellvoGreen.colorset (new), ios/Wellvo/Assets.xcassets/WellvoGreenDark.colorset (new), ios/Wellvo/Assets.xcassets/StatusGreenBg.colorset (new), ios/Wellvo/Assets.xcassets/StatusYellowBg.colorset (new), ios/Wellvo/Assets.xcassets/StatusRedBg.colorset (new), ios/Wellvo/Assets.xcassets/StatusGrayBg.colorset (new), ios/Wellvo/Assets.xcassets/AccentColor.colorset/Contents.json
+Patterns: iOS: Created Colors.swift with Color extensions for branded adaptive colors. Added 6 color sets to Assets.xcassets with explicit light/dark variants. AccentColor updated with dark variant (#86EFAC lighter green for contrast). WellvoGreen: #22C55E light, #86EFAC dark. Status backgrounds: dark variants use deeper tones (e.g., #14532D for green). Android already had full Material3 dark/light scheme in Theme.kt.
+
+--- Iteration SEC-34: US-SEC034 (2026-04-02) ---
+Implemented: Loading skeleton placeholders for dashboard and history
+Files changed: ios/Wellvo/Views/Components/SkeletonView.swift (new), ios/Wellvo/Views/Owner/DashboardView.swift, ios/Wellvo/Views/Owner/HistoryView.swift, android/app/src/main/java/net/wellvo/android/ui/components/SkeletonViews.kt (new), android/app/src/main/java/net/wellvo/android/ui/screens/owner/DashboardScreen.kt, android/app/src/main/java/net/wellvo/android/ui/screens/owner/HistoryScreen.kt
+Patterns: iOS: SkeletonView with shimmer LinearGradient animation (respects accessibilityReduceMotion). DashboardSkeletonView matches weekly summary card + 2 receiver cards. HistorySkeletonView matches calendar grid + stats row. Uses systemGray5/4 for theme-adaptive backgrounds. Android: SkeletonViews.kt with shimmer Brush animation (infiniteRepeatable tween). DashboardSkeletonView and HistorySkeletonView composables with Card containers and theme-aware surfaceVariant colors. Both replace ProgressView/CircularProgressIndicator with content-matching skeletons.
+
+== ALL 34 STORIES COMPLETE (US-SEC001–SEC034) ==
