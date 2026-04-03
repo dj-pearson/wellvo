@@ -236,7 +236,7 @@ fun SettingsScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Google Account Linked",
+                                    text = stringResource(R.string.settings_google_linked),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.primary
                                 )
@@ -261,7 +261,7 @@ fun SettingsScreen(
                     ) {
                         Text("Current Plan", style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            text = "Free",
+                            text = stringResource(R.string.plan_free),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -279,7 +279,7 @@ fun SettingsScreen(
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Default.CreditCard, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.CreditCard, contentDescription = stringResource(R.string.cd_manage_subscription), modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Manage Subscription")
                     }
@@ -292,7 +292,7 @@ fun SettingsScreen(
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Restore, contentDescription = stringResource(R.string.cd_restore_purchases), modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Restore Purchases")
                     }
@@ -308,7 +308,7 @@ fun SettingsScreen(
                         if (isExporting) {
                             CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                         } else {
-                            Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.CloudDownload, contentDescription = stringResource(R.string.cd_export_data), modifier = Modifier.size(18.dp))
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Export My Data")
@@ -369,7 +369,7 @@ fun SettingsScreen(
                         contentColor = MaterialTheme.colorScheme.onErrorContainer
                     )
                 ) {
-                    Icon(Icons.Default.ExitToApp, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.ExitToApp, contentDescription = stringResource(R.string.cd_sign_out), modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Sign Out")
                 }
@@ -386,13 +386,13 @@ fun SettingsScreen(
                         contentColor = MaterialTheme.colorScheme.onError
                     )
                 ) {
-                    Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.DeleteForever, contentDescription = stringResource(R.string.cd_delete_account), modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Delete Account")
                 }
 
                 Text(
-                    text = "Permanently deletes your account, family, and all associated data. This cannot be undone.",
+                    text = stringResource(R.string.settings_delete_warning),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 4.dp)
@@ -458,7 +458,7 @@ private fun DataRetentionPicker(
             }
             Box {
                 OutlinedButton(onClick = { expanded = true }) {
-                    Icon(Icons.Default.Storage, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Storage, contentDescription = stringResource(R.string.cd_data_retention), modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(selectedLabel)
                 }

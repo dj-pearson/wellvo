@@ -1,7 +1,7 @@
 package net.wellvo.android.services
 
 import android.app.Application
-import android.util.Log
+import net.wellvo.android.util.DebugLog as Log
 import com.telemetrydeck.sdk.TelemetryDeck
 import dagger.hilt.android.qualifiers.ApplicationContext
 import net.wellvo.android.BuildConfig

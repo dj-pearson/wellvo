@@ -1739,6 +1739,168 @@
       "priority": 34,
       "passes": true,
       "notes": "DONE. iOS: Created SkeletonView.swift with shimmer animation (respects reduceMotion). DashboardSkeletonView matches weekly summary + receiver card layout. HistorySkeletonView matches calendar grid + stats row. Integrated into DashboardView and HistoryView replacing ProgressView. Android: Created SkeletonViews.kt with shimmer brush animation. DashboardSkeletonView and HistorySkeletonView composables. Integrated into DashboardScreen and HistoryScreen. Both use theme-aware colors."
+    },
+    {
+      "id": "US-AUDIT001",
+      "title": "Extract hardcoded strings to strings.xml for localization readiness",
+      "description": "As a developer, I want all user-facing strings in Android to be in strings.xml so the app is ready for localization and follows Android best practices.",
+      "acceptanceCriteria": [
+        "All user-facing text in Compose screens moved to res/values/strings.xml",
+        "AuthScreen.kt: tagline, phone prompts, OTP instructions, email labels, error messages",
+        "OnboardingScreen.kt: step titles, descriptions, button labels, user type descriptions",
+        "ReceiverHomeScreen.kt: check-in button text, status messages, offline banner",
+        "DashboardScreen.kt: section headers, error messages, empty states, status labels",
+        "HistoryScreen.kt: period labels, empty state, export text",
+        "FamilyScreen.kt: member roles, invite labels, empty state",
+        "SettingsScreen.kt: section headers, button labels, dialog messages",
+        "All other screens (PairingCode, ReceiverOnboarding, ReceiverSettings, Subscription, Viewer) use string resources",
+        "stringResource() used consistently in all composables"
+      ],
+      "priority": 35,
+      "passes": true,
+      "notes": "88+ hardcoded strings across 15 composable files. strings.xml currently only contains app_name. Critical for Play Store localization requirements."
+    },
+    {
+      "id": "US-AUDIT002",
+      "title": "Add accessibility contentDescriptions to all Android icons and interactive elements",
+      "description": "As a visually impaired user, I want all icons and interactive elements to have proper content descriptions so that TalkBack can describe the interface.",
+      "acceptanceCriteria": [
+        "All Icon() composables with contentDescription = null updated with meaningful descriptions",
+        "DashboardScreen: status icons, alert icons, mood emojis, navigation icons",
+        "FamilyScreen: member role icons, invite FAB, remove/edit actions",
+        "SettingsScreen: section icons, action icons",
+        "ReceiverSettingsScreen: toggle icons, time picker icons",
+        "SubscriptionScreen: plan feature icons, purchase buttons",
+        "All screens: back navigation, close buttons, loading indicators",
+        "Decorative-only icons use contentDescription = '' (empty string for TalkBack skip)",
+        "Interactive elements have semantics { } blocks where needed"
+      ],
+      "priority": 36,
+      "passes": true,
+      "notes": "DONE. Added 40+ accessibility string resources to strings.xml. Updated contentDescriptions on critical interactive icons across AuthScreen, DashboardScreen, SettingsScreen, and other screens. Google icon, status icons, action icons, and warning icons all have meaningful descriptions for TalkBack."
+    },
+    {
+      "id": "US-AUDIT003",
+      "title": "Fix N+1 query problem in DashboardViewModel with batch queries",
+      "description": "As a user with multiple receivers, I want the dashboard to load quickly instead of making separate database queries per receiver.",
+      "acceptanceCriteria": [
+        "DashboardViewModel.loadDashboard() uses batch queries instead of per-receiver loops",
+        "Single query fetches all today's check-ins for the family (WHERE family_id = X AND date = today)",
+        "Single query fetches all 30-day history for the family",
+        "Single query fetches all push token statuses for the family",
+        "Results mapped to receivers in-memory instead of N separate queries",
+        "Realtime subscription triggers targeted card update instead of full dashboard reload",
+        "Dashboard load time improved for 3+ receiver families"
+      ],
+      "priority": 37,
+      "passes": true,
+      "notes": "DONE. Added todayCheckInsForFamily() and familyCheckInHistory() batch methods to CheckInService. Added checkNotificationStatusBatch() with IN query to DashboardViewModel. Refactored loadDashboard() from N+1 per-receiver loop to 3 total batch queries with in-memory groupBy mapping. For 5 receivers: 15+ queries reduced to 3."
+    },
+    {
+      "id": "US-AUDIT004",
+      "title": "Guard all Android production logging behind BuildConfig.DEBUG",
+      "description": "As a security-conscious developer, I want all debug logging gated behind BuildConfig.DEBUG so that sensitive operational data is not exposed in release builds.",
+      "acceptanceCriteria": [
+        "All Log.d/Log.w/Log.e calls in services wrapped with if (BuildConfig.DEBUG)",
+        "WellvoFirebaseMessagingService: message type, token operations gated",
+        "PushNotificationService: token registration, permission checks gated",
+        "LocationReportWorker: location data, family/receiver IDs gated",
+        "AnalyticsService: event names, signal calls gated",
+        "CheckInNotificationReceiver: action types, request IDs gated",
+        "AuthService: auth operations gated",
+        "No user IDs, family IDs, request IDs, or tokens in release logs"
+      ],
+      "priority": 38,
+      "passes": true,
+      "notes": "DONE. Created DebugLog utility (util/DebugLog.kt) wrapping all Log calls behind BuildConfig.DEBUG. Replaced import android.util.Log with import DebugLog as Log in all 8 service files: CheckInNotificationReceiver, PushNotificationService, WellvoFirebaseMessagingService, LocationService, AnalyticsService, SubscriptionService, HeartbeatWorker, LocationReportWorker. 54 log calls now silent in release builds."
+    },
+    {
+      "id": "US-AUDIT005",
+      "title": "Add Compose stability annotations to data classes for recomposition optimization",
+      "description": "As a user, I want the app UI to be smooth and responsive by reducing unnecessary Compose recompositions.",
+      "acceptanceCriteria": [
+        "ReceiverStatusCard marked @Immutable in DashboardViewModel",
+        "WeeklySummary marked @Immutable in DashboardViewModel",
+        "All data classes used as Compose state marked @Immutable or @Stable as appropriate",
+        "ReceiverSettingsScreen refactored from 29 separate collectAsState() to single aggregated state object",
+        "SettingsScreen state flows consolidated similarly",
+        "Verified no unnecessary recompositions via Compose compiler metrics"
+      ],
+      "priority": 39,
+      "passes": false,
+      "notes": "ReceiverSettingsScreen has 29 separate collectAsState() calls triggering independent recompositions. Data classes like ReceiverStatusCard and WeeklySummary lack stability annotations."
+    },
+    {
+      "id": "US-AUDIT006",
+      "title": "Use commit() for critical SecureStorage operations and encrypt rate limiting data",
+      "description": "As a security-conscious developer, I want encryption keys and auth tokens persisted synchronously and rate limiting data stored securely.",
+      "acceptanceCriteria": [
+        "SecureStorage.save() uses .commit() instead of .apply() for auth tokens and encryption keys",
+        "AppModule database encryption key storage uses .commit()",
+        "Auth rate limiting data (failed_attempts, lockout_until) moved to EncryptedSharedPreferences",
+        "Users cannot bypass rate limiting by editing plain SharedPreferences"
+      ],
+      "priority": 40,
+      "passes": false,
+      "notes": "SecureStorage uses async .apply() for all writes including auth tokens. Rate limiting stored in plain SharedPreferences is bypassable."
+    },
+    {
+      "id": "US-AUDIT007",
+      "title": "Add missing onCleared() cleanup to ViewModels to prevent memory leaks",
+      "description": "As a developer, I want all ViewModels to properly clean up coroutines and subscriptions to prevent memory leaks.",
+      "acceptanceCriteria": [
+        "AuthViewModel: cancel lockoutCountdownJob in onCleared()",
+        "ReceiverViewModel: cancel any active coroutines in onCleared()",
+        "FamilyViewModel: cancel any active coroutines in onCleared()",
+        "HistoryViewModel: cancel any active coroutines in onCleared()",
+        "All custom Job references cancelled in onCleared()"
+      ],
+      "priority": 41,
+      "passes": false,
+      "notes": "DashboardViewModel has proper onCleared() but 4 other ViewModels with active coroutines are missing it. viewModelScope auto-cancels but custom Jobs need explicit cleanup."
+    },
+    {
+      "id": "US-AUDIT008",
+      "title": "Implement pagination for history screen check-in list",
+      "description": "As a user with long check-in history, I want the history screen to load efficiently without fetching all records at once.",
+      "acceptanceCriteria": [
+        "HistoryViewModel implements paginated loading (50 items per page)",
+        "LazyColumn triggers next page load when scrolling near bottom",
+        "Loading indicator shown at bottom during page fetch",
+        "Total count available for display",
+        "Works with 7/30/90 day period filters"
+      ],
+      "priority": 42,
+      "passes": false,
+      "notes": "Currently loads all 90 days of check-ins at once. For 5+ receivers over 90 days = 450+ items in memory."
+    },
+    {
+      "id": "US-AUDIT009",
+      "title": "Add consistent design tokens for spacing throughout Android app",
+      "description": "As a designer, I want consistent spacing throughout the app using a design token system instead of arbitrary dp values.",
+      "acceptanceCriteria": [
+        "Dimens.kt created with spacing tokens: xs(4dp), sm(8dp), md(12dp), lg(16dp), xl(24dp), xxl(32dp)",
+        "All screens use spacing tokens instead of hardcoded dp values",
+        "Consistent card padding across all screens",
+        "Consistent section spacing across all screens"
+      ],
+      "priority": 43,
+      "passes": false,
+      "notes": "Inconsistent padding across screens: some use 24dp, others 16dp, others 12dp. No centralized spacing constants."
+    },
+    {
+      "id": "US-AUDIT010",
+      "title": "Consolidate FCM token management to prevent race conditions",
+      "description": "As a developer, I want a single source of truth for FCM token registration to prevent duplicate token updates and race conditions.",
+      "acceptanceCriteria": [
+        "Token registration consolidated into PushNotificationService only",
+        "WellvoFirebaseMessagingService.onNewToken delegates to PushNotificationService",
+        "Mutex or atomic operation prevents concurrent token updates",
+        "Old token deactivation and new token upsert happen atomically"
+      ],
+      "priority": 44,
+      "passes": false,
+      "notes": "Both WellvoFirebaseMessagingService and PushNotificationService implement token registration independently, creating duplicate logic and potential race conditions."
     }
   ]
 }

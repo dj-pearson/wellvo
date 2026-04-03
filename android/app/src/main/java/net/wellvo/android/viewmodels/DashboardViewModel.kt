@@ -133,52 +133,49 @@ class DashboardViewModel @Inject constructor(
                     it.role == UserRole.Receiver && it.status == MemberStatus.Active
                 }
 
-                val cards = mutableListOf<ReceiverStatusCard>()
-                val weeklyCheckIns = mutableListOf<CheckIn>()
+                // Batch queries: 3 queries total instead of 3 per receiver
+                val todayCheckIns = try {
+                    checkInService.todayCheckInsForFamily(fetchedFamily.id)
+                } catch (_: Exception) { emptyList() }
+
+                val allHistory = try {
+                    checkInService.familyCheckInHistory(fetchedFamily.id, 30)
+                } catch (_: Exception) { emptyList() }
+
+                val allTokens = try {
+                    checkNotificationStatusBatch(receivers.map { it.userId })
+                } catch (_: Exception) { emptySet() }
+
+                // Group results by receiver for in-memory mapping
+                val todayByReceiver = todayCheckIns.groupBy { it.receiverId }
+                val historyByReceiver = allHistory.groupBy { it.receiverId }
                 val sevenDaysAgo = LocalDate.now().minusDays(7)
                     .format(DateTimeFormatter.ISO_LOCAL_DATE)
 
-                for (receiver in receivers) {
-                    val todayCheckIn = try {
-                        checkInService.todayCheckInStatus(
-                            receiverId = receiver.userId,
-                            familyId = fetchedFamily.id
-                        )
-                    } catch (_: Exception) { null }
-
-                    val history = try {
-                        checkInService.checkInHistory(
-                            receiverId = receiver.userId,
-                            familyId = fetchedFamily.id,
-                            days = 30
-                        )
-                    } catch (_: Exception) { emptyList() }
-
+                val cards = receivers.map { receiver ->
+                    val todayCheckIn = todayByReceiver[receiver.userId]?.firstOrNull()
+                    val history = historyByReceiver[receiver.userId] ?: emptyList()
                     val streak = calculateStreak(history)
-                    val hasNotifications = checkNotificationStatus(receiver.userId)
 
-                    // Collect last 7 days for weekly summary
-                    weeklyCheckIns.addAll(history.filter {
-                        it.checkedInAt >= "${sevenDaysAgo}T00:00:00"
-                    })
-
-                    cards.add(
-                        ReceiverStatusCard(
-                            id = receiver.userId,
-                            memberId = receiver.id,
-                            name = receiver.user?.displayName ?: "Unknown",
-                            avatarUrl = receiver.user?.avatarUrl,
-                            status = if (todayCheckIn != null) ReceiverCheckInStatus.CheckedIn
-                                     else ReceiverCheckInStatus.Pending,
-                            lastCheckIn = todayCheckIn?.checkedInAt ?: history.firstOrNull()?.checkedInAt,
-                            streak = streak,
-                            mood = todayCheckIn?.mood,
-                            hasNotificationsEnabled = hasNotifications,
-                            checkedInTime = todayCheckIn?.checkedInAt,
-                            locationLabel = todayCheckIn?.locationLabel,
-                            kidResponseType = todayCheckIn?.kidResponseType
-                        )
+                    ReceiverStatusCard(
+                        id = receiver.userId,
+                        memberId = receiver.id,
+                        name = receiver.user?.displayName ?: "Unknown",
+                        avatarUrl = receiver.user?.avatarUrl,
+                        status = if (todayCheckIn != null) ReceiverCheckInStatus.CheckedIn
+                                 else ReceiverCheckInStatus.Pending,
+                        lastCheckIn = todayCheckIn?.checkedInAt ?: history.firstOrNull()?.checkedInAt,
+                        streak = streak,
+                        mood = todayCheckIn?.mood,
+                        hasNotificationsEnabled = receiver.userId in allTokens,
+                        checkedInTime = todayCheckIn?.checkedInAt,
+                        locationLabel = todayCheckIn?.locationLabel,
+                        kidResponseType = todayCheckIn?.kidResponseType
                     )
+                }
+
+                val weeklyCheckIns = allHistory.filter {
+                    it.checkedInAt >= "${sevenDaysAgo}T00:00:00"
                 }
 
                 _receiverCards.value = cards
@@ -312,17 +309,24 @@ class DashboardViewModel @Inject constructor(
         return streak
     }
 
-    private suspend fun checkNotificationStatus(userId: String): Boolean {
+    @Serializable
+    private data class PushTokenWithUser(
+        val id: String,
+        @SerialName("user_id") val userId: String
+    )
+
+    private suspend fun checkNotificationStatusBatch(userIds: List<String>): Set<String> {
+        if (userIds.isEmpty()) return emptySet()
         return try {
             val tokens = supabase.postgrest.from("push_tokens")
                 .select {
-                    filter { eq("user_id", userId) }
+                    filter { isIn("user_id", userIds) }
                     filter { eq("is_active", true) }
                 }
-                .decodeList<PushTokenRecord>()
-            tokens.isNotEmpty()
+                .decodeList<PushTokenWithUser>()
+            tokens.map { it.userId }.toSet()
         } catch (_: Exception) {
-            false
+            emptySet()
         }
     }
 

@@ -1,4 +1,373 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Wellvo</string>
+    <string name="tagline">One tap. Peace of mind.</string>
+
+    <!-- Auth Screen -->
+    <string name="auth_or_divider">or</string>
+    <string name="auth_signing_in">Signing in…</string>
+    <string name="auth_continue_google">Continue with Google</string>
+    <string name="auth_phone_title">Sign in with your phone</string>
+    <string name="auth_phone_subtitle">We\'ll text you a verification code</string>
+    <string name="auth_phone_label">+1 Phone Number</string>
+    <string name="auth_send_code">Send Code</string>
+    <string name="auth_enter_otp_title">Enter verification code</string>
+    <string name="auth_enter_otp_subtitle">We sent a 6-digit code to your phone</string>
+    <string name="auth_otp_placeholder">6-digit code</string>
+    <string name="auth_verify">Verify</string>
+    <string name="auth_use_different_number">Use a different number</string>
+    <string name="auth_collapse_email">Collapse email sign-in</string>
+    <string name="auth_expand_email">Expand email sign-in</string>
+    <string name="auth_hide_email">Hide email sign-in</string>
+    <string name="auth_sign_in_email">Sign in with email</string>
+    <string name="auth_display_name">Display Name</string>
+    <string name="auth_email">Email</string>
+    <string name="auth_password">Password</string>
+    <string name="auth_forgot_password">Forgot Password?</string>
+    <string name="auth_create_account">Create Account</string>
+    <string name="auth_sign_in">Sign In</string>
+    <string name="auth_already_have_account">Already have an account? Sign In</string>
+    <string name="auth_no_account">Don\'t have an account? Sign Up</string>
+
+    <!-- Onboarding Screen -->
+    <string name="onboarding_back">Back</string>
+    <string name="onboarding_step_counter">Step %1$d of %2$d</string>
+    <string name="onboarding_welcome_title">Welcome to Wellvo</string>
+    <string name="onboarding_welcome_body">Wellvo helps families stay connected with a simple daily check-in. Set up your family, invite your loved ones, and get peace of mind with just one tap.</string>
+    <string name="onboarding_get_started">Get Started</string>
+    <string name="onboarding_user_type_title">Who are you checking in on?</string>
+    <string name="onboarding_user_type_subtitle">This helps us tailor your experience</string>
+    <string name="onboarding_family_name_title">Name your family group</string>
+    <string name="onboarding_family_name_subtitle">This is how your family will appear in the app</string>
+    <string name="onboarding_family_name_label">Family Name</string>
+    <string name="onboarding_family_name_hint">e.g., The Smiths</string>
+    <string name="onboarding_create_family">Create Family</string>
+    <string name="onboarding_plan_title">Choose your plan</string>
+    <string name="onboarding_plan_subtitle">You can change this anytime</string>
+    <string name="onboarding_continue">Continue</string>
+    <string name="onboarding_invite_title">Invite your first receiver</string>
+    <string name="onboarding_invite_subtitle">They\'ll get a text with instructions to join</string>
+    <string name="onboarding_receiver_name_label">Receiver\'s Name</string>
+    <string name="onboarding_phone_label">+1 Phone Number</string>
+    <string name="onboarding_checkin_time_label">Daily check-in time</string>
+    <string name="onboarding_send_invite">Send Invite</string>
+    <string name="onboarding_skip">Skip for now</string>
+    <string name="onboarding_notifications_title">Stay in the loop</string>
+    <string name="onboarding_notifications_body">Enable notifications so you\'ll know right away when your receiver checks in — or if they miss a check-in and need a follow-up.</string>
+    <string name="onboarding_enable_notifications">Enable Notifications</string>
+    <string name="onboarding_not_now">Not now</string>
+    <string name="onboarding_complete_title">You\'re all set!</string>
+    <string name="onboarding_complete_body">Your family group is ready. You can invite more receivers and manage settings from your dashboard.</string>
+    <string name="onboarding_go_to_dashboard">Go to Dashboard</string>
+
+    <!-- Plan Names & Features -->
+    <string name="plan_free">Free</string>
+    <string name="plan_family">Family</string>
+    <string name="plan_family_plus">Family+</string>
+    <string name="plan_family_price_monthly">$4.99/mo</string>
+    <string name="plan_family_price_yearly">$47.99/yr</string>
+    <string name="plan_family_plus_price_monthly">$9.99/mo</string>
+    <string name="plan_family_plus_price_yearly">$95.99/yr</string>
+    <string name="plan_feature_1_receiver">1 Receiver</string>
+    <string name="plan_feature_no_viewers">No Viewers</string>
+    <string name="plan_feature_daily_checkins">Daily check-ins</string>
+    <string name="plan_feature_basic_alerts">Basic alerts</string>
+    <string name="plan_feature_3_receivers">Up to 3 Receivers</string>
+    <string name="plan_feature_2_viewers">Up to 2 Viewers</string>
+    <string name="plan_feature_mood_tracking">Mood tracking</string>
+    <string name="plan_feature_checkin_history">Check-in history</string>
+    <string name="plan_feature_pattern_alerts">Pattern alerts</string>
+    <string name="plan_feature_pdf_export">PDF export</string>
+    <string name="plan_feature_8_receivers">Up to 8 Receivers</string>
+    <string name="plan_feature_5_viewers">Up to 5 Viewers</string>
+    <string name="plan_feature_everything_family">Everything in Family</string>
+    <string name="plan_feature_location_tracking">Location tracking</string>
+    <string name="plan_feature_custom_schedules">Custom schedules</string>
+    <string name="plan_feature_sms_escalation">SMS escalation</string>
+    <string name="plan_feature_priority_support">Priority support</string>
+    <string name="plan_feature_kid_mode">Kid mode</string>
+    <string name="plan_feature_pdf_reports">PDF reports</string>
+    <string name="plan_current">Current Plan</string>
+    <string name="plan_upgrade">Upgrade</string>
+    <string name="plan_subscribe">Subscribe</string>
+    <string name="plan_monthly">Monthly</string>
+    <string name="plan_yearly_save">Yearly (save 20%)</string>
+    <string name="plan_choose_title">Choose Your Plan</string>
+    <string name="plan_product_unavailable">Product not available. Please try again.</string>
+    <string name="plan_welcome">Welcome to %1$s!</string>
+    <string name="plan_already_owned">You already own this subscription.</string>
+    <string name="plan_purchase_failed">Purchase failed.</string>
+    <string name="plan_manage">Manage Subscription</string>
+    <string name="plan_restored">Purchases restored.</string>
+    <string name="plan_restore_failed">Failed to restore purchases.</string>
+    <string name="plan_restore">Restore Purchases</string>
+
+    <!-- Pairing Code Screen -->
+    <string name="pairing_title">Enter Pairing Code</string>
+    <string name="pairing_subtitle">Enter the 6-digit code shared by your family member to connect your account.</string>
+    <string name="pairing_label">Pairing Code</string>
+    <string name="pairing_placeholder">000000</string>
+    <string name="pairing_join">Join Family</string>
+    <string name="pairing_connected">You\'re connected!</string>
+    <string name="pairing_joined_family">You\'ve joined %1$s</string>
+    <string name="pairing_checkin_time">Daily check-in time: %1$s</string>
+
+    <!-- Receiver Onboarding -->
+    <string name="receiver_onboarding_loading">Setting up your account…</string>
+    <string name="receiver_onboarding_welcome">Welcome, %1$s!</string>
+    <string name="receiver_onboarding_welcome_generic">Welcome!</string>
+    <string name="receiver_onboarding_body">Someone who cares about you has set up a daily check-in. Each day, you\'ll get a notification — just tap \"I\'m OK\" to let them know you\'re doing well.</string>
+    <string name="receiver_onboarding_checkin_at">Your daily check-in is at</string>
+    <string name="receiver_onboarding_notifications_title">Don\'t miss your check-in</string>
+    <string name="receiver_onboarding_notifications_body">Notifications are how we remind you to check in each day. Without them, you might miss your check-in and your family will worry.</string>
+    <string name="receiver_onboarding_complete_title">You\'re all set!</string>
+    <string name="receiver_onboarding_complete_body">When it\'s time for your daily check-in, just open the app and tap the button. It takes one second.</string>
+    <string name="receiver_onboarding_notifications_hint">You can enable notifications later in Settings to get check-in reminders.</string>
+    <string name="receiver_onboarding_start">Start Using Wellvo</string>
+
+    <!-- Receiver Home Screen -->
+    <string name="receiver_offline_banner">You\'re offline. Check-ins will be saved and synced later.</string>
+    <string name="receiver_pending_sync">%1$d check-in(s) pending sync</string>
+    <string name="receiver_im_ok">I\'m OK</string>
+    <string name="receiver_dismiss">Dismiss</string>
+    <string name="receiver_next_checkin">Next check-in at</string>
+    <string name="receiver_all_set">You\'re all set!</string>
+    <string name="receiver_checked_in_today">Checked in today</string>
+    <string name="receiver_retry">Retry</string>
+
+    <!-- Mood Selector -->
+    <string name="mood_how_feeling">How are you feeling?</string>
+    <string name="mood_submit">Submit Mood</string>
+    <string name="mood_skip">Skip</string>
+
+    <!-- Location Label Selector -->
+    <string name="location_where">Where are you?</string>
+    <string name="location_submit">Submit Location</string>
+    <string name="location_skip">Skip</string>
+    <string name="location_home">Home</string>
+    <string name="location_school">School</string>
+    <string name="location_friends_house">Friend\'s House</string>
+    <string name="location_park">Park</string>
+    <string name="location_store">Store</string>
+    <string name="location_other">Other</string>
+
+    <!-- Kid Response Buttons -->
+    <string name="kid_need_anything">Need anything?</string>
+    <string name="kid_pick_me_up">Pick me up!</string>
+    <string name="kid_stay_longer">Can I stay longer?</string>
+    <string name="kid_sos">SOS!</string>
+    <string name="kid_send">Send</string>
+
+    <!-- Dashboard Screen -->
+    <string name="dashboard_error">Something went wrong</string>
+    <string name="dashboard_retry">Retry</string>
+    <string name="dashboard_no_receivers">No Receivers Yet</string>
+    <string name="dashboard_no_receivers_body">Add a family member to start receiving daily check-ins.</string>
+    <string name="dashboard_this_week">This Week</string>
+    <string name="dashboard_consistency">Consistency</string>
+    <string name="dashboard_avg_time">Avg Time</string>
+    <string name="dashboard_checkins">Check-Ins</string>
+    <string name="dashboard_moods">Moods:</string>
+    <string name="dashboard_today_timeline">Today\'s Timeline</string>
+    <string name="dashboard_dismiss_alert">Dismiss alert</string>
+    <string name="dashboard_notifications_off">Notifications not enabled</string>
+    <string name="dashboard_day_streak">day streak</string>
+    <string name="dashboard_mood_label">Mood:</string>
+    <string name="dashboard_notifications_disabled">Notifications Disabled</string>
+    <string name="dashboard_notifications_disabled_body">Enable notifications to receive check-in alerts.</string>
+
+    <!-- History Screen -->
+    <string name="history_7_days">7 Days</string>
+    <string name="history_30_days">30 Days</string>
+    <string name="history_90_days">90 Days</string>
+    <string name="history_export_pdf">Export PDF</string>
+    <string name="history_no_checkins">No check-ins for this period.</string>
+    <string name="history_source_app">App</string>
+    <string name="history_source_notification">Notification</string>
+    <string name="history_source_on_demand">On Demand</string>
+    <string name="history_source_need_help">Need Help</string>
+    <string name="history_source_call_me">Call Me</string>
+    <string name="history_response_ok">OK</string>
+    <string name="history_response_need_help">Need Help</string>
+    <string name="history_response_call_me">Call Me</string>
+
+    <!-- Family Screen -->
+    <string name="family_invite_receiver">Invite Receiver</string>
+    <string name="family_remove_member_title">Remove Member</string>
+    <string name="family_remove_member_body">Are you sure you want to remove %1$s from your family?</string>
+    <string name="family_remove">Remove</string>
+    <string name="family_cancel">Cancel</string>
+    <string name="family_transfer_title">Transfer Ownership</string>
+    <string name="family_transfer_body">Are you sure you want to transfer ownership to %1$s? You will become a viewer.</string>
+    <string name="family_transfer">Transfer</string>
+    <string name="family_remove_action">Remove member</string>
+    <string name="family_how_it_works">How It Works</string>
+    <string name="family_invite_step_1">They\'ll get a text with a download link</string>
+    <string name="family_invite_step_2">They sign in with their phone number</string>
+    <string name="family_invite_step_3">The app auto-matches them to your family</string>
+    <string name="family_invite_step_4">They just tap \"I\'m OK\" to check in daily</string>
+    <string name="family_name_label">Name</string>
+    <string name="family_phone_label">Phone Number</string>
+    <string name="family_phone_error">Enter a valid US phone number</string>
+    <string name="family_phone_hint">Use the number they\'ll sign into the app with</string>
+    <string name="family_checkin_time">Daily Check-in Time</string>
+    <string name="family_sending">Sending…</string>
+    <string name="family_send_invitation">Send Invitation</string>
+    <string name="family_invitation_sent">Invitation Sent!</string>
+    <string name="family_invitation_sent_body">A text message has been sent to %1$s with instructions to get started.</string>
+    <string name="family_setup_guide">How %1$s Sets Up</string>
+    <string name="family_view_setup_guide">View Full Setup Guide for %1$s</string>
+    <string name="family_done">Done</string>
+    <string name="family_no_family">No Family Yet</string>
+    <string name="family_no_family_body">Create a family to start adding receivers.</string>
+    <string name="family_no_receivers">No receivers yet.</string>
+    <string name="family_no_receivers_body">Invite someone to get started.</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_sign_out_title">Sign Out</string>
+    <string name="settings_sign_out_body">Are you sure you want to sign out?</string>
+    <string name="settings_sign_out">Sign Out</string>
+    <string name="settings_cancel">Cancel</string>
+    <string name="settings_delete_title">Delete Account</string>
+    <string name="settings_delete_body">This will permanently delete your account, all family data, and check-in history. This cannot be undone.</string>
+    <string name="settings_delete_confirm">Delete Everything</string>
+    <string name="settings_account">Account</string>
+    <string name="settings_google_linked">Google Account Linked</string>
+    <string name="settings_link_google">Link Google Account</string>
+    <string name="settings_subscription">Subscription</string>
+    <string name="settings_current_plan">Current Plan</string>
+    <string name="settings_data">Data</string>
+    <string name="settings_export_data">Export My Data</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_privacy_policy">Privacy Policy</string>
+    <string name="settings_terms">Terms of Service</string>
+    <string name="settings_delete_account">Delete Account</string>
+    <string name="settings_delete_warning">Permanently deletes your account, family, and all associated data. This cannot be undone.</string>
+    <string name="settings_data_retention">Data Retention</string>
+    <string name="settings_data_retention_label">Keep check-in data for</string>
+    <string name="settings_retention_90">90 days</string>
+    <string name="settings_retention_180">6 months</string>
+    <string name="settings_retention_365">1 year</string>
+    <string name="settings_retention_730">2 years</string>
+
+    <!-- Receiver Settings Screen -->
+    <string name="receiver_settings_title">%1$s Settings</string>
+    <string name="receiver_settings_paused_title">Notifications Paused</string>
+    <string name="receiver_settings_paused_body">Scheduled check-in notifications are paused.</string>
+    <string name="receiver_settings_kid_mode_desc">Kid mode provides a fun experience with expanded mood options and location sharing.</string>
+    <string name="receiver_settings_mode">Receiver Mode</string>
+    <string name="receiver_settings_notification_controls">Notification Controls</string>
+    <string name="receiver_settings_pause">Pause Notifications</string>
+    <string name="receiver_settings_pause_desc">Pause scheduled notifications</string>
+    <string name="receiver_settings_send_checkin">Send Check-In Now</string>
+    <string name="receiver_settings_schedule">Check-In Schedule</string>
+    <string name="receiver_settings_checkin_time">Check-In Time</string>
+    <string name="receiver_settings_weekday_time">Weekday Time (Mon–Fri)</string>
+    <string name="receiver_settings_weekend_time">Weekend Time (Sat–Sun)</string>
+    <string name="receiver_settings_timezone">Timezone</string>
+    <string name="receiver_settings_escalation">Escalation Chain</string>
+    <string name="receiver_settings_escalation_toggle">Escalation Alerts</string>
+    <string name="receiver_settings_escalation_desc">Alert if check-in is missed</string>
+    <string name="receiver_settings_grace_period">Grace Period</string>
+    <string name="receiver_settings_reminder_interval">Reminder Interval</string>
+    <string name="receiver_settings_quiet_hours">Quiet Hours</string>
+    <string name="receiver_settings_quiet_hours_desc">No notifications during specified hours</string>
+    <string name="receiver_settings_quiet_start">Start</string>
+    <string name="receiver_settings_quiet_end">End</string>
+    <string name="receiver_settings_sms">SMS Escalation</string>
+    <string name="receiver_settings_sms_toggle">SMS Fallback</string>
+    <string name="receiver_settings_sms_desc">Send SMS when push notifications fail during escalation</string>
+    <string name="receiver_settings_mood">Mood Tracking</string>
+    <string name="receiver_settings_mood_toggle">Mood Tracking</string>
+    <string name="receiver_settings_mood_desc">Allow sharing mood after check-in</string>
+    <string name="receiver_settings_save">Save Settings</string>
+    <string name="receiver_settings_monday">Monday</string>
+    <string name="receiver_settings_tuesday">Tuesday</string>
+    <string name="receiver_settings_wednesday">Wednesday</string>
+    <string name="receiver_settings_thursday">Thursday</string>
+    <string name="receiver_settings_friday">Friday</string>
+    <string name="receiver_settings_saturday">Saturday</string>
+    <string name="receiver_settings_sunday">Sunday</string>
+
+    <!-- Receiver Setup Guide -->
+    <string name="setup_guide_title">Invite Sent!</string>
+    <string name="setup_guide_subtitle">%1$s will receive a text message with instructions to get started.</string>
+    <string name="setup_guide_steps_title">What %1$s needs to do:</string>
+    <string name="setup_guide_step1_title">Open the Text Message</string>
+    <string name="setup_guide_step1_desc">%1$s will receive a text with a link to download Wellvo from the Play Store.</string>
+    <string name="setup_guide_step2_title">Download the App</string>
+    <string name="setup_guide_step2_desc">Tap the link in the text to open the Play Store and download Wellvo.</string>
+    <string name="setup_guide_step3_title">Sign In with Their Phone Number</string>
+    <string name="setup_guide_step3_desc">Open the app and enter the same phone number the text was sent to. They\'ll receive a verification code.</string>
+    <string name="setup_guide_step4_title">Allow Notifications</string>
+    <string name="setup_guide_step4_desc">The app will ask to send notifications. This is required so they receive their daily check-in reminder.</string>
+    <string name="setup_guide_step5_title">That\'s It!</string>
+    <string name="setup_guide_step5_desc">The app automatically connects them to your family. Each day at the scheduled time, they just tap \"I\'m OK.\"</string>
+    <string name="setup_guide_tips">Tips</string>
+    <string name="setup_guide_tip_1">Make sure %1$s uses the exact phone number you entered when signing in.</string>
+    <string name="setup_guide_tip_2">If they don\'t see the text, check that the phone number is correct and try re-sending the invite.</string>
+    <string name="setup_guide_tip_3">The app will automatically match them to your family — no codes or links to enter.</string>
+    <string name="setup_guide_tip_4">You can adjust the check-in schedule anytime from the Family tab.</string>
+
+    <!-- Viewer Settings -->
+    <string name="viewer_settings_title">Settings</string>
+
+    <!-- Tab Labels -->
+    <string name="tab_dashboard">Dashboard</string>
+    <string name="tab_history">History</string>
+    <string name="tab_family">Family</string>
+    <string name="tab_settings">Settings</string>
+
+    <!-- Accessibility Content Descriptions -->
+    <string name="cd_google_icon">Google</string>
+    <string name="cd_warning_icon">Warning</string>
+    <string name="cd_error_icon">Error</string>
+    <string name="cd_success_icon">Success</string>
+    <string name="cd_welcome_icon">Welcome</string>
+    <string name="cd_notifications_icon">Notifications</string>
+    <string name="cd_complete_icon">Complete</string>
+    <string name="cd_pairing_icon">Pairing</string>
+    <string name="cd_status_icon">Status</string>
+    <string name="cd_no_receivers_icon">No receivers</string>
+    <string name="cd_check_on_icon">Check on receiver</string>
+    <string name="cd_alert_icon">Alert</string>
+    <string name="cd_mood_icon">Mood</string>
+    <string name="cd_location_icon">Location</string>
+    <string name="cd_kid_response_icon">Kid response</string>
+    <string name="cd_notification_warning">Notification not enabled</string>
+    <string name="cd_streak_icon">Check-in streak</string>
+    <string name="cd_time_icon">Check-in time</string>
+    <string name="cd_pause_icon">Paused</string>
+    <string name="cd_send_checkin_icon">Send check-in notification</string>
+    <string name="cd_save_icon">Save</string>
+    <string name="cd_invite_sent_icon">Invite sent</string>
+    <string name="cd_tips_icon">Tips</string>
+    <string name="cd_step_icon">Step</string>
+    <string name="cd_done_icon">Done</string>
+    <string name="cd_transfer_ownership">Transfer ownership</string>
+    <string name="cd_resend_invite">Re-send invite</string>
+    <string name="cd_remove_member">Remove member</string>
+    <string name="cd_send_invitation">Send invitation</string>
+    <string name="cd_setup_guide">Setup guide</string>
+    <string name="cd_no_family_icon">No family</string>
+    <string name="cd_plan_check">Feature included</string>
+    <string name="cd_current_plan">Current plan indicator</string>
+    <string name="cd_manage_subscription">Manage subscription</string>
+    <string name="cd_restore_purchases">Restore purchases</string>
+    <string name="cd_google_linked">Google account linked</string>
+    <string name="cd_export_data">Export data</string>
+    <string name="cd_sign_out">Sign out</string>
+    <string name="cd_delete_account">Delete account</string>
+    <string name="cd_data_retention">Data retention</string>
+    <string name="cd_no_checkins">No check-ins</string>
+    <string name="cd_viewer_role">Viewer role</string>
+
+    <!-- Common -->
+    <string name="common_continue">Continue</string>
+    <string name="common_done">Done</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_skip">Skip</string>
+    <string name="common_enable_notifications">Enable Notifications</string>
 </resources>

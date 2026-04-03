@@ -1,6 +1,8 @@
 package net.wellvo.android.ui.screens.owner
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.res.stringResource
+import net.wellvo.android.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -70,7 +72,7 @@ fun ReceiverSetupGuideScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Invite Sent!",
+                text = stringResource(R.string.setup_guide_title),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -89,7 +91,7 @@ fun ReceiverSetupGuideScreen(
 
         // Steps header
         Text(
-            text = "What $receiverName needs to do:",
+            text = stringResource(R.string.setup_guide_steps_title, receiverName),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
@@ -160,7 +162,7 @@ fun ReceiverSetupGuideScreen(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Tips",
+                        text = stringResource(R.string.setup_guide_tips),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = TipOrange

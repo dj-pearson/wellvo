@@ -72,8 +72,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.isSystemInDarkTheme
+import net.wellvo.android.R
 import net.wellvo.android.data.models.KidResponseType
 import net.wellvo.android.data.models.LocationLabel
 import net.wellvo.android.data.models.Mood
@@ -184,13 +186,13 @@ fun DashboardScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Warning,
-                                contentDescription = null,
+                                contentDescription = stringResource(R.string.cd_error_icon),
                                 modifier = Modifier.size(48.dp),
                                 tint = MaterialTheme.colorScheme.error
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "Something went wrong",
+                                text = stringResource(R.string.dashboard_error),
                                 style = MaterialTheme.typography.titleMedium
                             )
                             Spacer(modifier = Modifier.height(8.dp))
@@ -202,7 +204,7 @@ fun DashboardScreen(
                             )
                             Spacer(modifier = Modifier.height(24.dp))
                             Button(onClick = { viewModel.loadDashboard(userId) }) {
-                                Text("Retry")
+                                Text(stringResource(R.string.dashboard_retry))
                             }
                         }
                     }
@@ -277,19 +279,19 @@ private fun EmptyState() {
     ) {
         Icon(
             imageVector = Icons.Default.PersonAdd,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cd_no_receivers_icon),
             modifier = Modifier.size(64.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(20.dp))
         Text(
-            text = "No Receivers Yet",
+            text = stringResource(R.string.dashboard_no_receivers),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Add a family member to start receiving daily check-ins.",
+            text = stringResource(R.string.dashboard_no_receivers_body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -310,7 +312,7 @@ private fun WeeklySummaryCard(summary: WeeklySummary) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "This Week",
+                text = stringResource(R.string.dashboard_this_week),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -327,19 +329,19 @@ private fun WeeklySummaryCard(summary: WeeklySummary) {
                 }
                 StatBubble(
                     value = "${summary.consistencyPercentage.toInt()}%",
-                    label = "Consistency",
+                    label = stringResource(R.string.dashboard_consistency),
                     color = consistencyColor,
                     modifier = Modifier.weight(1f)
                 )
                 StatBubble(
                     value = summary.averageCheckInTime,
-                    label = "Avg Time",
+                    label = stringResource(R.string.dashboard_avg_time),
                     color = Color(0xFF3B82F6),
                     modifier = Modifier.weight(1f)
                 )
                 StatBubble(
                     value = "${summary.totalCheckIns}/${summary.totalExpected}",
-                    label = "Check-Ins",
+                    label = stringResource(R.string.dashboard_checkins),
                     color = StatusGreen,
                     modifier = Modifier.weight(1f)
                 )
@@ -352,7 +354,7 @@ private fun WeeklySummaryCard(summary: WeeklySummary) {
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "Moods:",
+                        text = stringResource(R.string.dashboard_moods),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -433,7 +435,7 @@ private fun TodayTimelineCard(cards: List<ReceiverStatusCard>) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Today's Timeline",
+                text = stringResource(R.string.dashboard_today_timeline),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -482,7 +484,7 @@ private fun ReceiverTimelineComposable(card: ReceiverStatusCard) {
             if (card.checkedInTime != null) {
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_success_icon),
                     modifier = Modifier.size(14.dp),
                     tint = card.status.color()
                 )
@@ -495,7 +497,7 @@ private fun ReceiverTimelineComposable(card: ReceiverStatusCard) {
             } else {
                 Icon(
                     imageVector = card.status.icon(),
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_status_icon),
                     modifier = Modifier.size(14.dp),
                     tint = card.status.color()
                 )
@@ -622,7 +624,7 @@ private fun AlertsBanner(alerts: List<WellvoAlert>, onDismiss: (WellvoAlert) -> 
                     }) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Dismiss alert",
+                            contentDescription = stringResource(R.string.dashboard_dismiss_alert),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -738,7 +740,7 @@ private fun ReceiverStatusCardView(
                         color = StatusGreen
                     )
                     Text(
-                        text = "day streak",
+                        text = stringResource(R.string.dashboard_day_streak),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -802,7 +804,7 @@ private fun ReceiverStatusCardView(
                     }
                 ) {
                     Text(
-                        text = "Mood:",
+                        text = stringResource(R.string.dashboard_mood_label),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -962,12 +964,12 @@ private fun NotificationPermissionBanner() {
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Notifications Disabled",
+                        text = stringResource(R.string.dashboard_notifications_disabled),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Enable notifications to receive check-in alerts.",
+                        text = stringResource(R.string.dashboard_notifications_disabled_body),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

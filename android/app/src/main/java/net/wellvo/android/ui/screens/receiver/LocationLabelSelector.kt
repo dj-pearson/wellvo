@@ -1,6 +1,8 @@
 package net.wellvo.android.ui.screens.receiver
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.res.stringResource
+import net.wellvo.android.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -54,7 +56,7 @@ fun LocationLabelSelector(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Where are you?",
+            text = stringResource(R.string.location_where),
             style = MaterialTheme.typography.titleMedium
         )
         Spacer(modifier = Modifier.height(16.dp))

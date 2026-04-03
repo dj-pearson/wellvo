@@ -23,7 +23,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
+import net.wellvo.android.R
 import net.wellvo.android.data.models.Mood
 import net.wellvo.android.data.models.displayName
 import net.wellvo.android.data.models.emoji
@@ -45,7 +47,7 @@ fun MoodSelector(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "How are you feeling?",
+            text = stringResource(R.string.mood_how_feeling),
             style = MaterialTheme.typography.titleMedium
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -74,7 +76,7 @@ fun MoodSelector(
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 onSubmit()
             }, modifier = Modifier.fillMaxWidth()) {
-                Text("Submit Mood")
+                Text(stringResource(R.string.mood_submit))
             }
             Spacer(modifier = Modifier.height(4.dp))
         }

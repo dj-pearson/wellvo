@@ -44,6 +44,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -108,13 +109,13 @@ fun AuthScreen(
 
         // Logo and tagline
         Text(
-            text = "Wellvo",
+            text = stringResource(R.string.app_name),
             style = MaterialTheme.typography.displayLarge,
             color = MaterialTheme.colorScheme.primary
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "One tap. Peace of mind.",
+            text = stringResource(R.string.tagline),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -147,7 +148,7 @@ fun AuthScreen(
         ) {
             HorizontalDivider(modifier = Modifier.weight(1f))
             Text(
-                text = "or",
+                text = stringResource(R.string.auth_or_divider),
                 modifier = Modifier.padding(horizontal = 16.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -199,16 +200,16 @@ private fun GoogleSignInButton(
                 strokeWidth = 2.dp
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Text("Signing in...")
+            Text(stringResource(R.string.auth_signing_in))
         } else {
             Icon(
                 painter = painterResource(id = R.drawable.ic_google),
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_google_icon),
                 modifier = Modifier.size(20.dp),
                 tint = androidx.compose.ui.graphics.Color.Unspecified
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Text("Continue with Google")
+            Text(stringResource(R.string.auth_continue_google))
         }
     }
 }
@@ -223,12 +224,12 @@ private fun PhoneAuthSection(
 
     if (!state.isAwaitingOTP) {
         Text(
-            text = "Sign in with your phone",
+            text = stringResource(R.string.auth_phone_title),
             style = MaterialTheme.typography.titleLarge
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "We'll text you a verification code",
+            text = stringResource(R.string.auth_phone_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -237,7 +238,7 @@ private fun PhoneAuthSection(
         OutlinedTextField(
             value = state.phoneNumber,
             onValueChange = viewModel::updatePhoneNumber,
-            label = { Text("+1 Phone Number") },
+            label = { Text(stringResource(R.string.auth_phone_label)) },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Phone,
                 imeAction = ImeAction.Done
@@ -258,18 +259,18 @@ private fun PhoneAuthSection(
 
         LoadingOrButton(
             isLoading = state.isLoading,
-            label = "Send Code",
+            label = stringResource(R.string.auth_send_code),
             enabled = !state.isGoogleLoading,
             onClick = viewModel::sendOTP
         )
     } else {
         Text(
-            text = "Enter verification code",
+            text = stringResource(R.string.auth_enter_otp_title),
             style = MaterialTheme.typography.titleLarge
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "We sent a 6-digit code to your phone",
+            text = stringResource(R.string.auth_enter_otp_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -278,7 +279,7 @@ private fun PhoneAuthSection(
         OutlinedTextField(
             value = state.otpCode,
             onValueChange = { if (it.length <= 6) viewModel.updateOtpCode(it) },
-            label = { Text("6-digit code") },
+            label = { Text(stringResource(R.string.auth_otp_placeholder)) },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Number,
                 imeAction = ImeAction.Done
@@ -303,13 +304,13 @@ private fun PhoneAuthSection(
 
         LoadingOrButton(
             isLoading = state.isLoading,
-            label = "Verify",
+            label = stringResource(R.string.auth_verify),
             onClick = viewModel::verifyOTP
         )
 
         Spacer(modifier = Modifier.height(8.dp))
         TextButton(onClick = viewModel::backToPhoneEntry) {
-            Text("Use a different number")
+            Text(stringResource(R.string.auth_use_different_number))
         }
     }
 }
@@ -328,12 +329,12 @@ private fun EmailExpandableSection(
     ) {
         Icon(
             imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-            contentDescription = if (expanded) "Collapse email sign-in" else "Expand email sign-in",
+            contentDescription = if (expanded) stringResource(R.string.auth_collapse_email) else stringResource(R.string.auth_expand_email),
             modifier = Modifier.size(20.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = if (expanded) "Hide email sign-in" else "Sign in with email",
+            text = if (expanded) stringResource(R.string.auth_hide_email) else stringResource(R.string.auth_sign_in_email),
             style = MaterialTheme.typography.bodyLarge
         )
     }
@@ -353,7 +354,7 @@ private fun EmailExpandableSection(
                 OutlinedTextField(
                     value = state.displayName,
                     onValueChange = viewModel::updateDisplayName,
-                    label = { Text("Display Name") },
+                    label = { Text(stringResource(R.string.auth_display_name)) },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -365,7 +366,7 @@ private fun EmailExpandableSection(
             OutlinedTextField(
                 value = state.email,
                 onValueChange = viewModel::updateEmail,
-                label = { Text("Email") },
+                label = { Text(stringResource(R.string.auth_email)) },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next
@@ -379,7 +380,7 @@ private fun EmailExpandableSection(
             OutlinedTextField(
                 value = state.password,
                 onValueChange = viewModel::updatePassword,
-                label = { Text("Password") },
+                label = { Text(stringResource(R.string.auth_password)) },
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
@@ -436,7 +437,7 @@ private fun EmailExpandableSection(
                             )
                         } else {
                             Text(
-                                "Forgot Password?",
+                                stringResource(R.string.auth_forgot_password),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -460,15 +461,15 @@ private fun EmailExpandableSection(
 
             LoadingOrButton(
                 isLoading = state.isLoading,
-                label = if (state.isSignUp) "Create Account" else "Sign In",
+                label = if (state.isSignUp) stringResource(R.string.auth_create_account) else stringResource(R.string.auth_sign_in),
                 onClick = viewModel::signInWithEmail
             )
 
             Spacer(modifier = Modifier.height(8.dp))
             TextButton(onClick = viewModel::toggleSignUp) {
                 Text(
-                    if (state.isSignUp) "Already have an account? Sign In"
-                    else "Don't have an account? Sign Up"
+                    if (state.isSignUp) stringResource(R.string.auth_already_have_account)
+                    else stringResource(R.string.auth_no_account)
                 )
             }
         }

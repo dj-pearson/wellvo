@@ -57,9 +57,11 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import net.wellvo.android.R
 import net.wellvo.android.viewmodels.OnboardingStep
 import net.wellvo.android.viewmodels.OnboardingViewModel
 import net.wellvo.android.viewmodels.UserTypeSelection
@@ -154,7 +156,7 @@ private fun OnboardingHeader(
                 IconButton(onClick = onBack) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back"
+                        contentDescription = stringResource(R.string.onboarding_back)
                     )
                 }
             } else {
@@ -162,7 +164,7 @@ private fun OnboardingHeader(
             }
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = "Step ${stepIndex + 1} of $totalSteps",
+                text = stringResource(R.string.onboarding_step_counter, stepIndex + 1, totalSteps),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -190,7 +192,7 @@ private fun WelcomeStep(onGetStarted: () -> Unit) {
     Spacer(modifier = Modifier.height(24.dp))
 
     Text(
-        text = "Welcome to Wellvo",
+        text = stringResource(R.string.onboarding_welcome_title),
         style = MaterialTheme.typography.headlineLarge,
         textAlign = TextAlign.Center
     )
@@ -198,7 +200,7 @@ private fun WelcomeStep(onGetStarted: () -> Unit) {
     Spacer(modifier = Modifier.height(16.dp))
 
     Text(
-        text = "Wellvo helps families stay connected with a simple daily check-in. Set up your family, invite your loved ones, and get peace of mind with just one tap.",
+        text = stringResource(R.string.onboarding_welcome_body),
         style = MaterialTheme.typography.bodyLarge,
         textAlign = TextAlign.Center,
         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -222,7 +224,7 @@ private fun UserTypeStep(
     Spacer(modifier = Modifier.height(24.dp))
 
     Text(
-        text = "Who are you checking in on?",
+        text = stringResource(R.string.onboarding_user_type_title),
         style = MaterialTheme.typography.headlineMedium,
         textAlign = TextAlign.Center
     )
@@ -230,7 +232,7 @@ private fun UserTypeStep(
     Spacer(modifier = Modifier.height(8.dp))
 
     Text(
-        text = "This helps us tailor your experience",
+        text = stringResource(R.string.onboarding_user_type_subtitle),
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center
@@ -299,7 +301,7 @@ private fun CreateFamilyStep(
     Spacer(modifier = Modifier.height(24.dp))
 
     Text(
-        text = "Name your family group",
+        text = stringResource(R.string.onboarding_family_name_title),
         style = MaterialTheme.typography.headlineMedium,
         textAlign = TextAlign.Center
     )
@@ -307,7 +309,7 @@ private fun CreateFamilyStep(
     Spacer(modifier = Modifier.height(8.dp))
 
     Text(
-        text = "This is how your family will appear in the app",
+        text = stringResource(R.string.onboarding_family_name_subtitle),
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center
@@ -362,7 +364,7 @@ private fun ChoosePlanStep(
     Spacer(modifier = Modifier.height(24.dp))
 
     Text(
-        text = "Choose your plan",
+        text = stringResource(R.string.onboarding_plan_title),
         style = MaterialTheme.typography.headlineMedium,
         textAlign = TextAlign.Center
     )
@@ -370,7 +372,7 @@ private fun ChoosePlanStep(
     Spacer(modifier = Modifier.height(8.dp))
 
     Text(
-        text = "You can change this anytime",
+        text = stringResource(R.string.onboarding_plan_subtitle),
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center
@@ -468,7 +470,7 @@ private fun AddReceiverStep(
     Spacer(modifier = Modifier.height(24.dp))
 
     Text(
-        text = "Invite your first receiver",
+        text = stringResource(R.string.onboarding_invite_title),
         style = MaterialTheme.typography.headlineMedium,
         textAlign = TextAlign.Center
     )
@@ -476,7 +478,7 @@ private fun AddReceiverStep(
     Spacer(modifier = Modifier.height(8.dp))
 
     Text(
-        text = "They'll get a text with instructions to join",
+        text = stringResource(R.string.onboarding_invite_subtitle),
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center
@@ -513,7 +515,7 @@ private fun AddReceiverStep(
     Spacer(modifier = Modifier.height(20.dp))
 
     Text(
-        text = "Daily check-in time",
+        text = stringResource(R.string.onboarding_checkin_time_label),
         style = MaterialTheme.typography.titleMedium
     )
 
@@ -588,7 +590,7 @@ private fun NotificationsStep(
     Spacer(modifier = Modifier.height(24.dp))
 
     Text(
-        text = "Stay in the loop",
+        text = stringResource(R.string.onboarding_notifications_title),
         style = MaterialTheme.typography.headlineMedium,
         textAlign = TextAlign.Center
     )
@@ -596,7 +598,7 @@ private fun NotificationsStep(
     Spacer(modifier = Modifier.height(16.dp))
 
     Text(
-        text = "Enable notifications so you'll know right away when your receiver checks in — or if they miss a check-in and need a follow-up.",
+        text = stringResource(R.string.onboarding_notifications_body),
         style = MaterialTheme.typography.bodyLarge,
         textAlign = TextAlign.Center,
         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -641,7 +643,7 @@ private fun CompleteStep(onGoToDashboard: () -> Unit) {
     Spacer(modifier = Modifier.height(24.dp))
 
     Text(
-        text = "You're all set!",
+        text = stringResource(R.string.onboarding_complete_title),
         style = MaterialTheme.typography.headlineLarge,
         textAlign = TextAlign.Center
     )
@@ -649,7 +651,7 @@ private fun CompleteStep(onGoToDashboard: () -> Unit) {
     Spacer(modifier = Modifier.height(16.dp))
 
     Text(
-        text = "Your family group is ready. You can invite more receivers and manage settings from your dashboard.",
+        text = stringResource(R.string.onboarding_complete_body),
         style = MaterialTheme.typography.bodyLarge,
         textAlign = TextAlign.Center,
         color = MaterialTheme.colorScheme.onSurfaceVariant

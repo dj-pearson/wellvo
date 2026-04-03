@@ -1,7 +1,7 @@
 package net.wellvo.android.services
 
 import android.content.Context
-import android.util.Log
+import net.wellvo.android.util.DebugLog as Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy

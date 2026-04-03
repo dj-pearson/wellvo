@@ -1,6 +1,8 @@
 package net.wellvo.android.ui.screens.receiver
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.res.stringResource
+import net.wellvo.android.R
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -53,7 +55,7 @@ fun KidResponseButtons(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Need anything?",
+            text = stringResource(R.string.kid_need_anything),
             style = MaterialTheme.typography.titleMedium
         )
         Spacer(modifier = Modifier.height(16.dp))
