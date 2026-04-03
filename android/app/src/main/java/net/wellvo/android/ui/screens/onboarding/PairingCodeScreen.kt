@@ -3,6 +3,8 @@ package net.wellvo.android.ui.screens.onboarding
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.ui.res.stringResource
+import net.wellvo.android.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -99,14 +101,14 @@ private fun PairingCodeEntry(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Enter Pairing Code",
+            text = stringResource(R.string.pairing_title),
             style = MaterialTheme.typography.headlineMedium
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Enter the 6-digit code shared by your family member to connect your account.",
+            text = stringResource(R.string.pairing_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -184,7 +186,7 @@ private fun PairingCodeSuccess(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "You're connected!",
+            text = stringResource(R.string.pairing_connected),
             style = MaterialTheme.typography.headlineMedium
         )
 
@@ -192,7 +194,7 @@ private fun PairingCodeSuccess(
 
         if (familyName != null) {
             Text(
-                text = "You've joined $familyName",
+                text = stringResource(R.string.pairing_joined_family, familyName),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -202,7 +204,7 @@ private fun PairingCodeSuccess(
 
         if (checkinTime != null) {
             Text(
-                text = "Daily check-in time: $checkinTime",
+                text = stringResource(R.string.pairing_checkin_time, checkinTime),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center

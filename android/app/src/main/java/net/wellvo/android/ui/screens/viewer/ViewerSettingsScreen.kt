@@ -2,6 +2,8 @@ package net.wellvo.android.ui.screens.viewer
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.ui.res.stringResource
+import net.wellvo.android.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -140,7 +142,7 @@ fun ViewerSettingsScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Account",
+                            text = stringResource(R.string.settings_account),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary
@@ -217,7 +219,7 @@ fun ViewerSettingsScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "About",
+                            text = stringResource(R.string.settings_about),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary

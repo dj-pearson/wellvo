@@ -148,6 +148,36 @@ class CheckInService @Inject constructor(
         }
     }
 
+    suspend fun todayCheckInsForFamily(familyId: String): List<CheckIn> {
+        try {
+            val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+            return supabase.postgrest.from("checkins")
+                .select {
+                    filter { eq("family_id", familyId) }
+                    filter { gte("checked_in_at", "${today}T00:00:00") }
+                    filter { lt("checked_in_at", "${today}T23:59:59.999") }
+                }
+                .decodeList<CheckIn>()
+        } catch (e: Exception) {
+            throw WellvoError.Unknown(e.message ?: "Failed to fetch today's check-ins.")
+        }
+    }
+
+    suspend fun familyCheckInHistory(familyId: String, days: Int): List<CheckIn> {
+        try {
+            val startDate = LocalDate.now().minusDays(days.toLong())
+                .format(DateTimeFormatter.ISO_LOCAL_DATE)
+            return supabase.postgrest.from("checkins")
+                .select {
+                    filter { eq("family_id", familyId) }
+                    filter { gte("checked_in_at", "${startDate}T00:00:00") }
+                }
+                .decodeList<CheckIn>()
+        } catch (e: Exception) {
+            throw WellvoError.Unknown(e.message ?: "Failed to fetch family check-in history.")
+        }
+    }
+
     companion object {
         fun getBatteryLevel(context: Context): Double? {
             val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)

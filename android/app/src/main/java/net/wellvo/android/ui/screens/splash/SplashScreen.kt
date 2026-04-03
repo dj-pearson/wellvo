@@ -1,6 +1,8 @@
 package net.wellvo.android.ui.screens.splash
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.res.stringResource
+import net.wellvo.android.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -32,7 +34,7 @@ fun SplashScreen() {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Wellvo",
+            text = stringResource(R.string.app_name),
             style = MaterialTheme.typography.displayLarge,
             color = MaterialTheme.colorScheme.onPrimary,
             fontWeight = FontWeight.Bold

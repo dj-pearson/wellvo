@@ -190,7 +190,7 @@ fun SubscriptionScreen(
                             }
                             if (isCurrent) {
                                 Text(
-                                    text = "Current Plan",
+                                    text = stringResource(R.string.plan_current),
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = accentColor

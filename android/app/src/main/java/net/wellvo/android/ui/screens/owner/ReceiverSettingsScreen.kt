@@ -166,7 +166,7 @@ fun ReceiverSettingsScreen(
                         }
                     }
                     Text(
-                        text = "Kid mode provides a fun experience with expanded mood options and location sharing.",
+                        text = stringResource(R.string.receiver_settings_kid_mode_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

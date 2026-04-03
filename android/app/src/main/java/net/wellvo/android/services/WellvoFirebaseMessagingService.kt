@@ -2,7 +2,7 @@ package net.wellvo.android.services
 
 import android.app.PendingIntent
 import android.content.Intent
-import android.util.Log
+import net.wellvo.android.util.DebugLog as Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.FirebaseMessagingService

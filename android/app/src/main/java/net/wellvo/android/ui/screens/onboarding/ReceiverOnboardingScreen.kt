@@ -2,6 +2,8 @@ package net.wellvo.android.ui.screens.onboarding
 
 import android.Manifest
 import android.os.Build
+import androidx.compose.ui.res.stringResource
+import net.wellvo.android.R
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -135,7 +137,7 @@ private fun WelcomeStep(
         CircularProgressIndicator()
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Setting up your account...",
+            text = stringResource(R.string.receiver_onboarding_loading),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -160,7 +162,7 @@ private fun WelcomeStep(
     Spacer(modifier = Modifier.height(16.dp))
 
     Text(
-        text = "Someone who cares about you has set up a daily check-in. Each day, you'll get a notification — just tap \"I'm OK\" to let them know you're doing well.",
+        text = stringResource(R.string.receiver_onboarding_body),
         style = MaterialTheme.typography.bodyLarge,
         textAlign = TextAlign.Center,
         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -169,7 +171,7 @@ private fun WelcomeStep(
     if (checkinTime != null) {
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "Your daily check-in is at",
+            text = stringResource(R.string.receiver_onboarding_checkin_at),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -220,7 +222,7 @@ private fun NotificationsStep(
     Spacer(modifier = Modifier.height(24.dp))
 
     Text(
-        text = "Don't miss your check-in",
+        text = stringResource(R.string.receiver_onboarding_notifications_title),
         style = MaterialTheme.typography.headlineMedium,
         textAlign = TextAlign.Center
     )
@@ -228,7 +230,7 @@ private fun NotificationsStep(
     Spacer(modifier = Modifier.height(16.dp))
 
     Text(
-        text = "Notifications are how we remind you to check in each day. Without them, you might miss your check-in and your family will worry.",
+        text = stringResource(R.string.receiver_onboarding_notifications_body),
         style = MaterialTheme.typography.bodyLarge,
         textAlign = TextAlign.Center,
         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -274,7 +276,7 @@ private fun CompleteStep(
     Spacer(modifier = Modifier.height(24.dp))
 
     Text(
-        text = "You're all set!",
+        text = stringResource(R.string.receiver_onboarding_complete_title),
         style = MaterialTheme.typography.headlineLarge,
         textAlign = TextAlign.Center
     )
@@ -282,7 +284,7 @@ private fun CompleteStep(
     Spacer(modifier = Modifier.height(16.dp))
 
     Text(
-        text = "When it's time for your daily check-in, just open the app and tap the button. It takes one second.",
+        text = stringResource(R.string.receiver_onboarding_complete_body),
         style = MaterialTheme.typography.bodyLarge,
         textAlign = TextAlign.Center,
         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -291,7 +293,7 @@ private fun CompleteStep(
     if (notificationDenied) {
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "You can enable notifications later in Settings to get check-in reminders.",
+            text = stringResource(R.string.receiver_onboarding_notifications_hint),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.tertiary

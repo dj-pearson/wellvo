@@ -45,7 +45,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import net.wellvo.android.R
 import net.wellvo.android.data.models.CheckIn
 import net.wellvo.android.data.models.CheckInSource
 import net.wellvo.android.data.models.CheckInResponseType
@@ -57,7 +59,6 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
 private val periods = listOf(7, 30, 90)
-private val periodLabels = mapOf(7 to "7 Days", 30 to "30 Days", 90 to "90 Days")
 
 private val SourceApp = Color(0xFF22C55E)
 private val SourceNotification = Color(0xFF3B82F6)
@@ -110,10 +111,16 @@ fun HistoryScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         periods.forEach { period ->
+                            val periodLabel = when (period) {
+                                7 -> stringResource(R.string.history_7_days)
+                                30 -> stringResource(R.string.history_30_days)
+                                90 -> stringResource(R.string.history_90_days)
+                                else -> "$period Days"
+                            }
                             FilterChip(
                                 selected = selectedPeriod == period,
                                 onClick = { viewModel.selectPeriod(period) },
-                                label = { Text(periodLabels[period] ?: "$period Days") }
+                                label = { Text(periodLabel) }
                             )
                         }
                     }
@@ -132,7 +139,7 @@ fun HistoryScreen(
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.Share,
-                                    contentDescription = "Export PDF"
+                                    contentDescription = stringResource(R.string.history_export_pdf)
                                 )
                             }
                         }
@@ -258,9 +265,9 @@ private fun CheckInLogEntry(checkIn: CheckIn) {
             checkIn.responseType?.let { type ->
                 Spacer(Modifier.width(6.dp))
                 val rtLabel = when (type) {
-                    CheckInResponseType.Ok -> "OK"
-                    CheckInResponseType.NeedHelp -> "Need Help"
-                    CheckInResponseType.CallMe -> "Call Me"
+                    CheckInResponseType.Ok -> stringResource(R.string.history_response_ok)
+                    CheckInResponseType.NeedHelp -> stringResource(R.string.history_source_need_help)
+                    CheckInResponseType.CallMe -> stringResource(R.string.history_source_call_me)
                 }
                 val rtColor = when (type) {
                     CheckInResponseType.Ok -> SourceApp
@@ -297,7 +304,7 @@ private fun EmptyHistoryState() {
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "No check-ins for this period.",
+            text = stringResource(R.string.history_no_checkins),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -305,12 +312,13 @@ private fun EmptyHistoryState() {
     }
 }
 
+@Composable
 private fun sourceLabel(source: CheckInSource): String = when (source) {
-    CheckInSource.App -> "App"
-    CheckInSource.Notification -> "Notification"
-    CheckInSource.OnDemand -> "On Demand"
-    CheckInSource.NeedHelp -> "Need Help"
-    CheckInSource.CallMe -> "Call Me"
+    CheckInSource.App -> stringResource(R.string.history_source_app)
+    CheckInSource.Notification -> stringResource(R.string.history_source_notification)
+    CheckInSource.OnDemand -> stringResource(R.string.history_source_on_demand)
+    CheckInSource.NeedHelp -> stringResource(R.string.history_source_need_help)
+    CheckInSource.CallMe -> stringResource(R.string.history_source_call_me)
 }
 
 private fun sourceColor(source: CheckInSource): Color = when (source) {

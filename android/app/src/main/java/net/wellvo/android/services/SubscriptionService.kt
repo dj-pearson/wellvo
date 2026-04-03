@@ -1,7 +1,7 @@
 package net.wellvo.android.services
 
 import android.app.Activity
-import android.util.Log
+import net.wellvo.android.util.DebugLog as Log
 import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener

@@ -42,8 +42,10 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import net.wellvo.android.R
 import net.wellvo.android.data.models.Mood
 import net.wellvo.android.data.models.displayName
 import net.wellvo.android.data.models.emoji
@@ -100,7 +102,7 @@ fun ReceiverHomeScreen(
                 )
             ) {
                 Text(
-                    text = "You're offline. Check-ins will be saved and synced later.",
+                    text = stringResource(R.string.receiver_offline_banner),
                     modifier = Modifier.padding(12.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer
@@ -118,7 +120,7 @@ fun ReceiverHomeScreen(
                 )
             ) {
                 Text(
-                    text = "$pendingOfflineCount check-in${if (pendingOfflineCount > 1) "s" else ""} pending sync",
+                    text = stringResource(R.string.receiver_pending_sync, pendingOfflineCount),
                     modifier = Modifier.padding(12.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onTertiaryContainer
@@ -212,7 +214,7 @@ private fun CheckInButton(
                 )
             } else {
                 Text(
-                    text = "I'm OK",
+                    text = stringResource(R.string.receiver_im_ok),
                     style = MaterialTheme.typography.headlineLarge.copy(
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold
@@ -232,14 +234,14 @@ private fun CheckInButton(
             )
             Spacer(modifier = Modifier.height(8.dp))
             TextButton(onClick = onClearError) {
-                Text("Dismiss")
+                Text(stringResource(R.string.receiver_dismiss))
             }
         }
 
         nextCheckInTime?.let {
             Spacer(modifier = Modifier.height(32.dp))
             Text(
-                text = "Next check-in at",
+                text = stringResource(R.string.receiver_next_checkin),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -295,7 +297,7 @@ private fun CheckedInState(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "You're all set!",
+            text = stringResource(R.string.receiver_all_set),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.primary
         )
@@ -315,7 +317,7 @@ private fun CheckedInState(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Checked in today",
+                    text = stringResource(R.string.receiver_checked_in_today),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
@@ -371,7 +373,7 @@ private fun CheckedInState(
         nextCheckInTime?.let {
             Spacer(modifier = Modifier.height(32.dp))
             Text(
-                text = "Next check-in at",
+                text = stringResource(R.string.receiver_next_checkin),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -408,7 +410,7 @@ private fun ErrorState(
         )
         Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = onRetry) {
-            Text("Retry")
+            Text(stringResource(R.string.receiver_retry))
         }
     }
 }

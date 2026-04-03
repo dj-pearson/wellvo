@@ -7,7 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.net.Uri
-import android.util.Log
+import net.wellvo.android.util.DebugLog as Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint

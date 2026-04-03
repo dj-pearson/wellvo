@@ -68,7 +68,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import net.wellvo.android.R
 import net.wellvo.android.data.models.FamilyMember
 import net.wellvo.android.data.models.MemberStatus
 import net.wellvo.android.data.models.SubscriptionTier
@@ -497,7 +499,7 @@ private fun InviteReceiverSheet(
         ) {
             if (!inviteSuccess) {
                 Text(
-                    text = "Invite Receiver",
+                    text = stringResource(R.string.family_invite_receiver),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -511,7 +513,7 @@ private fun InviteReceiverSheet(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "How It Works",
+                            text = stringResource(R.string.family_how_it_works),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF22C55E)
@@ -556,7 +558,7 @@ private fun InviteReceiverSheet(
 
                 // Material 3 TimePicker for daily check-in time
                 Text(
-                    text = "Daily Check-in Time",
+                    text = stringResource(R.string.family_checkin_time),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -632,7 +634,7 @@ private fun InviteReceiverSheet(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "Invitation Sent!",
+                        text = stringResource(R.string.family_invitation_sent),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
@@ -751,13 +753,13 @@ private fun EmptyFamilyState() {
         )
         Spacer(modifier = Modifier.height(20.dp))
         Text(
-            text = "No Family Yet",
+            text = stringResource(R.string.family_no_family),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Create a family to start adding receivers.",
+            text = stringResource(R.string.family_no_family_body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -787,13 +789,13 @@ private fun EmptyMembersState() {
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "No receivers yet.",
+                text = stringResource(R.string.family_no_receivers),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Invite someone to get started.",
+                text = stringResource(R.string.family_no_receivers_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
