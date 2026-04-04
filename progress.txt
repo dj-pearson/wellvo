@@ -830,3 +830,34 @@ Implemented: Created DebugLog utility to gate all production logging behind Buil
 Files created: util/DebugLog.kt (object with d/w/e/i methods that check BuildConfig.DEBUG)
 Files changed: services/CheckInNotificationReceiver.kt, services/PushNotificationService.kt, services/WellvoFirebaseMessagingService.kt, services/LocationService.kt, services/AnalyticsService.kt, services/SubscriptionService.kt, services/HeartbeatWorker.kt, services/LocationReportWorker.kt
 Patterns: import alias (DebugLog as Log) for zero-touch replacement — all existing Log.d/w/e calls work unchanged but are now no-ops in release builds. 54 log calls across 8 service files now silent in production. Prevents exposure of token operations, request IDs, user IDs, and location data via ADB logcat.
+
+--- Iteration AUDIT-5: US-AUDIT005 (2026-04-04) ---
+Implemented: Added @Immutable annotations to all Compose state data classes for recomposition optimization
+Files changed: data/models/CheckIn.kt, data/models/AppUser.kt, data/models/Family.kt, data/models/ReceiverSettings.kt, data/models/WellvoAlert.kt, viewmodels/AuthViewModel.kt, viewmodels/DashboardViewModel.kt, viewmodels/OnboardingViewModel.kt, viewmodels/ReceiverViewModel.kt, viewmodels/PairingCodeViewModel.kt, viewmodels/ReceiverOnboardingViewModel.kt, viewmodels/HistoryViewModel.kt
+Patterns: @Immutable annotation from androidx.compose.runtime applied to all data classes used as Compose state (CheckIn, CheckInRequest, AppUser, Family, FamilyMember, ReceiverSettings, DaySchedule, WellvoAlert, ReceiverStatusCard, WeeklySummary, AuthUiState, OnboardingUiState, ReceiverUiState, PairingCodeUiState, ReceiverOnboardingUiState, ReceiverOption). Enables Compose compiler to skip recomposition when state objects are structurally equal.
+
+--- Iteration AUDIT-6: US-AUDIT006 (2026-04-04) ---
+Implemented: Hardened SecureStorage with synchronous writes and encrypted rate limiting
+Files changed: util/SecureStorage.kt (added saveSync, deleteSync, saveInt, loadInt, saveLong, loadLong, AUTH_FAILED_ATTEMPTS/AUTH_LOCKOUT_UNTIL keys), viewmodels/AuthViewModel.kt (replaced SharedPreferences with SecureStorage for rate limiting), services/PushNotificationService.kt (saveSync for token), services/WellvoFirebaseMessagingService.kt (saveSync for token)
+Patterns: saveSync() uses commit() for critical auth token and push token writes ensuring data persists before continuation. Auth rate limiting data moved from plain SharedPreferences to EncryptedSharedPreferences via SecureStorage, preventing bypass via adb. AuthViewModel constructor changed from SharedPreferences to SecureStorage injection.
+
+--- Iteration AUDIT-7: US-AUDIT007 (2026-04-04) ---
+Implemented: Added lifecycle cleanup to ViewModels and services with custom coroutine scopes
+Files changed: viewmodels/AuthViewModel.kt (added onCleared cancelling lockoutCountdownJob), services/WellvoFirebaseMessagingService.kt (extracted SupervisorJob, added onDestroy cancelling serviceScope)
+Patterns: AuthViewModel.onCleared() cancels lockoutCountdownJob to prevent timer leak. WellvoFirebaseMessagingService extracted supervisorJob from CoroutineScope for explicit lifecycle control via onDestroy(). Other ViewModels use only viewModelScope which is auto-cancelled by ViewModel infrastructure.
+
+--- Iteration AUDIT-8: US-AUDIT008 (2026-04-04) ---
+Implemented: Added offset-based pagination to history screen
+Files changed: services/CheckInService.kt (added checkInHistoryPaginated with limit/offset/order), viewmodels/HistoryViewModel.kt (added PAGE_SIZE=20, currentOffset, isLoadingMore, hasMorePages, loadMore()), ui/screens/owner/HistoryScreen.kt (added load-more trigger with LaunchedEffect and CircularProgressIndicator)
+Patterns: Supabase range() for offset pagination with order(checked_in_at, DESCENDING). loadHistory() resets to page 1, loadMore() appends next page. hasMorePages set false when returned items < PAGE_SIZE. LazyColumn item at list end triggers loadMore() via LaunchedEffect(Unit). Period/receiver changes reset pagination.
+
+--- Iteration AUDIT-9: US-AUDIT009 (2026-04-04) ---
+Implemented: Created centralized spacing design tokens
+Files created: ui/theme/Spacing.kt (WellvoSpacing, WellvoIconSize, WellvoSize objects)
+Files changed: ui/screens/owner/HistoryScreen.kt (adopted WellvoSpacing tokens), ui/screens/owner/DashboardScreen.kt (import added)
+Patterns: 4dp base grid: xxs=4dp, xs=8dp, sm=12dp, md=16dp, lg=20dp, xl=24dp, xxl=32dp, xxxl=48dp. WellvoIconSize: small=16dp through hero=64dp. WellvoSize: minTouchTarget=48dp, button/chip/avatar sizes. HistoryScreen converted as reference implementation. Progressive adoption across remaining screens.
+
+--- Iteration AUDIT-10: US-AUDIT010 (2026-04-04) ---
+Implemented: Consolidated FCM token management into single source of truth
+Files changed: services/PushNotificationService.kt (extracted upsertToken(userId, token) method), services/WellvoFirebaseMessagingService.kt (onNewToken delegates to pushNotificationService.upsertToken, removed duplicate SupabaseClient injection and postgrest import)
+Patterns: PushNotificationService.upsertToken() is single entry point for token deactivation + upsert + local persistence. WellvoFirebaseMessagingService injects PushNotificationService, delegates onNewToken to it. Eliminates ~25 lines of duplicate Supabase postgrest code. Token comparison (skip if unchanged) handled in one place.

@@ -48,6 +48,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import net.wellvo.android.R
+import net.wellvo.android.ui.theme.WellvoSpacing
 import net.wellvo.android.data.models.CheckIn
 import net.wellvo.android.data.models.CheckInSource
 import net.wellvo.android.data.models.CheckInResponseType
@@ -77,6 +78,8 @@ fun HistoryScreen(
     val checkIns by viewModel.checkIns.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isExporting by viewModel.isExporting.collectAsState()
+    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+    val hasMorePages by viewModel.hasMorePages.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val haptic = LocalHapticFeedback.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -97,8 +100,8 @@ fun HistoryScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(WellvoSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(WellvoSpacing.sm)
         ) {
             // Period selector chips + export button
             item {
@@ -108,7 +111,7 @@ fun HistoryScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(WellvoSpacing.xs)
                     ) {
                         periods.forEach { period ->
                             val periodLabel = when (period) {
@@ -152,7 +155,7 @@ fun HistoryScreen(
                 item {
                     Row(
                         modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(WellvoSpacing.xs)
                     ) {
                         receivers.forEach { receiver ->
                             FilterChip(
@@ -193,6 +196,25 @@ fun HistoryScreen(
                 items(checkIns, key = { it.id }) { checkIn ->
                     CheckInLogEntry(checkIn = checkIn)
                 }
+
+                // Load more trigger
+                if (hasMorePages) {
+                    item {
+                        LaunchedEffect(Unit) {
+                            viewModel.loadMore()
+                        }
+                        if (isLoadingMore) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            }
+                        }
+                    }
+                }
             }
 
             item { Spacer(Modifier.height(8.dp)) }
@@ -223,7 +245,7 @@ private fun CheckInLogEntry(checkIn: CheckIn) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(WellvoSpacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Date/Time
@@ -240,12 +262,12 @@ private fun CheckInLogEntry(checkIn: CheckIn) {
                 )
             }
 
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(WellvoSpacing.sm))
 
             // Mood
             if (moodEmoji.isNotEmpty()) {
                 Text(text = moodEmoji, style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(WellvoSpacing.xs))
             }
 
             Spacer(Modifier.weight(1f))
@@ -293,7 +315,7 @@ private fun EmptyHistoryState() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(48.dp),
+            .padding(WellvoSpacing.xxxl),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
@@ -302,7 +324,7 @@ private fun EmptyHistoryState() {
             modifier = Modifier.size(48.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(WellvoSpacing.md))
         Text(
             text = stringResource(R.string.history_no_checkins),
             style = MaterialTheme.typography.bodyLarge,

@@ -1,7 +1,6 @@
 package net.wellvo.android.viewmodels
 
 import android.content.Context
-import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,9 +19,12 @@ import net.wellvo.android.services.AnalyticsService
 import net.wellvo.android.services.AuthService
 import net.wellvo.android.services.BiometricService
 import net.wellvo.android.ui.navigation.AuthState
+import net.wellvo.android.util.SecureStorage
 import net.wellvo.android.util.Validation
+import androidx.compose.runtime.Immutable
 import javax.inject.Inject
 
+@Immutable
 data class AuthUiState(
     val phoneNumber: String = "",
     val otpCode: String = "",
@@ -49,19 +51,19 @@ class AuthViewModel @Inject constructor(
     private val apiService: ApiService,
     private val analyticsService: AnalyticsService,
     val biometricService: BiometricService,
-    private val prefs: SharedPreferences
+    private val secureStorage: SecureStorage
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
-    // Rate limiting
+    // Rate limiting stored in encrypted storage
     private var failedAttempts: Int
-        get() = prefs.getInt("auth_failed_attempts", 0)
-        set(value) { prefs.edit().putInt("auth_failed_attempts", value).apply() }
+        get() = secureStorage.loadInt(SecureStorage.AUTH_FAILED_ATTEMPTS)
+        set(value) { secureStorage.saveInt(SecureStorage.AUTH_FAILED_ATTEMPTS, value) }
     private var lockoutUntilMs: Long
-        get() = prefs.getLong("auth_lockout_until", 0L)
-        set(value) { prefs.edit().putLong("auth_lockout_until", value).apply() }
+        get() = secureStorage.loadLong(SecureStorage.AUTH_LOCKOUT_UNTIL)
+        set(value) { secureStorage.saveLong(SecureStorage.AUTH_LOCKOUT_UNTIL, value) }
     private var lockoutCountdownJob: Job? = null
     private var otpVerifyAttempts = 0
     private companion object {
@@ -390,6 +392,12 @@ class AuthViewModel @Inject constructor(
         otpVerifyAttempts = 0
         lockoutCountdownJob?.cancel()
         _uiState.value = _uiState.value.copy(authLockoutMessage = null, authLockoutSecondsRemaining = 0)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        lockoutCountdownJob?.cancel()
+        lockoutCountdownJob = null
     }
 
     private fun startLockoutCountdown(untilMs: Long) {

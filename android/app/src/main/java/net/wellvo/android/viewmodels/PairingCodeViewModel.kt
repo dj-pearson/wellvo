@@ -10,10 +10,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import net.wellvo.android.network.ApiService
 import net.wellvo.android.network.WellvoError
+import androidx.compose.runtime.Immutable
 import javax.inject.Inject
 import kotlin.math.min
 import kotlin.math.pow
 
+@Immutable
 data class PairingCodeUiState(
     val code: String = "",
     val isLoading: Boolean = false,

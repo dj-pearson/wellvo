@@ -13,8 +13,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import net.wellvo.android.data.models.FamilyMember
 import net.wellvo.android.data.models.ReceiverSettings
+import androidx.compose.runtime.Immutable
 import javax.inject.Inject
 
+@Immutable
 data class ReceiverOnboardingUiState(
     val currentStep: Int = 0,
     val receiverName: String = "",

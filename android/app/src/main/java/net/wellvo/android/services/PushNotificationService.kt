@@ -41,45 +41,53 @@ class PushNotificationService @Inject constructor(
     suspend fun registerToken(userId: String) {
         try {
             val token = FirebaseMessaging.getInstance().token.await()
-            val storedToken = secureStorage.load(SecureStorage.PUSH_TOKEN)
-
-            if (token == storedToken) {
-                Log.d(TAG, "FCM token unchanged, skipping registration")
-                return
-            }
-
-            // Mark old tokens as inactive
-            if (storedToken != null) {
-                try {
-                    supabase.postgrest.from("push_tokens")
-                        .update(mapOf("is_active" to false)) {
-                            filter {
-                                eq("user_id", userId)
-                                eq("token", storedToken)
-                            }
-                        }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to deactivate old token", e)
-                }
-            }
-
-            // Register new token
-            supabase.postgrest.from("push_tokens")
-                .upsert(
-                    mapOf(
-                        "user_id" to userId,
-                        "token" to token,
-                        "platform" to "android",
-                        "is_active" to true
-                    )
-                )
-
-            secureStorage.save(SecureStorage.PUSH_TOKEN, token)
-            Log.d(TAG, "FCM token registered successfully")
+            upsertToken(userId, token)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to register FCM token", e)
             throw e
         }
+    }
+
+    /**
+     * Core token upsert logic shared between registerToken() and onNewToken().
+     * Deactivates the old token, upserts the new one, and persists locally.
+     */
+    suspend fun upsertToken(userId: String, token: String) {
+        val storedToken = secureStorage.load(SecureStorage.PUSH_TOKEN)
+
+        if (token == storedToken) {
+            Log.d(TAG, "FCM token unchanged, skipping registration")
+            return
+        }
+
+        // Mark old tokens as inactive
+        if (storedToken != null) {
+            try {
+                supabase.postgrest.from("push_tokens")
+                    .update(mapOf("is_active" to false)) {
+                        filter {
+                            eq("user_id", userId)
+                            eq("token", storedToken)
+                        }
+                    }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to deactivate old token", e)
+            }
+        }
+
+        // Register new token
+        supabase.postgrest.from("push_tokens")
+            .upsert(
+                mapOf(
+                    "user_id" to userId,
+                    "token" to token,
+                    "platform" to "android",
+                    "is_active" to true
+                )
+            )
+
+        secureStorage.saveSync(SecureStorage.PUSH_TOKEN, token)
+        Log.d(TAG, "FCM token registered successfully")
     }
 
     suspend fun refreshToken(userId: String) {

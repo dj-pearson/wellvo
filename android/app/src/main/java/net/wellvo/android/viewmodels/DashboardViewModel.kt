@@ -37,6 +37,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import androidx.compose.runtime.Immutable
 import javax.inject.Inject
 
 enum class ReceiverCheckInStatus(val label: String) {
@@ -46,6 +47,7 @@ enum class ReceiverCheckInStatus(val label: String) {
     NoData("No Data");
 }
 
+@Immutable
 data class ReceiverStatusCard(
     val id: String,
     val memberId: String,
@@ -61,6 +63,7 @@ data class ReceiverStatusCard(
     val kidResponseType: String?
 )
 
+@Immutable
 data class WeeklySummary(
     val consistencyPercentage: Double,
     val averageCheckInTime: String,
