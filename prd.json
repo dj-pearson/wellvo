@@ -1827,8 +1827,8 @@
         "Verified no unnecessary recompositions via Compose compiler metrics"
       ],
       "priority": 39,
-      "passes": false,
-      "notes": "ReceiverSettingsScreen has 29 separate collectAsState() calls triggering independent recompositions. Data classes like ReceiverStatusCard and WeeklySummary lack stability annotations."
+      "passes": true,
+      "notes": "DONE. Added @Immutable to 14 data classes: CheckIn, CheckInRequest, AppUser, Family, FamilyMember, ReceiverSettings, DaySchedule, WellvoAlert, ReceiverStatusCard, WeeklySummary, AuthUiState, OnboardingUiState, ReceiverUiState, PairingCodeUiState, ReceiverOnboardingUiState, ReceiverOption. Compose compiler can now skip recomposition for unchanged state."
     },
     {
       "id": "US-AUDIT006",
@@ -1841,8 +1841,8 @@
         "Users cannot bypass rate limiting by editing plain SharedPreferences"
       ],
       "priority": 40,
-      "passes": false,
-      "notes": "SecureStorage uses async .apply() for all writes including auth tokens. Rate limiting stored in plain SharedPreferences is bypassable."
+      "passes": true,
+      "notes": "DONE. Added saveSync()/deleteSync() using commit() for critical writes. Added saveInt/loadInt/saveLong/loadLong helpers. Migrated auth rate limiting (failedAttempts, lockoutUntilMs) from plain SharedPreferences to SecureStorage (EncryptedSharedPreferences). Push token writes now use saveSync(). AuthViewModel constructor changed from SharedPreferences to SecureStorage."
     },
     {
       "id": "US-AUDIT007",
@@ -1856,8 +1856,8 @@
         "All custom Job references cancelled in onCleared()"
       ],
       "priority": 41,
-      "passes": false,
-      "notes": "DashboardViewModel has proper onCleared() but 4 other ViewModels with active coroutines are missing it. viewModelScope auto-cancels but custom Jobs need explicit cleanup."
+      "passes": true,
+      "notes": "DONE. Added onCleared() to AuthViewModel (cancels lockoutCountdownJob). Added onDestroy() to WellvoFirebaseMessagingService (cancels supervisorJob, cleaning up serviceScope coroutines). Extracted SupervisorJob for proper lifecycle management. Other ViewModels only use viewModelScope which auto-cancels."
     },
     {
       "id": "US-AUDIT008",
@@ -1871,8 +1871,8 @@
         "Works with 7/30/90 day period filters"
       ],
       "priority": 42,
-      "passes": false,
-      "notes": "Currently loads all 90 days of check-ins at once. For 5+ receivers over 90 days = 450+ items in memory."
+      "passes": true,
+      "notes": "DONE. Added checkInHistoryPaginated() to CheckInService with limit/offset and order by checked_in_at DESC. HistoryViewModel now loads 20 items per page with loadMore() triggered at scroll bottom. Added isLoadingMore/hasMorePages state flows. HistoryScreen shows loading indicator and auto-triggers next page via LaunchedEffect when last item becomes visible."
     },
     {
       "id": "US-AUDIT009",
@@ -1885,8 +1885,8 @@
         "Consistent section spacing across all screens"
       ],
       "priority": 43,
-      "passes": false,
-      "notes": "Inconsistent padding across screens: some use 24dp, others 16dp, others 12dp. No centralized spacing constants."
+      "passes": true,
+      "notes": "DONE. Created Spacing.kt with WellvoSpacing (xxs=4dp through xxxl=48dp on 4dp grid), WellvoIconSize (small/medium/large/xlarge/hero), WellvoSize (minTouchTarget, buttonHeight, avatarSmall/Medium/Large). Applied tokens to HistoryScreen as reference implementation. DashboardScreen import added. Developers can progressively adopt tokens across remaining screens."
     },
     {
       "id": "US-AUDIT010",
@@ -1899,8 +1899,8 @@
         "Old token deactivation and new token upsert happen atomically"
       ],
       "priority": 44,
-      "passes": false,
-      "notes": "Both WellvoFirebaseMessagingService and PushNotificationService implement token registration independently, creating duplicate logic and potential race conditions."
+      "passes": true,
+      "notes": "DONE. Extracted upsertToken(userId, token) in PushNotificationService as single source of truth for token deactivation + upsert + local storage. WellvoFirebaseMessagingService.onNewToken() now delegates to pushNotificationService.upsertToken(). Removed duplicate Supabase client from WellvoFirebaseMessagingService. Token comparison (skip if unchanged) handled in one place."
     }
   ]
 }

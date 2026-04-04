@@ -27,8 +27,10 @@ import net.wellvo.android.network.WellvoError
 import net.wellvo.android.services.AnalyticsService
 import net.wellvo.android.services.CheckInService
 import net.wellvo.android.services.OfflineCheckInService
+import androidx.compose.runtime.Immutable
 import javax.inject.Inject
 
+@Immutable
 data class ReceiverUiState(
     val hasCheckedInToday: Boolean = false,
     val isCheckingIn: Boolean = false,

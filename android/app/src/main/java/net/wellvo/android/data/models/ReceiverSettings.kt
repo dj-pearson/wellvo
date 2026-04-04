@@ -1,8 +1,10 @@
 package net.wellvo.android.data.models
 
+import androidx.compose.runtime.Immutable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+@Immutable
 @Serializable
 data class ReceiverSettings(
     val id: String,
@@ -49,6 +51,7 @@ data class ReceiverSettings(
     val schedulePaused: Boolean
 )
 
+@Immutable
 @Serializable
 data class DaySchedule(
     val mon: String? = null,

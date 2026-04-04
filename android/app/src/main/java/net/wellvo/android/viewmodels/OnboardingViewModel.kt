@@ -23,6 +23,7 @@ import net.wellvo.android.network.ApiService
 import net.wellvo.android.network.WellvoError
 import net.wellvo.android.services.AnalyticsService
 import net.wellvo.android.services.AuthService
+import androidx.compose.runtime.Immutable
 import javax.inject.Inject
 
 enum class OnboardingStep {
@@ -41,6 +42,7 @@ enum class UserTypeSelection(val serialName: String, val label: String, val desc
     Other("other", "Someone Else", "Friend, roommate, or other")
 }
 
+@Immutable
 data class OnboardingUiState(
     val currentStep: OnboardingStep = OnboardingStep.Welcome,
     val selectedUserType: UserTypeSelection? = null,

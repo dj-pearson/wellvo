@@ -8,8 +8,6 @@ import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
-import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,15 +21,16 @@ import javax.inject.Inject
 class WellvoFirebaseMessagingService : FirebaseMessagingService() {
 
     @Inject
-    lateinit var supabase: SupabaseClient
-
-    @Inject
     lateinit var secureStorage: SecureStorage
 
     @Inject
     lateinit var checkInService: CheckInService
 
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    @Inject
+    lateinit var pushNotificationService: PushNotificationService
+
+    private val supervisorJob = SupervisorJob()
+    private val serviceScope = CoroutineScope(Dispatchers.IO + supervisorJob)
 
     companion object {
         private const val TAG = "WellvoFCM"
@@ -44,51 +43,26 @@ class WellvoFirebaseMessagingService : FirebaseMessagingService() {
         const val EXTRA_RECEIVER_ID = "extra_receiver_id"
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        supervisorJob.cancel()
+    }
+
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         Log.d(TAG, "New FCM token received")
 
-        val storedToken = secureStorage.load(SecureStorage.PUSH_TOKEN)
-        if (token == storedToken) {
-            Log.d(TAG, "Token unchanged, skipping update")
-            return
-        }
-
         val userId = secureStorage.load(SecureStorage.USER_ID)
         if (userId == null) {
             Log.w(TAG, "No user ID available, saving token locally for later registration")
-            secureStorage.save(SecureStorage.PUSH_TOKEN, token)
+            secureStorage.saveSync(SecureStorage.PUSH_TOKEN, token)
             return
         }
 
         serviceScope.launch {
             try {
-                if (storedToken != null) {
-                    try {
-                        supabase.postgrest.from("push_tokens")
-                            .update(mapOf("is_active" to false)) {
-                                filter {
-                                    eq("user_id", userId)
-                                    eq("token", storedToken)
-                                }
-                            }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to deactivate old token", e)
-                    }
-                }
-
-                supabase.postgrest.from("push_tokens")
-                    .upsert(
-                        mapOf(
-                            "user_id" to userId,
-                            "token" to token,
-                            "platform" to "android",
-                            "is_active" to true
-                        )
-                    )
-
-                secureStorage.save(SecureStorage.PUSH_TOKEN, token)
-                Log.d(TAG, "FCM token updated in Supabase")
+                pushNotificationService.upsertToken(userId, token)
+                Log.d(TAG, "FCM token updated via PushNotificationService")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to register new FCM token", e)
             }

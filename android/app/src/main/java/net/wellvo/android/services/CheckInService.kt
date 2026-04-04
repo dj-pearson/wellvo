@@ -132,6 +132,30 @@ class CheckInService @Inject constructor(
         }
     }
 
+    suspend fun checkInHistoryPaginated(
+        receiverId: String,
+        familyId: String,
+        days: Int,
+        limit: Int,
+        offset: Int
+    ): List<CheckIn> {
+        try {
+            val startDate = LocalDate.now().minusDays(days.toLong())
+                .format(DateTimeFormatter.ISO_LOCAL_DATE)
+            return supabase.postgrest.from("checkins")
+                .select {
+                    filter { eq("receiver_id", receiverId) }
+                    filter { eq("family_id", familyId) }
+                    filter { gte("checked_in_at", "${startDate}T00:00:00") }
+                    order("checked_in_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+                    range(offset.toLong(), (offset + limit - 1).toLong())
+                }
+                .decodeList<CheckIn>()
+        } catch (e: Exception) {
+            throw WellvoError.Unknown(e.message ?: "Failed to fetch check-in history.")
+        }
+    }
+
     suspend fun getTodayPendingRequest(receiverId: String, familyId: String): net.wellvo.android.data.models.CheckInRequest? {
         try {
             val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)

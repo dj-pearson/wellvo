@@ -1,8 +1,10 @@
 package net.wellvo.android.data.models
 
+import androidx.compose.runtime.Immutable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+@Immutable
 @Serializable
 data class Family(
     val id: String,
@@ -38,6 +40,7 @@ enum class SubscriptionStatus {
     @SerialName("cancelled") Cancelled
 }
 
+@Immutable
 @Serializable
 data class FamilyMember(
     val id: String,
