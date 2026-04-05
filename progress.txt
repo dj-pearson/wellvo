@@ -861,3 +861,38 @@ Patterns: 4dp base grid: xxs=4dp, xs=8dp, sm=12dp, md=16dp, lg=20dp, xl=24dp, xx
 Implemented: Consolidated FCM token management into single source of truth
 Files changed: services/PushNotificationService.kt (extracted upsertToken(userId, token) method), services/WellvoFirebaseMessagingService.kt (onNewToken delegates to pushNotificationService.upsertToken, removed duplicate SupabaseClient injection and postgrest import)
 Patterns: PushNotificationService.upsertToken() is single entry point for token deactivation + upsert + local persistence. WellvoFirebaseMessagingService injects PushNotificationService, delegates onNewToken to it. Eliminates ~25 lines of duplicate Supabase postgrest code. Token comparison (skip if unchanged) handled in one place.
+
+--- Iteration UX-1: US-UX001 (2026-04-05) ---
+Implemented: Premium design token system across iOS + Android
+Files changed (Android): ui/theme/Color.kt (WellvoGreen50-900 tonal ramp, WellvoTeal/Gold/Indigo accents, SurfaceLight/Dark Low/Med/High tonal surfaces, Gray300/400/800/950, legacy aliases preserved), ui/theme/Theme.kt (LightColorScheme + DarkColorScheme refined to use tonal ramp + tertiary + branded SurfaceDark)
+Files created (Android): ui/theme/Elevation.kt (WellvoElevation level0-level5), ui/theme/Motion.kt (WellvoMotion durations + EasingStandard/EmphasizedDecelerate/EmphasizedAccelerate/Linear + smoothSpring/bouncySpring helpers)
+Files created (iOS): Utilities/Theme.swift (WellvoColor enum green50-900/teal/gold/indigo/tonal surfaces, WellvoMotion durations + spring animations, WellvoElevation level0-level5, View.wellvoShadow(level:opacity:) extension)
+Patterns: Additive — no existing screen modified. Legacy WellvoGreen/WellvoGreenDark/WellvoGreenLight/WellvoGreenContainer aliases preserved so existing Android screens continue to compile unchanged. Dark theme now uses subtly green-tinted SurfaceDark (#0B1410) instead of neutral Gray900 for a branded premium feel.
+
+--- Iteration UX-2: US-UX002 (2026-04-05) ---
+Implemented: Branded shimmer gradient on loading skeletons
+Files changed (Android): ui/components/SkeletonViews.kt (shimmerBrush three-stop gradient surfaceVariant → primaryContainer@60% → surfaceVariant, duration driven by WellvoMotion.DurationExtraLong*2)
+Files changed (iOS): Views/Components/SkeletonView.swift (overlay LinearGradient mid-stop WellvoColor.green200 at 55% opacity, animation duration WellvoMotion.durationExtraLong*2.5)
+Patterns: Zero call-site changes — DashboardSkeletonView and HistorySkeletonView continue to work on both platforms. iOS reduced-motion fallback preserved (no shimmer when accessibilityReduceMotion enabled). Shimmer now reads as an on-brand highlight sweep rather than a neutral gray loading state.
+
+--- Iteration UX-3: US-UX003 (2026-04-05) ---
+Implemented: Premium hero card components (GradientHeroCard + PremiumStatCard)
+Files created (Android): ui/components/PremiumCards.kt (GradientHeroCard with title/subtitle/trailingIcon/content slot + light/dark brand gradient backgrounds via WellvoGreen50/100/900 and SurfaceDarkHigh; PremiumStatCard with value/label/accent/delta; StatDelta data class)
+Files created (iOS): Views/Components/PremiumCards.swift (GradientHeroCard<Content: View> generic with @ViewBuilder content, colorScheme-aware gradient, wellvoShadow level2; PremiumStatCard with optional accent/delta; StatDelta struct; accessibilityElement(children:.ignore) wrapping)
+Patterns: Components use the new WellvoElevation + WellvoSpacing + WellvoMotion/WellvoColor tokens from US-UX001. Purely additive — opt-in by screens later. Dark mode tested visually via colorScheme branching. iOS uses proper accessibilityLabel composition "label: value".
+
+--- Iteration UX-4: US-UX004 (2026-04-05) ---
+Implemented: Central haptic feedback design system (semantic API)
+Files created (Android): util/Haptics.kt (WellvoHaptics object — selection(view), confirm(view), checkInSuccess(context), warning(context), error(context) using HapticFeedbackConstants.CLOCK_TICK/VIRTUAL_KEY + VibrationEffect.createPredefined(DOUBLE_CLICK/HEAVY_CLICK) on API 30+, createWaveform on API 26+, createOneShot fallback). Uses VibratorManager on API 31+, falls back to Context.VIBRATOR_SERVICE.
+Files created (iOS): Services/HapticsService.swift (WellvoHaptics enum — selectionChanged, actionConfirm, checkInSuccess, warning, error, celebration, prepare using UINotificationFeedbackGenerator + UISelectionFeedbackGenerator + UIImpactFeedbackGenerator light/medium/heavy)
+Patterns: Both platforms automatically honor system accessibility / touch-feedback toggles. Call-site migration (ReceiverHomeView, AuthView, etc.) intentionally scoped out — that's a follow-up iteration so the service layer lands cleanly on its own.
+
+== Pending UX Stories ==
+[ ] US-UX005: Celebration micro-interaction after successful check-in
+[ ] US-UX006: Streaks and consistency badges on dashboard
+[ ] US-UX007: Redesigned paywall with feature carousel and social proof
+[ ] US-UX008: Onboarding carousel with animated illustrations
+[ ] US-UX009: Floating bottom nav with animated tab indicator
+[ ] US-UX010: Illustrated empty states with action CTA
+[ ] US-UX011: Branded pull-to-refresh animation
+[ ] US-UX012: Full accessibility polish pass (Dynamic Type XXL, TalkBack/VoiceOver, contrast)
