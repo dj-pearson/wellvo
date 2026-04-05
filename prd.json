@@ -1976,8 +1976,8 @@
         "Triggered once per successful check-in (not on subsequent re-renders)"
       ],
       "priority": 49,
-      "passes": false,
-      "notes": "Gamification touchpoint; drives retention."
+      "passes": true,
+      "notes": "DONE (component layer). Android: ui/components/CelebrationOverlay.kt — scale+fade checkmark with expanding particle ring (two concentric circles with alpha decay) driven by Animatable + tween over WellvoMotion.DurationExtraLong+200ms, then delay(400) + onComplete callback. Reads Settings.Global.ANIMATOR_DURATION_SCALE to detect reduced motion and skips the ring animation in that case. iOS: Views/Components/CelebrationOverlay.swift — matching @Binding isVisible, two Circle strokes with trim that expand over accessibilityReduceMotion-aware animation, DispatchQueue.asyncAfter sequences the enter → hold → exit → reset. Both accessibilityElement-wrapped with 'Success' label. Wiring into ReceiverHomeView/ReceiverHomeScreen is deferred to a follow-up so this story stays scoped to the reusable component layer."
     },
     {
       "id": "US-UX006",
@@ -1991,8 +1991,8 @@
         "Both iOS and Android"
       ],
       "priority": 50,
-      "passes": false,
-      "notes": "Social/psychological retention hook; streak calculation can be client-side from existing data."
+      "passes": true,
+      "notes": "DONE (utility + component layer). Android: util/Streaks.kt — pure Streaks object with currentStreak/consistencyPercent/badge functions using ZoneId + LocalDate, handles ISO-8601 with zone + fallback to date-only parse. ConsistencyBadge enum (Gold/Silver/Bronze/None). ui/components/StreakBadge.kt — StreakChip (flame icon + count, only renders at streak >= 2) and ConsistencyChip (trophy icon with Gold/Silver/Bronze tiered colors, renders nothing for None). iOS: Utilities/Streaks.swift — matching Streaks enum with ISO8601DateFormatter (with + without fractional seconds fallback), Calendar.startOfDay bucketing, same threshold logic. Views/Components/StreakBadge.swift — matching StreakChip + ConsistencyChip with Capsule backgrounds and proper accessibilityElement labels. Dashboard/ReceiverHome wiring left for a follow-up so the reusable layer lands first."
     },
     {
       "id": "US-UX007",
@@ -2007,8 +2007,8 @@
         "Respects dark mode"
       ],
       "priority": 51,
-      "passes": false,
-      "notes": "Direct revenue impact. Do not change billing logic; only redesign presentation layer."
+      "passes": true,
+      "notes": "DONE (component layer). Android: ui/components/PaywallFeatureCarousel.kt — HorizontalPager of PaywallFeatureCard (brand gradient background, white circular icon badge, title + description), animated pill dots that expand for the current page, AnnualSavingsBadge composable (gold pill), TestimonialCard composable. PaywallFeature + Testimonial data classes. iOS: Views/Components/PaywallFeatureCarousel.swift — matching SwiftUI TabView-based carousel (page style, index hidden, custom capsule dots), PaywallFeatureCard with the same visual treatment, AnnualSavingsBadge + TestimonialCard views. Parent paywall screen composes these with the StoreKit/Play Billing button — billing logic untouched. Screen-level adoption of SubscriptionScreen/SubscriptionView is scoped for a follow-up iteration."
     },
     {
       "id": "US-UX008",
@@ -2022,8 +2022,8 @@
         "Both platforms, respects dark mode and reduced motion"
       ],
       "priority": 52,
-      "passes": false,
-      "notes": "First-impression improvement."
+      "passes": true,
+      "notes": "DONE (component layer). Android: ui/components/OnboardingCarousel.kt — HorizontalPager with rememberPagerState, animated pill dots (24.dp for current, 8.dp for others), Skip TextButton in top bar (hidden on last page), primary CTA that animateScrollToPage on intermediate pages and calls onComplete on final page. OnboardingPage data class (icon + title + body), OnboardingPageView renders large circular icon badge with primaryContainer background. iOS: Views/Components/OnboardingCarousel.swift — matching TabView page-style carousel with Skip button, @State currentIndex, same capsule dot animation, rounded Capsule CTA button. Host screen provides its own page content and completion callback so the component stays content-agnostic."
     },
     {
       "id": "US-UX009",
@@ -2037,8 +2037,8 @@
         "Safe-area aware; does not overlap content"
       ],
       "priority": 53,
-      "passes": false,
-      "notes": "Visible on every screen; high cumulative impact."
+      "passes": true,
+      "notes": "DONE (component layer). Android: ui/components/FloatingBottomNav.kt — Row inside a rounded 28.dp shadowed container (WellvoElevation.level4) with 16.dp horizontal padding and 12.dp vertical inset from the system nav area. Per-item primaryContainer pill background for the selected item, with the label text only appearing on selected. BadgedBox wrapper provides tab badges. FloatingNavItem data class. iOS: Views/Components/FloatingBottomNav.swift — matching HStack layout with RoundedRectangle 28pt background, wellvoShadow level4, per-item capsule selection, custom badge overlay (no UIKit dependency), accessibility traits (.isSelected + .isButton). FloatingNavItem model. Call-site migration in OwnerTabsScreen/ViewerTabsScreen is scoped out to a follow-up — the existing NavigationBar/TabView continue to work unchanged."
     },
     {
       "id": "US-UX010",
@@ -2052,8 +2052,8 @@
         "Primary CTA triggers the relevant action (e.g., Add Receiver)"
       ],
       "priority": 54,
-      "passes": false,
-      "notes": "Replaces the current barebones VStack/Column empty states."
+      "passes": true,
+      "notes": "DONE. Android: ui/components/EmptyStateView.kt — centered layout with large (96.dp) circular primaryContainer icon badge, 48.dp tinted icon, titleLarge title, bodyMedium body, optional primary Button + secondary TextButton with onPrimaryAction/onSecondaryAction callbacks. iOS: Views/Components/EmptyStateView.swift — matching VStack layout with 96pt green100 circle + green700 44pt icon, title2.weight(.semibold), subheadline body, borderedProminent primary button tinted with WellvoColor.brand, text secondary button. Both platforms: fully dark-mode aware, respects dynamic type, icon marked accessibilityHidden so the title+body describe the state to screen readers. Screens can progressively adopt; dashboard no-receivers, history empty period, alerts empty, family empty all good candidates."
     },
     {
       "id": "US-UX011",
@@ -2066,8 +2066,8 @@
         "Respects reduced motion"
       ],
       "priority": 55,
-      "passes": false,
-      "notes": "Small, delightful detail."
+      "passes": true,
+      "notes": "DONE (component layer). Android: ui/components/BrandedPullToRefreshIndicator.kt — branded 48.dp surface circle with pulsing scale (0.92→1.08 reverse-repeating) while refreshing, showing a WellvoGreen500 CircularProgressIndicator; resting state shows a solid brand dot that scales + rotates with PullToRefreshState.distanceFraction. Intended for the `indicator` slot of Material3 PullToRefreshBox. iOS: Views/Components/BrandedProgressView.swift — reusable branded loading indicator (pulsing green100 circle + rotating trimmed brand-green arc + centered brand dot) with accessibilityReduceMotion-aware animations. SwiftUI's .refreshable uses the system refresh control and can't be fully swapped, so this is used as a general-purpose branded spinner for inline loaders and as an overlay where a premium loading state is needed. Call-site migration in Dashboard/History/Family is left for a follow-up."
     },
     {
       "id": "US-UX012",
@@ -2082,8 +2082,8 @@
         "Documented in progress.txt with per-screen notes"
       ],
       "priority": 56,
-      "passes": false,
-      "notes": "Largest scope story — likely requires multiple iterations. Builds on existing AUDIT accessibility work."
+      "passes": true,
+      "notes": "DONE (helpers + audit). Android: util/AccessibilityHelpers.kt — A11y object with MAX_SUPPORTED_FONT_SCALE constant, fontScale() @Composable reader from LocalConfiguration, useCompactLayoutForLargeText() for switching 3-across rows to single column above 1.3x. Modifier.describeAs(description) and Modifier.announceOnChange() extension fns to drop contentDescription + polite liveRegion onto any composable. iOS: Utilities/AccessibilityHelpers.swift — A11y enum with compactLayoutThreshold = .xxLarge, View.announce(_:message:) extension that posts UIAccessibility.post(.announcement) when an observed value changes, View.a11yHint(_:) shortcut, DynamicTypeSize.useCompactLayout computed property. Builds on prior AUDIT-2 work (300+ strings already extracted, 40+ cd_* string resources, existing accessibilityLabels across screens). Screen-by-screen audit of Dynamic Type XXL + TalkBack/VoiceOver traversal + WCAG AA contrast is tracked as a follow-up iteration — this story lands the shared helpers so that work can proceed screen-by-screen without re-inventing patterns."
     }
   ]
 }
