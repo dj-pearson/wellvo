@@ -43,15 +43,19 @@ private fun shimmerBrush(): Brush {
         initialValue = 0f,
         targetValue = 1000f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1500, easing = LinearEasing),
+            animation = tween(
+                durationMillis = net.wellvo.android.ui.theme.WellvoMotion.DurationExtraLong * 2,
+                easing = LinearEasing
+            ),
             repeatMode = RepeatMode.Restart
         ),
         label = "shimmerOffset"
     )
-    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
-    val surface = MaterialTheme.colorScheme.surface
+    // Branded shimmer — soft brand tint highlight over the surfaceVariant base.
+    val base = MaterialTheme.colorScheme.surfaceVariant
+    val highlight = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
     return Brush.linearGradient(
-        colors = listOf(surfaceVariant, surface, surfaceVariant),
+        colors = listOf(base, highlight, base),
         start = Offset(shimmerOffset - 300f, 0f),
         end = Offset(shimmerOffset, 0f)
     )

@@ -15,10 +15,12 @@ struct SkeletonView: View {
             .overlay(
                 Group {
                     if !reduceMotion {
+                        // Branded shimmer highlight — soft brand green tint sweeping
+                        // across the skeleton instead of plain neutral gray.
                         LinearGradient(
                             colors: [
                                 Color(.systemGray5),
-                                Color(.systemGray4),
+                                WellvoColor.green200.opacity(0.55),
                                 Color(.systemGray5),
                             ],
                             startPoint: .leading,
@@ -28,7 +30,7 @@ struct SkeletonView: View {
                         .offset(x: shimmerOffset)
                         .onAppear {
                             withAnimation(
-                                .linear(duration: 1.5)
+                                .linear(duration: WellvoMotion.durationExtraLong * 2.5)
                                 .repeatForever(autoreverses: false)
                             ) {
                                 shimmerOffset = 400

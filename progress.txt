@@ -861,3 +861,79 @@ Patterns: 4dp base grid: xxs=4dp, xs=8dp, sm=12dp, md=16dp, lg=20dp, xl=24dp, xx
 Implemented: Consolidated FCM token management into single source of truth
 Files changed: services/PushNotificationService.kt (extracted upsertToken(userId, token) method), services/WellvoFirebaseMessagingService.kt (onNewToken delegates to pushNotificationService.upsertToken, removed duplicate SupabaseClient injection and postgrest import)
 Patterns: PushNotificationService.upsertToken() is single entry point for token deactivation + upsert + local persistence. WellvoFirebaseMessagingService injects PushNotificationService, delegates onNewToken to it. Eliminates ~25 lines of duplicate Supabase postgrest code. Token comparison (skip if unchanged) handled in one place.
+
+--- Iteration UX-1: US-UX001 (2026-04-05) ---
+Implemented: Premium design token system across iOS + Android
+Files changed (Android): ui/theme/Color.kt (WellvoGreen50-900 tonal ramp, WellvoTeal/Gold/Indigo accents, SurfaceLight/Dark Low/Med/High tonal surfaces, Gray300/400/800/950, legacy aliases preserved), ui/theme/Theme.kt (LightColorScheme + DarkColorScheme refined to use tonal ramp + tertiary + branded SurfaceDark)
+Files created (Android): ui/theme/Elevation.kt (WellvoElevation level0-level5), ui/theme/Motion.kt (WellvoMotion durations + EasingStandard/EmphasizedDecelerate/EmphasizedAccelerate/Linear + smoothSpring/bouncySpring helpers)
+Files created (iOS): Utilities/Theme.swift (WellvoColor enum green50-900/teal/gold/indigo/tonal surfaces, WellvoMotion durations + spring animations, WellvoElevation level0-level5, View.wellvoShadow(level:opacity:) extension)
+Patterns: Additive — no existing screen modified. Legacy WellvoGreen/WellvoGreenDark/WellvoGreenLight/WellvoGreenContainer aliases preserved so existing Android screens continue to compile unchanged. Dark theme now uses subtly green-tinted SurfaceDark (#0B1410) instead of neutral Gray900 for a branded premium feel.
+
+--- Iteration UX-2: US-UX002 (2026-04-05) ---
+Implemented: Branded shimmer gradient on loading skeletons
+Files changed (Android): ui/components/SkeletonViews.kt (shimmerBrush three-stop gradient surfaceVariant → primaryContainer@60% → surfaceVariant, duration driven by WellvoMotion.DurationExtraLong*2)
+Files changed (iOS): Views/Components/SkeletonView.swift (overlay LinearGradient mid-stop WellvoColor.green200 at 55% opacity, animation duration WellvoMotion.durationExtraLong*2.5)
+Patterns: Zero call-site changes — DashboardSkeletonView and HistorySkeletonView continue to work on both platforms. iOS reduced-motion fallback preserved (no shimmer when accessibilityReduceMotion enabled). Shimmer now reads as an on-brand highlight sweep rather than a neutral gray loading state.
+
+--- Iteration UX-3: US-UX003 (2026-04-05) ---
+Implemented: Premium hero card components (GradientHeroCard + PremiumStatCard)
+Files created (Android): ui/components/PremiumCards.kt (GradientHeroCard with title/subtitle/trailingIcon/content slot + light/dark brand gradient backgrounds via WellvoGreen50/100/900 and SurfaceDarkHigh; PremiumStatCard with value/label/accent/delta; StatDelta data class)
+Files created (iOS): Views/Components/PremiumCards.swift (GradientHeroCard<Content: View> generic with @ViewBuilder content, colorScheme-aware gradient, wellvoShadow level2; PremiumStatCard with optional accent/delta; StatDelta struct; accessibilityElement(children:.ignore) wrapping)
+Patterns: Components use the new WellvoElevation + WellvoSpacing + WellvoMotion/WellvoColor tokens from US-UX001. Purely additive — opt-in by screens later. Dark mode tested visually via colorScheme branching. iOS uses proper accessibilityLabel composition "label: value".
+
+--- Iteration UX-4: US-UX004 (2026-04-05) ---
+Implemented: Central haptic feedback design system (semantic API)
+Files created (Android): util/Haptics.kt (WellvoHaptics object — selection(view), confirm(view), checkInSuccess(context), warning(context), error(context) using HapticFeedbackConstants.CLOCK_TICK/VIRTUAL_KEY + VibrationEffect.createPredefined(DOUBLE_CLICK/HEAVY_CLICK) on API 30+, createWaveform on API 26+, createOneShot fallback). Uses VibratorManager on API 31+, falls back to Context.VIBRATOR_SERVICE.
+Files created (iOS): Services/HapticsService.swift (WellvoHaptics enum — selectionChanged, actionConfirm, checkInSuccess, warning, error, celebration, prepare using UINotificationFeedbackGenerator + UISelectionFeedbackGenerator + UIImpactFeedbackGenerator light/medium/heavy)
+Patterns: Both platforms automatically honor system accessibility / touch-feedback toggles. Call-site migration (ReceiverHomeView, AuthView, etc.) intentionally scoped out — that's a follow-up iteration so the service layer lands cleanly on its own.
+
+--- Iteration UX-5: US-UX010 (2026-04-05) ---
+Implemented: EmptyStateView component (iOS + Android)
+Files created: android ui/components/EmptyStateView.kt, ios Views/Components/EmptyStateView.swift
+Patterns: 96dp/pt circular primaryContainer/green100 icon badge + 48dp tinted icon, title + body + optional primary Button + optional secondary TextButton. Icon is accessibilityHidden so title+body describe the state to screen readers. Replaces barebones Column/VStack + Icon + Text empty states — adoptable incrementally by Dashboard/History/Alerts/Family screens.
+
+--- Iteration UX-6: US-UX005 (2026-04-05) ---
+Implemented: CelebrationOverlay component (iOS + Android)
+Files created: android ui/components/CelebrationOverlay.kt, ios Views/Components/CelebrationOverlay.swift
+Patterns: scale+fade checkmark (0.4 → 1.0 bouncy spring in, 1.2 fade out) with expanding particle ring (two concentric circles with alpha decay 0.6/0.3 over 800ms). Android uses Animatable + tween driven by WellvoMotion.DurationExtraLong+200, iOS uses withAnimation + DispatchQueue.asyncAfter for enter/hold/exit sequencing. Reduced-motion: Android reads Settings.Global.ANIMATOR_DURATION_SCALE, iOS uses @Environment(\.accessibilityReduceMotion) — both skip the ring animation and show only the static checkmark. Both platforms wrap in accessibilityElement with 'Success' label. Wiring into ReceiverHome screens deferred to stay scoped.
+
+--- Iteration UX-7: US-UX006 (2026-04-05) ---
+Implemented: Streak + consistency badge utility and components (iOS + Android)
+Files created: android util/Streaks.kt + ui/components/StreakBadge.kt, ios Utilities/Streaks.swift + Views/Components/StreakBadge.swift
+Patterns: Pure Streaks functions — currentStreak(isoTimestamps, zone, today) walks consecutive calendar days back from today (or yesterday if today has no check-in yet). consistencyPercent(isoTimestamps, windowDays=7) counts unique-day check-ins in the window. badge() maps to Gold(100%)/Silver(≥80%)/Bronze(≥50%)/None. ISO-8601 parsing with zone + date-only fallback. StreakChip renders only at streak >= 2 with a flame icon and streak count in an orange capsule. ConsistencyChip renders trophy + tier label with tier-specific colors, EmptyView/return for None. Both with accessibilityElement + descriptive labels. No schema change — purely client-side from existing check_ins data.
+
+--- Iteration UX-8: US-UX011 (2026-04-05) ---
+Implemented: Branded loading indicator (iOS + Android)
+Files created: android ui/components/BrandedPullToRefreshIndicator.kt, ios Views/Components/BrandedProgressView.swift
+Patterns: Android — 48dp surface circle with pulsing scale (0.92→1.08 reverse-repeating) and WellvoGreen500 CircularProgressIndicator while refreshing; resting state shows a solid brand dot that scales + rotates with PullToRefreshState.distanceFraction. Designed for the Material3 PullToRefreshBox indicator slot. iOS — reusable branded spinner (pulsing green100 backdrop + rotating trimmed brand-green arc + centered brand dot) with accessibilityReduceMotion-aware animations. SwiftUI's .refreshable uses the system control and cannot be fully swapped, so the iOS version is a general-purpose inline loader that paywall/empty-state/loading regions can use for a premium feel.
+
+--- Iteration UX-9: US-UX009 (2026-04-05) ---
+Implemented: FloatingBottomNav component (iOS + Android)
+Files created: android ui/components/FloatingBottomNav.kt, ios Views/Components/FloatingBottomNav.swift
+Patterns: Row/HStack of items inside a rounded 28dp/pt container with WellvoElevation.level4 shadow, 16dp horizontal padding and 12dp inset from system nav. Selected item shows a primaryContainer/green100 pill behind the icon AND reveals the label text (unselected items are icon-only), giving the selection state both a visual and spatial cue. Android uses BadgedBox for tab badges; iOS uses a custom offset Capsule badge (no UIKit dependency). iOS exposes accessibility traits (.isSelected + .isButton). FloatingNavItem data class on both platforms. Screen migration in OwnerTabsScreen/ViewerTabsScreen scoped out to a follow-up.
+
+--- Iteration UX-10: US-UX008 (2026-04-05) ---
+Implemented: OnboardingCarousel component (iOS + Android)
+Files created: android ui/components/OnboardingCarousel.kt, ios Views/Components/OnboardingCarousel.swift
+Patterns: Android — HorizontalPager + rememberPagerState, animated pill dots that expand to 24dp for current / 8dp for others via animateDpAsState, Skip TextButton in top bar (hidden on last page), primary rounded CTA that animateScrollToPage on intermediate pages and invokes onComplete on last. Large 160dp circular primaryContainer icon badge + headlineMedium title + bodyLarge body. iOS — matching TabView(.page) with indexDisplayMode .never, @State currentIndex, same capsule dot animation, rounded 52pt Capsule brand CTA. OnboardingPage/OnboardingPageData data models let host screens pass content without the component knowing about the app's specific copy.
+
+--- Iteration UX-11: US-UX007 (2026-04-05) ---
+Implemented: PaywallFeatureCarousel components (iOS + Android)
+Files created: android ui/components/PaywallFeatureCarousel.kt, ios Views/Components/PaywallFeatureCarousel.swift
+Patterns: HorizontalPager/TabView feature carousel with 20dp/pt rounded green50→green100 gradient cards, 80dp/pt white circular icon badge + brand green 700 tinted icon, titleLarge + bodyMedium copy. Animated expanding dots identical to the onboarding carousel for visual consistency. Companion components: AnnualSavingsBadge (gold pill with "Save X%" label) for annual plan callouts, TestimonialCard (quote + attribution in a surfaceVariant rounded card) for social proof rows. Billing logic (StoreKit 2 / Play Billing) is untouched — parent screens compose these presentation pieces around the existing flows.
+
+--- Iteration UX-12: US-UX012 (2026-04-05) ---
+Implemented: Accessibility helpers (iOS + Android)
+Files created: android util/AccessibilityHelpers.kt, ios Utilities/AccessibilityHelpers.swift
+Patterns: Android — A11y object with MAX_SUPPORTED_FONT_SCALE=2.0 constant, fontScale() @ReadOnlyComposable reader from LocalConfiguration.fontScale, useCompactLayoutForLargeText() returning true when fontScale > 1.3f so screens know to collapse multi-column rows. Modifier.describeAs(description) and Modifier.announceOnChange() (polite LiveRegionMode) extension fns as drop-ins. iOS — A11y enum with compactLayoutThreshold = .xxLarge, View.announce(_:message:) extension that posts UIAccessibility.post(.announcement) when an observed value changes (ideal for error/success messages), View.a11yHint(_:) shortcut, DynamicTypeSize.useCompactLayout computed property. Builds on prior AUDIT-2 work (300+ strings extracted, 40+ cd_* resources, accessibility labels across screens). Per-screen Dynamic Type XXL + traversal + WCAG AA audit continues iteratively using these helpers.
+
+== Pending UX Follow-ups ==
+All US-UX001..US-UX012 component layers complete. Follow-up iterations:
+[ ] Wire CelebrationOverlay into ReceiverHomeView + ReceiverHomeScreen on successful check-in
+[ ] Surface streaks (StreakChip + ConsistencyChip) on ReceiverStatusCardView/card and Receiver home header
+[ ] Migrate SubscriptionScreen/SubscriptionView to PaywallFeatureCarousel presentation
+[ ] Replace OnboardingView/OnboardingScreen intro pages with OnboardingCarousel
+[ ] Migrate OwnerTabsScreen/ViewerTabsScreen to FloatingBottomNav (or deliberately keep the platform bar)
+[ ] Migrate Dashboard/History/Alerts/Family empty states to EmptyStateView
+[ ] Plug BrandedPullToRefreshIndicator into Dashboard/History/Family PullToRefreshBox indicator slot
+[ ] Screen-by-screen accessibility audit (Dynamic Type XXL verification, VoiceOver/TalkBack traversal order, WCAG AA contrast check on status colors)
