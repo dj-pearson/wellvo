@@ -1,8 +1,14 @@
+import SEO from '../components/SEO'
 import './Legal.css'
 
 export default function Terms() {
   return (
     <main className="legal-page">
+      <SEO
+        title="Terms of Use"
+        description="Wellvo terms of use. Service description, eligibility requirements, subscription details, and acceptable use policy for the daily family check-in app."
+        path="/terms"
+      />
       <div className="container">
         <div className="legal-content">
           <h1>Terms of Use</h1>

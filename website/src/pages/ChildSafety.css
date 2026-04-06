@@ -1,0 +1,258 @@
+/* Child Safety Hero */
+.cs-hero {
+  background: linear-gradient(135deg, var(--green-50) 0%, var(--white) 50%, #f0faf6 100%);
+  padding: 100px 0 80px;
+  text-align: center;
+}
+
+.cs-hero-inner {
+  max-width: 800px;
+}
+
+.cs-hero-title {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -1px;
+  color: var(--gray-900);
+  margin-bottom: 20px;
+}
+
+.cs-hero-subtitle {
+  font-size: 19px;
+  line-height: 1.7;
+  color: var(--gray-600);
+  max-width: 680px;
+  margin: 0 auto 32px;
+}
+
+/* Scenarios */
+.cs-scenarios-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  margin-top: 48px;
+}
+
+.cs-scenario-card {
+  text-align: center;
+  padding: 32px 20px;
+  background: var(--white);
+  border-radius: 16px;
+  border: 1px solid var(--gray-200);
+}
+
+.cs-scenario-emoji {
+  font-size: 40px;
+  margin-bottom: 16px;
+}
+
+.cs-scenario-card h4 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 10px;
+}
+
+.cs-scenario-card p {
+  color: var(--gray-600);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Comparison */
+.cs-why-not-text {
+  background: var(--gray-50);
+}
+
+.cs-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 32px;
+  margin-top: 48px;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.cs-compare-card {
+  border-radius: 16px;
+  padding: 32px;
+}
+
+.cs-compare-old {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+}
+
+.cs-compare-new {
+  background: var(--green-50);
+  border: 1px solid var(--green-200);
+}
+
+.cs-compare-card h4 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--gray-900);
+}
+
+.cs-compare-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.cs-compare-card li {
+  padding: 8px 0;
+  color: var(--gray-600);
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cs-compare-old li {
+  color: var(--gray-500);
+  padding-left: 4px;
+}
+
+.cs-compare-old li::before {
+  content: '\2717';
+  color: var(--gray-400);
+  margin-right: 4px;
+}
+
+.cs-compare-new li svg {
+  color: var(--green-600);
+  flex-shrink: 0;
+}
+
+/* Privacy grid */
+.cs-privacy-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+  margin-top: 48px;
+}
+
+.cs-privacy-item {
+  text-align: center;
+}
+
+.cs-privacy-item .no-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--green-50);
+  color: var(--green-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+
+.cs-privacy-item h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 6px;
+}
+
+.cs-privacy-item p {
+  color: var(--gray-600);
+  font-size: 14px;
+}
+
+/* How it works */
+.cs-how {
+  background: var(--green-50);
+}
+
+.cs-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  margin-top: 48px;
+}
+
+.cs-step {
+  text-align: center;
+  position: relative;
+}
+
+.cs-step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--green-600);
+  color: var(--white);
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+
+.cs-step-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--white);
+  color: var(--green-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+
+.cs-step h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 12px;
+}
+
+.cs-step p {
+  color: var(--gray-600);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* FAQ */
+.cs-faq .faq-list {
+  max-width: 720px;
+  margin: 48px auto 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .cs-hero-title {
+    font-size: 32px;
+  }
+
+  .cs-hero-subtitle {
+    font-size: 17px;
+  }
+
+  .cs-scenarios-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .cs-compare-grid,
+  .cs-steps-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cs-privacy-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .cs-scenarios-grid,
+  .cs-privacy-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, ArrowRight } from 'lucide-react'
 import { trackEvent } from '../utils/analytics'
+import SEO, { APP_STORE_URL } from '../components/SEO'
 import './Pricing.css'
 
 const plans = [
@@ -83,8 +84,38 @@ export default function Pricing() {
     trackEvent('pricing_page_view')
   }, [])
 
+  const pricingFaqs = [
+    { q: 'Who pays for the subscription?', a: 'Only the Owner (the person managing the family group) pays. Receivers and Viewers never see billing or need to pay anything.' },
+    { q: 'Can I try before I buy?', a: 'Yes! The Free plan lets you check in with 1 person forever. Paid plans include a 7-day free trial (monthly) or 14-day free trial (yearly).' },
+    { q: 'What happens if I cancel?', a: 'Your plan stays active until the end of your billing period. After that, you\'ll be moved to the Free plan. Your data is retained per our data retention policy.' },
+    { q: 'Can I switch plans?', a: 'Yes, you can upgrade or downgrade anytime. Changes take effect at your next billing date. Upgrades are prorated.' },
+    { q: 'What are Critical Alerts?', a: 'On the Family+ plan, missed check-in alerts can bypass Do Not Disturb mode on your iPhone — ensuring you never miss an important notification.' },
+    { q: 'Is my data safe?', a: 'Absolutely. We\'re GDPR and CCPA compliant with full data export and deletion controls. We use no third-party tracking SDKs.' },
+  ]
+
+  const faqJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: pricingFaqs.map((faq) => ({
+      '@type': 'Question',
+      name: faq.q,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: faq.a,
+      },
+    })),
+  }
+
   return (
     <>
+      <SEO
+        title="Pricing — Free, Family & Family+ Plans"
+        description="Wellvo pricing starts free for 1 family member. Family plan $4.99/mo for 2 receivers. Family+ $7.99/mo with critical alerts and PDF reports. Perfect for dementia caregivers and parents."
+        path="/pricing"
+        keywords="wellvo pricing, family check-in app cost, caregiver app pricing, elderly parent monitoring app price, child safety app subscription"
+        jsonLd={faqJsonLd}
+      />
+
       <section className="pricing-hero">
         <div className="container">
           <h1>Simple, Transparent Pricing</h1>
@@ -135,7 +166,7 @@ export default function Pricing() {
                 </ul>
 
                 <a
-                  href="https://apps.apple.com/app/wellvo"
+                  href={APP_STORE_URL}
                   className={`btn ${plan.highlight ? 'btn-primary' : 'btn-secondary'} plan-cta`}
                   target="_blank"
                   rel="noopener noreferrer"

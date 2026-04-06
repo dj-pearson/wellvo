@@ -1,8 +1,16 @@
+import SEO from '../components/SEO'
 import './Legal.css'
 import './Accessibility.css'
 
 export default function Accessibility() {
   return (
+    <>
+      <SEO
+        title="Accessibility"
+        description="Wellvo accessibility statement. VoiceOver support, Dynamic Type, Voice Control, and WCAG AA compliance. Designed for users of all ages and abilities."
+        path="/accessibility"
+        keywords="accessible check-in app, voiceover support, elderly friendly app, senior friendly iPhone app, large text app for seniors"
+      />
     <main className="legal-page">
       <div className="container">
         <div className="legal-content">
@@ -88,5 +96,6 @@ export default function Accessibility() {
         </div>
       </div>
     </main>
+    </>
   )
 }

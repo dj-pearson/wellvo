@@ -1,0 +1,58 @@
+import { Helmet } from 'react-helmet-async'
+
+const APP_STORE_URL = 'https://apps.apple.com/us/app/wellvo-daily-check-in/id6760836697'
+const SITE_URL = 'https://wellvo.net'
+const DEFAULT_IMAGE = `${SITE_URL}/og-image.png`
+
+interface SEOProps {
+  title: string
+  description: string
+  path: string
+  keywords?: string
+  ogType?: string
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[]
+}
+
+export default function SEO({
+  title,
+  description,
+  path,
+  keywords,
+  ogType = 'website',
+  jsonLd,
+}: SEOProps) {
+  const fullUrl = `${SITE_URL}${path}`
+  const fullTitle = path === '/' ? title : `${title} | Wellvo`
+
+  return (
+    <Helmet>
+      <title>{fullTitle}</title>
+      <meta name="description" content={description} />
+      {keywords && <meta name="keywords" content={keywords} />}
+      <link rel="canonical" href={fullUrl} />
+
+      {/* Open Graph */}
+      <meta property="og:title" content={fullTitle} />
+      <meta property="og:description" content={description} />
+      <meta property="og:type" content={ogType} />
+      <meta property="og:url" content={fullUrl} />
+      <meta property="og:image" content={DEFAULT_IMAGE} />
+      <meta property="og:site_name" content="Wellvo" />
+
+      {/* Twitter */}
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={fullTitle} />
+      <meta name="twitter:description" content={description} />
+      <meta name="twitter:image" content={DEFAULT_IMAGE} />
+
+      {/* Structured Data */}
+      {jsonLd && (
+        <script type="application/ld+json">
+          {JSON.stringify(Array.isArray(jsonLd) ? jsonLd : jsonLd)}
+        </script>
+      )}
+    </Helmet>
+  )
+}
+
+export { APP_STORE_URL, SITE_URL }

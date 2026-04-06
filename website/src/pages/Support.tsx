@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Mail, MessageCircle, FileText, HelpCircle } from 'lucide-react'
 import { trackEvent } from '../utils/analytics'
+import SEO from '../components/SEO'
 import './Support.css'
 
 const faqs = [
@@ -44,8 +45,29 @@ export default function Support() {
     trackEvent('support_page_view')
   }, [])
 
+  const faqJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((faq) => ({
+      '@type': 'Question',
+      name: faq.q,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: faq.a,
+      },
+    })),
+  }
+
   return (
     <>
+      <SEO
+        title="Support & FAQ"
+        description="Get help with Wellvo, the daily check-in app for families and caregivers. Find answers about setting up check-ins for elderly parents, children, and loved ones."
+        path="/support"
+        keywords="wellvo support, daily check-in app help, elderly parent check-in setup, caregiver app FAQ, family safety app support"
+        jsonLd={faqJsonLd}
+      />
+
       <section className="support-hero">
         <div className="container">
           <h1>How can we help?</h1>
