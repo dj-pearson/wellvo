@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
+import { APP_STORE_URL } from './SEO'
 import './Header.css'
 
 export default function Header() {
@@ -52,7 +53,7 @@ export default function Header() {
             Support
           </Link>
           <a
-            href="https://apps.apple.com/app/wellvo"
+            href={APP_STORE_URL}
             className="btn btn-primary nav-cta"
             target="_blank"
             rel="noopener noreferrer"

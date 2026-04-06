@@ -368,6 +368,21 @@
 .use-case p {
   font-size: 14px;
   color: var(--gray-600);
+  line-height: 1.6;
+}
+
+.use-case-link {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--green-600);
+  text-decoration: none;
+}
+
+.use-case-link:hover {
+  text-decoration: underline;
+  color: var(--green-700);
 }
 
 /* CTA */

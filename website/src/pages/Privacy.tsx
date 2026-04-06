@@ -1,8 +1,15 @@
+import SEO from '../components/SEO'
 import './Legal.css'
 
 export default function Privacy() {
   return (
     <main className="legal-page">
+      <SEO
+        title="Privacy Policy"
+        description="Wellvo privacy policy. No location tracking, no camera access, no microphone. GDPR and CCPA compliant. Your family's data stays private."
+        path="/privacy"
+        keywords="wellvo privacy, family app privacy policy, no tracking app, GDPR compliant check-in app"
+      />
       <div className="container">
         <div className="legal-content">
           <h1>Privacy Policy</h1>

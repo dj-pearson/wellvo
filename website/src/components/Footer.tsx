@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { APP_STORE_URL } from './SEO'
 import './Footer.css'
 
 export default function Footer() {
@@ -24,6 +25,13 @@ export default function Footer() {
             <Link to="/pricing">Pricing</Link>
             <Link to="/#features">Features</Link>
             <Link to="/#how-it-works">How It Works</Link>
+            <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">Download App</a>
+          </div>
+
+          <div className="footer-col">
+            <h4>Use Cases</h4>
+            <Link to="/elderly-care">Elderly Parent Care</Link>
+            <Link to="/child-safety">Child Safety</Link>
           </div>
 
           <div className="footer-col">
@@ -43,7 +51,7 @@ export default function Footer() {
         <div className="footer-bottom">
           <p>&copy; {currentYear} Wellvo. All rights reserved.</p>
           <p className="footer-note">
-            Available on the App Store for iPhone.
+            Available on the <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">App Store</a> for iPhone.
           </p>
         </div>
       </div>

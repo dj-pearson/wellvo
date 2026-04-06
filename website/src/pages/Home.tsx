@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { trackEvent } from '../utils/analytics'
+import SEO, { APP_STORE_URL } from '../components/SEO'
 import {
   Heart,
   Shield,
@@ -19,21 +20,29 @@ import './Home.css'
 export default function Home() {
   return (
     <>
+      <SEO
+        title="Wellvo — Daily Check-In App for Families & Caregivers | Elderly Parent & Child Safety"
+        description="Wellvo is the simplest daily check-in app for families caring for aging parents with dementia, children playing outside, and long-distance loved ones. One tap confirms safety. Escalating alerts if no response. Free on iPhone."
+        path="/"
+        keywords="daily check-in app, elderly parent check-in, dementia caregiver app, child safety check-in, family wellness app, aging parent monitoring, senior safety app, kids check-in app, caregiver app for elderly, family safety app, alzheimers caregiver tool, check on elderly parents, child wellness check, latchkey kid safety"
+      />
+
       {/* Hero */}
       <section className="hero">
         <div className="container hero-inner">
-          <div className="hero-badge">Daily Check-In App for Families</div>
+          <div className="hero-badge">Daily Check-In App for Families & Caregivers</div>
           <h1 className="hero-title">
             Know your loved ones are OK —{' '}
             <span className="hero-highlight">every single day</span>
           </h1>
           <p className="hero-subtitle">
-            Wellvo is the simplest way to stay connected to the people you care about most.
-            One notification. One tap. Total peace of mind.
+            Whether you're caring for an aging parent with dementia, keeping tabs on your kids
+            playing outside, or staying connected across the miles — Wellvo gives you peace of
+            mind with a single daily check-in. One notification. One tap. That's it.
           </p>
           <div className="hero-actions">
             <a
-              href="https://apps.apple.com/app/wellvo"
+              href={APP_STORE_URL}
               className="btn btn-primary btn-lg"
               target="_blank"
               rel="noopener noreferrer"
@@ -281,28 +290,45 @@ export default function Home() {
         <div className="container">
           <div className="section-header">
             <h2>Perfect For</h2>
+            <p>Designed for the people who worry most — and the ones they worry about</p>
           </div>
 
           <div className="use-cases-grid">
             <div className="use-case">
               <div className="use-case-emoji" role="img" aria-label="Elderly woman">👵</div>
-              <h4>Aging Parents</h4>
-              <p>Adult children monitoring parents living independently</p>
+              <h4>Aging Parents & Dementia Care</h4>
+              <p>
+                Adult children checking on parents living alone — especially those with
+                early-stage dementia or Alzheimer's. A simple, dignified daily wellness check
+                without invasive monitoring.
+              </p>
+              <Link to="/elderly-care" className="use-case-link">Learn more</Link>
             </div>
             <div className="use-case">
-              <div className="use-case-emoji" role="img" aria-label="Young boy">👦</div>
-              <h4>Teenagers</h4>
-              <p>A lightweight, respectful daily check-in for teens</p>
+              <div className="use-case-emoji" role="img" aria-label="Children playing">👦</div>
+              <h4>Kids & Teens</h4>
+              <p>
+                Parents of children playing outside, walking home from school, or staying home
+                alone. A quick daily check-in so you know they're safe — without hovering.
+              </p>
+              <Link to="/child-safety" className="use-case-link">Learn more</Link>
             </div>
             <div className="use-case">
               <div className="use-case-emoji" role="img" aria-label="Globe">🌍</div>
               <h4>Long-Distance Families</h4>
-              <p>Stay connected across any distance</p>
+              <p>
+                Stay connected with family across states or countries. A daily "I'm OK" signal
+                that bridges the distance and eases the worry.
+              </p>
             </div>
             <div className="use-case">
               <div className="use-case-emoji" role="img" aria-label="Stethoscope">🩺</div>
-              <h4>Caregivers</h4>
-              <p>A simple daily signal for professional and family caregivers</p>
+              <h4>Family & Professional Caregivers</h4>
+              <p>
+                Whether you're a professional caregiver or a family member coordinating care,
+                Wellvo provides a reliable daily wellness signal with history and PDF reports
+                you can share with healthcare providers.
+              </p>
             </div>
           </div>
         </div>
@@ -316,7 +342,7 @@ export default function Home() {
             <p>Free plan includes 1 family member. Upgrade anytime.</p>
             <div className="cta-actions">
               <a
-                href="https://apps.apple.com/app/wellvo"
+                href={APP_STORE_URL}
                 className="btn btn-primary btn-lg"
                 target="_blank"
                 rel="noopener noreferrer"

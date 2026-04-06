@@ -1,0 +1,162 @@
+/* Elderly Care Hero */
+.ec-hero {
+  background: linear-gradient(135deg, var(--green-50) 0%, var(--white) 50%, #f0faf6 100%);
+  padding: 100px 0 80px;
+  text-align: center;
+}
+
+.ec-hero-inner {
+  max-width: 800px;
+}
+
+.ec-hero-title {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -1px;
+  color: var(--gray-900);
+  margin-bottom: 20px;
+}
+
+.ec-hero-subtitle {
+  font-size: 19px;
+  line-height: 1.7;
+  color: var(--gray-600);
+  max-width: 680px;
+  margin: 0 auto 32px;
+}
+
+/* Problem Section */
+.ec-problem {
+  background: var(--gray-50);
+}
+
+.ec-problem-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  margin-top: 48px;
+}
+
+.ec-problem-card {
+  background: var(--white);
+  border-radius: 16px;
+  padding: 32px;
+  border: 1px solid var(--gray-200);
+}
+
+.ec-problem-card h4 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 12px;
+}
+
+.ec-problem-card p {
+  color: var(--gray-600);
+  line-height: 1.6;
+}
+
+/* Solution Section */
+.ec-solution-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  margin-top: 48px;
+}
+
+.ec-solution-card {
+  text-align: center;
+  padding: 32px 24px;
+}
+
+.ec-solution-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--green-50);
+  color: var(--green-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.ec-solution-card h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 12px;
+}
+
+.ec-solution-card p {
+  color: var(--gray-600);
+  line-height: 1.6;
+  font-size: 15px;
+}
+
+/* Dementia Section */
+.ec-dementia {
+  background: var(--green-50);
+}
+
+.ec-dementia-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-top: 48px;
+}
+
+.ec-dementia-item {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  background: var(--white);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.ec-dementia-item svg {
+  flex-shrink: 0;
+  color: var(--green-600);
+  margin-top: 2px;
+}
+
+.ec-dementia-item h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 6px;
+}
+
+.ec-dementia-item p {
+  color: var(--gray-600);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* FAQ */
+.ec-faq .faq-list {
+  max-width: 720px;
+  margin: 48px auto 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .ec-hero-title {
+    font-size: 32px;
+  }
+
+  .ec-hero-subtitle {
+    font-size: 17px;
+  }
+
+  .ec-problem-grid,
+  .ec-solution-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ec-dementia-grid {
+    grid-template-columns: 1fr;
+  }
+}
