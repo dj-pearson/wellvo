@@ -33,7 +33,7 @@ const faqs = [
   },
   {
     q: 'Can I check on multiple children?',
-    a: 'Yes. The Family plan supports 2 receivers and the Family+ plan supports 5. You can also purchase additional receiver slots. Each child gets their own check-in schedule.',
+    a: 'Yes. The Family plan supports 3 receivers and the Family+ plan supports 6. You can also purchase additional receiver slots. Each child gets their own check-in schedule.',
   },
   {
     q: 'How is this different from just texting my kid?',

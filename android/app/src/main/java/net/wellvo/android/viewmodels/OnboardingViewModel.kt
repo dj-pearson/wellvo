@@ -48,7 +48,7 @@ data class OnboardingUiState(
     val selectedUserType: UserTypeSelection? = null,
     val familyName: String = "",
     val createdFamily: Family? = null,
-    val selectedPlan: String = "free",
+    val selectedPlan: String = "caregiver",
     val receiverName: String = "",
     val receiverPhone: String = "",
     val checkinHour: Int = 9,
@@ -75,7 +75,7 @@ class OnboardingViewModel @Inject constructor(
             familyName = savedStateHandle.get<String>("familyName") ?: "",
             receiverName = savedStateHandle.get<String>("receiverName") ?: "",
             receiverPhone = savedStateHandle.get<String>("receiverPhone") ?: "",
-            selectedPlan = savedStateHandle.get<String>("selectedPlan") ?: "free",
+            selectedPlan = savedStateHandle.get<String>("selectedPlan") ?: "caregiver",
             checkinHour = savedStateHandle.get<Int>("checkinHour") ?: 9,
             checkinMinute = savedStateHandle.get<Int>("checkinMinute") ?: 0
         )

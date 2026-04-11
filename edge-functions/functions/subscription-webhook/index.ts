@@ -12,11 +12,16 @@ interface SubscriptionUpdate {
   app_account_token?: string; // UUID linking to Supabase user
 }
 
+// Product ID → tier + seat limits.
+// Keep this in sync with iOS `SubscriptionService.ProductIDs`, Android
+// `SubscriptionService.PRODUCT_IDS`, and docs/PRICING_RESEARCH.md §6.1.
 const TIER_MAP: Record<string, { tier: string; maxReceivers: number; maxViewers: number }> = {
-  "net.wellvo.family.monthly": { tier: "family", maxReceivers: 2, maxViewers: 2 },
-  "net.wellvo.family.yearly": { tier: "family", maxReceivers: 2, maxViewers: 2 },
-  "net.wellvo.familyplus.monthly": { tier: "family_plus", maxReceivers: 5, maxViewers: 5 },
-  "net.wellvo.familyplus.yearly": { tier: "family_plus", maxReceivers: 5, maxViewers: 5 },
+  "net.wellvo.caregiver.monthly": { tier: "caregiver", maxReceivers: 1, maxViewers: 3 },
+  "net.wellvo.caregiver.yearly": { tier: "caregiver", maxReceivers: 1, maxViewers: 3 },
+  "net.wellvo.family.monthly": { tier: "family", maxReceivers: 3, maxViewers: 5 },
+  "net.wellvo.family.yearly": { tier: "family", maxReceivers: 3, maxViewers: 5 },
+  "net.wellvo.familyplus.monthly": { tier: "family_plus", maxReceivers: 6, maxViewers: 10 },
+  "net.wellvo.familyplus.yearly": { tier: "family_plus", maxReceivers: 6, maxViewers: 10 },
 };
 
 export async function handleSubscriptionWebhook(req: Request, auth: AuthResult): Promise<Response> {

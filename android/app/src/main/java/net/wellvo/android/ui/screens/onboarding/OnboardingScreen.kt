@@ -383,9 +383,9 @@ private fun ChoosePlanStep(
     data class PlanInfo(val id: String, val name: String, val price: String, val features: List<String>)
 
     val plans = listOf(
-        PlanInfo("free", "Free", "Free", listOf("1 receiver", "Daily check-ins", "Basic alerts")),
-        PlanInfo("family", "Family", "$4.99/mo", listOf("Up to 5 receivers", "Mood tracking", "Check-in history", "Priority alerts")),
-        PlanInfo("family_plus", "Family+", "$9.99/mo", listOf("Up to 10 receivers", "Location tracking", "PDF reports", "Kid mode", "All Family features"))
+        PlanInfo("caregiver", "Caregiver", "$3.99/mo", listOf("1 Receiver", "3 Viewers", "Full escalation", "Pattern alerts", "7-day free trial")),
+        PlanInfo("family", "Family", "$6.99/mo", listOf("3 Receivers", "5 Viewers", "Clinician PDF export", "Kid mode", "7-day free trial")),
+        PlanInfo("family_plus", "Family+", "$9.99/mo", listOf("6 Receivers", "10 Viewers", "Critical Alerts", "Priority support", "7-day free trial"))
     )
 
     plans.forEach { plan ->

@@ -27,7 +27,12 @@ import javax.inject.Singleton
 import kotlin.coroutines.resume
 
 enum class SubscriptionTier {
-    Free, Family, FamilyPlus
+    // Legacy tier, kept for grandfathered families. New signups never land here.
+    Free,
+    // Lowest paid tier, sized for 1 Receiver + 3 Viewers (dementia-caregiver persona).
+    Caregiver,
+    Family,
+    FamilyPlus
 }
 
 sealed class BillingError(message: String) : Exception(message) {
@@ -47,6 +52,8 @@ class SubscriptionService @Inject constructor(
         private const val TAG = "SubscriptionService"
 
         val PRODUCT_IDS = listOf(
+            "net.wellvo.caregiver.monthly",
+            "net.wellvo.caregiver.yearly",
             "net.wellvo.family.monthly",
             "net.wellvo.family.yearly",
             "net.wellvo.familyplus.monthly",
@@ -244,11 +251,28 @@ class SubscriptionService @Inject constructor(
         }
     }
 
+    /**
+     * Check whether the active subscription grants access to a given feature tier.
+     *
+     * Tier precedence (higher includes lower):
+     * `FamilyPlus` > `Family` > `Caregiver` > `Free`
+     *
+     * Note: `Free` is a legacy grandfathered state. New signups never see it.
+     * Feature gating should generally check against `Caregiver` as the
+     * baseline paid tier.
+     */
     fun hasAccess(tier: SubscriptionTier): Boolean {
+        val current = _currentTier.value
         return when (tier) {
             SubscriptionTier.Free -> true
-            SubscriptionTier.Family -> _currentTier.value == SubscriptionTier.Family || _currentTier.value == SubscriptionTier.FamilyPlus
-            SubscriptionTier.FamilyPlus -> _currentTier.value == SubscriptionTier.FamilyPlus
+            SubscriptionTier.Caregiver ->
+                current == SubscriptionTier.Caregiver ||
+                current == SubscriptionTier.Family ||
+                current == SubscriptionTier.FamilyPlus
+            SubscriptionTier.Family ->
+                current == SubscriptionTier.Family || current == SubscriptionTier.FamilyPlus
+            SubscriptionTier.FamilyPlus ->
+                current == SubscriptionTier.FamilyPlus
         }
     }
 
@@ -270,9 +294,13 @@ class SubscriptionService @Inject constructor(
             .flatMap { it.products }
             .toSet()
 
+        // Precedence: familyplus > family > caregiver > free.
+        // Order matters: "net.wellvo.family" prefix would also match
+        // "net.wellvo.familyplus" if checked first.
         _currentTier.value = when {
             activeProductIds.any { it.startsWith("net.wellvo.familyplus") } -> SubscriptionTier.FamilyPlus
             activeProductIds.any { it.startsWith("net.wellvo.family") } -> SubscriptionTier.Family
+            activeProductIds.any { it.startsWith("net.wellvo.caregiver") } -> SubscriptionTier.Caregiver
             else -> SubscriptionTier.Free
         }
 

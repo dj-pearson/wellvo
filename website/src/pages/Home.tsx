@@ -22,7 +22,7 @@ export default function Home() {
     <>
       <SEO
         title="Wellvo — Daily Check-In App for Families & Caregivers | Elderly Parent & Child Safety"
-        description="Wellvo is the simplest daily check-in app for families caring for aging parents with dementia, children playing outside, and long-distance loved ones. One tap confirms safety. Escalating alerts if no response. Free on iPhone."
+        description="Wellvo is the simplest daily check-in app for families caring for aging parents with dementia, children playing outside, and long-distance loved ones. One tap confirms safety. Escalating alerts if no response. Plans from $3.99/mo with a free trial."
         path="/"
         keywords="daily check-in app, elderly parent check-in, dementia caregiver app, child safety check-in, family wellness app, aging parent monitoring, senior safety app, kids check-in app, caregiver app for elderly, family safety app, alzheimers caregiver tool, check on elderly parents, child wellness check, latchkey kid safety"
       />
@@ -55,7 +55,7 @@ export default function Home() {
               View Pricing
             </Link>
           </div>
-          <p className="hero-note">Free plan available. No credit card required.</p>
+          <p className="hero-note">7-day free trial on every plan. Cancel anytime.</p>
         </div>
       </section>
 
@@ -339,7 +339,7 @@ export default function Home() {
         <div className="container">
           <div className="cta-card">
             <h2>Start checking in today</h2>
-            <p>Free plan includes 1 family member. Upgrade anytime.</p>
+            <p>Try any plan free for 7 days. Caregiver plan from $3.99/month.</p>
             <div className="cta-actions">
               <a
                 href={APP_STORE_URL}

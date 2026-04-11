@@ -243,21 +243,25 @@ struct OnboardingView: View {
                 .font(.title)
                 .fontWeight(.bold)
 
+            Text("Start with a 7-day free trial. Cancel anytime.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
             VStack(spacing: 12) {
                 planCard(
-                    title: "Free",
-                    price: "Free",
-                    features: ["1 Receiver", "Daily check-ins", "Basic escalation"],
-                    isHighlighted: false
+                    title: "Caregiver",
+                    price: "$3.99/mo",
+                    features: ["1 Receiver", "3 Viewers", "Full escalation", "Pattern alerts"],
+                    isHighlighted: true
                 ) {
                     viewModel.advance()
                 }
 
                 planCard(
                     title: "Family",
-                    price: "$4.99/mo",
-                    features: ["2 Receivers", "2 Viewers", "Full escalation", "Mood tracking"],
-                    isHighlighted: true
+                    price: "$6.99/mo",
+                    features: ["3 Receivers", "5 Viewers", "Clinician PDF export", "Kid mode"],
+                    isHighlighted: false
                 ) {
                     viewModel.advance()
                 }
@@ -265,7 +269,7 @@ struct OnboardingView: View {
                 planCard(
                     title: "Family+",
                     price: "$9.99/mo",
-                    features: ["5 Receivers", "5 Viewers", "Priority support", "All features"],
+                    features: ["6 Receivers", "10 Viewers", "Critical Alerts", "Priority support"],
                     isHighlighted: false
                 ) {
                     viewModel.advance()

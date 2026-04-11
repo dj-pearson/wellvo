@@ -71,8 +71,58 @@ final class ModelTests: XCTestCase {
 
     func testSubscriptionTiers() {
         XCTAssertEqual(SubscriptionTier.free.rawValue, "free")
+        XCTAssertEqual(SubscriptionTier.caregiver.rawValue, "caregiver")
         XCTAssertEqual(SubscriptionTier.family.rawValue, "family")
         XCTAssertEqual(SubscriptionTier.familyPlus.rawValue, "family_plus")
+    }
+
+    func testFamilyDecodingWithGrandfatherExpiry() throws {
+        let json = """
+        {
+            "id": "44444444-4444-4444-4444-444444444444",
+            "name": "Legacy Free Family",
+            "owner_id": "55555555-5555-5555-5555-555555555555",
+            "subscription_tier": "free",
+            "subscription_status": "active",
+            "subscription_expires_at": null,
+            "free_tier_expires_at": "2026-07-10T00:00:00Z",
+            "max_receivers": 1,
+            "max_viewers": 0,
+            "created_at": "2026-01-01T00:00:00Z"
+        }
+        """.data(using: .utf8)!
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let family = try decoder.decode(Family.self, from: json)
+
+        XCTAssertEqual(family.subscriptionTier, .free)
+        XCTAssertNotNil(family.freeTierExpiresAt)
+    }
+
+    func testFamilyDecodingCaregiver() throws {
+        let json = """
+        {
+            "id": "44444444-4444-4444-4444-444444444444",
+            "name": "Caregiver Family",
+            "owner_id": "55555555-5555-5555-5555-555555555555",
+            "subscription_tier": "caregiver",
+            "subscription_status": "active",
+            "subscription_expires_at": null,
+            "max_receivers": 1,
+            "max_viewers": 3,
+            "created_at": "2026-01-01T00:00:00Z"
+        }
+        """.data(using: .utf8)!
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let family = try decoder.decode(Family.self, from: json)
+
+        XCTAssertEqual(family.subscriptionTier, .caregiver)
+        XCTAssertEqual(family.maxReceivers, 1)
+        XCTAssertEqual(family.maxViewers, 3)
+        XCTAssertNil(family.freeTierExpiresAt)
     }
 
     // MARK: - User Model

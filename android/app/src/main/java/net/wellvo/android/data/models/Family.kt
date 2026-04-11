@@ -17,6 +17,12 @@ data class Family(
     val subscriptionStatus: SubscriptionStatus,
     @SerialName("subscription_expires_at")
     val subscriptionExpiresAt: String? = null,
+    // Grandfathering deadline for legacy Free-tier families. When set and in
+    // the past, clients should gate paid features and prompt the Owner to
+    // upgrade to Caregiver. NULL for families created after the Caregiver
+    // tier migration.
+    @SerialName("free_tier_expires_at")
+    val freeTierExpiresAt: String? = null,
     @SerialName("max_receivers")
     val maxReceivers: Int,
     @SerialName("max_viewers")
@@ -27,7 +33,12 @@ data class Family(
 
 @Serializable
 enum class SubscriptionTier {
+    // Legacy tier, kept for grandfathered families created before the
+    // Caregiver tier launched. New signups never land here.
     @SerialName("free") Free,
+    // Lowest paid tier, sized for 1 Receiver + 3 Viewers (the dementia-
+    // caregiver persona). $3.99/mo or $29.99/yr.
+    @SerialName("caregiver") Caregiver,
     @SerialName("family") Family,
     @SerialName("family_plus") FamilyPlus
 }

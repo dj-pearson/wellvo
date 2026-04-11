@@ -14,6 +14,8 @@ final class SubscriptionService: ObservableObject {
     // MARK: - Product IDs (update these to match your App Store Connect configuration)
 
     struct ProductIDs {
+        static let caregiverMonthly = "net.wellvo.caregiver.monthly"
+        static let caregiverYearly = "net.wellvo.caregiver.yearly"
         static let familyMonthly = "net.wellvo.family.monthly"
         static let familyYearly = "net.wellvo.family.yearly"
         static let familyPlusMonthly = "net.wellvo.familyplus.monthly"
@@ -22,6 +24,7 @@ final class SubscriptionService: ObservableObject {
         static let addonViewer = "net.wellvo.addon.viewer"
 
         static let all: Set<String> = [
+            caregiverMonthly, caregiverYearly,
             familyMonthly, familyYearly,
             familyPlusMonthly, familyPlusYearly,
             addonReceiver, addonViewer,
@@ -29,6 +32,7 @@ final class SubscriptionService: ObservableObject {
 
         static let familyPlus: Set<String> = [familyPlusMonthly, familyPlusYearly]
         static let family: Set<String> = [familyMonthly, familyYearly]
+        static let caregiver: Set<String> = [caregiverMonthly, caregiverYearly]
     }
 
     private var updateTask: Task<Void, Never>?
@@ -135,12 +139,26 @@ final class SubscriptionService: ObservableObject {
         isLoading = false
     }
 
-    /// Check if the user has access to a specific feature tier
+    /// Check if the user has access to a specific feature tier.
+    ///
+    /// Tier precedence (higher includes lower):
+    /// `familyPlus` > `family` > `caregiver` > `free`
+    ///
+    /// Note: `.free` is a legacy grandfathered state — new signups never see
+    /// it. Feature gating should generally check against `.caregiver` as the
+    /// baseline paid tier.
     func hasAccess(to tier: SubscriptionTier) -> Bool {
         switch tier {
-        case .free: return true
-        case .family: return currentTier == .family || currentTier == .familyPlus
-        case .familyPlus: return currentTier == .familyPlus
+        case .free:
+            return true
+        case .caregiver:
+            return currentTier == .caregiver
+                || currentTier == .family
+                || currentTier == .familyPlus
+        case .family:
+            return currentTier == .family || currentTier == .familyPlus
+        case .familyPlus:
+            return currentTier == .familyPlus
         }
     }
 
@@ -165,13 +183,15 @@ final class SubscriptionService: ObservableObject {
         }
     }
 
-    /// Determine the current tier using exact product ID matching (not substring)
+    /// Determine the current tier using exact product ID matching (not substring).
+    /// Precedence: `familyPlus` > `family` > `caregiver` > `free`.
     private func updateCurrentTier() {
-        // Check Family+ first (higher tier takes precedence)
         if !purchasedProductIDs.isDisjoint(with: ProductIDs.familyPlus) {
             currentTier = .familyPlus
         } else if !purchasedProductIDs.isDisjoint(with: ProductIDs.family) {
             currentTier = .family
+        } else if !purchasedProductIDs.isDisjoint(with: ProductIDs.caregiver) {
+            currentTier = .caregiver
         } else {
             currentTier = .free
         }
