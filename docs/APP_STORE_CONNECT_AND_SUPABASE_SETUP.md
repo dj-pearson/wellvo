@@ -414,7 +414,7 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field | Value |
 |-------|-------|
 | Display Name | Caregiver |
-| Description | 1 receiver, 3 viewers, full escalation chain, mood tracking, pattern alerts, 90-day history |
+| Description | 1 receiver, 3 viewers, full escalation |
 
 #### Caregiver Yearly
 
@@ -431,7 +431,7 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field | Value |
 |-------|-------|
 | Display Name | Caregiver (Annual) |
-| Description | 1 receiver, 3 viewers, full escalation chain, mood tracking, pattern alerts, 90-day history — save 37% |
+| Description | 1 receiver, 3 viewers, escalation — save 37% |
 
 #### Family Monthly
 
@@ -448,7 +448,7 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field | Value |
 |-------|-------|
 | Display Name | Family |
-| Description | 3 receivers, 5 viewers, clinician PDF export, kid mode, 1-year history |
+| Description | 3 receivers, 5 viewers, PDF export, kid mode |
 
 #### Family Yearly
 
@@ -465,7 +465,7 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field | Value |
 |-------|-------|
 | Display Name | Family (Annual) |
-| Description | 3 receivers, 5 viewers, clinician PDF export, kid mode, 1-year history — save 34% |
+| Description | 3 receivers, 5 viewers, PDF, kid mode — save 34% |
 
 #### Family+ Monthly
 
@@ -482,7 +482,7 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field | Value |
 |-------|-------|
 | Display Name | Family+ |
-| Description | 6 receivers, 10 viewers, critical alerts, unlimited history, priority support |
+| Description | 6 receivers, 10 viewers, critical alerts |
 
 #### Family+ Yearly
 
@@ -499,7 +499,7 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field | Value |
 |-------|-------|
 | Display Name | Family+ (Annual) |
-| Description | 6 receivers, 10 viewers, critical alerts, unlimited history, priority support — save 33% |
+| Description | 6 receivers, 10 viewers, alerts — save 33% |
 
 ### 3.3 Non-Renewing Subscriptions (Add-Ons)
 
@@ -526,7 +526,7 @@ Create a second subscription group:
 | Field | Value |
 |-------|-------|
 | Display Name | Extra Receiver |
-| Description | Add one additional receiver to your family plan |
+| Description | Add one extra receiver to your plan |
 
 #### Add-On Viewer
 
@@ -542,7 +542,7 @@ Create a second subscription group:
 | Field | Value |
 |-------|-------|
 | Display Name | Extra Viewer |
-| Description | Add one additional viewer to your family plan |
+| Description | Add one extra viewer to your plan |
 
 ### 3.4 Introductory Offers (Required)
 
