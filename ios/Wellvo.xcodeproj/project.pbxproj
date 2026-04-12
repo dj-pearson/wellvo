@@ -78,6 +78,19 @@
 		B1F00012 /* SkeletonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00012; };
 		/* Views/Auth */
 		B1F00013 /* PasswordStrength.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00013; };
+		/* Utilities (added) */
+		B1D00005 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00005; };
+		B1D00006 /* AccessibilityHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00006; };
+		B1D00007 /* Streaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00007; };
+		/* Views/Components (added) */
+		B1F00014 /* BrandedProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00014; };
+		B1F00015 /* CelebrationOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00015; };
+		B1F00016 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00016; };
+		B1F00017 /* FloatingBottomNav.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00017; };
+		B1F00018 /* OnboardingCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00018; };
+		B1F00019 /* PaywallFeatureCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00019; };
+		B1F0001A /* PremiumCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0001A; };
+		B1F0001B /* StreakBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0001B; };
 		/* UI Tests */
 		B2U00001 /* WellvoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00001; };
 		B2U00002 /* OwnerFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00002; };
@@ -141,6 +154,19 @@
 		F1F0000F /* ViewerTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerTabView.swift; sourceTree = "<group>"; };
 		F1F00012 /* SkeletonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonView.swift; sourceTree = "<group>"; };
 		F1F00013 /* PasswordStrength.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordStrength.swift; sourceTree = "<group>"; };
+		/* Utilities (added) */
+		F1D00005 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		F1D00006 /* AccessibilityHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityHelpers.swift; sourceTree = "<group>"; };
+		F1D00007 /* Streaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Streaks.swift; sourceTree = "<group>"; };
+		/* Views/Components (added) */
+		F1F00014 /* BrandedProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandedProgressView.swift; sourceTree = "<group>"; };
+		F1F00015 /* CelebrationOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CelebrationOverlay.swift; sourceTree = "<group>"; };
+		F1F00016 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
+		F1F00017 /* FloatingBottomNav.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingBottomNav.swift; sourceTree = "<group>"; };
+		F1F00018 /* OnboardingCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCarousel.swift; sourceTree = "<group>"; };
+		F1F00019 /* PaywallFeatureCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallFeatureCarousel.swift; sourceTree = "<group>"; };
+		F1F0001A /* PremiumCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumCards.swift; sourceTree = "<group>"; };
+		F1F0001B /* StreakBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakBadge.swift; sourceTree = "<group>"; };
 		/* Resources */
 		F1G00001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		/* Config */
@@ -283,10 +309,13 @@
 		G1D00001 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				F1D00006 /* AccessibilityHelpers.swift */,
 				F1D00004 /* Colors.swift */,
 				F1D00001 /* Configuration.swift */,
 				F1D00002 /* KeychainService.swift */,
 				F1D00003 /* NetworkRetry.swift */,
+				F1D00007 /* Streaks.swift */,
+				F1D00005 /* Theme.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -328,7 +357,15 @@
 		G1F00008 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				F1F00014 /* BrandedProgressView.swift */,
+				F1F00015 /* CelebrationOverlay.swift */,
+				F1F00016 /* EmptyStateView.swift */,
+				F1F00017 /* FloatingBottomNav.swift */,
+				F1F00018 /* OnboardingCarousel.swift */,
+				F1F00019 /* PaywallFeatureCarousel.swift */,
+				F1F0001A /* PremiumCards.swift */,
 				F1F00012 /* SkeletonView.swift */,
+				F1F0001B /* StreakBadge.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -524,6 +561,17 @@
 				B1D00004 /* Colors.swift in Sources */,
 				B1F00012 /* SkeletonView.swift in Sources */,
 				B1F00013 /* PasswordStrength.swift in Sources */,
+				B1D00005 /* Theme.swift in Sources */,
+				B1D00006 /* AccessibilityHelpers.swift in Sources */,
+				B1D00007 /* Streaks.swift in Sources */,
+				B1F00014 /* BrandedProgressView.swift in Sources */,
+				B1F00015 /* CelebrationOverlay.swift in Sources */,
+				B1F00016 /* EmptyStateView.swift in Sources */,
+				B1F00017 /* FloatingBottomNav.swift in Sources */,
+				B1F00018 /* OnboardingCarousel.swift in Sources */,
+				B1F00019 /* PaywallFeatureCarousel.swift in Sources */,
+				B1F0001A /* PremiumCards.swift in Sources */,
+				B1F0001B /* StreakBadge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -622,7 +670,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -654,7 +702,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -671,7 +719,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -689,7 +737,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
