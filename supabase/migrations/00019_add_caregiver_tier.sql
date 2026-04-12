@@ -6,7 +6,7 @@
 -- dementia, with 1-3 siblings watching read-only.
 --
 --  Caregiver: $3.99/mo, $29.99/yr — 1 Receiver, 3 Viewers
---  Family:    $6.99/mo, $54.99/yr — 3 Receivers, 5 Viewers (reprice)
+--  Family:    $6.99/mo, $49.99/yr — 3 Receivers, 5 Viewers (reprice)
 --  Family+:   $9.99/mo, $79.99/yr — 6 Receivers, 10 Viewers (reprice)
 --
 -- Also grandfathers existing Free-tier families for 90 days before they lose

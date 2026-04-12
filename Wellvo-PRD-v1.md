@@ -152,7 +152,7 @@ The Owner has full control over the family group:
 | Tier | Price | Includes | Features |
 |------|-------|----------|----------|
 | Caregiver | $3.99/mo or $29.99/yr | 1 Receiver + 3 Viewers | Daily + on-demand check-ins, full escalation chain, mood tracking, pattern alerts, 90-day history |
-| Family | $6.99/mo or $54.99/yr | 3 Receivers + 5 Viewers | Everything in Caregiver + clinician PDF export, kid mode, 1-year history |
+| Family | $6.99/mo or $49.99/yr | 3 Receivers + 5 Viewers | Everything in Caregiver + clinician PDF export, kid mode, 1-year history |
 | Family+ | $9.99/mo or $79.99/yr | 6 Receivers + 10 Viewers | Everything in Family + Critical Alerts, unlimited history, priority support |
 | Add-On Receiver | +$2.49/mo each | +1 Receiver slot | Available on Family or Family+ tiers |
 | Add-On Viewer | +$0.99/mo each | +1 Viewer slot | Available on Family or Family+ tiers |

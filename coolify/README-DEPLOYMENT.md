@@ -161,7 +161,7 @@ gunzip -c /var/backups/wellvo/wellvo-backup-20260318-030000.sql.gz | psql "$DATA
    - `net.wellvo.caregiver.monthly` — $3.99/mo
    - `net.wellvo.caregiver.yearly` — $29.99/yr
    - `net.wellvo.family.monthly` — $6.99/mo
-   - `net.wellvo.family.yearly` — $54.99/yr
+   - `net.wellvo.family.yearly` — $49.99/yr
    - `net.wellvo.familyplus.monthly` — $9.99/mo
    - `net.wellvo.familyplus.yearly` — $79.99/yr
    - `net.wellvo.addon.receiver` — $2.49/mo

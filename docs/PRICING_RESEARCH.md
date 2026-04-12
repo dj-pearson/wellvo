@@ -170,7 +170,7 @@ The current trial structure (7-day monthly, 14-day yearly) is correct. **Keep it
 | Tier        | Monthly  | Yearly   | Receivers | Viewers | Key features                                                                 |
 | ----------- | -------- | -------- | --------- | ------- | ---------------------------------------------------------------------------- |
 | **Caregiver** (new) | **$3.99** | **$29.99** | **1**     | **3**   | Full check-in loop, full escalation, mood, 90-day history                    |
-| **Family**  | **$6.99** | **$54.99** | **3**     | **5**   | Everything in Caregiver + pattern alerts, PDF export, 1-year history         |
+| **Family**  | **$6.99** | **$49.99** | **3**     | **5**   | Everything in Caregiver + pattern alerts, PDF export, 1-year history         |
 | **Family+** | **$9.99** | **$79.99** | **6**     | **10**  | Everything in Family + Critical Alerts, unlimited history, priority support  |
 
 Add-ons (unchanged in spirit, slight reprice to match cost of SMS escalation):
@@ -306,7 +306,7 @@ their need.
   - `net.wellvo.caregiver.monthly` ($3.99)
   - `net.wellvo.caregiver.yearly` ($29.99)
   - `net.wellvo.family.monthly` ($6.99) — reprice
-  - `net.wellvo.family.yearly` ($54.99) — reprice
+  - `net.wellvo.family.yearly` ($49.99) — reprice
   - `net.wellvo.familyplus.monthly` ($9.99) — reprice
   - `net.wellvo.familyplus.yearly` ($79.99) — reprice
 - [ ] Add `caregiver` case to `SubscriptionTier` enum

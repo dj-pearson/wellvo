@@ -85,7 +85,7 @@ SUBSCRIPTION OPTIONS
 Every plan includes a free trial (7 days monthly / 14 days yearly).
 
 Caregiver ($3.99/mo or $29.99/yr): 1 receiver, 3 viewers, full escalation chain, mood tracking, pattern alerts, 90-day history
-Family ($6.99/mo or $54.99/yr): 3 receivers, 5 viewers, clinician PDF export, kid mode, 1-year history
+Family ($6.99/mo or $49.99/yr): 3 receivers, 5 viewers, clinician PDF export, kid mode, 1-year history
 Family+ ($9.99/mo or $79.99/yr): 6 receivers, 10 viewers, critical alerts, unlimited history, priority support
 
 Additional receivers ($2.49/mo each) and viewers ($0.99/mo each) available on Family and Family+ plans.
@@ -414,7 +414,7 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field | Value |
 |-------|-------|
 | Display Name | Caregiver |
-| Description | 1 receiver, 3 viewers, full escalation chain, mood tracking, pattern alerts, 90-day history |
+| Description | 1 receiver, 3 viewers, full escalation |
 
 #### Caregiver Yearly
 
@@ -431,7 +431,7 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field | Value |
 |-------|-------|
 | Display Name | Caregiver (Annual) |
-| Description | 1 receiver, 3 viewers, full escalation chain, mood tracking, pattern alerts, 90-day history — save 37% |
+| Description | 1 receiver, 3 viewers, escalation — save 37% |
 
 #### Family Monthly
 
@@ -448,7 +448,7 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field | Value |
 |-------|-------|
 | Display Name | Family |
-| Description | 3 receivers, 5 viewers, clinician PDF export, kid mode, 1-year history |
+| Description | 3 receivers, 5 viewers, PDF export, kid mode |
 
 #### Family Yearly
 
@@ -456,7 +456,7 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | ------------------ | -------------------------- |
 | Reference Name     | Family Yearly              |
 | Product ID         | `net.wellvo.family.yearly` |
-| Price              | $54.99 USD (~34% savings)  |
+| Price              | $49.99 USD (~40% savings)  |
 | Duration           | 1 Year                     |
 | Subscription Group | Wellvo Premium             |
 | Level of Service   | 2                          |
@@ -465,7 +465,7 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field | Value |
 |-------|-------|
 | Display Name | Family (Annual) |
-| Description | 3 receivers, 5 viewers, clinician PDF export, kid mode, 1-year history — save 34% |
+| Description | 3 receivers, 5 viewers, PDF, kid mode — save 40% |
 
 #### Family+ Monthly
 
@@ -482,7 +482,7 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field | Value |
 |-------|-------|
 | Display Name | Family+ |
-| Description | 6 receivers, 10 viewers, critical alerts, unlimited history, priority support |
+| Description | 6 receivers, 10 viewers, critical alerts |
 
 #### Family+ Yearly
 
@@ -499,7 +499,7 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field | Value |
 |-------|-------|
 | Display Name | Family+ (Annual) |
-| Description | 6 receivers, 10 viewers, critical alerts, unlimited history, priority support — save 33% |
+| Description | 6 receivers, 10 viewers, alerts — save 33% |
 
 ### 3.3 Non-Renewing Subscriptions (Add-Ons)
 
@@ -526,7 +526,7 @@ Create a second subscription group:
 | Field | Value |
 |-------|-------|
 | Display Name | Extra Receiver |
-| Description | Add one additional receiver to your family plan |
+| Description | Add one extra receiver to your plan |
 
 #### Add-On Viewer
 
@@ -542,7 +542,7 @@ Create a second subscription group:
 | Field | Value |
 |-------|-------|
 | Display Name | Extra Viewer |
-| Description | Add one additional viewer to your family plan |
+| Description | Add one extra viewer to your plan |
 
 ### 3.4 Introductory Offers (Required)
 
@@ -594,7 +594,7 @@ Caregiver ($3.99/month or $29.99/year):
 - Mood tracking and pattern alerts
 - 90-day check-in history
 
-Family ($6.99/month or $54.99/year):
+Family ($6.99/month or $49.99/year):
 - 3 receivers and 5 viewers in a family group
 - All Caregiver features
 - Clinician-ready PDF export

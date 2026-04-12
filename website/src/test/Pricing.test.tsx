@@ -35,7 +35,7 @@ describe('Pricing page', () => {
   it('displays correct yearly prices', () => {
     renderPricing()
     expect(screen.getByText('$29.99/year')).toBeInTheDocument()
-    expect(screen.getByText('$54.99/year')).toBeInTheDocument()
+    expect(screen.getByText('$49.99/year')).toBeInTheDocument()
     expect(screen.getByText('$79.99/year')).toBeInTheDocument()
   })
 

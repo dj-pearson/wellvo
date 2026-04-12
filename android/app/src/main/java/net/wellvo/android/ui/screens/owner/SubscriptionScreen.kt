@@ -88,7 +88,7 @@ private val plans = listOf(
         tier = SubscriptionTier.Family,
         name = "Family",
         monthlyPrice = "$6.99/mo",
-        yearlyPrice = "$54.99/yr",
+        yearlyPrice = "$49.99/yr",
         features = listOf(
             "Up to 3 Receivers",
             "Up to 5 Viewers",
