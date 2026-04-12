@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// Reusable friendly empty state with a large tinted icon, title, body text,
+/// Reusable friendly empty state with a large tinted icon, title, message text,
 /// and optional primary/secondary actions. Replaces ad-hoc VStack+Image+Text
 /// empty states scattered across screens.
 struct EmptyStateView: View {
     let systemImage: String
     let title: String
-    let body: String
+    let message: String
     var primaryActionLabel: String? = nil
     var onPrimaryAction: (() -> Void)? = nil
     var secondaryActionLabel: String? = nil
@@ -29,7 +29,7 @@ struct EmptyStateView: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.primary)
 
-            Text(body)
+            Text(message)
                 .font(.subheadline)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
