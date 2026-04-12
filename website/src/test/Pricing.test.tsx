@@ -12,18 +12,31 @@ function renderPricing() {
 }
 
 describe('Pricing page', () => {
-  it('displays all three plan names', () => {
+  it('displays all three paid plan names', () => {
     renderPricing()
-    expect(screen.getByText('Free')).toBeInTheDocument()
+    expect(screen.getByText('Caregiver')).toBeInTheDocument()
     expect(screen.getByText('Family')).toBeInTheDocument()
     expect(screen.getByText('Family+')).toBeInTheDocument()
   })
 
-  it('displays correct prices', () => {
+  it('does not show a permanent Free tier', () => {
     renderPricing()
-    expect(screen.getByText('$0')).toBeInTheDocument()
-    expect(screen.getByText('$4.99')).toBeInTheDocument()
-    expect(screen.getByText('$7.99')).toBeInTheDocument()
+    // "Free Trial" CTA is allowed; bare "$0" price or "Free" plan name is not.
+    expect(screen.queryByText('$0')).not.toBeInTheDocument()
+  })
+
+  it('displays correct monthly prices', () => {
+    renderPricing()
+    expect(screen.getByText('$3.99')).toBeInTheDocument()
+    expect(screen.getByText('$6.99')).toBeInTheDocument()
+    expect(screen.getByText('$9.99')).toBeInTheDocument()
+  })
+
+  it('displays correct yearly prices', () => {
+    renderPricing()
+    expect(screen.getByText('$29.99/year')).toBeInTheDocument()
+    expect(screen.getByText('$54.99/year')).toBeInTheDocument()
+    expect(screen.getByText('$79.99/year')).toBeInTheDocument()
   })
 
   it('shows add-on section', () => {
@@ -37,5 +50,12 @@ describe('Pricing page', () => {
     renderPricing()
     expect(screen.getByText('Frequently Asked Questions')).toBeInTheDocument()
     expect(screen.getByText('Who pays for the subscription?')).toBeInTheDocument()
+  })
+
+  it('shows dementia-specific FAQ entry', () => {
+    renderPricing()
+    expect(
+      screen.getByText('Which plan is right for a parent with dementia?')
+    ).toBeInTheDocument()
   })
 })

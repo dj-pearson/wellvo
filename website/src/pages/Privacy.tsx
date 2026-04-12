@@ -124,10 +124,10 @@ export default function Privacy() {
           <section>
             <h2>Data Retention</h2>
             <p>
-              We retain your check-in data based on your subscription tier: 7 days for Free
-              plans, 90 days for Family plans, and unlimited for Family+ plans. Account
-              information is retained as long as your account is active. You may request
-              deletion of your data at any time.
+              We retain your check-in data based on your subscription tier: 90 days for
+              Caregiver plans, 1 year for Family plans, and unlimited for Family+ plans.
+              Account information is retained as long as your account is active. You may
+              request deletion of your data at any time.
             </p>
           </section>
 

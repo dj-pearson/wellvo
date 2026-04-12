@@ -832,44 +832,43 @@ function getScreenContent(screenId: string, device: DeviceSpec): string {
         <div class="plan-screen">
           <div class="plan-subheading">Start with a free trial. Cancel anytime.</div>
 
-          <div class="plan-card">
-            <div class="plan-name-row">
-              <div class="plan-name">Free</div>
-              <div class="plan-price">$0 <span>/month</span></div>
-            </div>
-            <ul class="plan-features-list">
-              <li class="plan-feature"><span class="check">✓</span> 1 Receiver</li>
-              <li class="plan-feature"><span class="check">✓</span> Daily check-ins</li>
-              <li class="plan-feature"><span class="check">✓</span> Basic escalation</li>
-              <li class="plan-feature"><span class="check">✓</span> 7-day history</li>
-            </ul>
-          </div>
-
           <div class="plan-card highlighted">
             <div class="plan-popular">Most Popular</div>
             <div class="plan-name-row">
-              <div class="plan-name">Family</div>
-              <div class="plan-price">$4.99 <span>/month</span></div>
+              <div class="plan-name">Caregiver</div>
+              <div class="plan-price">$3.99 <span>/month</span></div>
             </div>
             <ul class="plan-features-list">
-              <li class="plan-feature"><span class="check">✓</span> 2 Receivers, 2 Viewers</li>
-              <li class="plan-feature"><span class="check">✓</span> Custom schedules</li>
-              <li class="plan-feature"><span class="check">✓</span> On-demand check-ins</li>
-              <li class="plan-feature"><span class="check">✓</span> Mood tracking</li>
+              <li class="plan-feature"><span class="check">✓</span> 1 Receiver, 3 Viewers</li>
+              <li class="plan-feature"><span class="check">✓</span> Daily + on-demand check-ins</li>
+              <li class="plan-feature"><span class="check">✓</span> Full escalation chain</li>
+              <li class="plan-feature"><span class="check">✓</span> Mood + pattern alerts</li>
               <li class="plan-feature"><span class="check">✓</span> 90-day history</li>
-              <li class="plan-feature"><span class="check">✓</span> Pattern alerts</li>
+            </ul>
+          </div>
+
+          <div class="plan-card">
+            <div class="plan-name-row">
+              <div class="plan-name">Family</div>
+              <div class="plan-price">$6.99 <span>/month</span></div>
+            </div>
+            <ul class="plan-features-list">
+              <li class="plan-feature"><span class="check">✓</span> 3 Receivers, 5 Viewers</li>
+              <li class="plan-feature"><span class="check">✓</span> Everything in Caregiver</li>
+              <li class="plan-feature"><span class="check">✓</span> Clinician PDF export</li>
+              <li class="plan-feature"><span class="check">✓</span> 1-year history</li>
+              <li class="plan-feature"><span class="check">✓</span> Kid mode</li>
             </ul>
           </div>
 
           <div class="plan-card">
             <div class="plan-name-row">
               <div class="plan-name">Family+</div>
-              <div class="plan-price">$7.99 <span>/month</span></div>
+              <div class="plan-price">$9.99 <span>/month</span></div>
             </div>
             <ul class="plan-features-list">
-              <li class="plan-feature"><span class="check">✓</span> 5 Receivers, 5 Viewers</li>
+              <li class="plan-feature"><span class="check">✓</span> 6 Receivers, 10 Viewers</li>
               <li class="plan-feature"><span class="check">✓</span> Critical Alerts (bypass DND)</li>
-              <li class="plan-feature"><span class="check">✓</span> PDF reports</li>
               <li class="plan-feature"><span class="check">✓</span> Unlimited history</li>
               <li class="plan-feature"><span class="check">✓</span> Priority support</li>
             </ul>

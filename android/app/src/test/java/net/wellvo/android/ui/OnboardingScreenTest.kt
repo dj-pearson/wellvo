@@ -110,8 +110,9 @@ class OnboardingScreenTest {
         }
 
         composeTestRule.onNodeWithText("Choose your plan").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Free").assertIsDisplayed()
-        composeTestRule.onNodeWithText("$4.99/mo", substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithText("Caregiver").assertIsDisplayed()
+        composeTestRule.onNodeWithText("$3.99/mo", substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithText("$6.99/mo", substring = true).assertIsDisplayed()
         composeTestRule.onNodeWithText("$9.99/mo", substring = true).assertIsDisplayed()
     }
 

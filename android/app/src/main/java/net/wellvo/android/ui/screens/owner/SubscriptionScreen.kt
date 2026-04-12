@@ -49,11 +49,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import net.wellvo.android.BuildConfig
+import net.wellvo.android.R
 import net.wellvo.android.services.BillingError
 import net.wellvo.android.services.SubscriptionService
 import net.wellvo.android.services.SubscriptionTier
@@ -68,25 +70,47 @@ private data class PlanInfo(
 
 private val plans = listOf(
     PlanInfo(
-        tier = SubscriptionTier.Free,
-        name = "Free",
-        monthlyPrice = "Free",
-        yearlyPrice = "Free",
-        features = listOf("1 Receiver", "No Viewers", "Daily check-ins", "Basic alerts")
+        tier = SubscriptionTier.Caregiver,
+        name = "Caregiver",
+        monthlyPrice = "$3.99/mo",
+        yearlyPrice = "$29.99/yr",
+        features = listOf(
+            "1 Receiver",
+            "Up to 3 Viewers",
+            "Daily + on-demand check-ins",
+            "Full escalation chain",
+            "Mood tracking",
+            "Pattern alerts",
+            "90-day history"
+        )
     ),
     PlanInfo(
         tier = SubscriptionTier.Family,
         name = "Family",
-        monthlyPrice = "$4.99/mo",
-        yearlyPrice = "$47.99/yr",
-        features = listOf("Up to 3 Receivers", "Up to 2 Viewers", "Mood tracking", "Check-in history", "Pattern alerts", "PDF export")
+        monthlyPrice = "$6.99/mo",
+        yearlyPrice = "$54.99/yr",
+        features = listOf(
+            "Up to 3 Receivers",
+            "Up to 5 Viewers",
+            "Everything in Caregiver",
+            "Clinician PDF export",
+            "1-year history",
+            "Kid mode"
+        )
     ),
     PlanInfo(
         tier = SubscriptionTier.FamilyPlus,
         name = "Family+",
         monthlyPrice = "$9.99/mo",
-        yearlyPrice = "$95.99/yr",
-        features = listOf("Up to 8 Receivers", "Up to 5 Viewers", "Everything in Family", "Location tracking", "Custom schedules", "SMS escalation", "Priority support")
+        yearlyPrice = "$79.99/yr",
+        features = listOf(
+            "Up to 6 Receivers",
+            "Up to 10 Viewers",
+            "Everything in Family",
+            "Critical Alerts (bypass DND)",
+            "Unlimited history",
+            "Priority support"
+        )
     )
 )
 
@@ -143,7 +167,7 @@ fun SubscriptionScreen(
                 FilterChip(
                     selected = isYearly,
                     onClick = { isYearly = true },
-                    label = { Text("Yearly (save 20%)") }
+                    label = { Text("Yearly (save up to 37%)") }
                 )
             }
 
@@ -152,6 +176,7 @@ fun SubscriptionScreen(
                 val isCurrent = plan.tier == currentTier
                 val accentColor = when (plan.tier) {
                     SubscriptionTier.Free -> MaterialTheme.colorScheme.outline
+                    SubscriptionTier.Caregiver -> Color(0xFF2ECC71)
                     SubscriptionTier.Family -> Color(0xFF3B82F6)
                     SubscriptionTier.FamilyPlus -> Color(0xFFF97316)
                 }
@@ -234,6 +259,8 @@ fun SubscriptionScreen(
                                     if (activity == null) return@Button
                                     isPurchasing = true
                                     val productId = when {
+                                        plan.tier == SubscriptionTier.Caregiver && !isYearly -> "net.wellvo.caregiver.monthly"
+                                        plan.tier == SubscriptionTier.Caregiver && isYearly -> "net.wellvo.caregiver.yearly"
                                         plan.tier == SubscriptionTier.Family && !isYearly -> "net.wellvo.family.monthly"
                                         plan.tier == SubscriptionTier.Family && isYearly -> "net.wellvo.family.yearly"
                                         plan.tier == SubscriptionTier.FamilyPlus && !isYearly -> "net.wellvo.familyplus.monthly"

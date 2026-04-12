@@ -82,13 +82,15 @@ PERFECT FOR
 
 SUBSCRIPTION OPTIONS
 
-Free: 1 receiver, daily check-in, 7-day history
-Family ($4.99/mo or $39.99/yr): 2 receivers, 2 viewers, full escalation, mood tracking, 90-day history
-Family+ ($7.99/mo or $59.99/yr): 5 receivers, 5 viewers, critical alerts, reports, unlimited history
+Every plan includes a free trial (7 days monthly / 14 days yearly).
 
-Additional receivers ($1.99/mo each) and viewers ($0.99/mo each) available on paid plans.
+Caregiver ($3.99/mo or $29.99/yr): 1 receiver, 3 viewers, full escalation chain, mood tracking, pattern alerts, 90-day history
+Family ($6.99/mo or $54.99/yr): 3 receivers, 5 viewers, clinician PDF export, kid mode, 1-year history
+Family+ ($9.99/mo or $79.99/yr): 6 receivers, 10 viewers, critical alerts, unlimited history, priority support
 
-Payment is charged to your Apple ID account at confirmation of purchase. Subscriptions automatically renew unless cancelled at least 24 hours before the end of the current period. You can manage and cancel subscriptions in your Apple ID account settings.
+Additional receivers ($2.49/mo each) and viewers ($0.99/mo each) available on Family and Family+ plans.
+
+Payment is charged to your Apple ID account at confirmation of purchase after the free trial ends. Subscriptions automatically renew unless cancelled at least 24 hours before the end of the current period. You can manage and cancel subscriptions in your Apple ID account settings.
 
 Privacy Policy: https://wellvo.net/privacy
 Terms of Use: https://wellvo.net/terms
@@ -196,8 +198,9 @@ Wellvo is a family check-in app. To fully test:
    The entitlement is only used for escalation step 3+ (missed check-in alerts
    to the Owner), never for marketing or non-urgent notifications.
 
-4. SUBSCRIPTIONS: The app offers Free, Family ($4.99/mo), and Family+ ($7.99/mo)
-   tiers. The demo account is on the Family tier.
+4. SUBSCRIPTIONS: The app offers Caregiver ($3.99/mo), Family ($6.99/mo), and
+   Family+ ($9.99/mo) tiers, each with a 7-day free trial (14 days on yearly).
+   The demo account is on the Family tier.
 
 5. SIGN IN WITH APPLE: Supported as primary auth method.
 
@@ -389,7 +392,46 @@ Create **one** subscription group in App Store Connect:
 
 ### 3.2 Auto-Renewable Subscriptions
 
-Create these products within the "Wellvo Premium" group:
+Create these products within the "Wellvo Premium" group. See
+`docs/PRICING_RESEARCH.md` for the pricing rationale.
+
+**Level of Service** determines upgrade/downgrade ordering inside a
+subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
+`2 = Family`, `3 = Caregiver`.
+
+#### Caregiver Monthly
+
+| Field              | Value                          |
+| ------------------ | ------------------------------ |
+| Reference Name     | Caregiver Monthly              |
+| Product ID         | `net.wellvo.caregiver.monthly` |
+| Price              | $3.99 USD                      |
+| Duration           | 1 Month                        |
+| Subscription Group | Wellvo Premium                 |
+| Level of Service   | 3 (lowest paid tier)           |
+
+**Localization (English US):**
+| Field | Value |
+|-------|-------|
+| Display Name | Caregiver |
+| Description | 1 receiver, 3 viewers, full escalation chain, mood tracking, pattern alerts, 90-day history |
+
+#### Caregiver Yearly
+
+| Field              | Value                         |
+| ------------------ | ----------------------------- |
+| Reference Name     | Caregiver Yearly              |
+| Product ID         | `net.wellvo.caregiver.yearly` |
+| Price              | $29.99 USD (~37% savings)     |
+| Duration           | 1 Year                        |
+| Subscription Group | Wellvo Premium                |
+| Level of Service   | 3                             |
+
+**Localization (English US):**
+| Field | Value |
+|-------|-------|
+| Display Name | Caregiver (Annual) |
+| Description | 1 receiver, 3 viewers, full escalation chain, mood tracking, pattern alerts, 90-day history — save 37% |
 
 #### Family Monthly
 
@@ -397,16 +439,16 @@ Create these products within the "Wellvo Premium" group:
 | ------------------ | --------------------------- |
 | Reference Name     | Family Monthly              |
 | Product ID         | `net.wellvo.family.monthly` |
-| Price              | $4.99 USD                   |
+| Price              | $6.99 USD                   |
 | Duration           | 1 Month                     |
 | Subscription Group | Wellvo Premium              |
-| Level of Service   | 2 (below Family+)           |
+| Level of Service   | 2 (mid-tier)                |
 
 **Localization (English US):**
 | Field | Value |
 |-------|-------|
 | Display Name | Family |
-| Description | 2 receivers, 2 viewers, full escalation, mood tracking, 90-day history |
+| Description | 3 receivers, 5 viewers, clinician PDF export, kid mode, 1-year history |
 
 #### Family Yearly
 
@@ -414,7 +456,7 @@ Create these products within the "Wellvo Premium" group:
 | ------------------ | -------------------------- |
 | Reference Name     | Family Yearly              |
 | Product ID         | `net.wellvo.family.yearly` |
-| Price              | $39.99 USD (~33% savings)  |
+| Price              | $54.99 USD (~34% savings)  |
 | Duration           | 1 Year                     |
 | Subscription Group | Wellvo Premium             |
 | Level of Service   | 2                          |
@@ -423,7 +465,7 @@ Create these products within the "Wellvo Premium" group:
 | Field | Value |
 |-------|-------|
 | Display Name | Family (Annual) |
-| Description | 2 receivers, 2 viewers, full escalation, mood tracking, 90-day history — save 33% |
+| Description | 3 receivers, 5 viewers, clinician PDF export, kid mode, 1-year history — save 34% |
 
 #### Family+ Monthly
 
@@ -431,7 +473,7 @@ Create these products within the "Wellvo Premium" group:
 | ------------------ | ------------------------------- |
 | Reference Name     | Family Plus Monthly             |
 | Product ID         | `net.wellvo.familyplus.monthly` |
-| Price              | $7.99 USD                       |
+| Price              | $9.99 USD                       |
 | Duration           | 1 Month                         |
 | Subscription Group | Wellvo Premium                  |
 | Level of Service   | 1 (highest tier)                |
@@ -440,7 +482,7 @@ Create these products within the "Wellvo Premium" group:
 | Field | Value |
 |-------|-------|
 | Display Name | Family+ |
-| Description | 5 receivers, 5 viewers, critical alerts, exportable reports, unlimited history, priority support |
+| Description | 6 receivers, 10 viewers, critical alerts, unlimited history, priority support |
 
 #### Family+ Yearly
 
@@ -448,7 +490,7 @@ Create these products within the "Wellvo Premium" group:
 | ------------------ | ------------------------------ |
 | Reference Name     | Family Plus Yearly             |
 | Product ID         | `net.wellvo.familyplus.yearly` |
-| Price              | $59.99 USD (~37% savings)      |
+| Price              | $79.99 USD (~33% savings)      |
 | Duration           | 1 Year                         |
 | Subscription Group | Wellvo Premium                 |
 | Level of Service   | 1                              |
@@ -457,7 +499,7 @@ Create these products within the "Wellvo Premium" group:
 | Field | Value |
 |-------|-------|
 | Display Name | Family+ (Annual) |
-| Description | 5 receivers, 5 viewers, critical alerts, exportable reports, unlimited history, priority support — save 37% |
+| Description | 6 receivers, 10 viewers, critical alerts, unlimited history, priority support — save 33% |
 
 ### 3.3 Non-Renewing Subscriptions (Add-Ons)
 
@@ -476,7 +518,7 @@ Create a second subscription group:
 | ------------------ | --------------------------- |
 | Reference Name     | Additional Receiver         |
 | Product ID         | `net.wellvo.addon.receiver` |
-| Price              | $1.99 USD                   |
+| Price              | $2.49 USD                   |
 | Duration           | 1 Month                     |
 | Subscription Group | Wellvo Add-Ons              |
 
@@ -502,14 +544,20 @@ Create a second subscription group:
 | Display Name | Extra Viewer |
 | Description | Add one additional viewer to your family plan |
 
-### 3.4 Introductory Offers (Recommended)
+### 3.4 Introductory Offers (Required)
 
-| Offer      | Applied To      | Type | Duration | Price |
-| ---------- | --------------- | ---- | -------- | ----- |
-| Free Trial | Family Monthly  | Free | 7 days   | $0    |
-| Free Trial | Family+ Monthly | Free | 7 days   | $0    |
-| Free Trial | Family Yearly   | Free | 14 days  | $0    |
-| Free Trial | Family+ Yearly  | Free | 14 days  | $0    |
+Every base-tier product must ship with a free trial. Onboarding defaults to
+Caregiver Yearly, so the 14-day Caregiver Yearly trial is the most important
+one to get right.
+
+| Offer      | Applied To         | Type | Duration | Price |
+| ---------- | ------------------ | ---- | -------- | ----- |
+| Free Trial | Caregiver Monthly  | Free | 7 days   | $0    |
+| Free Trial | Caregiver Yearly   | Free | 14 days  | $0    |
+| Free Trial | Family Monthly     | Free | 7 days   | $0    |
+| Free Trial | Family Yearly      | Free | 14 days  | $0    |
+| Free Trial | Family+ Monthly    | Free | 7 days   | $0    |
+| Free Trial | Family+ Yearly     | Free | 14 days  | $0    |
 
 ### 3.5 App Store Server Notifications V2
 
@@ -536,28 +584,36 @@ Configure in **App Store Connect → App → App Information → App Store Serve
 ### 3.6 Subscription Review Notes
 
 ```
-This app offers auto-renewable subscriptions:
+This app offers auto-renewable subscriptions. Every plan includes a free
+trial (7 days on monthly, 14 days on yearly):
 
-Family ($4.99/month or $39.99/year):
-- 2 receivers and 2 viewers in a family group
-- Custom check-in schedules, on-demand check-ins
+Caregiver ($3.99/month or $29.99/year):
+- 1 receiver and 3 viewers in a family group
+- Daily + on-demand check-ins
 - Full escalation chain with configurable timing
 - Mood tracking and pattern alerts
 - 90-day check-in history
 
-Family+ ($7.99/month or $59.99/year):
-- 5 receivers and 5 viewers in a family group
+Family ($6.99/month or $54.99/year):
+- 3 receivers and 5 viewers in a family group
+- All Caregiver features
+- Clinician-ready PDF export
+- Kid mode for teen receivers
+- 1-year check-in history
+
+Family+ ($9.99/month or $79.99/year):
+- 6 receivers and 10 viewers in a family group
 - All Family features plus Critical Alerts (Do Not Disturb bypass)
-- Exportable reports, unlimited history
+- Unlimited history
 - Priority support
 
-Add-On Receiver ($1.99/month): Adds one additional receiver slot
+Add-On Receiver ($2.49/month): Adds one additional receiver slot
 Add-On Viewer ($0.99/month): Adds one additional viewer slot
 
-Payment is charged to the user's Apple ID account at confirmation of purchase.
-Subscriptions automatically renew unless cancelled at least 24 hours before
-the end of the current period. The account will be charged for renewal within
-24 hours prior to the end of the current period.
+Payment is charged to the user's Apple ID account at confirmation of purchase
+after the free trial ends. Subscriptions automatically renew unless cancelled
+at least 24 hours before the end of the current period. The account will be
+charged for renewal within 24 hours prior to the end of the current period.
 
 Users can manage subscriptions and turn off auto-renewal in Account Settings
 after purchase.

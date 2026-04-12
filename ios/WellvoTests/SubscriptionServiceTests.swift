@@ -7,13 +7,21 @@ final class SubscriptionServiceTests: XCTestCase {
     // MARK: - Product ID Constants
 
     func testProductIDsContainAllPlans() {
+        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.wellvo.caregiver.monthly"))
+        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.wellvo.caregiver.yearly"))
         XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.wellvo.family.monthly"))
         XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.wellvo.family.yearly"))
         XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.wellvo.familyplus.monthly"))
         XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.wellvo.familyplus.yearly"))
         XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.wellvo.addon.receiver"))
         XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.wellvo.addon.viewer"))
-        XCTAssertEqual(SubscriptionService.ProductIDs.all.count, 6)
+        XCTAssertEqual(SubscriptionService.ProductIDs.all.count, 8)
+    }
+
+    func testCaregiverProductIDs() {
+        XCTAssertTrue(SubscriptionService.ProductIDs.caregiver.contains("net.wellvo.caregiver.monthly"))
+        XCTAssertTrue(SubscriptionService.ProductIDs.caregiver.contains("net.wellvo.caregiver.yearly"))
+        XCTAssertEqual(SubscriptionService.ProductIDs.caregiver.count, 2)
     }
 
     func testFamilyPlusProductIDs() {
@@ -28,10 +36,17 @@ final class SubscriptionServiceTests: XCTestCase {
         XCTAssertEqual(SubscriptionService.ProductIDs.family.count, 2)
     }
 
+    func testTierSetsAreDisjoint() {
+        XCTAssertTrue(SubscriptionService.ProductIDs.caregiver.isDisjoint(with: SubscriptionService.ProductIDs.family))
+        XCTAssertTrue(SubscriptionService.ProductIDs.caregiver.isDisjoint(with: SubscriptionService.ProductIDs.familyPlus))
+        XCTAssertTrue(SubscriptionService.ProductIDs.family.isDisjoint(with: SubscriptionService.ProductIDs.familyPlus))
+    }
+
     // MARK: - Subscription Tier Raw Values
 
     func testSubscriptionTierRawValues() {
         XCTAssertEqual(SubscriptionTier.free.rawValue, "free")
+        XCTAssertEqual(SubscriptionTier.caregiver.rawValue, "caregiver")
         XCTAssertEqual(SubscriptionTier.family.rawValue, "family")
         XCTAssertEqual(SubscriptionTier.familyPlus.rawValue, "family_plus")
     }
@@ -47,21 +62,29 @@ final class SubscriptionServiceTests: XCTestCase {
 
     func testFamilyPlusDetection() {
         let purchased: Set<String> = ["net.wellvo.familyplus.monthly"]
-        // Should not be disjoint with familyPlus set
         XCTAssertFalse(purchased.isDisjoint(with: SubscriptionService.ProductIDs.familyPlus))
-        // Should be disjoint with family set
         XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.family))
+        XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.caregiver))
     }
 
     func testFamilyDetection() {
         let purchased: Set<String> = ["net.wellvo.family.yearly"]
         XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.familyPlus))
         XCTAssertFalse(purchased.isDisjoint(with: SubscriptionService.ProductIDs.family))
+        XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.caregiver))
+    }
+
+    func testCaregiverDetection() {
+        let purchased: Set<String> = ["net.wellvo.caregiver.yearly"]
+        XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.familyPlus))
+        XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.family))
+        XCTAssertFalse(purchased.isDisjoint(with: SubscriptionService.ProductIDs.caregiver))
     }
 
     func testFreeDetection() {
         let purchased: Set<String> = []
         XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.familyPlus))
         XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.family))
+        XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.caregiver))
     }
 }

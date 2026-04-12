@@ -158,9 +158,13 @@ gunzip -c /var/backups/wellvo/wellvo-backup-20260318-030000.sql.gz | psql "$DATA
 2. **APNs Key**: Create in Certificates, Identifiers & Profiles → Keys
 3. **Provisioning Profile**: App Store distribution profile
 4. **App Store Connect**: Create the app, configure subscriptions:
-   - `net.wellvo.family.monthly` — $4.99/mo
-   - `net.wellvo.family.yearly` — $39.99/yr
-   - `net.wellvo.familyplus.monthly` — $7.99/mo
-   - `net.wellvo.familyplus.yearly` — $59.99/yr
-   - `net.wellvo.addon.receiver` — $1.99/mo
+   - `net.wellvo.caregiver.monthly` — $3.99/mo
+   - `net.wellvo.caregiver.yearly` — $29.99/yr
+   - `net.wellvo.family.monthly` — $6.99/mo
+   - `net.wellvo.family.yearly` — $54.99/yr
+   - `net.wellvo.familyplus.monthly` — $9.99/mo
+   - `net.wellvo.familyplus.yearly` — $79.99/yr
+   - `net.wellvo.addon.receiver` — $2.49/mo
    - `net.wellvo.addon.viewer` — $0.99/mo
+   See `docs/PRICING_RESEARCH.md` and
+   `docs/APP_STORE_CONNECT_AND_SUPABASE_SETUP.md` §3 for full config.

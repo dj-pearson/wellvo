@@ -61,37 +61,43 @@
     <string name="onboarding_go_to_dashboard">Go to Dashboard</string>
 
     <!-- Plan Names & Features -->
+    <!-- Note: most plan_* entries below are defined for future i18n use.
+         The SubscriptionScreen currently hardcodes pricing and feature
+         strings; keep these in sync if you switch to stringResource. -->
     <string name="plan_free">Free</string>
+    <string name="plan_caregiver">Caregiver</string>
     <string name="plan_family">Family</string>
     <string name="plan_family_plus">Family+</string>
-    <string name="plan_family_price_monthly">$4.99/mo</string>
-    <string name="plan_family_price_yearly">$47.99/yr</string>
+    <string name="plan_caregiver_price_monthly">$3.99/mo</string>
+    <string name="plan_caregiver_price_yearly">$29.99/yr</string>
+    <string name="plan_family_price_monthly">$6.99/mo</string>
+    <string name="plan_family_price_yearly">$54.99/yr</string>
     <string name="plan_family_plus_price_monthly">$9.99/mo</string>
-    <string name="plan_family_plus_price_yearly">$95.99/yr</string>
+    <string name="plan_family_plus_price_yearly">$79.99/yr</string>
     <string name="plan_feature_1_receiver">1 Receiver</string>
-    <string name="plan_feature_no_viewers">No Viewers</string>
-    <string name="plan_feature_daily_checkins">Daily check-ins</string>
-    <string name="plan_feature_basic_alerts">Basic alerts</string>
+    <string name="plan_feature_3_viewers">Up to 3 Viewers</string>
+    <string name="plan_feature_on_demand_checkins">Daily + on-demand check-ins</string>
+    <string name="plan_feature_full_escalation">Full escalation chain</string>
+    <string name="plan_feature_90_day_history">90-day history</string>
     <string name="plan_feature_3_receivers">Up to 3 Receivers</string>
-    <string name="plan_feature_2_viewers">Up to 2 Viewers</string>
-    <string name="plan_feature_mood_tracking">Mood tracking</string>
-    <string name="plan_feature_checkin_history">Check-in history</string>
-    <string name="plan_feature_pattern_alerts">Pattern alerts</string>
-    <string name="plan_feature_pdf_export">PDF export</string>
-    <string name="plan_feature_8_receivers">Up to 8 Receivers</string>
     <string name="plan_feature_5_viewers">Up to 5 Viewers</string>
+    <string name="plan_feature_everything_caregiver">Everything in Caregiver</string>
+    <string name="plan_feature_mood_tracking">Mood tracking</string>
+    <string name="plan_feature_pattern_alerts">Pattern alerts</string>
+    <string name="plan_feature_clinician_pdf">Clinician PDF export</string>
+    <string name="plan_feature_1_year_history">1-year history</string>
+    <string name="plan_feature_6_receivers">Up to 6 Receivers</string>
+    <string name="plan_feature_10_viewers">Up to 10 Viewers</string>
     <string name="plan_feature_everything_family">Everything in Family</string>
-    <string name="plan_feature_location_tracking">Location tracking</string>
-    <string name="plan_feature_custom_schedules">Custom schedules</string>
-    <string name="plan_feature_sms_escalation">SMS escalation</string>
+    <string name="plan_feature_critical_alerts">Critical Alerts (bypass DND)</string>
+    <string name="plan_feature_unlimited_history">Unlimited history</string>
     <string name="plan_feature_priority_support">Priority support</string>
     <string name="plan_feature_kid_mode">Kid mode</string>
-    <string name="plan_feature_pdf_reports">PDF reports</string>
     <string name="plan_current">Current Plan</string>
     <string name="plan_upgrade">Upgrade</string>
     <string name="plan_subscribe">Subscribe</string>
     <string name="plan_monthly">Monthly</string>
-    <string name="plan_yearly_save">Yearly (save 20%)</string>
+    <string name="plan_yearly_save">Yearly (save up to 37%)</string>
     <string name="plan_choose_title">Choose Your Plan</string>
     <string name="plan_product_unavailable">Product not available. Please try again.</string>
     <string name="plan_welcome">Welcome to %1$s!</string>

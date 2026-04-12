@@ -143,13 +143,26 @@ The Owner has full control over the family group:
 
 ### 5.1 Pricing Tiers
 
+> **Updated:** Free tier removed in favor of a trial-first flow. The dominant
+> real-world persona — one adult child monitoring one parent with dementia —
+> now has a dedicated Caregiver tier sized exactly for that household shape.
+> See `docs/PRICING_RESEARCH.md` for the full rationale, cost model, and
+> competitive analysis.
+
 | Tier | Price | Includes | Features |
 |------|-------|----------|----------|
-| Free | $0 | 1 Receiver | Basic daily check-in, single scheduled time, push notifications, 7-day history |
-| Family | $4.99/mo or $39.99/yr | 2 Receivers + 2 Viewers | Custom schedules, on-demand check-ins, full escalation chain, mood tracking, 90-day history, pattern alerts |
-| Family+ | $7.99/mo or $59.99/yr | 5 Receivers + 5 Viewers | All Family features + Critical Alerts, exportable reports, unlimited history, priority support |
-| Add-On Receiver | +$1.99/mo each | +1 Receiver slot | Available on Family or Family+ tiers |
+| Caregiver | $3.99/mo or $29.99/yr | 1 Receiver + 3 Viewers | Daily + on-demand check-ins, full escalation chain, mood tracking, pattern alerts, 90-day history |
+| Family | $6.99/mo or $54.99/yr | 3 Receivers + 5 Viewers | Everything in Caregiver + clinician PDF export, kid mode, 1-year history |
+| Family+ | $9.99/mo or $79.99/yr | 6 Receivers + 10 Viewers | Everything in Family + Critical Alerts, unlimited history, priority support |
+| Add-On Receiver | +$2.49/mo each | +1 Receiver slot | Available on Family or Family+ tiers |
 | Add-On Viewer | +$0.99/mo each | +1 Viewer slot | Available on Family or Family+ tiers |
+
+**Free trials:** Every paid tier includes a 7-day free trial on monthly
+subscriptions and a 14-day free trial on yearly subscriptions. Onboarding
+defaults to Caregiver Yearly (highest-LTV plan, longest trial window).
+
+**Legacy Free tier:** Grandfathered for 90 days after the Caregiver tier
+migration. New signups never see Free — they start a trial instead.
 
 ### 5.2 Billing Architecture
 
@@ -329,7 +342,7 @@ The product has a built-in viral loop at the family level. One sibling sets up a
 - Basic escalation chain (2 steps: reminder to Receiver, then alert to Owner)
 - Invite flow via SMS deep link
 - Apple Sign-In + email/password auth
-- Free tier (1 Receiver) + Family tier ($4.99/mo, 2 Receivers) via StoreKit 2
+- Caregiver tier ($3.99/mo, 1 Receiver + 3 Viewers, 7-day trial) as the MVP entry point via StoreKit 2
 - Basic check-in history (30 days, list view)
 - Self-hosted Supabase backend with pg_cron scheduling
 

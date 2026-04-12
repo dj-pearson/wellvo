@@ -1,7 +1,12 @@
 import Foundation
 
 enum SubscriptionTier: String, Codable {
+    /// Legacy tier, kept for grandfathered families created before the
+    /// Caregiver tier launched. New signups never land here.
     case free
+    /// Lowest paid tier, sized for 1 Receiver + 3 Viewers (the dementia-
+    /// caregiver persona). $3.99/mo or $29.99/yr.
+    case caregiver
     case family
     case familyPlus = "family_plus"
 }
@@ -20,6 +25,11 @@ struct Family: Codable, Identifiable {
     var subscriptionTier: SubscriptionTier
     var subscriptionStatus: SubscriptionStatus
     var subscriptionExpiresAt: Date?
+    /// Grandfathering deadline for legacy Free-tier families. When set and in
+    /// the past, clients should gate paid features and prompt the Owner to
+    /// upgrade to Caregiver. NULL for families created after the Caregiver
+    /// tier migration.
+    var freeTierExpiresAt: Date?
     var maxReceivers: Int
     var maxViewers: Int
     let createdAt: Date
@@ -30,6 +40,7 @@ struct Family: Codable, Identifiable {
         case subscriptionTier = "subscription_tier"
         case subscriptionStatus = "subscription_status"
         case subscriptionExpiresAt = "subscription_expires_at"
+        case freeTierExpiresAt = "free_tier_expires_at"
         case maxReceivers = "max_receivers"
         case maxViewers = "max_viewers"
         case createdAt = "created_at"

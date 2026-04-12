@@ -63,8 +63,9 @@ export default function Terms() {
           <section>
             <h2>5. Subscriptions and Payments</h2>
             <p>
-              Wellvo offers a free tier and paid subscription plans. All paid subscriptions are
-              processed through the Apple App Store and are subject to Apple's terms and
+              Wellvo offers paid subscription plans (Caregiver, Family, and Family+), each
+              with a free trial. All paid subscriptions are processed through the Apple App
+              Store or Google Play Store and are subject to their respective terms and
               conditions for in-app purchases.
             </p>
             <ul>

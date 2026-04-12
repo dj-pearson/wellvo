@@ -274,7 +274,8 @@ export default function ElderlyCare() {
           <div className="cta-card">
             <h2>Give yourself peace of mind — starting today</h2>
             <p>
-              Free plan includes daily check-ins for 1 parent. No credit card required.
+              The Caregiver plan ($3.99/mo) is built for exactly this: one parent,
+              full escalation, pattern alerts for dementia progression. Try it free for 7 days.
             </p>
             <div className="cta-actions">
               <a
@@ -284,7 +285,7 @@ export default function ElderlyCare() {
                 rel="noopener noreferrer"
                 onClick={() => trackEvent('download_cta_click')}
               >
-                Download Free for iPhone
+                Start Free Trial
                 <ArrowRight size={18} />
               </a>
               <Link to="/pricing" className="btn btn-outline btn-lg">
