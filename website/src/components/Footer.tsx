@@ -44,14 +44,24 @@ export default function Footer() {
             <h4>Legal</h4>
             <Link to="/privacy">Privacy Policy</Link>
             <Link to="/terms">Terms of Use</Link>
+            <Link to="/cookies">Cookie Notice</Link>
+            <Link to="/dmca">DMCA Policy</Link>
             <Link to="/accessibility">Accessibility</Link>
           </div>
         </div>
 
         <div className="footer-bottom">
-          <p>&copy; {currentYear} Daily OK. All rights reserved.</p>
+          <p>
+            &copy; {currentYear} Pearson Media LLC d/b/a Daily OK. All rights reserved.
+            <br />
+            <span className="footer-address">
+              Pearson Media LLC, 1234 Example Street, Salt Lake City, UT 84101, USA &middot;{' '}
+              <a href="mailto:support@dailyok.net">support@dailyok.net</a>
+            </span>
+          </p>
           <p className="footer-note">
-            Available on the <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">App Store</a> for iPhone.
+            Available on the{' '}
+            <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">App Store</a> for iPhone.
           </p>
         </div>
       </div>

@@ -2,6 +2,26 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+      Permission rationale (also surfaced to users via runtime prompts and disclosed in the
+      Privacy Policy at https://dailyok.net/privacy and the Google Play Data safety form):
+
+      INTERNET                       Required to communicate with Daily OK servers.
+      POST_NOTIFICATIONS             Required (Android 13+) to deliver check-in reminders
+                                     and missed-check-in escalation alerts.
+      ACCESS_FINE / COARSE_LOCATION  Optional. Used only with the user's runtime consent to
+                                     attach an approximate location pin to a check-in so the
+                                     family group knows the receiver is in their usual area.
+      ACCESS_BACKGROUND_LOCATION     Optional. Only requested after the user enables
+                                     "Significant location alerts" in app settings, with a
+                                     prominent in-app disclosure that complies with Google
+                                     Play's Location Permissions policy.
+      RECEIVE_BOOT_COMPLETED         Re-registers WorkManager check-in reminders after device reboot.
+      WAKE_LOCK                      Used by WorkManager to complete short background tasks.
+      FOREGROUND_SERVICE / FGS_LOCATION  Required to run the optional foreground location
+                                     service while a Receiver has explicitly enabled it.
+      VIBRATE                        Notification feedback (legacy, capped at API 32).
+    -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -10,7 +30,16 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.VIBRATE" android:maxSdkVersion="32" />
+
+    <!-- Declare AD_ID is NOT used; required for Google Play Data safety honesty -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
+
+    <!-- Location is optional; do not block install on devices without GPS hardware -->
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-feature android:name="android.hardware.location.network" android:required="false" />
 
     <application
         android:name=".DailyOKApplication"

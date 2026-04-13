@@ -263,23 +263,27 @@ export default function Home() {
           <div className="no-tracking-grid">
             <div className="no-track-item">
               <div className="no-icon"><MapPin size={24} /></div>
-              <h4>No Location Tracking</h4>
-              <p>We never ask for or access location data</p>
+              <h4>Location Is Optional</h4>
+              <p>
+                Receivers can choose to attach a location pin to their check-in. Location is
+                only collected with your permission, never sold, and can be turned off at any
+                time. <a href="/privacy">Learn more</a>.
+              </p>
             </div>
             <div className="no-track-item">
               <div className="no-icon"><Camera size={24} /></div>
               <h4>No Cameras or Sensors</h4>
-              <p>No video, no audio monitoring, no wearables required</p>
+              <p>No video, no audio monitoring, no wearables required.</p>
             </div>
             <div className="no-track-item">
               <div className="no-icon"><Mic size={24} /></div>
               <h4>No Microphone Access</h4>
-              <p>We never listen in — privacy is fundamental</p>
+              <p>We never request or use the microphone.</p>
             </div>
             <div className="no-track-item">
               <div className="no-icon"><Shield size={24} /></div>
-              <h4>GDPR & CCPA Compliant</h4>
-              <p>Full data export, deletion, and retention controls</p>
+              <h4>GDPR & CCPA/CPRA Compliant</h4>
+              <p>Full data export, deletion, and retention controls — yours to manage.</p>
             </div>
           </div>
         </div>

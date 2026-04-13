@@ -183,6 +183,53 @@ export default function Pricing() {
         </div>
       </section>
 
+      <section className="section">
+        <div className="container">
+          <div
+            style={{
+              border: '1px solid var(--gray-200, #e5e7eb)',
+              borderRadius: 12,
+              padding: '20px 24px',
+              fontSize: 14,
+              lineHeight: 1.6,
+              color: 'var(--gray-700, #374151)',
+              background: 'var(--gray-50, #f9fafb)',
+            }}
+          >
+            <strong>Subscription details (please read before subscribing):</strong>
+            <ul style={{ marginTop: 8, paddingLeft: 20 }}>
+              <li>
+                Subscriptions are billed through the Apple App Store or Google Play and{' '}
+                <strong>renew automatically</strong> at the price and interval shown above
+                (monthly or yearly) until you cancel. We don't bill your card directly.
+              </li>
+              <li>
+                You can <strong>cancel anytime in two taps</strong> — Settings &rarr; Apple ID
+                Subscriptions (iOS) or Google Play &rarr; Subscriptions (Android). No phone
+                call, email, or "retention offer" required. Cancellation takes effect at the
+                end of the current billing period and you keep access until then.
+              </li>
+              <li>
+                Free trials, where offered, end automatically and convert to a paid
+                subscription unless you cancel before the trial ends.
+              </li>
+              <li>
+                Listed prices are in U.S. dollars and may not include applicable taxes; the
+                app store may add tax based on your billing address.
+              </li>
+              <li>
+                Refunds are handled by the app store you purchased through. EU and UK
+                customers retain mandatory cooling-off rights under applicable law.
+              </li>
+              <li>
+                Read the full <a href="/terms">Terms of Use</a> and{' '}
+                <a href="/privacy">Privacy Policy</a> for complete subscription terms.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       <section className="section addons-section">
         <div className="container">
           <div className="section-header">
