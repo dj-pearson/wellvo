@@ -9,6 +9,6 @@ payload = {
   iat: Time.now.to_i,
   exp: Time.now.to_i + 15_552_000,  # 6 months
   aud: 'https://appleid.apple.com',
-  sub: 'net.wellvo.app'
+  sub: 'net.dailyok.app'
 }
 JWT.encode(payload, key, 'ES256', { kid: 'YOUR_KEY_ID' })

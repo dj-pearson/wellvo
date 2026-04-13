@@ -1,4 +1,4 @@
--- Wellvo Phase 3b: Low Battery Alerts and Background Safety
+-- Daily OK Phase 3b: Low Battery Alerts and Background Safety
 -- Migration: 00013_low_battery_and_background_safety
 
 BEGIN;

@@ -52,15 +52,15 @@ jobs:
           {
             "project_info": {
               "project_number": "000000000000",
-              "project_id": "wellvo-ci-placeholder",
-              "storage_bucket": "wellvo-ci-placeholder.appspot.com"
+              "project_id": "dailyok-ci-placeholder",
+              "storage_bucket": "dailyok-ci-placeholder.appspot.com"
             },
             "client": [
               {
                 "client_info": {
                   "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
                   "android_client_info": {
-                    "package_name": "net.wellvo.android"
+                    "package_name": "net.dailyok.android"
                   }
                 },
                 "api_key": [
@@ -82,7 +82,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: wellvo-debug-apk
+          name: dailyok-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
 

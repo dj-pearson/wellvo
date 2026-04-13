@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Ralph — Autonomous build loop for Wellvo using Claude Code CLI.
+    Ralph — Autonomous build loop for Daily OK using Claude Code CLI.
 .DESCRIPTION
     Reads prd.json, finds the next incomplete user story, sends ralph-prompt.md
     to Claude Code in non-interactive mode, and loops until all stories pass.
@@ -29,7 +29,7 @@ $LogDir = Join-Path $ProjectDir ".ralph-logs"
 # -- Banner ----------------------------------------------------------------
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
-Write-Host "  RALPH - Wellvo Autonomous Build Loop" -ForegroundColor Cyan
+Write-Host "  RALPH - Daily OK Autonomous Build Loop" -ForegroundColor Cyan
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 

@@ -24,7 +24,7 @@ export default function Header() {
     <header className="header">
       <div className="container header-inner">
         <Link to="/" className="logo">
-          <img src="/Logo.svg" alt="Wellvo" style={{ height: '36px', width: 'auto' }} />
+          <img src="/Logo.svg" alt="Daily OK" style={{ height: '36px', width: 'auto' }} />
         </Link>
 
         <nav className={`nav ${menuOpen ? 'nav-open' : ''}`} role="navigation" aria-label="Main navigation">

@@ -31,7 +31,7 @@ jobs:
           client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
           client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
           env-slug: "prod"
-          project-slug: "wellvo"
+          project-slug: "dailyok"
           export-type: "env"
 
       - name: Install dependencies
@@ -43,7 +43,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ env.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
-          EDGE_FUNCTIONS_URL: https://functions.wellvo.net
+          EDGE_FUNCTIONS_URL: https://functions.dailyok.net
           APPLE_OWNER_DEMO_EMAIL: ${{ env.APPLE_OWNER_DEMO_EMAIL }}
           APPLE_OWNER_DEMO_PASS: ${{ env.APPLE_OWNER_DEMO_PASS }}
           APPLE_RECEIVER_DEMO_EMAIL: ${{ env.APPLE_RECEIVER_DEMO_EMAIL }}
@@ -66,7 +66,7 @@ jobs:
           client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
           client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
           env-slug: "prod"
-          project-slug: "wellvo"
+          project-slug: "dailyok"
           export-type: "env"
 
       - name: Select Xcode version
@@ -83,22 +83,22 @@ jobs:
         run: |
           # Write minimal xcconfig for simulator build (no code signing needed)
           {
-            echo "// Wellvo Build Configuration (CI E2E Tests)"
+            echo "// Daily OK Build Configuration (CI E2E Tests)"
             echo "CODE_SIGN_STYLE = Automatic"
             echo "CODE_SIGN_IDENTITY = -"
-            echo "PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios"
-          } > ios/Wellvo/BuildConfig.xcconfig
+            echo "PRODUCT_BUNDLE_IDENTIFIER = com.dailyok.ios"
+          } > ios/DailyOK/BuildConfig.xcconfig
 
           # Write Supabase config to Info.plist
-          /usr/libexec/PlistBuddy -c "Set :SUPABASE_URL ${{ env.SUPABASE_URL }}" ios/Wellvo/Info.plist
-          /usr/libexec/PlistBuddy -c "Set :SUPABASE_ANON_KEY ${{ env.SUPABASE_ANON_KEY }}" ios/Wellvo/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :SUPABASE_URL ${{ env.SUPABASE_URL }}" ios/DailyOK/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :SUPABASE_ANON_KEY ${{ env.SUPABASE_ANON_KEY }}" ios/DailyOK/Info.plist
 
       - name: Resolve Swift Package dependencies
         working-directory: ios
         run: |
           xcodebuild -resolvePackageDependencies \
-            -project Wellvo.xcodeproj \
-            -scheme Wellvo
+            -project DailyOK.xcodeproj \
+            -scheme DailyOK
 
       - name: Boot iOS Simulator
         run: |
@@ -138,8 +138,8 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild build-for-testing \
-            -project Wellvo.xcodeproj \
-            -scheme Wellvo \
+            -project DailyOK.xcodeproj \
+            -scheme DailyOK \
             -destination "id=${{ env.DEVICE_ID }}" \
             -configuration Debug \
             CODE_SIGN_IDENTITY="-" \
@@ -156,10 +156,10 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild test-without-building \
-            -project Wellvo.xcodeproj \
-            -scheme Wellvo \
+            -project DailyOK.xcodeproj \
+            -scheme DailyOK \
             -destination "id=${{ env.DEVICE_ID }}" \
-            -only-testing:WellvoUITests \
+            -only-testing:DailyOKUITests \
             -resultBundlePath $RUNNER_TEMP/TestResults.xcresult \
             | xcbeautify || true
 

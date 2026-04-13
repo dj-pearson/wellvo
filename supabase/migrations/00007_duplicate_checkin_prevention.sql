@@ -1,4 +1,4 @@
--- Wellvo: Duplicate Check-In Prevention
+-- Daily OK: Duplicate Check-In Prevention
 -- Migration: 00007_duplicate_checkin_prevention
 --
 -- Adds a unique constraint to prevent multiple check-ins per receiver

@@ -5,7 +5,7 @@ import { devices, DeviceSpec } from './devices'
 import { getScreenHTML } from './screens'
 
 /**
- * App Store Screenshot Generator for Wellvo
+ * App Store Screenshot Generator for Daily OK
  *
  * Generates screenshots at exact App Store required resolutions
  * by rendering HTML mockups of each app screen in a headless browser.
@@ -85,7 +85,7 @@ async function main() {
     deviceSlugs: args.filter(a => a.startsWith('--device=')).map(a => a.split('=')[1]),
   }
 
-  console.log('=== Wellvo App Store Screenshot Generator ===\n')
+  console.log('=== Daily OK App Store Screenshot Generator ===\n')
 
   // Filter devices
   let targetDevices = devices

@@ -1,5 +1,5 @@
 == Ralph Progress Log ==
-Project: Wellvo
+Project: Daily OK
 Branch: ralph/production-hardening
 Started: 2026-03-17
 
@@ -73,7 +73,7 @@ US-030: DONE - Add CLAUDE.md project configuration
 == Ralph Loop Iteration Log ==
 
 --- Iteration 1: US-001 (2026-03-18) ---
-Implemented: Restricted CORS from wildcard to https://wellvo.net
+Implemented: Restricted CORS from wildcard to https://dailyok.net
 Files changed: edge-functions/server.ts
 Patterns: ALLOWED_ORIGIN env var for configurability. Requests without Origin header (iOS, pg_cron) pass through. Disallowed origins get empty CORS headers on responses + 403 on preflight.
 Gotcha: iOS native apps don't send Origin headers, so CORS must allow missing-origin requests.
@@ -176,28 +176,28 @@ Files changed: website/package.json, website/vitest.config.ts (new), website/src
 Patterns: Vitest + @testing-library/react + jsdom. Tests use MemoryRouter for route testing. findByRole preferred over findByText for unique element matching. All 14 tests pass.
 
 --- Iteration 21: US-025 (2026-03-18) ---
-Implemented: Centralized WellvoError type and error propagation across all services
-Files changed: ios/Wellvo/Models/WellvoError.swift (new), ios/Wellvo/Services/CheckInService.swift, ios/Wellvo/Services/PushNotificationService.swift, ios/Wellvo/Services/OfflineCheckInService.swift, ios/Wellvo/ViewModels/DashboardViewModel.swift, ios/Wellvo/Views/Settings/SettingsView.swift, ios/Wellvo/Views/Settings/ReceiverSettingsView.swift, ios/Wellvo/Views/Owner/FamilyView.swift, ios/Wellvo/App/AppDelegate.swift
-Patterns: WellvoError enum with network/auth/notFound/serverError/offline/unknown cases. All services throw instead of print-only. ViewModels display localizedDescription. AppDelegate wraps throwing calls in do/catch.
+Implemented: Centralized Daily OKError type and error propagation across all services
+Files changed: ios/Daily OK/Models/Daily OKError.swift (new), ios/Daily OK/Services/CheckInService.swift, ios/Daily OK/Services/PushNotificationService.swift, ios/Daily OK/Services/OfflineCheckInService.swift, ios/Daily OK/ViewModels/DashboardViewModel.swift, ios/Daily OK/Views/Settings/SettingsView.swift, ios/Daily OK/Views/Settings/ReceiverSettingsView.swift, ios/Daily OK/Views/Owner/FamilyView.swift, ios/Daily OK/App/AppDelegate.swift
+Patterns: Daily OKError enum with network/auth/notFound/serverError/offline/unknown cases. All services throw instead of print-only. ViewModels display localizedDescription. AppDelegate wraps throwing calls in do/catch.
 
 --- Iteration 22: US-007 (2026-03-18) ---
 Implemented: TelemetryDeck analytics enabled
-Files changed: ios/Wellvo/Package.swift, ios/Wellvo/Utilities/Configuration.swift, ios/Wellvo/Services/AnalyticsService.swift
+Files changed: ios/Daily OK/Package.swift, ios/Daily OK/Utilities/Configuration.swift, ios/Daily OK/Services/AnalyticsService.swift
 Patterns: TelemetryDeck SPM package added. Config reads TELEMETRY_APP_ID from Info.plist. DEBUG builds skip initialization. All events use TelemetryDeck.signal(). No PII in events.
 
 --- Iteration 23: US-012 (2026-03-18) ---
 Implemented: Push notification token refresh on every foreground
-Files changed: ios/Wellvo/Services/PushNotificationService.swift, ios/Wellvo/App/WellvoApp.swift
-Patterns: registerToken compares to UserDefaults stored value; skips if unchanged. Old tokens deactivated (is_active=false) before upserting new one. WellvoApp calls registerForRemoteNotifications on every .active phase.
+Files changed: ios/Daily OK/Services/PushNotificationService.swift, ios/Daily OK/App/Daily OKApp.swift
+Patterns: registerToken compares to UserDefaults stored value; skips if unchanged. Old tokens deactivated (is_active=false) before upserting new one. Daily OKApp calls registerForRemoteNotifications on every .active phase.
 
 --- Iteration 24: US-013 (2026-03-18) ---
 Implemented: Full VoiceOver accessibility across all iOS views
-Files changed: ios/Wellvo/Views/Receiver/ReceiverHomeView.swift, ios/Wellvo/Views/Owner/DashboardView.swift, ios/Wellvo/Views/Owner/HistoryView.swift, ios/Wellvo/Views/Owner/CalendarHeatmapView.swift, ios/Wellvo/Views/Owner/OwnerTabView.swift, ios/Wellvo/Views/Settings/ReceiverSettingsView.swift
+Files changed: ios/Daily OK/Views/Receiver/ReceiverHomeView.swift, ios/Daily OK/Views/Owner/DashboardView.swift, ios/Daily OK/Views/Owner/HistoryView.swift, ios/Daily OK/Views/Owner/CalendarHeatmapView.swift, ios/Daily OK/Views/Owner/OwnerTabView.swift, ios/Daily OK/Views/Settings/ReceiverSettingsView.swift
 Patterns: accessibilityLabel on check-in button, receiver cards (name+status+streak), mood selectors ("Select mood: Good"), heatmap cells (date+status), tab bar items, settings toggles. accessibilityHint on interactive elements.
 
 --- Iteration 25: US-020 (2026-03-18) ---
 Implemented: Notification permission denial banner with re-prompt
-Files changed: ios/Wellvo/Views/Settings/NotificationPermissionBanner.swift (new), ios/Wellvo/Views/Owner/DashboardView.swift, ios/Wellvo/Views/Receiver/ReceiverHomeView.swift
+Files changed: ios/Daily OK/Views/Settings/NotificationPermissionBanner.swift (new), ios/Daily OK/Views/Owner/DashboardView.swift, ios/Daily OK/Views/Receiver/ReceiverHomeView.swift
 Patterns: Banner checks UNAuthorizationStatus on appear. Dismissable for 7 days via UserDefaults timestamp. "Open Settings" button deep-links to UIApplication.openSettingsURLString. Orange tint matches app design.
 
 --- Iteration 26: US-018 (2026-03-18) ---
@@ -208,7 +208,7 @@ Patterns: sharp generates PNGs from SVG favicon. manifest.json with name, short_
 --- Iteration 27: US-019 (2026-03-18) ---
 Implemented: 1200x630 og-image.png social preview
 Files changed: website/public/og-image.png (replaced SVG with real PNG), website/scripts/generate-icons.js
-Patterns: sharp creates green gradient with "Wellvo" and "One tap. Peace of mind." text composited. og:image and twitter:image meta tags already pointed to /og-image.png.
+Patterns: sharp creates green gradient with "Daily OK" and "One tap. Peace of mind." text composited. og:image and twitter:image meta tags already pointed to /og-image.png.
 
 --- Iteration 28: US-024 (2026-03-18) ---
 Implemented: Cloudflare Web Analytics (cookieless, privacy-first)
@@ -222,8 +222,8 @@ Patterns: CREATE OR REPLACE FUNCTION export_user_data adds checkin_requests, not
 
 --- Iteration 30: US-011 (2026-03-18) ---
 Implemented: iOS unit tests with 30+ test cases
-Files changed: ios/WellvoTests/ModelTests.swift (new), ios/WellvoTests/DashboardViewModelTests.swift (new), ios/WellvoTests/ErrorHandlingTests.swift (new), ios/WellvoTests/SubscriptionServiceTests.swift (new), ios/Wellvo/Package.swift
-Patterns: WellvoTests target in Package.swift. Tests cover: model decoding (CheckIn, Family, User, ReceiverSettings), streak calculation, weekly summary computation, mood breakdown, WellvoError descriptions, AuthError/CheckInError/NetworkError/SubscriptionError, product ID tier detection.
+Files changed: ios/Daily OKTests/ModelTests.swift (new), ios/Daily OKTests/DashboardViewModelTests.swift (new), ios/Daily OKTests/ErrorHandlingTests.swift (new), ios/Daily OKTests/SubscriptionServiceTests.swift (new), ios/Daily OK/Package.swift
+Patterns: Daily OKTests target in Package.swift. Tests cover: model decoding (CheckIn, Family, User, ReceiverSettings), streak calculation, weekly summary computation, mood breakdown, Daily OKError descriptions, AuthError/CheckInError/NetworkError/SubscriptionError, product ID tier detection.
 
 == Android App Build Phase ==
 Branch: ralph/android-app
@@ -231,13 +231,13 @@ Branch: ralph/android-app
 --- Iteration 31: US-A001 (2026-03-26) ---
 Implemented: Scaffolded Android project with Kotlin 2.1 + Jetpack Compose
 Files changed: android/ (new directory) — settings.gradle.kts, build.gradle.kts, gradle.properties, gradle/libs.versions.toml, gradle wrapper, app/build.gradle.kts, AndroidManifest.xml, MainActivity.kt, ui/theme/ (Color.kt, Theme.kt, Type.kt), res/ (strings.xml, colors.xml, themes.xml, adaptive launcher icons), .gitignore, proguard-rules.pro
-Patterns: Version catalog (libs.versions.toml) for dependency management. Compose BOM 2024.12.01. Material Design 3 with Wellvo green (#22C55E) primary. Adaptive icon with green background + white checkmark foreground. compileSdk=34, minSdk=26, targetSdk=34. JVM target 17. Package: net.wellvo.android.
+Patterns: Version catalog (libs.versions.toml) for dependency management. Compose BOM 2024.12.01. Material Design 3 with Daily OK green (#22C55E) primary. Adaptive icon with green background + white checkmark foreground. compileSdk=34, minSdk=26, targetSdk=34. JVM target 17. Package: net.dailyok.android.
 Note: Build verification requires JDK 17+ and Android SDK — not available on current workstation. Project structure follows standard Android Studio conventions and should build on any machine with the SDK installed.
 
 --- Iteration 32: US-A002 (2026-03-26) ---
 Implemented: Hilt dependency injection with AppModule and NetworkModule
-Files changed: gradle/libs.versions.toml, build.gradle.kts (root + app), WellvoApplication.kt (new), di/AppModule.kt (new), di/NetworkModule.kt (new), data/WellvoDatabase.kt (new), data/OfflineCheckIn.kt (new), MainActivity.kt, AndroidManifest.xml, proguard-rules.pro
-Patterns: KSP over KAPT for faster Hilt/Room annotation processing. AppModule provides SharedPreferences, EncryptedSharedPreferences (@SecurePrefs qualifier), Room database, OfflineCheckInDao. NetworkModule provides SupabaseClient singleton with Auth, Postgrest, Realtime, Functions plugins. Supabase URL/key from BuildConfig (local.properties → env var fallback). @HiltAndroidApp on WellvoApplication, @AndroidEntryPoint on MainActivity. ProGuard keep rules for Hilt, Supabase/Ktor, kotlinx.serialization, Room.
+Files changed: gradle/libs.versions.toml, build.gradle.kts (root + app), Daily OKApplication.kt (new), di/AppModule.kt (new), di/NetworkModule.kt (new), data/Daily OKDatabase.kt (new), data/OfflineCheckIn.kt (new), MainActivity.kt, AndroidManifest.xml, proguard-rules.pro
+Patterns: KSP over KAPT for faster Hilt/Room annotation processing. AppModule provides SharedPreferences, EncryptedSharedPreferences (@SecurePrefs qualifier), Room database, OfflineCheckInDao. NetworkModule provides SupabaseClient singleton with Auth, Postgrest, Realtime, Functions plugins. Supabase URL/key from BuildConfig (local.properties → env var fallback). @HiltAndroidApp on Daily OKApplication, @AndroidEntryPoint on MainActivity. ProGuard keep rules for Hilt, Supabase/Ktor, kotlinx.serialization, Room.
 Note: Build verification requires JDK 17+ and Android SDK.
 
 --- Iteration 33: US-A003 (2026-03-26) ---
@@ -248,8 +248,8 @@ Note: Build verification requires JDK 17+ and Android SDK.
 
 --- Iteration 34: US-A004 (2026-03-26) ---
 Implemented: Jetpack Navigation with role-based routing mirroring iOS ContentView
-Files changed: gradle/libs.versions.toml (navigation-compose, material-icons-extended), app/build.gradle.kts, ui/navigation/Routes.kt (new), ui/navigation/AuthState.kt (new), ui/navigation/WellvoNavHost.kt (new), ui/screens/splash/SplashScreen.kt (new), ui/screens/auth/AuthScreen.kt (new), ui/screens/onboarding/OnboardingScreen.kt (new), ui/screens/onboarding/PairingCodeScreen.kt (new), ui/screens/onboarding/ReceiverOnboardingScreen.kt (new), ui/screens/owner/OwnerTabsScreen.kt (new), ui/screens/receiver/ReceiverHomeScreen.kt (new), ui/screens/viewer/ViewerTabsScreen.kt (new), MainActivity.kt
-Patterns: Sealed class Route for type-safe navigation. AuthState enum (Loading/Unauthenticated/Authenticated) + UserRole (Owner/Receiver/Viewer) drive routing. WellvoNavHost uses popUpTo(0) { inclusive = true } to prevent back from auth to authenticated. Owner: 4-tab bottom nav (Dashboard, History, Family, Settings). Viewer: 3-tab (Dashboard, History, Settings). Receiver: single-screen. Splash shows green background + heart + spinner. Priority: invite token > pairing code > onboarding > role-based.
+Files changed: gradle/libs.versions.toml (navigation-compose, material-icons-extended), app/build.gradle.kts, ui/navigation/Routes.kt (new), ui/navigation/AuthState.kt (new), ui/navigation/Daily OKNavHost.kt (new), ui/screens/splash/SplashScreen.kt (new), ui/screens/auth/AuthScreen.kt (new), ui/screens/onboarding/OnboardingScreen.kt (new), ui/screens/onboarding/PairingCodeScreen.kt (new), ui/screens/onboarding/ReceiverOnboardingScreen.kt (new), ui/screens/owner/OwnerTabsScreen.kt (new), ui/screens/receiver/ReceiverHomeScreen.kt (new), ui/screens/viewer/ViewerTabsScreen.kt (new), MainActivity.kt
+Patterns: Sealed class Route for type-safe navigation. AuthState enum (Loading/Unauthenticated/Authenticated) + UserRole (Owner/Receiver/Viewer) drive routing. Daily OKNavHost uses popUpTo(0) { inclusive = true } to prevent back from auth to authenticated. Owner: 4-tab bottom nav (Dashboard, History, Family, Settings). Viewer: 3-tab (Dashboard, History, Settings). Receiver: single-screen. Splash shows green background + heart + spinner. Priority: invite token > pairing code > onboarding > role-based.
 Note: Screens are placeholder implementations — full UI in later stories.
 
 --- Iteration 35: US-A005 (2026-03-26) ---
@@ -260,16 +260,16 @@ Note: Build verification requires JDK 17+ and Android SDK.
 
 --- Iteration 36: US-A006 + US-A007 (2026-03-26) ---
 Implemented: Core data models and ReceiverSettings with Kotlin Serialization
-Files changed: data/models/AppUser.kt (new), data/models/Family.kt (new), data/models/CheckIn.kt (new), data/models/ReceiverSettings.kt (new), data/models/Enums.kt (new), data/models/WellvoAlert.kt (new)
+Files changed: data/models/AppUser.kt (new), data/models/Family.kt (new), data/models/CheckIn.kt (new), data/models/ReceiverSettings.kt (new), data/models/Enums.kt (new), data/models/Daily OKAlert.kt (new)
 Patterns: All models @Serializable with @SerialName for snake_case mapping. Enums: UserRole, MemberStatus, SubscriptionTier/Status, Mood (8 values with emoji/displayName/color), CheckInSource, CheckInResponseType, CheckInRequestType/Status, ReceiverMode, ScheduleType, LocationLabel, KidResponseType. DaySchedule uses mon-sun nullable strings. Timestamps as String (ISO 8601). IDs as String (UUID).
 
 --- Iteration 37: US-A008 (2026-03-26) ---
-Already implemented in US-A002: Room database with OfflineCheckIn entity, DAO, WellvoDatabase, Hilt provider.
+Already implemented in US-A002: Room database with OfflineCheckIn entity, DAO, Daily OKDatabase, Hilt provider.
 
 --- Iteration 38: US-A009 (2026-03-26) ---
-Implemented: Network layer with ApiService, WellvoError, and NetworkRetry
-Files changed: network/WellvoError.kt (new), network/NetworkRetry.kt (new), network/ApiService.kt (new)
-Patterns: WellvoError sealed class (Network, Auth, NotFound, ServerError, Offline, Unknown) with localizedMessage. NetworkRetry: exponential backoff, max 3 attempts, skips Auth and CancellationException. ApiService wraps Supabase Functions invoke with error mapping (401/403→Auth, 404→NotFound, 5xx→ServerError). Request DTOs as @Serializable data classes.
+Implemented: Network layer with ApiService, Daily OKError, and NetworkRetry
+Files changed: network/Daily OKError.kt (new), network/NetworkRetry.kt (new), network/ApiService.kt (new)
+Patterns: Daily OKError sealed class (Network, Auth, NotFound, ServerError, Offline, Unknown) with localizedMessage. NetworkRetry: exponential backoff, max 3 attempts, skips Auth and CancellationException. ApiService wraps Supabase Functions invoke with error mapping (401/403→Auth, 404→NotFound, 5xx→ServerError). Request DTOs as @Serializable data classes.
 
 --- Iteration 39: US-A010 (2026-03-26) ---
 Implemented: SecureStorage wrapper for EncryptedSharedPreferences
@@ -284,12 +284,12 @@ Note: Build verification requires JDK 17+ and Android SDK. Credential Manager re
 
 --- Iteration 41: US-A014 (2026-03-26) ---
 Implemented: Auth state management with Supabase session observation and session persistence
-Files changed: ui/navigation/AuthState.kt (enum → sealed class with Authenticated(user: AppUser)), services/AuthService.kt (added sessionStatus flow, getCurrentUser(), SecureStorage clearing on sign-out), viewmodels/AuthViewModel.kt (observeSessionStatus() collects SessionStatus flow, fetchUserAndAuthenticate(), token refresh failure → reauth prompt), MainActivity.kt (wired AuthViewModel via hiltViewModel(), collectAsState for authState/uiState, AlertDialog for session expired prompt, role mapping from AppUser.role → UserRole), ui/navigation/WellvoNavHost.kt (updated for sealed class AuthState)
+Files changed: ui/navigation/AuthState.kt (enum → sealed class with Authenticated(user: AppUser)), services/AuthService.kt (added sessionStatus flow, getCurrentUser(), SecureStorage clearing on sign-out), viewmodels/AuthViewModel.kt (observeSessionStatus() collects SessionStatus flow, fetchUserAndAuthenticate(), token refresh failure → reauth prompt), MainActivity.kt (wired AuthViewModel via hiltViewModel(), collectAsState for authState/uiState, AlertDialog for session expired prompt, role mapping from AppUser.role → UserRole), ui/navigation/Daily OKNavHost.kt (updated for sealed class AuthState)
 Patterns: AuthViewModel.observeSessionStatus() collects supabase.auth.sessionStatus flow — Authenticated triggers user profile fetch from DB, NotAuthenticated/RefreshFailure show reauth prompt AlertDialog. AuthState sealed class carries AppUser in Authenticated variant. Sign-out clears SecureStorage (tokens, cached data). Supabase SDK handles session token persistence natively. Fallback AppUser created from auth ID if DB profile fetch fails (new user before profile creation). No manual _authState.value sets in sign-in methods — session status flow handles all transitions.
 
 --- Iteration 42: US-A015 (2026-03-26) ---
 Implemented: Auto-join and pairing code flows for Android
-Files changed: network/ApiService.kt (added RedeemCodeResponse, AutoJoinResponse, AutoJoinResult data classes; redeemCode() and autoJoin() now return typed responses; removed unused RedeemCodeRequest/AutoJoinRequest), viewmodels/PairingCodeViewModel.kt (new — state: code, isLoading, errorMessage, success, familyName, checkinTime; redeemPairingCode() calls redeem-code edge function), ui/screens/onboarding/PairingCodeScreen.kt (full implementation — 6-digit input, submit, animated success state with family name and check-in time display), viewmodels/AuthViewModel.kt (added pendingAutoJoin StateFlow, checkAutoJoin() called after authentication, clearAutoJoin()), MainActivity.kt (wired pendingAutoJoin, isNewUser detection, routes auto-join matches to ReceiverOnboarding), ui/navigation/WellvoNavHost.kt (PairingCodeScreen gets onComplete callback routing to ReceiverHome)
+Files changed: network/ApiService.kt (added RedeemCodeResponse, AutoJoinResponse, AutoJoinResult data classes; redeemCode() and autoJoin() now return typed responses; removed unused RedeemCodeRequest/AutoJoinRequest), viewmodels/PairingCodeViewModel.kt (new — state: code, isLoading, errorMessage, success, familyName, checkinTime; redeemPairingCode() calls redeem-code edge function), ui/screens/onboarding/PairingCodeScreen.kt (full implementation — 6-digit input, submit, animated success state with family name and check-in time display), viewmodels/AuthViewModel.kt (added pendingAutoJoin StateFlow, checkAutoJoin() called after authentication, clearAutoJoin()), MainActivity.kt (wired pendingAutoJoin, isNewUser detection, routes auto-join matches to ReceiverOnboarding), ui/navigation/Daily OKNavHost.kt (PairingCodeScreen gets onComplete callback routing to ReceiverHome)
 Patterns: Auto-join check runs on every authentication via fetchUserAndAuthenticate(). ApiService.autoJoin() calls edge function with empty body (server uses auth token to get phone). PairingCodeViewModel validates 6-digit input, handles success/already_member/error responses. PairingCodeScreen uses AnimatedVisibility for entry→success transition. Navigation: pairing code success → ReceiverHome with popUpTo(0).
 
 --- Iteration 43: US-A016 (2026-03-26) ---
@@ -299,18 +299,18 @@ Patterns: Phone OTP section shown first as the prominent primary option (no tab)
 
 --- Iteration 44: US-A017 (2026-03-26) ---
 Implemented: Owner onboarding 7-step wizard with SavedStateHandle persistence
-Files changed: viewmodels/OnboardingViewModel.kt (new), ui/screens/onboarding/OnboardingScreen.kt (rewritten), ui/navigation/WellvoNavHost.kt (onComplete routing)
+Files changed: viewmodels/OnboardingViewModel.kt (new), ui/screens/onboarding/OnboardingScreen.kt (rewritten), ui/navigation/Daily OKNavHost.kt (onComplete routing)
 Patterns: OnboardingStep enum (Welcome→UserType→CreateFamily→ChoosePlan→AddReceiver→Notifications→Complete). UserTypeSelection enum with aging_parent/teenager/other. SavedStateHandle persists familyName, receiverName, receiverPhone, selectedPlan, checkinHour/Minute, currentStep across config changes. CreateFamily inserts to families + family_members tables via Supabase Postgrest. InviteReceiver calls invite-receiver edge function via ApiService. Notification step uses ActivityResultContracts.RequestPermission for POST_NOTIFICATIONS (API 33+). TimePicker for check-in time. LinearProgressIndicator + back button header. Complete step routes to OwnerTabs via onComplete callback.
 
 --- Iteration 45: US-A018 (2026-03-26) ---
 Implemented: Receiver onboarding 3-step flow with progress dots
-Files changed: viewmodels/ReceiverOnboardingViewModel.kt (new), ui/screens/onboarding/ReceiverOnboardingScreen.kt (rewritten), ui/navigation/WellvoNavHost.kt (onComplete routing)
-Patterns: 3 steps: Welcome (greeting + check-in time display) → Notifications (POST_NOTIFICATIONS permission) → Complete ("You're all set!"). ReceiverOnboardingViewModel loads receiver_settings via Supabase to get checkinTime. formatTime() converts "HH:mm" to 12-hour display. acceptInvite() handles invite token flow. Progress dots (filled circle for current, outline for others). Notification denied warning shown on complete step. Routes to ReceiverHome on "Start Using Wellvo".
+Files changed: viewmodels/ReceiverOnboardingViewModel.kt (new), ui/screens/onboarding/ReceiverOnboardingScreen.kt (rewritten), ui/navigation/Daily OKNavHost.kt (onComplete routing)
+Patterns: 3 steps: Welcome (greeting + check-in time display) → Notifications (POST_NOTIFICATIONS permission) → Complete ("You're all set!"). ReceiverOnboardingViewModel loads receiver_settings via Supabase to get checkinTime. formatTime() converts "HH:mm" to 12-hour display. acceptInvite() handles invite token flow. Progress dots (filled circle for current, outline for others). Notification denied warning shown on complete step. Routes to ReceiverHome on "Start Using Daily OK".
 
 --- Iteration 46: US-A019 (2026-03-26) ---
 Implemented: FamilyService with full family CRUD and member management
 Files changed: services/FamilyService.kt (new)
-Patterns: @Singleton with @Inject constructor. createFamily() inserts to families + family_members. getFamily() looks up via family_members join. getFamilyMembers() uses Columns.raw("*, users(*)") for joined user data. getCurrentUserRole() queries by userId+familyId. inviteReceiver() delegates to ApiService.inviteReceiver(). removeMember() PATCHes status to "deactivated". acceptInvite/redeemPairingCode/checkAutoJoin delegate to ApiService. transferOwnership() updates 3 rows: target member→owner, current user→viewer, family→new owner_id. All methods throw WellvoError.
+Patterns: @Singleton with @Inject constructor. createFamily() inserts to families + family_members. getFamily() looks up via family_members join. getFamilyMembers() uses Columns.raw("*, users(*)") for joined user data. getCurrentUserRole() queries by userId+familyId. inviteReceiver() delegates to ApiService.inviteReceiver(). removeMember() PATCHes status to "deactivated". acceptInvite/redeemPairingCode/checkAutoJoin delegate to ApiService. transferOwnership() updates 3 rows: target member→owner, current user→viewer, family→new owner_id. All methods throw Daily OKError.
 
 --- Iteration 47: US-A020 + US-A021 (2026-03-26) ---
 Implemented: Receiver check-in screen + CheckInService
@@ -329,7 +329,7 @@ Patterns: OfflineCheckInService monitors connectivity via ConnectivityManager.Ne
 
 --- Iteration 50: US-A026 (2026-03-26) ---
 Implemented: Owner dashboard screen with DashboardViewModel and DashboardScreen composable
-Files changed: viewmodels/DashboardViewModel.kt (new), ui/screens/owner/DashboardScreen.kt (new), ui/screens/owner/OwnerTabsScreen.kt (updated to wire DashboardScreen), ui/navigation/WellvoNavHost.kt (passes userId to OwnerTabsScreen)
+Files changed: viewmodels/DashboardViewModel.kt (new), ui/screens/owner/DashboardScreen.kt (new), ui/screens/owner/OwnerTabsScreen.kt (updated to wire DashboardScreen), ui/navigation/Daily OKNavHost.kt (passes userId to OwnerTabsScreen)
 Patterns: DashboardViewModel loads family, receivers, today's check-ins, 30-day history, alerts via FamilyService/CheckInService/Supabase. Streak calculation walks backward from today through check-in date set. Weekly summary: consistency %, avg time, total check-ins, mood breakdown. Pull-to-refresh via PullToRefreshBox. ReceiverStatusCard with avatar, status color/icon, streak, mood, location, kid response badge, "Check on" button. AlertsBanner with dismiss. TodayTimelineCard with status dots and timeline bars. Snackbar for errors.
 
 --- Iteration 51: US-A027 (2026-03-26) ---
@@ -375,7 +375,7 @@ Features: Canvas-based line chart with data points, horizontal grid lines, Y-axi
 Status: IMPLEMENTED - PDF export for check-in history
 Files created: PdfExportService.kt, res/xml/file_paths.xml
 Files changed: AndroidManifest.xml (FileProvider), HistoryViewModel.kt (exportPdf method), HistoryScreen.kt (export button)
-Features: PdfExportService generates A4 PDF with PdfDocument API containing Wellvo header, family/receiver/date info, summary stats (total, avg/earliest/latest time, mood breakdown), consistency calendar heatmap grid with legend, paginated check-in log table with alternating row colors. FileProvider configured for cache directory sharing. HistoryViewModel.exportPdf() runs on IO dispatcher, creates share Intent via ShareSheet. Export button (share icon) in HistoryScreen top bar with CircularProgressIndicator during generation.
+Features: PdfExportService generates A4 PDF with PdfDocument API containing Daily OK header, family/receiver/date info, summary stats (total, avg/earliest/latest time, mood breakdown), consistency calendar heatmap grid with legend, paginated check-in log table with alternating row colors. FileProvider configured for cache directory sharing. HistoryViewModel.exportPdf() runs on IO dispatcher, creates share Intent via ShareSheet. Export button (share icon) in HistoryScreen top bar with CircularProgressIndicator during generation.
 
 --- Iteration: US-A040 (2026-03-26) ---
 Status: IMPLEMENTED - Owner settings screen
@@ -386,11 +386,11 @@ Features: SettingsScreen composable with 4 card sections. Account: avatar circle
 --- Iteration: US-A041 (2026-03-26) ---
 Status: VERIFIED - Viewer experience already fully implemented
 Files: ViewerTabsScreen.kt (rewritten with 3 tabs), ViewerSettingsScreen.kt (new), DashboardScreen.kt (isViewer param added)
-Features: ViewerTabsScreen with Dashboard (DashboardScreen isViewer=true, hides Check on buttons and on-demand actions), History (HistoryScreen with PDF export), Settings (ViewerSettingsScreen with account display + Viewer role badge, About section, Sign Out). No family/subscription/receiver settings. Role routing via getCurrentUserRole() in WellvoNavHost.
+Features: ViewerTabsScreen with Dashboard (DashboardScreen isViewer=true, hides Check on buttons and on-demand actions), History (HistoryScreen with PDF export), Settings (ViewerSettingsScreen with account display + Viewer role badge, About section, Sign Out). No family/subscription/receiver settings. Role routing via getCurrentUserRole() in Daily OKNavHost.
 
 --- Iteration: US-A042 (2026-03-26) ---
 Status: VERIFIED - Alert display and dismissal already fully implemented
-Files: DashboardScreen.kt (AlertsBanner composable), DashboardViewModel.kt (alerts StateFlow, dismissAlert), WellvoAlert.kt (data model)
+Files: DashboardScreen.kt (AlertsBanner composable), DashboardViewModel.kt (alerts StateFlow, dismissAlert), Daily OKAlert.kt (data model)
 Features: AlertsBanner composable with warning-styled Card (amber background), icon (schedule for time_drift, warning for others), title, message, drift_hours display, dismiss IconButton. Alerts loaded from Supabase alerts table filtered by family_id and is_read=false. dismissAlert marks is_read=true via Supabase postgrest update. Alerts displayed between notification banner and weekly summary. Section hidden when alerts list is empty.
 
 --- Iteration: US-A042 (2026-03-26) ---
@@ -410,21 +410,21 @@ Features: Checks NotificationManagerCompat.areNotificationsEnabled(). AnimatedVi
 
 --- Iteration: US-A044 (2026-03-26) ---
 Status: IMPLEMENTED - Set up Firebase Cloud Messaging (FCM)
-Files created: WellvoFirebaseMessagingService.kt, PushNotificationService.kt, google-services.json (placeholder)
+Files created: Daily OKFirebaseMessagingService.kt, PushNotificationService.kt, google-services.json (placeholder)
 Files changed: libs.versions.toml (firebase deps), build.gradle.kts (google-services plugin), AndroidManifest.xml (POST_NOTIFICATIONS permission, FCM service)
-Features: Firebase BOM 33.7.0 + firebase-messaging-ktx. WellvoFirebaseMessagingService with @AndroidEntryPoint, onNewToken compares/deactivates old/upserts new token (platform=android). PushNotificationService @Singleton with registerToken, checkPermissionStatus, requiresPermissionRequest. Token failures logged, not swallowed.
+Features: Firebase BOM 33.7.0 + firebase-messaging-ktx. Daily OKFirebaseMessagingService with @AndroidEntryPoint, onNewToken compares/deactivates old/upserts new token (platform=android). PushNotificationService @Singleton with registerToken, checkPermissionStatus, requiresPermissionRequest. Token failures logged, not swallowed.
 
 --- Iteration: US-A045 (2026-03-26) ---
 Status: IMPLEMENTED - Handle incoming push notifications with actions
 Files created: CheckInNotificationReceiver.kt
-Files changed: WellvoFirebaseMessagingService.kt (full onMessageReceived), WellvoApplication.kt (notification channels), AndroidManifest.xml (receiver declaration)
-Features: onMessageReceived handles 3 types: CHECKIN_REQUEST (NotificationCompat with 3 action buttons - I'm OK, I Need Help, Call Me via PendingIntent+BroadcastReceiver), URGENT_ALERT (Call Now action with tel:// intent), LOCATION_ALERT (View Details launches app). CheckInNotificationReceiver uses goAsync(), calls respondToCheckIn with battery level, dismisses notification. 3 notification channels in WellvoApplication.onCreate(): checkin_requests (HIGH), urgent_alerts (MAX), location_alerts (HIGH). confirmDelivery called on message receipt.
+Files changed: Daily OKFirebaseMessagingService.kt (full onMessageReceived), Daily OKApplication.kt (notification channels), AndroidManifest.xml (receiver declaration)
+Features: onMessageReceived handles 3 types: CHECKIN_REQUEST (NotificationCompat with 3 action buttons - I'm OK, I Need Help, Call Me via PendingIntent+BroadcastReceiver), URGENT_ALERT (Call Now action with tel:// intent), LOCATION_ALERT (View Details launches app). CheckInNotificationReceiver uses goAsync(), calls respondToCheckIn with battery level, dismisses notification. 3 notification channels in Daily OKApplication.onCreate(): checkin_requests (HIGH), urgent_alerts (MAX), location_alerts (HIGH). confirmDelivery called on message receipt.
 
 --- Iteration: US-A046 (2026-03-26) ---
 Status: IMPLEMENTED - Handle notification taps and deep routing
 Files created: NotificationContext.kt
-Files changed: MainActivity.kt (handleNotificationIntent in onCreate/onNewIntent), WellvoNavHost.kt (notificationContext param, LaunchedEffect deep routing), WellvoFirebaseMessagingService.kt (createContentIntent helper, content intents on all notifications)
-Features: NotificationContext data class (type, requestId, receiverId). MainActivity extracts notification_type/request_id/receiver_id extras, clears after handling. WellvoNavHost routes CHECKIN_REQUEST->ReceiverHome, URGENT_ALERT/LOCATION_ALERT->OwnerTabs via LaunchedEffect after auth resolves. All notification types include content PendingIntent launching MainActivity with extras. Handles cold start (onCreate) and warm start (onNewIntent).
+Files changed: MainActivity.kt (handleNotificationIntent in onCreate/onNewIntent), Daily OKNavHost.kt (notificationContext param, LaunchedEffect deep routing), Daily OKFirebaseMessagingService.kt (createContentIntent helper, content intents on all notifications)
+Features: NotificationContext data class (type, requestId, receiverId). MainActivity extracts notification_type/request_id/receiver_id extras, clears after handling. Daily OKNavHost routes CHECKIN_REQUEST->ReceiverHome, URGENT_ALERT/LOCATION_ALERT->OwnerTabs via LaunchedEffect after auth resolves. All notification types include content PendingIntent launching MainActivity with extras. Handles cold start (onCreate) and warm start (onNewIntent).
 
 --- Iteration: US-A048 (2026-03-26) ---
 Status: IMPLEMENTED - Google Play Billing for subscriptions
@@ -434,7 +434,7 @@ Features: SubscriptionService @Singleton with BillingClient lifecycle, Purchases
 
 --- Iteration: US-A045 FIX (2026-03-26) ---
 Status: FIXED - Handle incoming push notifications with actions
-Files changed: WellvoFirebaseMessagingService.kt (URGENT_ALERT now routes Call Now through BroadcastReceiver), CheckInNotificationReceiver.kt (complete rewrite), AndroidManifest.xml (location permissions)
+Files changed: Daily OKFirebaseMessagingService.kt (URGENT_ALERT now routes Call Now through BroadcastReceiver), CheckInNotificationReceiver.kt (complete rewrite), AndroidManifest.xml (location permissions)
 Fixes: 1) Source mapping corrected: OK→"notification", Need Help→"need_help", Call Me→"call_me" (matches iOS CheckInSource enum). 2) Location+battery now gathered in CheckInNotificationReceiver via LocationManager.getLastKnownLocation (graceful fallback if no permission). 3) URGENT_ALERT "Call Now" action now routes through CheckInNotificationReceiver which looks up receiver phone from users table via Supabase postgrest, then opens tel:// intent. 4) Added ACCESS_FINE_LOCATION and ACCESS_COARSE_LOCATION permissions to manifest. 5) BroadcastReceiver handles all 4 action types: CHECKIN_OK, CHECKIN_NEED_HELP, CHECKIN_CALL_ME, CALL_NOW.
 
 --- Iteration: US-A049 (2026-03-26) ---
@@ -514,7 +514,7 @@ Features:
 - AndroidManifest permissions: added ACCESS_BACKGROUND_LOCATION, RECEIVE_BOOT_COMPLETED, WAKE_LOCK, FOREGROUND_SERVICE, VIBRATE (maxSdkVersion=32)
 - Adaptive icon (vector, API 26+) + legacy PNG icons in all 5 mipmap densities
 - Play Store icon: 512x512 PNG with green bg + white checkmark + rounded corners
-- Feature graphic: 1024x500 PNG with gradient green bg, "Wellvo" title, tagline
+- Feature graphic: 1024x500 PNG with gradient green bg, "Daily OK" title, tagline
 - Version strategy: versionCode = MAJOR*10000 + MINOR*100 + PATCH, documented in RELEASE.md and build.gradle.kts
 - Release signing config reads from local.properties or env vars, falls back to debug
 - RELEASE.md: keytool command, Play App Signing recommendation, build commands, pre-release checklist
@@ -522,13 +522,13 @@ Note: Build verification requires JDK 17+ and Android SDK.
 
 --- Iteration: US-A064 (2026-03-27) ---
 Status: COMPLETED - Add splash screen with Android 12+ SplashScreen API
-Files changed: libs.versions.toml (core-splashscreen 1.0.1), app/build.gradle.kts (splashscreen dep), themes.xml (Theme.Wellvo.Splash), AndroidManifest.xml (splash theme on activity), MainActivity.kt (installSplashScreen + setKeepOnScreenCondition)
+Files changed: libs.versions.toml (core-splashscreen 1.0.1), app/build.gradle.kts (splashscreen dep), themes.xml (Theme.Daily OK.Splash), AndroidManifest.xml (splash theme on activity), MainActivity.kt (installSplashScreen + setKeepOnScreenCondition)
 Features:
 - AndroidX core-splashscreen 1.0.1 dependency for backwards compatibility (API 23+)
-- Theme.Wellvo.Splash: green background, white checkmark foreground icon, green icon background, post-splash transitions to Theme.Wellvo
+- Theme.Daily OK.Splash: green background, white checkmark foreground icon, green icon background, post-splash transitions to Theme.Daily OK
 - installSplashScreen() called before super.onCreate() — no flash of white/default theme
 - setKeepOnScreenCondition holds splash while auth state is Loading
-- onAuthReady callback from WellvoApp composable when AuthState != Loading
+- onAuthReady callback from Daily OKApp composable when AuthState != Loading
 - Works on Android 12+ (native SplashScreen API) and pre-12 (compat library)
 - Composable SplashScreen.kt retained as fallback for edge case slow auth resolution
 
@@ -538,14 +538,14 @@ Verified: Release signing documented in RELEASE.md (keytool command, DO NOT comm
 
 --- Iteration: US-A064 (2026-03-27) ---
 Status: VERIFIED - Splash screen already implemented
-Verified: core-splashscreen 1.0.1 in libs.versions.toml + build.gradle.kts. Theme.Wellvo.Splash in themes.xml with windowSplashScreenBackground=wellvo_green, windowSplashScreenAnimatedIcon=ic_launcher_foreground, postSplashScreenTheme=Theme.Wellvo. Activity uses Theme.Wellvo.Splash. MainActivity.installSplashScreen() called before super.onCreate(). setKeepOnScreenCondition holds until isAuthReady. LaunchedEffect in WellvoApp triggers onAuthReady() when authState != Loading. Works on Android 12+ (native) and pre-12 (compat).
+Verified: core-splashscreen 1.0.1 in libs.versions.toml + build.gradle.kts. Theme.Daily OK.Splash in themes.xml with windowSplashScreenBackground=dailyok_green, windowSplashScreenAnimatedIcon=ic_launcher_foreground, postSplashScreenTheme=Theme.Daily OK. Activity uses Theme.Daily OK.Splash. MainActivity.installSplashScreen() called before super.onCreate(). setKeepOnScreenCondition holds until isAuthReady. LaunchedEffect in Daily OKApp triggers onAuthReady() when authState != Loading. Works on Android 12+ (native) and pre-12 (compat).
 
 --- Iteration: US-A065 (2026-03-27) ---
 Status: COMPLETED - Material Design 3 theming and brand polish
 Files created: ui/theme/Shape.kt
-Files changed: ui/theme/Theme.kt (added shapes parameter), ui/navigation/WellvoNavHost.kt (navigation transitions)
-Existing (verified): Color.kt (WellvoGreen, dark variants, grays, ErrorRed, WarningOrange), Theme.kt (light+dark color schemes, dynamic color opt-in), Type.kt (Roboto/system default typography), DashboardScreen.kt (StatusGreen/Yellow/Red/Gray cards), OwnerTabsScreen.kt + ViewerTabsScreen.kt (Material 3 NavigationBar).
-Added: Shape.kt with Shapes(small=8dp, medium=12dp, large=16dp, extraLarge=24dp) applied to MaterialTheme. WellvoNavHost default transitions: slide+fade (300ms) for screen navigation, fade-only for splash/auth screens. All 9 acceptance criteria satisfied.
+Files changed: ui/theme/Theme.kt (added shapes parameter), ui/navigation/Daily OKNavHost.kt (navigation transitions)
+Existing (verified): Color.kt (Daily OKGreen, dark variants, grays, ErrorRed, WarningOrange), Theme.kt (light+dark color schemes, dynamic color opt-in), Type.kt (Roboto/system default typography), DashboardScreen.kt (StatusGreen/Yellow/Red/Gray cards), OwnerTabsScreen.kt + ViewerTabsScreen.kt (Material 3 NavigationBar).
+Added: Shape.kt with Shapes(small=8dp, medium=12dp, large=16dp, extraLarge=24dp) applied to MaterialTheme. Daily OKNavHost default transitions: slide+fade (300ms) for screen navigation, fade-only for splash/auth screens. All 9 acceptance criteria satisfied.
 
 --- Iteration: US-A065 POLISH (2026-03-27) ---
 Status: ENHANCED - Completed full theme polish implementation
@@ -554,7 +554,7 @@ Enhancements:
 - Status card backgrounds now tinted per status: green (#DCFCE7), yellow (#FEF9C3), red (#FEE2E2), gray (#F3F4F6) with dark mode variants
 - All 24 hardcoded RoundedCornerShape instances across 9 files replaced with MaterialTheme.shapes (medium=12dp for cards, large=24dp for buttons, small=8dp for badges)
 - Tab screens use AnimatedContent with fadeIn/fadeOut crossfade for smooth content transitions
-- NavigationBar explicitly uses Wellvo primary colors for selected state and primaryContainer indicator
+- NavigationBar explicitly uses Daily OK primary colors for selected state and primaryContainer indicator
 - XML themes updated for edge-to-edge (transparent status/nav bars)
 
 === ALL ANDROID STORIES COMPLETE ===
@@ -619,7 +619,7 @@ Patterns: sanitizeDisplayName() strips HTML tags via regex, removes Unicode cont
 --- Iteration SEC-4: US-SEC004 (2026-03-28) ---
 Implemented: Environment variable validation at edge functions startup
 Files changed: edge-functions/server.ts, edge-functions/shared/auth.ts, edge-functions/shared/supabase.ts
-Patterns: server.ts validates SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET are non-empty at startup, exits with Deno.exit(1) and clear error message on failure. auth.ts and supabase.ts changed from fallback defaults to non-null assertions (safe since server.ts validates first). PORT defaults to 9000, ALLOWED_ORIGIN defaults to https://wellvo.net (both optional with documented defaults).
+Patterns: server.ts validates SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET are non-empty at startup, exits with Deno.exit(1) and clear error message on failure. auth.ts and supabase.ts changed from fallback defaults to non-null assertions (safe since server.ts validates first). PORT defaults to 9000, ALLOWED_ORIGIN defaults to https://dailyok.net (both optional with documented defaults).
 
 --- Iteration SEC-5: US-SEC005 (2026-03-28) ---
 Implemented: Authorization check for increment_max_receivers/viewers RPC functions
@@ -673,27 +673,27 @@ Patterns: Added "Owners can delete family requests" DELETE policy using is_famil
 
 --- Iteration SEC-7: US-SEC007 (2026-03-28) ---
 Implemented: Move iOS sensitive data from UserDefaults to Keychain
-Files changed: ios/Wellvo/Services/SupabaseService.swift, ios/Wellvo/ViewModels/AuthViewModel.swift, ios/Wellvo/Services/PushNotificationService.swift
+Files changed: ios/Daily OK/Services/SupabaseService.swift, ios/Daily OK/ViewModels/AuthViewModel.swift, ios/Daily OK/Services/PushNotificationService.swift
 Patterns: SupabaseService.syncAccessTokenToExtension saves access token to Keychain via KeychainService.save() instead of UserDefaults(suiteName:). AuthViewModel.currentRawNonce uses KeychainService for get/set/delete instead of UserDefaults.standard. PushNotificationService.registerToken stores lastPushToken in Keychain. All three include migration: check old UserDefaults, migrate to Keychain, remove old entry.
 
 --- Iteration SEC-8: US-SEC008 (2026-03-28) ---
 Implemented: Deep link token validation on iOS and Android
-Files changed: ios/Wellvo/App/WellvoApp.swift, android/app/src/main/java/net/wellvo/android/MainActivity.kt
-Patterns: iOS: handleDeepLink verifies URL scheme (wellvo/https), validates token as hex string via regex, enforces max 500 chars, silently rejects invalid. Android: handleDeepLinkIntent uses isValidInviteToken() checking hex pattern and 500-char max. handleNotificationIntent validates notification_type against known set, request_id/receiver_id against UUID regex.
+Files changed: ios/Daily OK/App/Daily OKApp.swift, android/app/src/main/java/net/dailyok/android/MainActivity.kt
+Patterns: iOS: handleDeepLink verifies URL scheme (dailyok/https), validates token as hex string via regex, enforces max 500 chars, silently rejects invalid. Android: handleDeepLinkIntent uses isValidInviteToken() checking hex pattern and 500-char max. handleNotificationIntent validates notification_type against known set, request_id/receiver_id against UUID regex.
 
 --- Iteration SEC-10: US-SEC010 (2026-03-28) ---
 Implemented: Rate limiting for pairing code submission
-Files changed: edge-functions/shared/rate-limiter.ts, edge-functions/functions/redeem-code/index.ts, ios/Wellvo/Views/Onboarding/PairingCodeEntryView.swift, android/app/src/main/java/net/wellvo/android/viewmodels/PairingCodeViewModel.kt
+Files changed: edge-functions/shared/rate-limiter.ts, edge-functions/functions/redeem-code/index.ts, ios/Daily OK/Views/Onboarding/PairingCodeEntryView.swift, android/app/src/main/java/net/dailyok/android/viewmodels/PairingCodeViewModel.kt
 Patterns: Server: /redeem-code endpoint has 5 req/min rate limit. In-memory brute-force tracker per userId: 10 failed attempts triggers 15-min lockout with 429 + retryAfterSeconds. Successful redemption resets counter. iOS: PairingCodeEntryView adds failedAttempts counter, exponential backoff delay (2^n seconds, max 16s), 10-attempt lockout for 15 min, shows remaining attempts. Android: PairingCodeViewModel adds same client-side protections with PairingCodeUiState.failedAttempts/isLockedOut.
 
 --- Iteration SEC-13: US-SEC013 (2026-03-28) ---
 Implemented: Remove sensitive data from iOS and Android debug logs
-Files changed: ios/Wellvo/App/AppDelegate.swift, android/app/src/main/java/net/wellvo/android/services/WellvoFirebaseMessagingService.kt, android/app/src/main/java/net/wellvo/android/services/CheckInNotificationReceiver.kt
-Patterns: iOS: All print() statements in AppDelegate sanitized — removed error.localizedDescription, receiverId, and other PII from log output. Android: WellvoFirebaseMessagingService message data logging gated behind BuildConfig.DEBUG. CheckInNotificationReceiver: requestId removed from "Processing check-in" log, receiverId removed from dialer/phone lookup logs.
+Files changed: ios/Daily OK/App/AppDelegate.swift, android/app/src/main/java/net/dailyok/android/services/Daily OKFirebaseMessagingService.kt, android/app/src/main/java/net/dailyok/android/services/CheckInNotificationReceiver.kt
+Patterns: iOS: All print() statements in AppDelegate sanitized — removed error.localizedDescription, receiverId, and other PII from log output. Android: Daily OKFirebaseMessagingService message data logging gated behind BuildConfig.DEBUG. CheckInNotificationReceiver: requestId removed from "Processing check-in" log, receiverId removed from dialer/phone lookup logs.
 
 --- Iteration SEC-17: US-SEC017 (2026-03-28) ---
 Implemented: Strengthen password validation requirements
-Files changed: ios/Wellvo/Services/AuthService.swift, android/app/src/main/java/net/wellvo/android/services/AuthService.kt
+Files changed: ios/Daily OK/Services/AuthService.swift, android/app/src/main/java/net/dailyok/android/services/AuthService.kt
 Patterns: iOS: Minimum raised from 8 to 10 chars. Max 128 chars added. Common password check against 30-entry set. Error messages updated to reflect new requirements. Android: validatePassword() added to AuthService with same rules (10+ chars, max 128, uppercase/lowercase/digit, common password check). Called before signUpWithEmail. Error messages guide user to create stronger password.
 
 --- Iteration SEC-21: US-SEC021 (2026-03-28) ---
@@ -703,17 +703,17 @@ Patterns: sms.ts normalizePhone expanded: validates E.164 (+[1-9][0-9]{1,14}), h
 
 --- Iteration SEC-22: US-SEC022 (2026-03-28) ---
 Implemented: Android intent extras validation (combined with SEC-008)
-Files changed: android/app/src/main/java/net/wellvo/android/MainActivity.kt
+Files changed: android/app/src/main/java/net/dailyok/android/MainActivity.kt
 Patterns: handleNotificationIntent validates notification_type against knownNotificationTypes set (CHECKIN_REQUEST, URGENT_ALERT, LOCATION_ALERT, CHECKIN_REMINDER). request_id and receiver_id validated as UUID via regex pattern. Invalid extras silently ignored. Debug log messages no longer include raw intent values.
 
 --- Iteration SEC-24: US-SEC024 (2026-03-28) ---
 Implemented: Bounds checking for iOS location and battery data
-Files changed: ios/Wellvo/Services/CheckInService.swift, ios/Wellvo/Services/LocationService.swift
+Files changed: ios/Daily OK/Services/CheckInService.swift, ios/Daily OK/Services/LocationService.swift
 Patterns: CheckInService.checkIn: lat/lng validated (-90/90, -180/180) before including in body. Accuracy validated (0-100km). Battery validated (0-1). LocationService.reportLocation: same bounds checks with early return on invalid. Background delegate method: validates coordinates and accuracy before building request body. Invalid values silently excluded.
 
 --- Iteration SEC-25: US-SEC025 (2026-03-28) ---
 Implemented: Family name input length validation
-Files changed: ios/Wellvo/ViewModels/OnboardingViewModel.swift, android/app/src/main/java/net/wellvo/android/viewmodels/OnboardingViewModel.kt
+Files changed: ios/Daily OK/ViewModels/OnboardingViewModel.swift, android/app/src/main/java/net/dailyok/android/viewmodels/OnboardingViewModel.kt
 Patterns: iOS: createFamily trims whitespace and validates familyName <= 100 chars, shows error if exceeded. Android: updateFamilyName enforces 100-char max on input (truncates). createFamily validates trimmed name <= 100 chars with error message. Edge functions already validate name fields via shared validation.ts truncateString.
 
 -- Phase 7: Mobile App Auth Security & UX Hardening --
@@ -724,22 +724,22 @@ US-SEC029: DONE - Secure session management and sensitive data handling
 
 --- Iteration SEC-26: US-SEC026 (2026-04-01) ---
 Implemented: Password reset flow for iOS and Android
-Files changed: ios/Wellvo/Services/AuthService.swift, ios/Wellvo/ViewModels/AuthViewModel.swift, ios/Wellvo/Views/Auth/AuthView.swift, android/app/src/main/java/net/wellvo/android/services/AuthService.kt, android/app/src/main/java/net/wellvo/android/viewmodels/AuthViewModel.kt, android/app/src/main/java/net/wellvo/android/ui/screens/auth/AuthScreen.kt
+Files changed: ios/Daily OK/Services/AuthService.swift, ios/Daily OK/ViewModels/AuthViewModel.swift, ios/Daily OK/Views/Auth/AuthView.swift, android/app/src/main/java/net/dailyok/android/services/AuthService.kt, android/app/src/main/java/net/dailyok/android/viewmodels/AuthViewModel.kt, android/app/src/main/java/net/dailyok/android/ui/screens/auth/AuthScreen.kt
 Patterns: Both platforms: AuthService.resetPassword(email:) calls Supabase auth.resetPasswordForEmail. AuthViewModel tracks isResettingPassword and resetPasswordMessage state. UI shows "Forgot Password?" link below password field in email auth section. Generic success message ("If an account exists...") prevents user enumeration. Password hint text fixed from "8+" to "10+" to match actual validation (10-char minimum).
 
 --- Iteration SEC-27: US-SEC027 (2026-04-01) ---
 Implemented: Biometric authentication for iOS and Android
-Files changed: ios/Wellvo/Services/BiometricService.swift (new), ios/Wellvo/ViewModels/AuthViewModel.swift, android/app/src/main/java/net/wellvo/android/services/BiometricService.kt (new), android/app/src/main/java/net/wellvo/android/viewmodels/AuthViewModel.kt
+Files changed: ios/Daily OK/Services/BiometricService.swift (new), ios/Daily OK/ViewModels/AuthViewModel.swift, android/app/src/main/java/net/dailyok/android/services/BiometricService.kt (new), android/app/src/main/java/net/dailyok/android/viewmodels/AuthViewModel.kt
 Patterns: iOS: BiometricService actor using LocalAuthentication LAContext. Supports Face ID/Touch ID with graceful fallback. Preferences in UserDefaults (isEnabled, hasBeenSkipped). checkBiometricOnResume() for app foreground lock. Prompt offered after first successful sign-in. Reset on sign-out. Android: BiometricService using AndroidX BiometricPrompt with BIOMETRIC_STRONG authenticators. suspendCancellableCoroutine for async auth. Preferences in SharedPreferences. Same lifecycle: prompt after auth, skip after explicit sign-out.
 
 --- Iteration SEC-28: US-SEC028 (2026-04-01) ---
 Implemented: Client-side auth rate limiting and brute force mitigation
-Files changed: ios/Wellvo/ViewModels/AuthViewModel.swift, android/app/src/main/java/net/wellvo/android/viewmodels/AuthViewModel.kt, android/app/src/main/java/net/wellvo/android/ui/screens/auth/AuthScreen.kt
+Files changed: ios/Daily OK/ViewModels/AuthViewModel.swift, android/app/src/main/java/net/dailyok/android/viewmodels/AuthViewModel.kt, android/app/src/main/java/net/dailyok/android/ui/screens/auth/AuthScreen.kt
 Patterns: Both platforms: Track consecutive failed auth attempts. 5 failures → 30s cooldown, 10 failures → 5min lockout. Countdown timer shown in UI. Lockout persists across app restarts (iOS: UserDefaults, Android: SharedPreferences). OTP verification limited to 5 attempts per code — must request new code after. All counters reset on successful auth. Lockout message displayed prominently in auth UI. Auth buttons disabled during lockout.
 
 --- Iteration SEC-29: US-SEC029 (2026-04-01) ---
 Implemented: Secure session management and sensitive data handling
-Files changed: android/app/src/main/java/net/wellvo/android/util/Validation.kt, ios/Wellvo/Views/Auth/AuthView.swift, ios/Wellvo/ViewModels/AuthViewModel.swift, android/app/src/main/java/net/wellvo/android/viewmodels/AuthViewModel.kt
+Files changed: android/app/src/main/java/net/dailyok/android/util/Validation.kt, ios/Daily OK/Views/Auth/AuthView.swift, ios/Daily OK/ViewModels/AuthViewModel.swift, android/app/src/main/java/net/dailyok/android/viewmodels/AuthViewModel.kt
 Patterns: Android: Validation.kt password minimum fixed from 8 to 10 chars to match AuthService (was inconsistent). passwordErrors() messages updated. Password cleared from state after every auth attempt. iOS: Password hint text corrected. Sign-in error messages sanitized to generic "Invalid email or password" on both platforms to prevent user enumeration. OTP code cleared after each failed verification attempt. Phone/OTP cleared on successful auth via clearFormFields.
 
 -- Phase 8: Remaining Security + UX Polish --
@@ -750,22 +750,22 @@ US-SEC031: DONE - Pull-to-refresh and retry buttons (iOS + Android)
 
 --- Iteration SEC-16: US-SEC016 (2026-04-01) ---
 Implemented: Certificate pinning for Supabase connections
-Files changed: android/app/src/main/res/xml/network_security_config.xml, ios/Wellvo/Services/CertificatePinningService.swift (new), ios/Wellvo/App/WellvoApp.swift, ios/Wellvo/Services/AnalyticsService.swift
-Patterns: Android: network_security_config.xml updated with domain-config for wellvo.net (includeSubdomains=true). Pin-set with ISRG Root X1 (C5+lpZ7...) and ISRG Root X2 (diGVwi...) SHA-256 pins. 1-year expiration (2027-04-01). Debug overrides bypass pinning for development. iOS: CertificatePinningService actor with URLSessionDelegate performing SPKI hash validation. Validates on app foreground via WellvoApp scene phase handler. 1-hour result cache to avoid excessive checks. Pinning failures logged via AnalyticsService (.certificatePinningFailure event). Biometric resume check also integrated into app foreground handler.
+Files changed: android/app/src/main/res/xml/network_security_config.xml, ios/Daily OK/Services/CertificatePinningService.swift (new), ios/Daily OK/App/Daily OKApp.swift, ios/Daily OK/Services/AnalyticsService.swift
+Patterns: Android: network_security_config.xml updated with domain-config for dailyok.net (includeSubdomains=true). Pin-set with ISRG Root X1 (C5+lpZ7...) and ISRG Root X2 (diGVwi...) SHA-256 pins. 1-year expiration (2027-04-01). Debug overrides bypass pinning for development. iOS: CertificatePinningService actor with URLSessionDelegate performing SPKI hash validation. Validates on app foreground via Daily OKApp scene phase handler. 1-hour result cache to avoid excessive checks. Pinning failures logged via AnalyticsService (.certificatePinningFailure event). Biometric resume check also integrated into app foreground handler.
 
 --- Iteration SEC-18: US-SEC018 (2026-04-01) ---
 Implemented: Room database encryption with SQLCipher
-Files changed: android/gradle/libs.versions.toml, android/app/build.gradle.kts, android/app/src/main/java/net/wellvo/android/di/AppModule.kt
-Patterns: SQLCipher 4.5.7 (net.zetetic:android-database-sqlcipher) added. AppModule.provideDatabase generates 32-byte random key via SecureRandom, stores hex-encoded in EncryptedSharedPreferences (AES256-GCM). Room built with SupportOpenHelperFactory(passphrase). New DB file: wellvo_encrypted.db. Old unencrypted wellvo.db auto-deleted on first launch (migration: offline check-ins are transient, no data loss). System.loadLibrary("sqlcipher") called before DB creation.
+Files changed: android/gradle/libs.versions.toml, android/app/build.gradle.kts, android/app/src/main/java/net/dailyok/android/di/AppModule.kt
+Patterns: SQLCipher 4.5.7 (net.zetetic:android-database-sqlcipher) added. AppModule.provideDatabase generates 32-byte random key via SecureRandom, stores hex-encoded in EncryptedSharedPreferences (AES256-GCM). Room built with SupportOpenHelperFactory(passphrase). New DB file: dailyok_encrypted.db. Old unencrypted dailyok.db auto-deleted on first launch (migration: offline check-ins are transient, no data loss). System.loadLibrary("sqlcipher") called before DB creation.
 
 --- Iteration SEC-30: US-SEC030 (2026-04-01) ---
 Implemented: Password strength indicator for sign-up forms
-Files changed: ios/Wellvo/Views/Auth/AuthView.swift, android/app/src/main/java/net/wellvo/android/ui/screens/auth/AuthScreen.kt
+Files changed: ios/Daily OK/Views/Auth/AuthView.swift, android/app/src/main/java/net/dailyok/android/ui/screens/auth/AuthScreen.kt
 Patterns: iOS: PasswordStrength enum with evaluate() checking length (10+, 14+), character classes (upper, lower, digit, special), and common password list. Color-coded progress bar (red/orange/yellow/green) with animated fill and label. Only shown during sign-up when password non-empty. Android: PasswordStrength enum with identical logic. LinearProgressIndicator with MaterialTheme colors (error/tertiary/secondary/primary). LabelSmall text for strength name. Both update in real-time as user types.
 
 --- Iteration SEC-31: US-SEC031 (2026-04-01) ---
 Implemented: Pull-to-refresh and retry buttons on error states
-Files changed: ios/Wellvo/Views/Owner/DashboardView.swift, ios/Wellvo/Views/Receiver/ReceiverHomeView.swift, android/app/src/main/java/net/wellvo/android/ui/screens/owner/DashboardScreen.kt
+Files changed: ios/Daily OK/Views/Owner/DashboardView.swift, ios/Daily OK/Views/Receiver/ReceiverHomeView.swift, android/app/src/main/java/net/dailyok/android/ui/screens/owner/DashboardScreen.kt
 Patterns: iOS DashboardView: Added error state branch with warning icon, error message, and Retry button (with loading spinner). Shows when errorMessage exists and receiverCards empty. Already had .refreshable. iOS ReceiverHomeView: Added error + retry section below check-in button with "Try Again" button. Android DashboardScreen: Already had PullToRefreshBox — added new when-branch for error state (receiverCards empty + error not null) with Warning icon, message text, and Retry button. Android ReceiverHomeScreen already had ErrorState composable with retry.
 
 -- Phase 9: UX Polish & Final Items --
@@ -775,17 +775,17 @@ US-SEC034: DONE - Loading skeletons for dashboard/history (iOS + Android)
 
 --- Iteration SEC-32: US-SEC032 (2026-04-02) ---
 Implemented: Confirmation dialogs for destructive actions
-Files changed: ios/Wellvo/Views/Owner/FamilyView.swift, ios/Wellvo/Views/Settings/SettingsView.swift, ios/Wellvo/Views/Viewer/ViewerTabView.swift
+Files changed: ios/Daily OK/Views/Owner/FamilyView.swift, ios/Daily OK/Views/Settings/SettingsView.swift, ios/Daily OK/Views/Viewer/ViewerTabView.swift
 Patterns: iOS: Added .alert confirmation for family member removal (FamilyView, shows member name, Cancel as default). Added sign-out confirmation alert to SettingsView and ViewerSettingsView. Delete account already had confirmation dialog. Android: Already had all confirmation dialogs (AlertDialog for remove member, sign out, delete account in FamilyScreen, SettingsScreen, ViewerSettingsScreen). No changes needed on Android.
 
 --- Iteration SEC-33: US-SEC033 (2026-04-02) ---
 Implemented: Dark mode support with custom branded theme
-Files changed: ios/Wellvo/Utilities/Colors.swift (new), ios/Wellvo/Assets.xcassets/WellvoGreen.colorset (new), ios/Wellvo/Assets.xcassets/WellvoGreenDark.colorset (new), ios/Wellvo/Assets.xcassets/StatusGreenBg.colorset (new), ios/Wellvo/Assets.xcassets/StatusYellowBg.colorset (new), ios/Wellvo/Assets.xcassets/StatusRedBg.colorset (new), ios/Wellvo/Assets.xcassets/StatusGrayBg.colorset (new), ios/Wellvo/Assets.xcassets/AccentColor.colorset/Contents.json
-Patterns: iOS: Created Colors.swift with Color extensions for branded adaptive colors. Added 6 color sets to Assets.xcassets with explicit light/dark variants. AccentColor updated with dark variant (#86EFAC lighter green for contrast). WellvoGreen: #22C55E light, #86EFAC dark. Status backgrounds: dark variants use deeper tones (e.g., #14532D for green). Android already had full Material3 dark/light scheme in Theme.kt.
+Files changed: ios/Daily OK/Utilities/Colors.swift (new), ios/Daily OK/Assets.xcassets/Daily OKGreen.colorset (new), ios/Daily OK/Assets.xcassets/Daily OKGreenDark.colorset (new), ios/Daily OK/Assets.xcassets/StatusGreenBg.colorset (new), ios/Daily OK/Assets.xcassets/StatusYellowBg.colorset (new), ios/Daily OK/Assets.xcassets/StatusRedBg.colorset (new), ios/Daily OK/Assets.xcassets/StatusGrayBg.colorset (new), ios/Daily OK/Assets.xcassets/AccentColor.colorset/Contents.json
+Patterns: iOS: Created Colors.swift with Color extensions for branded adaptive colors. Added 6 color sets to Assets.xcassets with explicit light/dark variants. AccentColor updated with dark variant (#86EFAC lighter green for contrast). Daily OKGreen: #22C55E light, #86EFAC dark. Status backgrounds: dark variants use deeper tones (e.g., #14532D for green). Android already had full Material3 dark/light scheme in Theme.kt.
 
 --- Iteration SEC-34: US-SEC034 (2026-04-02) ---
 Implemented: Loading skeleton placeholders for dashboard and history
-Files changed: ios/Wellvo/Views/Components/SkeletonView.swift (new), ios/Wellvo/Views/Owner/DashboardView.swift, ios/Wellvo/Views/Owner/HistoryView.swift, android/app/src/main/java/net/wellvo/android/ui/components/SkeletonViews.kt (new), android/app/src/main/java/net/wellvo/android/ui/screens/owner/DashboardScreen.kt, android/app/src/main/java/net/wellvo/android/ui/screens/owner/HistoryScreen.kt
+Files changed: ios/Daily OK/Views/Components/SkeletonView.swift (new), ios/Daily OK/Views/Owner/DashboardView.swift, ios/Daily OK/Views/Owner/HistoryView.swift, android/app/src/main/java/net/dailyok/android/ui/components/SkeletonViews.kt (new), android/app/src/main/java/net/dailyok/android/ui/screens/owner/DashboardScreen.kt, android/app/src/main/java/net/dailyok/android/ui/screens/owner/HistoryScreen.kt
 Patterns: iOS: SkeletonView with shimmer LinearGradient animation (respects accessibilityReduceMotion). DashboardSkeletonView matches weekly summary card + 2 receiver cards. HistorySkeletonView matches calendar grid + stats row. Uses systemGray5/4 for theme-adaptive backgrounds. Android: SkeletonViews.kt with shimmer Brush animation (infiniteRepeatable tween). DashboardSkeletonView and HistorySkeletonView composables with Card containers and theme-aware surfaceVariant colors. Both replace ProgressView/CircularProgressIndicator with content-matching skeletons.
 
 == ALL 34 STORIES COMPLETE (US-SEC001–SEC034) ==
@@ -828,23 +828,23 @@ Patterns: 3 batch queries replace N*3 per-receiver queries. todayCheckInsForFami
 --- Iteration AUDIT-4: US-AUDIT004 (2026-04-03) ---
 Implemented: Created DebugLog utility to gate all production logging behind BuildConfig.DEBUG
 Files created: util/DebugLog.kt (object with d/w/e/i methods that check BuildConfig.DEBUG)
-Files changed: services/CheckInNotificationReceiver.kt, services/PushNotificationService.kt, services/WellvoFirebaseMessagingService.kt, services/LocationService.kt, services/AnalyticsService.kt, services/SubscriptionService.kt, services/HeartbeatWorker.kt, services/LocationReportWorker.kt
+Files changed: services/CheckInNotificationReceiver.kt, services/PushNotificationService.kt, services/Daily OKFirebaseMessagingService.kt, services/LocationService.kt, services/AnalyticsService.kt, services/SubscriptionService.kt, services/HeartbeatWorker.kt, services/LocationReportWorker.kt
 Patterns: import alias (DebugLog as Log) for zero-touch replacement — all existing Log.d/w/e calls work unchanged but are now no-ops in release builds. 54 log calls across 8 service files now silent in production. Prevents exposure of token operations, request IDs, user IDs, and location data via ADB logcat.
 
 --- Iteration AUDIT-5: US-AUDIT005 (2026-04-04) ---
 Implemented: Added @Immutable annotations to all Compose state data classes for recomposition optimization
-Files changed: data/models/CheckIn.kt, data/models/AppUser.kt, data/models/Family.kt, data/models/ReceiverSettings.kt, data/models/WellvoAlert.kt, viewmodels/AuthViewModel.kt, viewmodels/DashboardViewModel.kt, viewmodels/OnboardingViewModel.kt, viewmodels/ReceiverViewModel.kt, viewmodels/PairingCodeViewModel.kt, viewmodels/ReceiverOnboardingViewModel.kt, viewmodels/HistoryViewModel.kt
-Patterns: @Immutable annotation from androidx.compose.runtime applied to all data classes used as Compose state (CheckIn, CheckInRequest, AppUser, Family, FamilyMember, ReceiverSettings, DaySchedule, WellvoAlert, ReceiverStatusCard, WeeklySummary, AuthUiState, OnboardingUiState, ReceiverUiState, PairingCodeUiState, ReceiverOnboardingUiState, ReceiverOption). Enables Compose compiler to skip recomposition when state objects are structurally equal.
+Files changed: data/models/CheckIn.kt, data/models/AppUser.kt, data/models/Family.kt, data/models/ReceiverSettings.kt, data/models/Daily OKAlert.kt, viewmodels/AuthViewModel.kt, viewmodels/DashboardViewModel.kt, viewmodels/OnboardingViewModel.kt, viewmodels/ReceiverViewModel.kt, viewmodels/PairingCodeViewModel.kt, viewmodels/ReceiverOnboardingViewModel.kt, viewmodels/HistoryViewModel.kt
+Patterns: @Immutable annotation from androidx.compose.runtime applied to all data classes used as Compose state (CheckIn, CheckInRequest, AppUser, Family, FamilyMember, ReceiverSettings, DaySchedule, Daily OKAlert, ReceiverStatusCard, WeeklySummary, AuthUiState, OnboardingUiState, ReceiverUiState, PairingCodeUiState, ReceiverOnboardingUiState, ReceiverOption). Enables Compose compiler to skip recomposition when state objects are structurally equal.
 
 --- Iteration AUDIT-6: US-AUDIT006 (2026-04-04) ---
 Implemented: Hardened SecureStorage with synchronous writes and encrypted rate limiting
-Files changed: util/SecureStorage.kt (added saveSync, deleteSync, saveInt, loadInt, saveLong, loadLong, AUTH_FAILED_ATTEMPTS/AUTH_LOCKOUT_UNTIL keys), viewmodels/AuthViewModel.kt (replaced SharedPreferences with SecureStorage for rate limiting), services/PushNotificationService.kt (saveSync for token), services/WellvoFirebaseMessagingService.kt (saveSync for token)
+Files changed: util/SecureStorage.kt (added saveSync, deleteSync, saveInt, loadInt, saveLong, loadLong, AUTH_FAILED_ATTEMPTS/AUTH_LOCKOUT_UNTIL keys), viewmodels/AuthViewModel.kt (replaced SharedPreferences with SecureStorage for rate limiting), services/PushNotificationService.kt (saveSync for token), services/Daily OKFirebaseMessagingService.kt (saveSync for token)
 Patterns: saveSync() uses commit() for critical auth token and push token writes ensuring data persists before continuation. Auth rate limiting data moved from plain SharedPreferences to EncryptedSharedPreferences via SecureStorage, preventing bypass via adb. AuthViewModel constructor changed from SharedPreferences to SecureStorage injection.
 
 --- Iteration AUDIT-7: US-AUDIT007 (2026-04-04) ---
 Implemented: Added lifecycle cleanup to ViewModels and services with custom coroutine scopes
-Files changed: viewmodels/AuthViewModel.kt (added onCleared cancelling lockoutCountdownJob), services/WellvoFirebaseMessagingService.kt (extracted SupervisorJob, added onDestroy cancelling serviceScope)
-Patterns: AuthViewModel.onCleared() cancels lockoutCountdownJob to prevent timer leak. WellvoFirebaseMessagingService extracted supervisorJob from CoroutineScope for explicit lifecycle control via onDestroy(). Other ViewModels use only viewModelScope which is auto-cancelled by ViewModel infrastructure.
+Files changed: viewmodels/AuthViewModel.kt (added onCleared cancelling lockoutCountdownJob), services/Daily OKFirebaseMessagingService.kt (extracted SupervisorJob, added onDestroy cancelling serviceScope)
+Patterns: AuthViewModel.onCleared() cancels lockoutCountdownJob to prevent timer leak. Daily OKFirebaseMessagingService extracted supervisorJob from CoroutineScope for explicit lifecycle control via onDestroy(). Other ViewModels use only viewModelScope which is auto-cancelled by ViewModel infrastructure.
 
 --- Iteration AUDIT-8: US-AUDIT008 (2026-04-04) ---
 Implemented: Added offset-based pagination to history screen
@@ -853,38 +853,38 @@ Patterns: Supabase range() for offset pagination with order(checked_in_at, DESCE
 
 --- Iteration AUDIT-9: US-AUDIT009 (2026-04-04) ---
 Implemented: Created centralized spacing design tokens
-Files created: ui/theme/Spacing.kt (WellvoSpacing, WellvoIconSize, WellvoSize objects)
-Files changed: ui/screens/owner/HistoryScreen.kt (adopted WellvoSpacing tokens), ui/screens/owner/DashboardScreen.kt (import added)
-Patterns: 4dp base grid: xxs=4dp, xs=8dp, sm=12dp, md=16dp, lg=20dp, xl=24dp, xxl=32dp, xxxl=48dp. WellvoIconSize: small=16dp through hero=64dp. WellvoSize: minTouchTarget=48dp, button/chip/avatar sizes. HistoryScreen converted as reference implementation. Progressive adoption across remaining screens.
+Files created: ui/theme/Spacing.kt (Daily OKSpacing, Daily OKIconSize, Daily OKSize objects)
+Files changed: ui/screens/owner/HistoryScreen.kt (adopted Daily OKSpacing tokens), ui/screens/owner/DashboardScreen.kt (import added)
+Patterns: 4dp base grid: xxs=4dp, xs=8dp, sm=12dp, md=16dp, lg=20dp, xl=24dp, xxl=32dp, xxxl=48dp. Daily OKIconSize: small=16dp through hero=64dp. Daily OKSize: minTouchTarget=48dp, button/chip/avatar sizes. HistoryScreen converted as reference implementation. Progressive adoption across remaining screens.
 
 --- Iteration AUDIT-10: US-AUDIT010 (2026-04-04) ---
 Implemented: Consolidated FCM token management into single source of truth
-Files changed: services/PushNotificationService.kt (extracted upsertToken(userId, token) method), services/WellvoFirebaseMessagingService.kt (onNewToken delegates to pushNotificationService.upsertToken, removed duplicate SupabaseClient injection and postgrest import)
-Patterns: PushNotificationService.upsertToken() is single entry point for token deactivation + upsert + local persistence. WellvoFirebaseMessagingService injects PushNotificationService, delegates onNewToken to it. Eliminates ~25 lines of duplicate Supabase postgrest code. Token comparison (skip if unchanged) handled in one place.
+Files changed: services/PushNotificationService.kt (extracted upsertToken(userId, token) method), services/Daily OKFirebaseMessagingService.kt (onNewToken delegates to pushNotificationService.upsertToken, removed duplicate SupabaseClient injection and postgrest import)
+Patterns: PushNotificationService.upsertToken() is single entry point for token deactivation + upsert + local persistence. Daily OKFirebaseMessagingService injects PushNotificationService, delegates onNewToken to it. Eliminates ~25 lines of duplicate Supabase postgrest code. Token comparison (skip if unchanged) handled in one place.
 
 --- Iteration UX-1: US-UX001 (2026-04-05) ---
 Implemented: Premium design token system across iOS + Android
-Files changed (Android): ui/theme/Color.kt (WellvoGreen50-900 tonal ramp, WellvoTeal/Gold/Indigo accents, SurfaceLight/Dark Low/Med/High tonal surfaces, Gray300/400/800/950, legacy aliases preserved), ui/theme/Theme.kt (LightColorScheme + DarkColorScheme refined to use tonal ramp + tertiary + branded SurfaceDark)
-Files created (Android): ui/theme/Elevation.kt (WellvoElevation level0-level5), ui/theme/Motion.kt (WellvoMotion durations + EasingStandard/EmphasizedDecelerate/EmphasizedAccelerate/Linear + smoothSpring/bouncySpring helpers)
-Files created (iOS): Utilities/Theme.swift (WellvoColor enum green50-900/teal/gold/indigo/tonal surfaces, WellvoMotion durations + spring animations, WellvoElevation level0-level5, View.wellvoShadow(level:opacity:) extension)
-Patterns: Additive — no existing screen modified. Legacy WellvoGreen/WellvoGreenDark/WellvoGreenLight/WellvoGreenContainer aliases preserved so existing Android screens continue to compile unchanged. Dark theme now uses subtly green-tinted SurfaceDark (#0B1410) instead of neutral Gray900 for a branded premium feel.
+Files changed (Android): ui/theme/Color.kt (Daily OKGreen50-900 tonal ramp, Daily OKTeal/Gold/Indigo accents, SurfaceLight/Dark Low/Med/High tonal surfaces, Gray300/400/800/950, legacy aliases preserved), ui/theme/Theme.kt (LightColorScheme + DarkColorScheme refined to use tonal ramp + tertiary + branded SurfaceDark)
+Files created (Android): ui/theme/Elevation.kt (Daily OKElevation level0-level5), ui/theme/Motion.kt (Daily OKMotion durations + EasingStandard/EmphasizedDecelerate/EmphasizedAccelerate/Linear + smoothSpring/bouncySpring helpers)
+Files created (iOS): Utilities/Theme.swift (Daily OKColor enum green50-900/teal/gold/indigo/tonal surfaces, Daily OKMotion durations + spring animations, Daily OKElevation level0-level5, View.dailyokShadow(level:opacity:) extension)
+Patterns: Additive — no existing screen modified. Legacy Daily OKGreen/Daily OKGreenDark/Daily OKGreenLight/Daily OKGreenContainer aliases preserved so existing Android screens continue to compile unchanged. Dark theme now uses subtly green-tinted SurfaceDark (#0B1410) instead of neutral Gray900 for a branded premium feel.
 
 --- Iteration UX-2: US-UX002 (2026-04-05) ---
 Implemented: Branded shimmer gradient on loading skeletons
-Files changed (Android): ui/components/SkeletonViews.kt (shimmerBrush three-stop gradient surfaceVariant → primaryContainer@60% → surfaceVariant, duration driven by WellvoMotion.DurationExtraLong*2)
-Files changed (iOS): Views/Components/SkeletonView.swift (overlay LinearGradient mid-stop WellvoColor.green200 at 55% opacity, animation duration WellvoMotion.durationExtraLong*2.5)
+Files changed (Android): ui/components/SkeletonViews.kt (shimmerBrush three-stop gradient surfaceVariant → primaryContainer@60% → surfaceVariant, duration driven by Daily OKMotion.DurationExtraLong*2)
+Files changed (iOS): Views/Components/SkeletonView.swift (overlay LinearGradient mid-stop Daily OKColor.green200 at 55% opacity, animation duration Daily OKMotion.durationExtraLong*2.5)
 Patterns: Zero call-site changes — DashboardSkeletonView and HistorySkeletonView continue to work on both platforms. iOS reduced-motion fallback preserved (no shimmer when accessibilityReduceMotion enabled). Shimmer now reads as an on-brand highlight sweep rather than a neutral gray loading state.
 
 --- Iteration UX-3: US-UX003 (2026-04-05) ---
 Implemented: Premium hero card components (GradientHeroCard + PremiumStatCard)
-Files created (Android): ui/components/PremiumCards.kt (GradientHeroCard with title/subtitle/trailingIcon/content slot + light/dark brand gradient backgrounds via WellvoGreen50/100/900 and SurfaceDarkHigh; PremiumStatCard with value/label/accent/delta; StatDelta data class)
-Files created (iOS): Views/Components/PremiumCards.swift (GradientHeroCard<Content: View> generic with @ViewBuilder content, colorScheme-aware gradient, wellvoShadow level2; PremiumStatCard with optional accent/delta; StatDelta struct; accessibilityElement(children:.ignore) wrapping)
-Patterns: Components use the new WellvoElevation + WellvoSpacing + WellvoMotion/WellvoColor tokens from US-UX001. Purely additive — opt-in by screens later. Dark mode tested visually via colorScheme branching. iOS uses proper accessibilityLabel composition "label: value".
+Files created (Android): ui/components/PremiumCards.kt (GradientHeroCard with title/subtitle/trailingIcon/content slot + light/dark brand gradient backgrounds via Daily OKGreen50/100/900 and SurfaceDarkHigh; PremiumStatCard with value/label/accent/delta; StatDelta data class)
+Files created (iOS): Views/Components/PremiumCards.swift (GradientHeroCard<Content: View> generic with @ViewBuilder content, colorScheme-aware gradient, dailyokShadow level2; PremiumStatCard with optional accent/delta; StatDelta struct; accessibilityElement(children:.ignore) wrapping)
+Patterns: Components use the new Daily OKElevation + Daily OKSpacing + Daily OKMotion/Daily OKColor tokens from US-UX001. Purely additive — opt-in by screens later. Dark mode tested visually via colorScheme branching. iOS uses proper accessibilityLabel composition "label: value".
 
 --- Iteration UX-4: US-UX004 (2026-04-05) ---
 Implemented: Central haptic feedback design system (semantic API)
-Files created (Android): util/Haptics.kt (WellvoHaptics object — selection(view), confirm(view), checkInSuccess(context), warning(context), error(context) using HapticFeedbackConstants.CLOCK_TICK/VIRTUAL_KEY + VibrationEffect.createPredefined(DOUBLE_CLICK/HEAVY_CLICK) on API 30+, createWaveform on API 26+, createOneShot fallback). Uses VibratorManager on API 31+, falls back to Context.VIBRATOR_SERVICE.
-Files created (iOS): Services/HapticsService.swift (WellvoHaptics enum — selectionChanged, actionConfirm, checkInSuccess, warning, error, celebration, prepare using UINotificationFeedbackGenerator + UISelectionFeedbackGenerator + UIImpactFeedbackGenerator light/medium/heavy)
+Files created (Android): util/Haptics.kt (Daily OKHaptics object — selection(view), confirm(view), checkInSuccess(context), warning(context), error(context) using HapticFeedbackConstants.CLOCK_TICK/VIRTUAL_KEY + VibrationEffect.createPredefined(DOUBLE_CLICK/HEAVY_CLICK) on API 30+, createWaveform on API 26+, createOneShot fallback). Uses VibratorManager on API 31+, falls back to Context.VIBRATOR_SERVICE.
+Files created (iOS): Services/HapticsService.swift (Daily OKHaptics enum — selectionChanged, actionConfirm, checkInSuccess, warning, error, celebration, prepare using UINotificationFeedbackGenerator + UISelectionFeedbackGenerator + UIImpactFeedbackGenerator light/medium/heavy)
 Patterns: Both platforms automatically honor system accessibility / touch-feedback toggles. Call-site migration (ReceiverHomeView, AuthView, etc.) intentionally scoped out — that's a follow-up iteration so the service layer lands cleanly on its own.
 
 --- Iteration UX-5: US-UX010 (2026-04-05) ---
@@ -895,7 +895,7 @@ Patterns: 96dp/pt circular primaryContainer/green100 icon badge + 48dp tinted ic
 --- Iteration UX-6: US-UX005 (2026-04-05) ---
 Implemented: CelebrationOverlay component (iOS + Android)
 Files created: android ui/components/CelebrationOverlay.kt, ios Views/Components/CelebrationOverlay.swift
-Patterns: scale+fade checkmark (0.4 → 1.0 bouncy spring in, 1.2 fade out) with expanding particle ring (two concentric circles with alpha decay 0.6/0.3 over 800ms). Android uses Animatable + tween driven by WellvoMotion.DurationExtraLong+200, iOS uses withAnimation + DispatchQueue.asyncAfter for enter/hold/exit sequencing. Reduced-motion: Android reads Settings.Global.ANIMATOR_DURATION_SCALE, iOS uses @Environment(\.accessibilityReduceMotion) — both skip the ring animation and show only the static checkmark. Both platforms wrap in accessibilityElement with 'Success' label. Wiring into ReceiverHome screens deferred to stay scoped.
+Patterns: scale+fade checkmark (0.4 → 1.0 bouncy spring in, 1.2 fade out) with expanding particle ring (two concentric circles with alpha decay 0.6/0.3 over 800ms). Android uses Animatable + tween driven by Daily OKMotion.DurationExtraLong+200, iOS uses withAnimation + DispatchQueue.asyncAfter for enter/hold/exit sequencing. Reduced-motion: Android reads Settings.Global.ANIMATOR_DURATION_SCALE, iOS uses @Environment(\.accessibilityReduceMotion) — both skip the ring animation and show only the static checkmark. Both platforms wrap in accessibilityElement with 'Success' label. Wiring into ReceiverHome screens deferred to stay scoped.
 
 --- Iteration UX-7: US-UX006 (2026-04-05) ---
 Implemented: Streak + consistency badge utility and components (iOS + Android)
@@ -905,12 +905,12 @@ Patterns: Pure Streaks functions — currentStreak(isoTimestamps, zone, today) w
 --- Iteration UX-8: US-UX011 (2026-04-05) ---
 Implemented: Branded loading indicator (iOS + Android)
 Files created: android ui/components/BrandedPullToRefreshIndicator.kt, ios Views/Components/BrandedProgressView.swift
-Patterns: Android — 48dp surface circle with pulsing scale (0.92→1.08 reverse-repeating) and WellvoGreen500 CircularProgressIndicator while refreshing; resting state shows a solid brand dot that scales + rotates with PullToRefreshState.distanceFraction. Designed for the Material3 PullToRefreshBox indicator slot. iOS — reusable branded spinner (pulsing green100 backdrop + rotating trimmed brand-green arc + centered brand dot) with accessibilityReduceMotion-aware animations. SwiftUI's .refreshable uses the system control and cannot be fully swapped, so the iOS version is a general-purpose inline loader that paywall/empty-state/loading regions can use for a premium feel.
+Patterns: Android — 48dp surface circle with pulsing scale (0.92→1.08 reverse-repeating) and Daily OKGreen500 CircularProgressIndicator while refreshing; resting state shows a solid brand dot that scales + rotates with PullToRefreshState.distanceFraction. Designed for the Material3 PullToRefreshBox indicator slot. iOS — reusable branded spinner (pulsing green100 backdrop + rotating trimmed brand-green arc + centered brand dot) with accessibilityReduceMotion-aware animations. SwiftUI's .refreshable uses the system control and cannot be fully swapped, so the iOS version is a general-purpose inline loader that paywall/empty-state/loading regions can use for a premium feel.
 
 --- Iteration UX-9: US-UX009 (2026-04-05) ---
 Implemented: FloatingBottomNav component (iOS + Android)
 Files created: android ui/components/FloatingBottomNav.kt, ios Views/Components/FloatingBottomNav.swift
-Patterns: Row/HStack of items inside a rounded 28dp/pt container with WellvoElevation.level4 shadow, 16dp horizontal padding and 12dp inset from system nav. Selected item shows a primaryContainer/green100 pill behind the icon AND reveals the label text (unselected items are icon-only), giving the selection state both a visual and spatial cue. Android uses BadgedBox for tab badges; iOS uses a custom offset Capsule badge (no UIKit dependency). iOS exposes accessibility traits (.isSelected + .isButton). FloatingNavItem data class on both platforms. Screen migration in OwnerTabsScreen/ViewerTabsScreen scoped out to a follow-up.
+Patterns: Row/HStack of items inside a rounded 28dp/pt container with Daily OKElevation.level4 shadow, 16dp horizontal padding and 12dp inset from system nav. Selected item shows a primaryContainer/green100 pill behind the icon AND reveals the label text (unselected items are icon-only), giving the selection state both a visual and spatial cue. Android uses BadgedBox for tab badges; iOS uses a custom offset Capsule badge (no UIKit dependency). iOS exposes accessibility traits (.isSelected + .isButton). FloatingNavItem data class on both platforms. Screen migration in OwnerTabsScreen/ViewerTabsScreen scoped out to a follow-up.
 
 --- Iteration UX-10: US-UX008 (2026-04-05) ---
 Implemented: OnboardingCarousel component (iOS + Android)

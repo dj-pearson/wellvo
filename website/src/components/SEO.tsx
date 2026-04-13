@@ -1,7 +1,7 @@
 import { Helmet } from 'react-helmet-async'
 
-const APP_STORE_URL = 'https://apps.apple.com/us/app/wellvo-daily-check-in/id6760836697'
-const SITE_URL = 'https://wellvo.net'
+const APP_STORE_URL = 'https://apps.apple.com/us/app/dailyok-daily-check-in/id6760836697'
+const SITE_URL = 'https://dailyok.net'
 const DEFAULT_IMAGE = `${SITE_URL}/og-image.png`
 
 interface SEOProps {
@@ -22,7 +22,7 @@ export default function SEO({
   jsonLd,
 }: SEOProps) {
   const fullUrl = `${SITE_URL}${path}`
-  const fullTitle = path === '/' ? title : `${title} | Wellvo`
+  const fullTitle = path === '/' ? title : `${title} | Daily OK`
 
   return (
     <Helmet>
@@ -37,7 +37,7 @@ export default function SEO({
       <meta property="og:type" content={ogType} />
       <meta property="og:url" content={fullUrl} />
       <meta property="og:image" content={DEFAULT_IMAGE} />
-      <meta property="og:site_name" content="Wellvo" />
+      <meta property="og:site_name" content="Daily OK" />
 
       {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />

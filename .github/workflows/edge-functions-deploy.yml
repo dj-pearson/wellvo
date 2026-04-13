@@ -30,7 +30,7 @@ jobs:
           client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
           client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
           env-slug: "prod"
-          project-slug: "wellvo"
+          project-slug: "dailyok"
           export-type: "env"
 
       - name: Set up Docker Buildx
@@ -110,7 +110,7 @@ jobs:
           client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
           client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
           env-slug: "prod"
-          project-slug: "wellvo"
+          project-slug: "dailyok"
           export-type: "env"
 
       - name: Trigger Coolify deployment via webhook

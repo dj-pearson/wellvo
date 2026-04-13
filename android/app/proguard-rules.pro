@@ -1,4 +1,4 @@
-# ProGuard rules for Wellvo Android app (release builds)
+# ProGuard rules for Daily OK Android app (release builds)
 
 # ============================================================
 # Kotlin metadata
@@ -42,11 +42,11 @@
 -keepclasseswithmembers class kotlinx.serialization.json.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
--keep,includedescriptorclasses class net.wellvo.android.**$$serializer { *; }
--keepclassmembers class net.wellvo.android.** {
+-keep,includedescriptorclasses class net.dailyok.android.**$$serializer { *; }
+-keepclassmembers class net.dailyok.android.** {
     *** Companion;
 }
--keepclasseswithmembers class net.wellvo.android.** {
+-keepclasseswithmembers class net.dailyok.android.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
 

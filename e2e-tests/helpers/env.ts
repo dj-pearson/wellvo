@@ -12,7 +12,7 @@ export const env = {
     return required("SUPABASE_ANON_KEY");
   },
   get edgeFunctionsUrl() {
-    return process.env.EDGE_FUNCTIONS_URL || "https://functions.wellvo.net";
+    return process.env.EDGE_FUNCTIONS_URL || "https://functions.dailyok.net";
   },
   get ownerEmail() {
     return required("APPLE_OWNER_DEMO_EMAIL");

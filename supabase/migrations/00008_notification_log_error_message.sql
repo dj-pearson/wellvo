@@ -1,4 +1,4 @@
--- Wellvo: Add error_message column to notification_log
+-- Daily OK: Add error_message column to notification_log
 -- Migration: 00008_notification_log_error_message
 --
 -- Stores SMS/push delivery error details for debugging failed notifications.

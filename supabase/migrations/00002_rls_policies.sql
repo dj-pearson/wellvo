@@ -1,4 +1,4 @@
--- Wellvo Row Level Security Policies
+-- Daily OK Row Level Security Policies
 -- Migration: 00002_rls_policies
 
 -- Enable RLS on all tables

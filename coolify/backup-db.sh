@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 #
-# Wellvo — Automated PostgreSQL Backup Script
-# Schedule via cron: 0 3 * * * /opt/wellvo/coolify/backup-db.sh
+# Daily OK — Automated PostgreSQL Backup Script
+# Schedule via cron: 0 3 * * * /opt/dailyok/coolify/backup-db.sh
 #
 set -euo pipefail
 
-BACKUP_DIR="${BACKUP_DIR:-/var/backups/wellvo}"
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/dailyok}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 DATABASE_URL="${DATABASE_URL:?DATABASE_URL environment variable is required}"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-BACKUP_FILE="${BACKUP_DIR}/wellvo-backup-${TIMESTAMP}.sql.gz"
+BACKUP_FILE="${BACKUP_DIR}/dailyok-backup-${TIMESTAMP}.sql.gz"
 
 # Ensure backup directory exists
 mkdir -p "${BACKUP_DIR}"
 
-echo "[$(date -Iseconds)] Starting Wellvo database backup..."
+echo "[$(date -Iseconds)] Starting Daily OK database backup..."
 
 # Run pg_dump with compression
 pg_dump "${DATABASE_URL}" --no-owner --no-acl --compress=9 -f "${BACKUP_FILE}"
@@ -29,10 +29,10 @@ fi
 echo "[$(date -Iseconds)] Backup complete: ${BACKUP_FILE} ($(numfmt --to=iec ${FILESIZE}))"
 
 # Remove backups older than retention period
-DELETED=$(find "${BACKUP_DIR}" -name "wellvo-backup-*.sql.gz" -mtime +${RETENTION_DAYS} -print -delete | wc -l)
+DELETED=$(find "${BACKUP_DIR}" -name "dailyok-backup-*.sql.gz" -mtime +${RETENTION_DAYS} -print -delete | wc -l)
 if [ "${DELETED}" -gt 0 ]; then
   echo "[$(date -Iseconds)] Cleaned up ${DELETED} backup(s) older than ${RETENTION_DAYS} days"
 fi
 
 echo "[$(date -Iseconds)] Backup process finished. Current backups:"
-ls -lh "${BACKUP_DIR}"/wellvo-backup-*.sql.gz 2>/dev/null | tail -5
+ls -lh "${BACKUP_DIR}"/dailyok-backup-*.sql.gz 2>/dev/null | tail -5

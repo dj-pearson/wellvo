@@ -12,7 +12,7 @@ export default function Footer() {
           <div className="footer-brand">
             <div className="footer-logo">
               <div className="logo-icon">W</div>
-              <span className="logo-text">Wellvo</span>
+              <span className="logo-text">Daily OK</span>
             </div>
             <p className="footer-tagline">One tap. Peace of mind.</p>
             <p className="footer-desc">
@@ -37,7 +37,7 @@ export default function Footer() {
           <div className="footer-col">
             <h4>Support</h4>
             <Link to="/support">Help Center</Link>
-            <a href="mailto:support@wellvo.net">Contact Us</a>
+            <a href="mailto:support@dailyok.net">Contact Us</a>
           </div>
 
           <div className="footer-col">
@@ -49,7 +49,7 @@ export default function Footer() {
         </div>
 
         <div className="footer-bottom">
-          <p>&copy; {currentYear} Wellvo. All rights reserved.</p>
+          <p>&copy; {currentYear} Daily OK. All rights reserved.</p>
           <p className="footer-note">
             Available on the <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">App Store</a> for iPhone.
           </p>

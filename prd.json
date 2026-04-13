@@ -1,7 +1,7 @@
 {
-  "project": "Wellvo Android",
+  "project": "Daily OK Android",
   "branchName": "ralph/android-app",
-  "description": "Build a native Android (Kotlin + Jetpack Compose) clone of the Wellvo iOS app with full feature parity. The Android app connects to the same Supabase backend and edge functions, uses FCM instead of APNs, Google Play Billing instead of StoreKit 2, and Room instead of SwiftData. Target Android 8.0+ (API 26+), Material Design 3.",
+  "description": "Build a native Android (Kotlin + Jetpack Compose) clone of the Daily OK iOS app with full feature parity. The Android app connects to the same Supabase backend and edge functions, uses FCM instead of APNs, Google Play Billing instead of StoreKit 2, and Room instead of SwiftData. Target Android 8.0+ (API 26+), Material Design 3.",
   "userStories": [
     {
       "id": "US-A001",
@@ -12,9 +12,9 @@
         "App module: android/app/ with build.gradle.kts using Kotlin DSL",
         "compileSdk = 34, minSdk = 26, targetSdk = 34",
         "Kotlin 1.9+, Jetpack Compose BOM (latest stable)",
-        "Package name: net.wellvo.android",
-        "Material Design 3 theme with Wellvo brand colors (green primary #22C55E, white background)",
-        "App name 'Wellvo' in strings.xml",
+        "Package name: net.dailyok.android",
+        "Material Design 3 theme with Daily OK brand colors (green primary #22C55E, white background)",
+        "App name 'Daily OK' in strings.xml",
         "Project builds successfully with ./gradlew assembleDebug",
         "Root settings.gradle.kts includes the app module"
       ],
@@ -28,7 +28,7 @@
       "description": "As a developer, I want Hilt DI so that services, repositories, and ViewModels are properly scoped and testable.",
       "acceptanceCriteria": [
         "Hilt Gradle plugin and dependencies added to build.gradle.kts",
-        "@HiltAndroidApp annotation on Application class (WellvoApplication)",
+        "@HiltAndroidApp annotation on Application class (DailyOKApplication)",
         "AppModule providing singletons: SupabaseClient, SharedPreferences, Room database",
         "NetworkModule providing Ktor HttpClient (or OkHttp) configured with Supabase base URL",
         "All service classes annotated with @Inject and @Singleton where appropriate",
@@ -119,7 +119,7 @@
         "Mood enum with displayName, emoji, and color for each: happy, neutral, tired (standard) + excited, bored, hungry, scared, having_fun (kid)",
         "LocationLabel enum: home, school, friends_house, park, store, other with display names",
         "KidResponseType enum: picking_me_up, can_stay_longer, sos with labels, icons, and colors",
-        "WellvoAlert data class: id, familyId, receiverId, type, title, message, data (Map), isRead, createdAt"
+        "DailyOKAlert data class: id, familyId, receiverId, type, title, message, data (Map), isRead, createdAt"
       ],
       "priority": 7,
       "passes": true,
@@ -133,7 +133,7 @@
         "Room dependency added (room-runtime, room-ktx, room-compiler with KSP)",
         "OfflineCheckIn @Entity with fields: id (UUID primary key), familyId, receiverId, mood (String nullable), source (String), createdAt (Long timestamp), synced (Boolean default false)",
         "OfflineCheckInDao with: insert, getUnsynced (WHERE synced = false), markSynced (by id), deleteAll",
-        "WellvoDatabase @Database class with OfflineCheckIn entity",
+        "DailyOKDatabase @Database class with OfflineCheckIn entity",
         "Database singleton provided via Hilt AppModule",
         "Migration strategy: fallbackToDestructiveMigration for v1 (no production data yet)"
       ],
@@ -149,14 +149,14 @@
         "ApiService class with methods matching all edge function endpoints: processCheckinResponse, onDemandCheckin, confirmDelivery, heartbeat, reportLocation, inviteReceiver, redeemCode, autoJoin, subscriptionWebhook",
         "Each method calls the edge function via Supabase Functions invoke or direct HTTP",
         "Request/response DTOs as @Serializable data classes",
-        "Consistent error handling: network errors → WellvoError.Network, auth errors → WellvoError.Auth, 404 → WellvoError.NotFound, 5xx → WellvoError.ServerError",
-        "WellvoError sealed class with: Network, Auth, NotFound, ServerError, Offline, Unknown variants, each with localizedMessage",
+        "Consistent error handling: network errors → DailyOKError.Network, auth errors → DailyOKError.Auth, 404 → DailyOKError.NotFound, 5xx → DailyOKError.ServerError",
+        "DailyOKError sealed class with: Network, Auth, NotFound, ServerError, Offline, Unknown variants, each with localizedMessage",
         "NetworkRetry utility: suspend function with exponential backoff, max 3 attempts, skips auth/cancellation errors",
         "Timeout of 30 seconds on all requests"
       ],
       "priority": 9,
       "passes": true,
-      "notes": "Mirrors iOS NetworkRetry and WellvoError. Use Ktor client from Supabase SDK or standalone OkHttp."
+      "notes": "Mirrors iOS NetworkRetry and DailyOKError. Use Ktor client from Supabase SDK or standalone OkHttp."
     },
     {
       "id": "US-A010",
@@ -177,7 +177,7 @@
     {
       "id": "US-A011",
       "title": "Implement phone OTP authentication",
-      "description": "As a receiver, I want to sign in with my phone number via SMS code so that I can join my family's Wellvo group without creating a password.",
+      "description": "As a receiver, I want to sign in with my phone number via SMS code so that I can join my family's Daily OK group without creating a password.",
       "acceptanceCriteria": [
         "AuthService class with sendPhoneOTP(phone: String) and verifyPhoneOTP(phone: String, code: String) methods",
         "Phone number normalization: strip non-digits, prepend +1 for 10-digit US numbers",
@@ -268,7 +268,7 @@
       "title": "Build authentication UI screens",
       "description": "As a user, I want a polished authentication screen so that I can sign in or create an account easily.",
       "acceptanceCriteria": [
-        "AuthScreen composable with Wellvo logo, app name, and tagline at top",
+        "AuthScreen composable with Daily OK logo, app name, and tagline at top",
         "Three auth options: Phone OTP (primary, prominent), Google Sign-In button, Email/Password (expandable section)",
         "Phone flow: phone number input with +1 prefix → OTP code input → loading → success",
         "Email flow: sign-in/sign-up tab toggle, form fields with validation, submit button",
@@ -276,7 +276,7 @@
         "Error messages displayed inline below relevant fields",
         "Loading states with CircularProgressIndicator",
         "Keyboard handling: IME actions (next/done), auto-focus, dismiss on submit",
-        "Material Design 3 styling consistent with Wellvo brand"
+        "Material Design 3 styling consistent with Daily OK brand"
       ],
       "priority": 16,
       "passes": true,
@@ -285,7 +285,7 @@
     {
       "id": "US-A017",
       "title": "Implement owner onboarding flow (7 steps)",
-      "description": "As a new owner, I want a guided setup flow so that I can create my family group, invite my first receiver, and understand how Wellvo works.",
+      "description": "As a new owner, I want a guided setup flow so that I can create my family group, invite my first receiver, and understand how Daily OK works.",
       "acceptanceCriteria": [
         "OnboardingViewModel with currentStep (enum: welcome, userType, createFamily, choosePlan, addReceiver, notifications, complete)",
         "Step 1 - Welcome: app intro with illustration, 'Get Started' button",
@@ -310,7 +310,7 @@
         "ReceiverOnboardingScreen composable with 3 steps",
         "Step 1 - Welcome: greeting with receiver's name, explanation of daily check-in, display scheduled check-in time",
         "Step 2 - Notifications: explain why notifications matter, request notification permission button",
-        "Step 3 - Complete: 'You're all set!' message, 'Start Using Wellvo' button → navigate to ReceiverHome",
+        "Step 3 - Complete: 'You're all set!' message, 'Start Using Daily OK' button → navigate to ReceiverHome",
         "Check-in time loaded from receiver_settings for this family member",
         "Progress dots at bottom",
         "Handles notification permission denied gracefully (warns but allows proceeding)"
@@ -334,7 +334,7 @@
         "acceptInvite(token: String): calls invite-receiver edge function with action='accept'",
         "redeemPairingCode(code: String): calls redeem-code edge function",
         "checkAutoJoin(phone: String): calls auto-join edge function",
-        "All methods throw WellvoError on failure"
+        "All methods throw DailyOKError on failure"
       ],
       "priority": 19,
       "passes": true,
@@ -585,7 +585,7 @@
       "description": "As an owner who just invited a receiver, I want setup guidance so that I can help my receiver get started.",
       "acceptanceCriteria": [
         "ReceiverSetupGuideScreen composable accessible from invite success state",
-        "Step-by-step instructions for the receiver: 1) Check SMS, 2) Download Wellvo from Play Store, 3) Sign in with phone number, 4) Tap 'I'm OK' to check in",
+        "Step-by-step instructions for the receiver: 1) Check SMS, 2) Download Daily OK from Play Store, 3) Sign in with phone number, 4) Tap 'I'm OK' to check in",
         "Visual illustrations or icons for each step",
         "Copy invite link button (if applicable)",
         "Navigate back to family screen",
@@ -746,7 +746,7 @@
       ],
       "priority": 41,
       "passes": true,
-      "notes": "Implemented viewer experience: ViewerTabsScreen wires 3 tabs (Dashboard read-only, History with export, ViewerSettingsScreen). DashboardScreen accepts isViewer flag to hide Check on buttons. ViewerSettingsScreen shows account info with Viewer role badge, About section, Sign Out. WellvoNavHost passes userId to ViewerTabsScreen."
+      "notes": "Implemented viewer experience: ViewerTabsScreen wires 3 tabs (Dashboard read-only, History with export, ViewerSettingsScreen). DashboardScreen accepts isViewer flag to hide Check on buttons. ViewerSettingsScreen shows account info with Viewer role badge, About section, Sign Out. DailyOKNavHost passes userId to ViewerTabsScreen."
     },
     {
       "id": "US-A042",
@@ -792,7 +792,7 @@
         "Firebase SDK added to project (firebase-messaging-ktx)",
         "google-services.json placeholder in app/ directory (actual file from Firebase Console)",
         "google-services plugin applied in build.gradle.kts",
-        "WellvoFirebaseMessagingService extends FirebaseMessagingService",
+        "DailyOKFirebaseMessagingService extends FirebaseMessagingService",
         "onNewToken(): registers new FCM token with Supabase push_tokens table (platform='android')",
         "Token comparison: only sends to Supabase if changed from stored value",
         "Old tokens marked is_active=false when new token registered",
@@ -802,14 +802,14 @@
       ],
       "priority": 44,
       "passes": true,
-      "notes": "Implemented. Firebase BOM + firebase-messaging-ktx added. google-services plugin applied. Placeholder google-services.json created. WellvoFirebaseMessagingService with onNewToken (compares stored, deactivates old, upserts new with platform=android). PushNotificationService singleton with registerToken, checkPermissionStatus, requiresPermissionRequest. POST_NOTIFICATIONS permission in manifest."
+      "notes": "Implemented. Firebase BOM + firebase-messaging-ktx added. google-services plugin applied. Placeholder google-services.json created. DailyOKFirebaseMessagingService with onNewToken (compares stored, deactivates old, upserts new with platform=android). PushNotificationService singleton with registerToken, checkPermissionStatus, requiresPermissionRequest. POST_NOTIFICATIONS permission in manifest."
     },
     {
       "id": "US-A045",
       "title": "Handle incoming push notifications with actions",
       "description": "As a receiver, I want to respond to check-in notifications directly from the notification shade.",
       "acceptanceCriteria": [
-        "onMessageReceived() in WellvoFirebaseMessagingService handles data messages",
+        "onMessageReceived() in DailyOKFirebaseMessagingService handles data messages",
         "CHECKIN_REQUEST notification: shows notification with 3 action buttons — 'I'm OK ✓', 'I Need Help', 'Call Me'",
         "NotificationCompat.Builder with CHECKIN channel (importance HIGH, sound + vibration)",
         "Action buttons use PendingIntent with BroadcastReceiver to handle taps",
@@ -817,12 +817,12 @@
         "URGENT_ALERT notification: shows with 'Call Now' action button",
         "'Call Now' action: looks up receiver phone from users table, opens tel:// intent",
         "LOCATION_ALERT notification: shows with 'View Details' action",
-        "Notification channels created in WellvoApplication.onCreate(): checkin_requests (HIGH), urgent_alerts (MAX), location_alerts (HIGH)",
+        "Notification channels created in DailyOKApplication.onCreate(): checkin_requests (HIGH), urgent_alerts (MAX), location_alerts (HIGH)",
         "confirmDelivery() called when notification received"
       ],
       "priority": 45,
       "passes": true,
-      "notes": "Implemented: onMessageReceived handles CHECKIN_REQUEST (3 action buttons), URGENT_ALERT (Call Now via DB lookup), LOCATION_ALERT (View Details). CheckInNotificationReceiver processes actions with location+battery, correct source mapping (ok=notification, need_help, call_me). Notification channels already in WellvoApplication.onCreate(). confirmDelivery() called on receive."
+      "notes": "Implemented: onMessageReceived handles CHECKIN_REQUEST (3 action buttons), URGENT_ALERT (Call Now via DB lookup), LOCATION_ALERT (View Details). CheckInNotificationReceiver processes actions with location+battery, correct source mapping (ok=notification, need_help, call_me). Notification channels already in DailyOKApplication.onCreate(). confirmDelivery() called on receive."
     },
     {
       "id": "US-A046",
@@ -840,7 +840,7 @@
       ],
       "priority": 46,
       "passes": true,
-      "notes": "Implemented. NotificationContext data class in navigation package. MainActivity handles onCreate/onNewIntent notification extras. WellvoNavHost accepts notificationContext, routes CHECKIN_REQUEST->ReceiverHome, URGENT_ALERT/LOCATION_ALERT->OwnerTabs via LaunchedEffect. Content intents on all notification types launch MainActivity with extras. Badge cleared on handling."
+      "notes": "Implemented. NotificationContext data class in navigation package. MainActivity handles onCreate/onNewIntent notification extras. DailyOKNavHost accepts notificationContext, routes CHECKIN_REQUEST->ReceiverHome, URGENT_ALERT/LOCATION_ALERT->OwnerTabs via LaunchedEffect. Content intents on all notification types launch MainActivity with extras. Badge cleared on handling."
     },
     {
       "id": "US-A047",
@@ -853,7 +853,7 @@
         "Banner dismissable: hides for 7 days after dismissal (stored in SharedPreferences with timestamp)",
         "Permission status checked on every app resume (Lifecycle.Event.ON_RESUME)",
         "Banner auto-hides when permission is granted",
-        "Orange/warning color scheme matching Wellvo brand"
+        "Orange/warning color scheme matching Daily OK brand"
       ],
       "priority": 47,
       "passes": true,
@@ -866,7 +866,7 @@
       "acceptanceCriteria": [
         "Google Play Billing Library 6+ dependency added",
         "SubscriptionService @Singleton with BillingClient lifecycle management",
-        "Product IDs mapped: net.wellvo.family.monthly, net.wellvo.family.yearly, net.wellvo.familyplus.monthly, net.wellvo.familyplus.yearly, net.wellvo.addon.receiver, net.wellvo.addon.viewer",
+        "Product IDs mapped: net.dailyok.family.monthly, net.dailyok.family.yearly, net.dailyok.familyplus.monthly, net.dailyok.familyplus.yearly, net.dailyok.addon.receiver, net.dailyok.addon.viewer",
         "loadProducts(): queries BillingClient for product details (name, price, description)",
         "purchase(product): launches billing flow via BillingClient.launchBillingFlow()",
         "PurchasesUpdatedListener handles purchase results: acknowledge purchases, verify signatures",
@@ -917,7 +917,7 @@
       ],
       "priority": 50,
       "passes": true,
-      "notes": "LocationService @Singleton with FusedLocationProviderClient, 10s timeout, PRIORITY_BALANCED_POWER_ACCURACY (upgraded to HIGH_ACCURACY if fine permission granted). Permission helpers: isLocationGranted(), isBackgroundLocationGranted(), FOREGROUND_PERMISSIONS array, BACKGROUND_PERMISSION constant. getCurrentLocation() returns WellvoLocation or null. Graceful fallback to getLastKnownLocation() on timeout/error. Hilt-injectable via @Inject constructor."
+      "notes": "LocationService @Singleton with FusedLocationProviderClient, 10s timeout, PRIORITY_BALANCED_POWER_ACCURACY (upgraded to HIGH_ACCURACY if fine permission granted). Permission helpers: isLocationGranted(), isBackgroundLocationGranted(), FOREGROUND_PERMISSIONS array, BACKGROUND_PERMISSION constant. getCurrentLocation() returns DailyOKLocation or null. Graceful fallback to getLastKnownLocation() on timeout/error. Hilt-injectable via @Inject constructor."
     },
     {
       "id": "US-A051",
@@ -977,7 +977,7 @@
     {
       "id": "US-A054",
       "title": "Implement accessibility (TalkBack) support",
-      "description": "As a visually impaired user, I want full TalkBack support so that I can use Wellvo independently on Android.",
+      "description": "As a visually impaired user, I want full TalkBack support so that I can use Daily OK independently on Android.",
       "acceptanceCriteria": [
         "ReceiverHomeScreen: check-in button has contentDescription 'I'm OK check-in button' and stateDescription",
         "DashboardScreen: each receiver card has contentDescription with name, status, and streak",
@@ -999,18 +999,18 @@
       "title": "Implement deep linking for invite URLs",
       "description": "As a receiver who received an SMS invite, I want tapping the link to open the app and auto-route to setup.",
       "acceptanceCriteria": [
-        "Android App Links configured for wellvo.net domain",
-        "Intent filter in AndroidManifest.xml: scheme https, host wellvo.net, pathPrefix /invite",
-        "assetlinks.json hosted at wellvo.net/.well-known/assetlinks.json (or document requirement)",
+        "Android App Links configured for dailyok.net domain",
+        "Intent filter in AndroidManifest.xml: scheme https, host dailyok.net, pathPrefix /invite",
+        "assetlinks.json hosted at dailyok.net/.well-known/assetlinks.json (or document requirement)",
         "MainActivity handles incoming intent: extracts invite token from URL query parameter",
         "If authenticated: auto-accept invite via FamilyService.acceptInvite(token), route to receiver onboarding",
         "If not authenticated: store token in SharedPreferences, route to auth, then process after auth",
-        "Custom scheme fallback: wellvo://invite?token=<token> for cases where App Links don't work",
+        "Custom scheme fallback: dailyok://invite?token=<token> for cases where App Links don't work",
         "Deep link handling in NavHost: navigate to ReceiverOnboardingScreen with invite context"
       ],
       "priority": 55,
       "passes": true,
-      "notes": "Implemented. Android App Links with autoVerify for https://wellvo.net/invite. Custom scheme wellvo://invite as fallback. MainActivity.handleDeepLinkIntent extracts token from URL query parameter. Token passed to WellvoNavHost as pendingInviteToken, routes to ReceiverOnboardingScreen. Works on cold start (onCreate) and warm start (onNewIntent)."
+      "notes": "Implemented. Android App Links with autoVerify for https://dailyok.net/invite. Custom scheme dailyok://invite as fallback. MainActivity.handleDeepLinkIntent extracts token from URL query parameter. Token passed to DailyOKNavHost as pendingInviteToken, routes to ReceiverOnboardingScreen. Works on cold start (onCreate) and warm start (onNewIntent)."
     },
     {
       "id": "US-A056",
@@ -1147,7 +1147,7 @@
         "Signing config in build.gradle.kts reads from environment variables for CI",
         "ProGuard rules finalized: app runs correctly in release mode with minification",
         "AndroidManifest.xml: all required permissions declared with maxSdkVersion where applicable",
-        "App icon: adaptive icon with Wellvo logo (foreground layer) and green background (background layer), in mipmap-* density folders",
+        "App icon: adaptive icon with Daily OK logo (foreground layer) and green background (background layer), in mipmap-* density folders",
         "Feature graphic: 1024x500px banner for Play Store listing",
         "Launcher icon meets Play Store requirements (512x512 PNG)",
         "Version code and name strategy documented",
@@ -1163,7 +1163,7 @@
       "description": "As a user, I want a branded splash screen while the app initializes.",
       "acceptanceCriteria": [
         "AndroidX SplashScreen dependency added (core-splashscreen)",
-        "SplashScreen theme configured in styles.xml with Wellvo logo as windowSplashScreenAnimatedIcon",
+        "SplashScreen theme configured in styles.xml with Daily OK logo as windowSplashScreenAnimatedIcon",
         "Green brand color as windowSplashScreenBackground",
         "MainActivity.installSplashScreen() called in onCreate() before setContent()",
         "Splash screen holds while checking auth state (setKeepOnScreenCondition)",
@@ -1173,14 +1173,14 @@
       ],
       "priority": 64,
       "passes": true,
-      "notes": "All acceptance criteria met. core-splashscreen 1.0.1 dependency. Theme.Wellvo.Splash on MainActivity with green background + white checkmark icon. installSplashScreen() called before super.onCreate(). setKeepOnScreenCondition holds until auth resolves via LaunchedEffect. postSplashScreenTheme transitions to Theme.Wellvo. No white flash."
+      "notes": "All acceptance criteria met. core-splashscreen 1.0.1 dependency. Theme.DailyOK.Splash on MainActivity with green background + white checkmark icon. installSplashScreen() called before super.onCreate(). setKeepOnScreenCondition holds until auth resolves via LaunchedEffect. postSplashScreenTheme transitions to Theme.DailyOK. No white flash."
     },
     {
       "id": "US-A065",
-      "title": "Add Material Design 3 theming and Wellvo brand polish",
-      "description": "As a user, I want a polished UI that matches the Wellvo brand identity.",
+      "title": "Add Material Design 3 theming and Daily OK brand polish",
+      "description": "As a user, I want a polished UI that matches the Daily OK brand identity.",
       "acceptanceCriteria": [
-        "Custom MaterialTheme with Wellvo color scheme: primary green (#22C55E), onPrimary white, surface white, error red",
+        "Custom MaterialTheme with Daily OK color scheme: primary green (#22C55E), onPrimary white, surface white, error red",
         "Dark theme support: dark color scheme with appropriate contrast",
         "Typography: system default (Roboto) with consistent text styles across app",
         "Shape: rounded corners (12dp for cards, 24dp for buttons, 50% for circular elements)",
@@ -1192,7 +1192,7 @@
       ],
       "priority": 65,
       "passes": true,
-      "notes": "All acceptance criteria met. Custom MaterialTheme with Wellvo green (#22C55E) primary, dark theme with proper contrast. Roboto typography. Shapes: 8dp small, 12dp medium (cards), 24dp large (buttons). Status card backgrounds: green/yellow/red/gray tinted per status in both light and dark themes. AnimatedContent crossfade transitions between tabs. Material 3 NavigationBar with explicit Wellvo-branded colors. Dynamic color opt-in (dynamicColor=false default). All screens use MaterialTheme.shapes instead of hardcoded RoundedCornerShape. Edge-to-edge with transparent system bars."
+      "notes": "All acceptance criteria met. Custom MaterialTheme with Daily OK green (#22C55E) primary, dark theme with proper contrast. Roboto typography. Shapes: 8dp small, 12dp medium (cards), 24dp large (buttons). Status card backgrounds: green/yellow/red/gray tinted per status in both light and dark themes. AnimatedContent crossfade transitions between tabs. Material 3 NavigationBar with explicit DailyOK-branded colors. Dynamic color opt-in (dynamicColor=false default). All screens use MaterialTheme.shapes instead of hardcoded RoundedCornerShape. Edge-to-edge with transparent system bars."
     },
     {
       "id": "US-SEC001",
@@ -1257,7 +1257,7 @@
       ],
       "priority": 4,
       "passes": true,
-      "notes": "DONE. server.ts validates SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET at startup with Deno.exit(1) on failure. auth.ts and supabase.ts use non-null assertions. PORT defaults to 9000, ALLOWED_ORIGIN defaults to https://wellvo.net."
+      "notes": "DONE. server.ts validates SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET at startup with Deno.exit(1) on failure. auth.ts and supabase.ts use non-null assertions. PORT defaults to 9000, ALLOWED_ORIGIN defaults to https://dailyok.net."
     },
     {
       "id": "US-SEC005",
@@ -1317,7 +1317,7 @@
       ],
       "priority": 8,
       "passes": true,
-      "notes": "DONE. iOS: WellvoApp.swift verifies URL scheme (wellvo/https), validates token as hex string with max 500 chars. Android: MainActivity validates deep link token format and length. Both silently reject invalid tokens."
+      "notes": "DONE. iOS: DailyOKApp.swift verifies URL scheme (dailyok/https), validates token as hex string with max 500 chars. Android: MainActivity validates deep link token format and length. Both silently reject invalid tokens."
     },
     {
       "id": "US-SEC009",
@@ -1392,7 +1392,7 @@
       ],
       "priority": 13,
       "passes": true,
-      "notes": "DONE. iOS: AppDelegate print statements sanitized — removed error.localizedDescription, receiverId, and other PII. Android: WellvoFirebaseMessagingService message data logging gated behind BuildConfig.DEBUG. CheckInNotificationReceiver: requestId removed from logs, receiverId removed from dialer logs."
+      "notes": "DONE. iOS: AppDelegate print statements sanitized — removed error.localizedDescription, receiverId, and other PII. Android: DailyOKFirebaseMessagingService message data logging gated behind BuildConfig.DEBUG. CheckInNotificationReceiver: requestId removed from logs, receiverId removed from dialer logs."
     },
     {
       "id": "US-SEC014",
@@ -1435,7 +1435,7 @@
       ],
       "priority": 16,
       "passes": true,
-      "notes": "DONE. Android: network_security_config.xml updated with pin-set for wellvo.net (includeSubdomains). Pins to ISRG Root X1 and ISRG Root X2 (Let's Encrypt roots). 1-year expiration with documented rotation strategy. Debug builds bypass pinning. iOS: CertificatePinningService.swift using URLSession delegate with SHA-256 SPKI pin validation. Validates on app launch with 1-hour cache. Logs pinning failures via AnalyticsService."
+      "notes": "DONE. Android: network_security_config.xml updated with pin-set for dailyok.net (includeSubdomains). Pins to ISRG Root X1 and ISRG Root X2 (Let's Encrypt roots). 1-year expiration with documented rotation strategy. Debug builds bypass pinning. iOS: CertificatePinningService.swift using URLSession delegate with SHA-256 SPKI pin validation. Validates on app launch with 1-hour cache. Logs pinning failures via AnalyticsService."
     },
     {
       "id": "US-SEC017",
@@ -1465,7 +1465,7 @@
       ],
       "priority": 18,
       "passes": true,
-      "notes": "DONE. SQLCipher 4.5.7 added to gradle dependencies (libs.versions.toml + build.gradle.kts). AppModule.kt generates 32-byte random encryption key stored in EncryptedSharedPreferences. Room DB created with SupportOpenHelperFactory(passphrase). Old unencrypted wellvo.db automatically deleted on upgrade (offline check-ins are transient). New encrypted DB at wellvo_encrypted.db."
+      "notes": "DONE. SQLCipher 4.5.7 added to gradle dependencies (libs.versions.toml + build.gradle.kts). AppModule.kt generates 32-byte random encryption key stored in EncryptedSharedPreferences. Room DB created with SupportOpenHelperFactory(passphrase). Old unencrypted dailyok.db automatically deleted on upgrade (offline check-ins are transient). New encrypted DB at dailyok_encrypted.db."
     },
     {
       "id": "US-SEC019",
@@ -1720,7 +1720,7 @@
       ],
       "priority": 33,
       "passes": true,
-      "notes": "DONE. iOS: Created Colors.swift with Color extensions for branded colors (wellvoGreen, statusGreenBg, etc.). Added 6 color sets to Assets.xcassets with explicit light/dark variants (WellvoGreen, WellvoGreenDark, StatusGreenBg, StatusYellowBg, StatusRedBg, StatusGrayBg). Updated AccentColor.colorset with dark variant (#86EFAC). Android: Already had full Material3 dark theme in Theme.kt with DarkColorScheme, and dark status background variants in Color.kt. Both platforms auto-switch with system theme."
+      "notes": "DONE. iOS: Created Colors.swift with Color extensions for branded colors (dailyokGreen, statusGreenBg, etc.). Added 6 color sets to Assets.xcassets with explicit light/dark variants (DailyOKGreen, DailyOKGreenDark, StatusGreenBg, StatusYellowBg, StatusRedBg, StatusGrayBg). Updated AccentColor.colorset with dark variant (#86EFAC). Android: Already had full Material3 dark theme in Theme.kt with DarkColorScheme, and dark status background variants in Color.kt. Both platforms auto-switch with system theme."
     },
     {
       "id": "US-SEC034",
@@ -1802,7 +1802,7 @@
       "description": "As a security-conscious developer, I want all debug logging gated behind BuildConfig.DEBUG so that sensitive operational data is not exposed in release builds.",
       "acceptanceCriteria": [
         "All Log.d/Log.w/Log.e calls in services wrapped with if (BuildConfig.DEBUG)",
-        "WellvoFirebaseMessagingService: message type, token operations gated",
+        "DailyOKFirebaseMessagingService: message type, token operations gated",
         "PushNotificationService: token registration, permission checks gated",
         "LocationReportWorker: location data, family/receiver IDs gated",
         "AnalyticsService: event names, signal calls gated",
@@ -1812,7 +1812,7 @@
       ],
       "priority": 38,
       "passes": true,
-      "notes": "DONE. Created DebugLog utility (util/DebugLog.kt) wrapping all Log calls behind BuildConfig.DEBUG. Replaced import android.util.Log with import DebugLog as Log in all 8 service files: CheckInNotificationReceiver, PushNotificationService, WellvoFirebaseMessagingService, LocationService, AnalyticsService, SubscriptionService, HeartbeatWorker, LocationReportWorker. 54 log calls now silent in release builds."
+      "notes": "DONE. Created DebugLog utility (util/DebugLog.kt) wrapping all Log calls behind BuildConfig.DEBUG. Replaced import android.util.Log with import DebugLog as Log in all 8 service files: CheckInNotificationReceiver, PushNotificationService, DailyOKFirebaseMessagingService, LocationService, AnalyticsService, SubscriptionService, HeartbeatWorker, LocationReportWorker. 54 log calls now silent in release builds."
     },
     {
       "id": "US-AUDIT005",
@@ -1828,7 +1828,7 @@
       ],
       "priority": 39,
       "passes": true,
-      "notes": "DONE. Added @Immutable to 14 data classes: CheckIn, CheckInRequest, AppUser, Family, FamilyMember, ReceiverSettings, DaySchedule, WellvoAlert, ReceiverStatusCard, WeeklySummary, AuthUiState, OnboardingUiState, ReceiverUiState, PairingCodeUiState, ReceiverOnboardingUiState, ReceiverOption. Compose compiler can now skip recomposition for unchanged state."
+      "notes": "DONE. Added @Immutable to 14 data classes: CheckIn, CheckInRequest, AppUser, Family, FamilyMember, ReceiverSettings, DaySchedule, DailyOKAlert, ReceiverStatusCard, WeeklySummary, AuthUiState, OnboardingUiState, ReceiverUiState, PairingCodeUiState, ReceiverOnboardingUiState, ReceiverOption. Compose compiler can now skip recomposition for unchanged state."
     },
     {
       "id": "US-AUDIT006",
@@ -1857,7 +1857,7 @@
       ],
       "priority": 41,
       "passes": true,
-      "notes": "DONE. Added onCleared() to AuthViewModel (cancels lockoutCountdownJob). Added onDestroy() to WellvoFirebaseMessagingService (cancels supervisorJob, cleaning up serviceScope coroutines). Extracted SupervisorJob for proper lifecycle management. Other ViewModels only use viewModelScope which auto-cancels."
+      "notes": "DONE. Added onCleared() to AuthViewModel (cancels lockoutCountdownJob). Added onDestroy() to DailyOKFirebaseMessagingService (cancels supervisorJob, cleaning up serviceScope coroutines). Extracted SupervisorJob for proper lifecycle management. Other ViewModels only use viewModelScope which auto-cancels."
     },
     {
       "id": "US-AUDIT008",
@@ -1886,7 +1886,7 @@
       ],
       "priority": 43,
       "passes": true,
-      "notes": "DONE. Created Spacing.kt with WellvoSpacing (xxs=4dp through xxxl=48dp on 4dp grid), WellvoIconSize (small/medium/large/xlarge/hero), WellvoSize (minTouchTarget, buttonHeight, avatarSmall/Medium/Large). Applied tokens to HistoryScreen as reference implementation. DashboardScreen import added. Developers can progressively adopt tokens across remaining screens."
+      "notes": "DONE. Created Spacing.kt with DailyOKSpacing (xxs=4dp through xxxl=48dp on 4dp grid), DailyOKIconSize (small/medium/large/xlarge/hero), DailyOKSize (minTouchTarget, buttonHeight, avatarSmall/Medium/Large). Applied tokens to HistoryScreen as reference implementation. DashboardScreen import added. Developers can progressively adopt tokens across remaining screens."
     },
     {
       "id": "US-AUDIT010",
@@ -1894,30 +1894,30 @@
       "description": "As a developer, I want a single source of truth for FCM token registration to prevent duplicate token updates and race conditions.",
       "acceptanceCriteria": [
         "Token registration consolidated into PushNotificationService only",
-        "WellvoFirebaseMessagingService.onNewToken delegates to PushNotificationService",
+        "DailyOKFirebaseMessagingService.onNewToken delegates to PushNotificationService",
         "Mutex or atomic operation prevents concurrent token updates",
         "Old token deactivation and new token upsert happen atomically"
       ],
       "priority": 44,
       "passes": true,
-      "notes": "DONE. Extracted upsertToken(userId, token) in PushNotificationService as single source of truth for token deactivation + upsert + local storage. WellvoFirebaseMessagingService.onNewToken() now delegates to pushNotificationService.upsertToken(). Removed duplicate Supabase client from WellvoFirebaseMessagingService. Token comparison (skip if unchanged) handled in one place."
+      "notes": "DONE. Extracted upsertToken(userId, token) in PushNotificationService as single source of truth for token deactivation + upsert + local storage. DailyOKFirebaseMessagingService.onNewToken() now delegates to pushNotificationService.upsertToken(). Removed duplicate Supabase client from DailyOKFirebaseMessagingService. Token comparison (skip if unchanged) handled in one place."
     },
     {
       "id": "US-UX001",
       "title": "Establish premium design token system (colors, elevation, motion)",
       "description": "As a user, I want the app to feel visually premium so that paid features feel worth it and the brand stands apart from competitors. Expand the existing theme tokens (colors, elevation, motion curves, durations) into a cohesive premium design language shared by iOS and Android.",
       "acceptanceCriteria": [
-        "Android: Color.kt expanded with brand tonal ramp (Wellvo green 50-900), accent teal, premium gold (for paid features), tonal surface colors (surfaceLow/surfaceMed/surfaceHigh) for both light and dark",
-        "Android: Elevation.kt created with WellvoElevation tokens (level0..level5) and matching shadow colors",
-        "Android: Motion.kt created with WellvoMotion tokens (duration short/medium/long, easing standard/emphasized/emphasizedDecelerate) mirroring Material 3 motion spec",
+        "Android: Color.kt expanded with brand tonal ramp (Daily OK green 50-900), accent teal, premium gold (for paid features), tonal surface colors (surfaceLow/surfaceMed/surfaceHigh) for both light and dark",
+        "Android: Elevation.kt created with DailyOKElevation tokens (level0..level5) and matching shadow colors",
+        "Android: Motion.kt created with DailyOKMotion tokens (duration short/medium/long, easing standard/emphasized/emphasizedDecelerate) mirroring Material 3 motion spec",
         "Android: Theme.kt dark palette refined to use true brand dark (not pure Gray900) with proper elevation overlays",
-        "iOS: New Theme.swift defining WellvoColor struct (brandGreen ramp, accentTeal, premiumGold, surfaces) and WellvoMotion struct (durations, spring responses), matching Android tokens semantically",
+        "iOS: New Theme.swift defining DailyOKColor struct (brandGreen ramp, accentTeal, premiumGold, surfaces) and DailyOKMotion struct (durations, spring responses), matching Android tokens semantically",
         "iOS: Dark mode palette polished to match Android branded dark with true brand accent rather than plain system colors",
         "Tokens are additive — no existing screen is broken by the refactor"
       ],
       "priority": 45,
       "passes": true,
-      "notes": "DONE. Android: expanded Color.kt with WellvoGreen50-900 tonal ramp, WellvoTeal/Gold/Indigo accents, SurfaceLight/Dark Low/Med/High tonal surfaces, Gray300/400/800/950 extensions (legacy WellvoGreen/Dark/Light/Container aliases preserved). Added Elevation.kt (WellvoElevation level0-level5) and Motion.kt (WellvoMotion durations + easings + spring helpers). Theme.kt light/dark color schemes refined to use the new tonal ramp, tertiary=WellvoTeal, branded dark surfaces (SurfaceDark*) instead of neutral Gray900. iOS: added Utilities/Theme.swift with WellvoColor enum (green50-900, teal/gold/indigo, light+dark tonal surfaces), WellvoMotion (durations + smoothSpring/bouncySpring/linear), WellvoElevation (level0-level5), and View.wellvoShadow(level:) helper. All additive — no existing screens modified."
+      "notes": "DONE. Android: expanded Color.kt with DailyOKGreen50-900 tonal ramp, DailyOKTeal/Gold/Indigo accents, SurfaceLight/Dark Low/Med/High tonal surfaces, Gray300/400/800/950 extensions (legacy DailyOKGreen/Dark/Light/Container aliases preserved). Added Elevation.kt (DailyOKElevation level0-level5) and Motion.kt (DailyOKMotion durations + easings + spring helpers). Theme.kt light/dark color schemes refined to use the new tonal ramp, tertiary=DailyOKTeal, branded dark surfaces (SurfaceDark*) instead of neutral Gray900. iOS: added Utilities/Theme.swift with DailyOKColor enum (green50-900, teal/gold/indigo, light+dark tonal surfaces), DailyOKMotion (durations + smoothSpring/bouncySpring/linear), DailyOKElevation (level0-level5), and View.dailyokShadow(level:) helper. All additive — no existing screens modified."
     },
     {
       "id": "US-UX002",
@@ -1926,13 +1926,13 @@
       "acceptanceCriteria": [
         "Android: SkeletonViews.kt shimmerBrush uses a three-stop branded gradient (surfaceVariant → primaryContainer tint → surfaceVariant) instead of plain gray",
         "Android: Shimmer animation respects Settings.Global.ANIMATOR_DURATION_SCALE = 0 (reduced motion) by falling back to a static branded tint",
-        "iOS: SkeletonView uses a branded tint derived from Wellvo green at low opacity instead of plain systemGray",
+        "iOS: SkeletonView uses a branded tint derived from Daily OK green at low opacity instead of plain systemGray",
         "iOS: Existing @Environment(\\.accessibilityReduceMotion) fallback continues to work",
         "Both platforms: Existing DashboardSkeletonView, HistorySkeletonView, and any other callers render correctly without modification"
       ],
       "priority": 46,
       "passes": true,
-      "notes": "DONE. Android: SkeletonViews.kt shimmerBrush now uses a three-stop branded gradient (surfaceVariant → primaryContainer @60% alpha → surfaceVariant) driven by WellvoMotion.DurationExtraLong*2 so the sweep timing stays in the design token system. iOS: SkeletonView.swift overlay gradient mid-stop replaced with WellvoColor.green200 at 55% opacity; shimmer animation duration tied to WellvoMotion.durationExtraLong*2.5. Existing DashboardSkeletonView and HistorySkeletonView on both platforms render correctly with no call-site changes. Reduced-motion fallback preserved on iOS (static tint only when reduceMotion is on)."
+      "notes": "DONE. Android: SkeletonViews.kt shimmerBrush now uses a three-stop branded gradient (surfaceVariant → primaryContainer @60% alpha → surfaceVariant) driven by DailyOKMotion.DurationExtraLong*2 so the sweep timing stays in the design token system. iOS: SkeletonView.swift overlay gradient mid-stop replaced with DailyOKColor.green200 at 55% opacity; shimmer animation duration tied to DailyOKMotion.durationExtraLong*2.5. Existing DashboardSkeletonView and HistorySkeletonView on both platforms render correctly with no call-site changes. Reduced-motion fallback preserved on iOS (static tint only when reduceMotion is on)."
     },
     {
       "id": "US-UX003",
@@ -1940,21 +1940,21 @@
       "description": "As a user, I want the most important parts of the dashboard (weekly summary, streaks, status) to feel visually distinctive so that the app feels modern and delightful. Provide reusable GradientHeroCard and PremiumStatCard components that screens can opt into.",
       "acceptanceCriteria": [
         "Android: ui/components/PremiumCards.kt added with GradientHeroCard (soft brand gradient background, optional trailing icon, title + subtitle + content slot) and PremiumStatCard (value + label + optional delta indicator)",
-        "Android: Cards use the new WellvoElevation and WellvoMotion tokens from US-UX001",
+        "Android: Cards use the new DailyOKElevation and DailyOKMotion tokens from US-UX001",
         "iOS: PremiumCards.swift added with matching GradientHeroCard and PremiumStatCard SwiftUI views",
         "Components are additive — no existing screen is forced to migrate, but Dashboard's WeeklySummary can optionally adopt GradientHeroCard later",
         "Both platforms: Cards support light and dark mode, dynamic type / largest text size, and have accessibility labels composable by parent"
       ],
       "priority": 47,
       "passes": true,
-      "notes": "DONE. Android: ui/components/PremiumCards.kt added with GradientHeroCard (title/subtitle/trailingIcon/content slot, light+dark brand gradient backgrounds, uses WellvoElevation.level3 + MaterialTheme.shapes.large) and PremiumStatCard (value/label/accent/delta with StatDelta data class). iOS: Views/Components/PremiumCards.swift added with matching GradientHeroCard (generic Content ViewBuilder, colorScheme-aware gradient, wellvoShadow level2) and PremiumStatCard (StatDelta struct, wellvoShadow level1, proper accessibility element). Components tile 2-3 across on a row, respect dynamic type, and are purely additive — no existing screen is forced to migrate."
+      "notes": "DONE. Android: ui/components/PremiumCards.kt added with GradientHeroCard (title/subtitle/trailingIcon/content slot, light+dark brand gradient backgrounds, uses DailyOKElevation.level3 + MaterialTheme.shapes.large) and PremiumStatCard (value/label/accent/delta with StatDelta data class). iOS: Views/Components/PremiumCards.swift added with matching GradientHeroCard (generic Content ViewBuilder, colorScheme-aware gradient, dailyokShadow level2) and PremiumStatCard (StatDelta struct, dailyokShadow level1, proper accessibility element). Components tile 2-3 across on a row, respect dynamic type, and are purely additive — no existing screen is forced to migrate."
     },
     {
       "id": "US-UX004",
       "title": "Add haptic feedback design system",
       "description": "As a user, I want tactile feedback that reinforces important moments (check-in success, errors, warnings) so that the app feels responsive and premium. Provide a centralized haptic service that maps semantic events to platform-appropriate patterns.",
       "acceptanceCriteria": [
-        "Android: util/Haptics.kt WellvoHaptics object with semantic methods (checkInSuccess, actionConfirm, selectionChange, warning, error) using HapticFeedback or VibrationEffect",
+        "Android: util/Haptics.kt DailyOKHaptics object with semantic methods (checkInSuccess, actionConfirm, selectionChange, warning, error) using HapticFeedback or VibrationEffect",
         "iOS: Services/HapticsService.swift with matching semantic methods using UINotificationFeedbackGenerator, UIImpactFeedbackGenerator, and UISelectionFeedbackGenerator",
         "Both platforms respect system reduce-motion / haptics-off settings",
         "ReceiverHomeView and ReceiverHomeScreen call the new semantic methods instead of raw haptic APIs",
@@ -1962,7 +1962,7 @@
       ],
       "priority": 48,
       "passes": true,
-      "notes": "DONE (central service layer). Android: util/Haptics.kt WellvoHaptics object with selection(view)/confirm(view)/checkInSuccess(context)/warning(context)/error(context) using HapticFeedbackConstants on View callers and VibrationEffect patterns (predefined DOUBLE_CLICK/HEAVY_CLICK on API 30+, createWaveform on API 26+, createOneShot fallback) for context callers. Uses VibratorManager on API 31+ and honors system touch-feedback toggles automatically. iOS: Services/HapticsService.swift WellvoHaptics enum with selectionChanged/actionConfirm/checkInSuccess/warning/error/celebration/prepare methods backed by UINotificationFeedbackGenerator, UISelectionFeedbackGenerator, and UIImpactFeedbackGenerator (light/medium/heavy). iOS honors system Accessibility > Touch > Vibration automatically. Call-site migration (e.g., ReceiverHomeView, AuthView) left for a follow-up iteration so this story stays scoped to the service layer."
+      "notes": "DONE (central service layer). Android: util/Haptics.kt DailyOKHaptics object with selection(view)/confirm(view)/checkInSuccess(context)/warning(context)/error(context) using HapticFeedbackConstants on View callers and VibrationEffect patterns (predefined DOUBLE_CLICK/HEAVY_CLICK on API 30+, createWaveform on API 26+, createOneShot fallback) for context callers. Uses VibratorManager on API 31+ and honors system touch-feedback toggles automatically. iOS: Services/HapticsService.swift DailyOKHaptics enum with selectionChanged/actionConfirm/checkInSuccess/warning/error/celebration/prepare methods backed by UINotificationFeedbackGenerator, UISelectionFeedbackGenerator, and UIImpactFeedbackGenerator (light/medium/heavy). iOS honors system Accessibility > Touch > Vibration automatically. Call-site migration (e.g., ReceiverHomeView, AuthView) left for a follow-up iteration so this story stays scoped to the service layer."
     },
     {
       "id": "US-UX005",
@@ -1977,7 +1977,7 @@
       ],
       "priority": 49,
       "passes": true,
-      "notes": "DONE (component layer). Android: ui/components/CelebrationOverlay.kt — scale+fade checkmark with expanding particle ring (two concentric circles with alpha decay) driven by Animatable + tween over WellvoMotion.DurationExtraLong+200ms, then delay(400) + onComplete callback. Reads Settings.Global.ANIMATOR_DURATION_SCALE to detect reduced motion and skips the ring animation in that case. iOS: Views/Components/CelebrationOverlay.swift — matching @Binding isVisible, two Circle strokes with trim that expand over accessibilityReduceMotion-aware animation, DispatchQueue.asyncAfter sequences the enter → hold → exit → reset. Both accessibilityElement-wrapped with 'Success' label. Wiring into ReceiverHomeView/ReceiverHomeScreen is deferred to a follow-up so this story stays scoped to the reusable component layer."
+      "notes": "DONE (component layer). Android: ui/components/CelebrationOverlay.kt — scale+fade checkmark with expanding particle ring (two concentric circles with alpha decay) driven by Animatable + tween over DailyOKMotion.DurationExtraLong+200ms, then delay(400) + onComplete callback. Reads Settings.Global.ANIMATOR_DURATION_SCALE to detect reduced motion and skips the ring animation in that case. iOS: Views/Components/CelebrationOverlay.swift — matching @Binding isVisible, two Circle strokes with trim that expand over accessibilityReduceMotion-aware animation, DispatchQueue.asyncAfter sequences the enter → hold → exit → reset. Both accessibilityElement-wrapped with 'Success' label. Wiring into ReceiverHomeView/ReceiverHomeScreen is deferred to a follow-up so this story stays scoped to the reusable component layer."
     },
     {
       "id": "US-UX006",
@@ -2038,7 +2038,7 @@
       ],
       "priority": 53,
       "passes": true,
-      "notes": "DONE (component layer). Android: ui/components/FloatingBottomNav.kt — Row inside a rounded 28.dp shadowed container (WellvoElevation.level4) with 16.dp horizontal padding and 12.dp vertical inset from the system nav area. Per-item primaryContainer pill background for the selected item, with the label text only appearing on selected. BadgedBox wrapper provides tab badges. FloatingNavItem data class. iOS: Views/Components/FloatingBottomNav.swift — matching HStack layout with RoundedRectangle 28pt background, wellvoShadow level4, per-item capsule selection, custom badge overlay (no UIKit dependency), accessibility traits (.isSelected + .isButton). FloatingNavItem model. Call-site migration in OwnerTabsScreen/ViewerTabsScreen is scoped out to a follow-up — the existing NavigationBar/TabView continue to work unchanged."
+      "notes": "DONE (component layer). Android: ui/components/FloatingBottomNav.kt — Row inside a rounded 28.dp shadowed container (DailyOKElevation.level4) with 16.dp horizontal padding and 12.dp vertical inset from the system nav area. Per-item primaryContainer pill background for the selected item, with the label text only appearing on selected. BadgedBox wrapper provides tab badges. FloatingNavItem data class. iOS: Views/Components/FloatingBottomNav.swift — matching HStack layout with RoundedRectangle 28pt background, dailyokShadow level4, per-item capsule selection, custom badge overlay (no UIKit dependency), accessibility traits (.isSelected + .isButton). FloatingNavItem model. Call-site migration in OwnerTabsScreen/ViewerTabsScreen is scoped out to a follow-up — the existing NavigationBar/TabView continue to work unchanged."
     },
     {
       "id": "US-UX010",
@@ -2053,21 +2053,21 @@
       ],
       "priority": 54,
       "passes": true,
-      "notes": "DONE. Android: ui/components/EmptyStateView.kt — centered layout with large (96.dp) circular primaryContainer icon badge, 48.dp tinted icon, titleLarge title, bodyMedium body, optional primary Button + secondary TextButton with onPrimaryAction/onSecondaryAction callbacks. iOS: Views/Components/EmptyStateView.swift — matching VStack layout with 96pt green100 circle + green700 44pt icon, title2.weight(.semibold), subheadline body, borderedProminent primary button tinted with WellvoColor.brand, text secondary button. Both platforms: fully dark-mode aware, respects dynamic type, icon marked accessibilityHidden so the title+body describe the state to screen readers. Screens can progressively adopt; dashboard no-receivers, history empty period, alerts empty, family empty all good candidates."
+      "notes": "DONE. Android: ui/components/EmptyStateView.kt — centered layout with large (96.dp) circular primaryContainer icon badge, 48.dp tinted icon, titleLarge title, bodyMedium body, optional primary Button + secondary TextButton with onPrimaryAction/onSecondaryAction callbacks. iOS: Views/Components/EmptyStateView.swift — matching VStack layout with 96pt green100 circle + green700 44pt icon, title2.weight(.semibold), subheadline body, borderedProminent primary button tinted with DailyOKColor.brand, text secondary button. Both platforms: fully dark-mode aware, respects dynamic type, icon marked accessibilityHidden so the title+body describe the state to screen readers. Screens can progressively adopt; dashboard no-receivers, history empty period, alerts empty, family empty all good candidates."
     },
     {
       "id": "US-UX011",
       "title": "Branded pull-to-refresh animation",
-      "description": "As a user pulling to refresh, I want the refresh indicator to feel on-brand so the app feels distinctive. Replace default pull-to-refresh with a custom Wellvo logo pulse / arc.",
+      "description": "As a user pulling to refresh, I want the refresh indicator to feel on-brand so the app feels distinctive. Replace default pull-to-refresh with a custom Daily OK logo pulse / arc.",
       "acceptanceCriteria": [
-        "Android: PullToRefreshBox custom indicator with Wellvo logo (or brand-tinted arc) that pulses during refresh",
+        "Android: PullToRefreshBox custom indicator with Daily OK logo (or brand-tinted arc) that pulses during refresh",
         "iOS: Custom refreshable indicator using matchedGeometry or ProgressView tinted to brand green with a subtle scale animation",
         "Works on Dashboard, History, Family, and Receiver Home screens",
         "Respects reduced motion"
       ],
       "priority": 55,
       "passes": true,
-      "notes": "DONE (component layer). Android: ui/components/BrandedPullToRefreshIndicator.kt — branded 48.dp surface circle with pulsing scale (0.92→1.08 reverse-repeating) while refreshing, showing a WellvoGreen500 CircularProgressIndicator; resting state shows a solid brand dot that scales + rotates with PullToRefreshState.distanceFraction. Intended for the `indicator` slot of Material3 PullToRefreshBox. iOS: Views/Components/BrandedProgressView.swift — reusable branded loading indicator (pulsing green100 circle + rotating trimmed brand-green arc + centered brand dot) with accessibilityReduceMotion-aware animations. SwiftUI's .refreshable uses the system refresh control and can't be fully swapped, so this is used as a general-purpose branded spinner for inline loaders and as an overlay where a premium loading state is needed. Call-site migration in Dashboard/History/Family is left for a follow-up."
+      "notes": "DONE (component layer). Android: ui/components/BrandedPullToRefreshIndicator.kt — branded 48.dp surface circle with pulsing scale (0.92→1.08 reverse-repeating) while refreshing, showing a DailyOKGreen500 CircularProgressIndicator; resting state shows a solid brand dot that scales + rotates with PullToRefreshState.distanceFraction. Intended for the `indicator` slot of Material3 PullToRefreshBox. iOS: Views/Components/BrandedProgressView.swift — reusable branded loading indicator (pulsing green100 circle + rotating trimmed brand-green arc + centered brand dot) with accessibilityReduceMotion-aware animations. SwiftUI's .refreshable uses the system refresh control and can't be fully swapped, so this is used as a general-purpose branded spinner for inline loaders and as an overlay where a premium loading state is needed. Call-site migration in Dashboard/History/Family is left for a follow-up."
     },
     {
       "id": "US-UX012",

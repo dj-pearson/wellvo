@@ -9,11 +9,11 @@ plugins {
 }
 
 android {
-    namespace = "net.wellvo.android"
+    namespace = "net.dailyok.android"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "net.wellvo.android"
+        applicationId = "net.dailyok.android"
         minSdk = 26
         targetSdk = 34
         // Version strategy: versionCode = MAJOR*10000 + MINOR*100 + PATCH

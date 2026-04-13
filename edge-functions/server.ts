@@ -1,5 +1,5 @@
 /**
- * Wellvo Edge Functions Server
+ * Daily OK Edge Functions Server
  *
  * A lightweight HTTP server that routes requests to individual edge functions.
  * Runs as a Docker container alongside self-hosted Supabase on Coolify.
@@ -65,7 +65,7 @@ const routes: Record<string, FunctionHandler> = {
   "/link-apple-id": handleLinkAppleId,
 };
 
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://wellvo.net";
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://dailyok.net";
 
 function corsHeaders(req?: Request): Record<string, string> {
   const origin = req?.headers.get("Origin") || "";
@@ -90,7 +90,7 @@ async function handler(req: Request): Promise<Response> {
 
   // Health check (no auth required)
   if (path === "/health") {
-    return new Response(JSON.stringify({ status: "ok", service: "wellvo-edge-functions" }), {
+    return new Response(JSON.stringify({ status: "ok", service: "dailyok-edge-functions" }), {
       headers: { "Content-Type": "application/json" },
     });
   }
@@ -192,5 +192,5 @@ async function handler(req: Request): Promise<Response> {
   });
 }
 
-console.log(`Wellvo Edge Functions server running on port ${PORT}`);
+console.log(`Daily OK Edge Functions server running on port ${PORT}`);
 Deno.serve({ port: PORT }, handler);

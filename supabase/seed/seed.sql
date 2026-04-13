@@ -1,4 +1,4 @@
--- Wellvo Seed Data (Development Only)
+-- Daily OK Seed Data (Development Only)
 -- This file populates the database with test data for local development.
 
 -- Note: In production, users are created via Supabase Auth.

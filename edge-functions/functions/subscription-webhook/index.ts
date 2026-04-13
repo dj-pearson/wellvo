@@ -16,12 +16,12 @@ interface SubscriptionUpdate {
 // Keep this in sync with iOS `SubscriptionService.ProductIDs`, Android
 // `SubscriptionService.PRODUCT_IDS`, and docs/PRICING_RESEARCH.md §6.1.
 const TIER_MAP: Record<string, { tier: string; maxReceivers: number; maxViewers: number }> = {
-  "net.wellvo.caregiver.monthly": { tier: "caregiver", maxReceivers: 1, maxViewers: 3 },
-  "net.wellvo.caregiver.yearly": { tier: "caregiver", maxReceivers: 1, maxViewers: 3 },
-  "net.wellvo.family.monthly": { tier: "family", maxReceivers: 3, maxViewers: 5 },
-  "net.wellvo.family.yearly": { tier: "family", maxReceivers: 3, maxViewers: 5 },
-  "net.wellvo.familyplus.monthly": { tier: "family_plus", maxReceivers: 6, maxViewers: 10 },
-  "net.wellvo.familyplus.yearly": { tier: "family_plus", maxReceivers: 6, maxViewers: 10 },
+  "net.dailyok.caregiver.monthly": { tier: "caregiver", maxReceivers: 1, maxViewers: 3 },
+  "net.dailyok.caregiver.yearly": { tier: "caregiver", maxReceivers: 1, maxViewers: 3 },
+  "net.dailyok.family.monthly": { tier: "family", maxReceivers: 3, maxViewers: 5 },
+  "net.dailyok.family.yearly": { tier: "family", maxReceivers: 3, maxViewers: 5 },
+  "net.dailyok.familyplus.monthly": { tier: "family_plus", maxReceivers: 6, maxViewers: 10 },
+  "net.dailyok.familyplus.yearly": { tier: "family_plus", maxReceivers: 6, maxViewers: 10 },
 };
 
 export async function handleSubscriptionWebhook(req: Request, auth: AuthResult): Promise<Response> {
@@ -30,10 +30,10 @@ export async function handleSubscriptionWebhook(req: Request, auth: AuthResult):
 
   const tierInfo = TIER_MAP[product_id];
   if (!tierInfo) {
-    if (product_id === "net.wellvo.addon.receiver") {
+    if (product_id === "net.dailyok.addon.receiver") {
       return handleAddonReceiver(body, auth);
     }
-    if (product_id === "net.wellvo.addon.viewer") {
+    if (product_id === "net.dailyok.addon.viewer") {
       return handleAddonViewer(body, auth);
     }
 

@@ -65,7 +65,7 @@ function featureGraphicSvg() {
     <path fill="rgba(255,255,255,0.2)" d="M44,58L38,52C37.2,51.2 37.2,49.8 38,49C38.8,48.2 40.2,48.2 41,49L46,54L67,33C67.8,32.2 69.2,32.2 70,33C70.8,33.8 70.8,35.2 70,36L48,58C47.2,58.8 44.8,58.8 44,58Z"/>
   </g>
   <!-- App name -->
-  <text x="512" y="310" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="80" fill="${WHITE}">Wellvo</text>
+  <text x="512" y="310" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="80" fill="${WHITE}">Daily OK</text>
   <!-- Tagline -->
   <text x="512" y="380" text-anchor="middle" font-family="sans-serif" font-weight="400" font-size="32" fill="rgba(255,255,255,0.9)">One tap. Peace of mind.</text>
 </svg>`;

@@ -6,9 +6,9 @@ export default function Privacy() {
     <main className="legal-page">
       <SEO
         title="Privacy Policy"
-        description="Wellvo privacy policy. No location tracking, no camera access, no microphone. GDPR and CCPA compliant. Your family's data stays private."
+        description="Daily OK privacy policy. No location tracking, no camera access, no microphone. GDPR and CCPA compliant. Your family's data stays private."
         path="/privacy"
-        keywords="wellvo privacy, family app privacy policy, no tracking app, GDPR compliant check-in app"
+        keywords="dailyok privacy, family app privacy policy, no tracking app, GDPR compliant check-in app"
       />
       <div className="container">
         <div className="legal-content">
@@ -18,7 +18,7 @@ export default function Privacy() {
           <section>
             <h2>Introduction</h2>
             <p>
-              Wellvo ("we," "our," or "us") is committed to protecting your privacy. This Privacy
+              Daily OK ("we," "our," or "us") is committed to protecting your privacy. This Privacy
               Policy explains how we collect, use, disclose, and safeguard your information when
               you use our mobile application and related services (collectively, the "Service").
             </p>
@@ -153,7 +153,7 @@ export default function Privacy() {
             </ul>
             <p>
               To exercise any of these rights, contact us at{' '}
-              <a href="mailto:privacy@wellvo.net">privacy@wellvo.net</a>.
+              <a href="mailto:privacy@dailyok.net">privacy@dailyok.net</a>.
             </p>
           </section>
 
@@ -213,10 +213,10 @@ export default function Privacy() {
             </p>
             <p>
               <strong>Email:</strong>{' '}
-              <a href="mailto:privacy@wellvo.net">privacy@wellvo.net</a>
+              <a href="mailto:privacy@dailyok.net">privacy@dailyok.net</a>
               <br />
               <strong>Website:</strong>{' '}
-              <a href="https://wellvo.net/support">wellvo.net/support</a>
+              <a href="https://dailyok.net/support">dailyok.net/support</a>
             </p>
           </section>
         </div>

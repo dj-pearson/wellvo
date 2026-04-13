@@ -140,7 +140,7 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   }
 
   // Generate deep link (kept as fallback for QR/link sharing)
-  const inviteLink = `https://wellvo.net/invite?token=${inviteToken}`;
+  const inviteLink = `https://dailyok.net/invite?token=${inviteToken}`;
 
   // Send SMS invite to receiver
   // The receiver just needs to download the app and sign in with this phone number —
@@ -148,7 +148,7 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   // The pairing code is included so they can set up on an iPad or other device.
   const safeName = sanitizeDisplayName(name);
   const smsBody =
-    `${safeName}, your family wants to check in with you daily using Wellvo. ` +
+    `${safeName}, your family wants to check in with you daily using DailyOK. ` +
     `Download the app and sign in with this phone number to get started: ` +
     `https://apps.apple.com/app/alive-daily-checkin/id6742044109\n\n` +
     `Setting up on an iPad? Use this code: ${pairingCode}`;

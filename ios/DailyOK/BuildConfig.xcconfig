@@ -1,0 +1,8 @@
+// Daily OK Build Configuration
+// Override these values per-environment in Xcode scheme or CI/CD
+
+// Note: SUPABASE_URL and SUPABASE_ANON_KEY are injected directly into
+// Info.plist via PlistBuddy in CI (xcconfig truncates JWTs containing "//")
+
+// Bundle
+PRODUCT_BUNDLE_IDENTIFIER = com.dailyok.ios

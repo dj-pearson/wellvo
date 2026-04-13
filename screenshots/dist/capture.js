@@ -39,7 +39,7 @@ const fs = __importStar(require("fs"));
 const devices_1 = require("./devices");
 const screens_1 = require("./screens");
 /**
- * App Store Screenshot Generator for Wellvo
+ * App Store Screenshot Generator for DailyOK
  *
  * Generates screenshots at exact App Store required resolutions
  * by rendering HTML mockups of each app screen in a headless browser.
@@ -95,7 +95,7 @@ async function main() {
         screens: args.filter(a => a.startsWith('--screen=')).map(a => a.split('=')[1]),
         deviceSlugs: args.filter(a => a.startsWith('--device=')).map(a => a.split('=')[1]),
     };
-    console.log('=== Wellvo App Store Screenshot Generator ===\n');
+    console.log('=== DailyOK App Store Screenshot Generator ===\n');
     // Filter devices
     let targetDevices = devices_1.devices;
     if (opts.requiredOnly) {

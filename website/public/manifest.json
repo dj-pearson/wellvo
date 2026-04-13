@@ -1,6 +1,6 @@
 {
-  "name": "Wellvo — Daily Check-In",
-  "short_name": "Wellvo",
+  "name": "Daily OK — Daily Check-In",
+  "short_name": "Daily OK",
   "description": "The simplest daily check-in app for families. One tap. Peace of mind.",
   "start_url": "/",
   "display": "standalone",

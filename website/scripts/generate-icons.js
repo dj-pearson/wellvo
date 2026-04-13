@@ -39,7 +39,7 @@ async function generateOgImage() {
         </linearGradient>
       </defs>
       <rect width="${width}" height="${height}" fill="url(#bg)" />
-      <text x="600" y="270" font-family="system-ui, sans-serif" font-size="96" font-weight="bold" text-anchor="middle" fill="white">Wellvo</text>
+      <text x="600" y="270" font-family="system-ui, sans-serif" font-size="96" font-weight="bold" text-anchor="middle" fill="white">Daily OK</text>
       <text x="600" y="370" font-family="system-ui, sans-serif" font-size="36" text-anchor="middle" fill="rgba(255,255,255,0.9)">One tap. Peace of mind.</text>
     </svg>
   `;

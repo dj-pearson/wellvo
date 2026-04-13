@@ -1,4 +1,4 @@
--- Wellvo Grace Period Enforcement, Data Retention, and Subscription Downgrade
+-- Daily OK Grace Period Enforcement, Data Retention, and Subscription Downgrade
 -- Migration: 00005_subscription_grace_period_and_retention
 
 -- =============================================================================

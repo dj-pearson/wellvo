@@ -1,4 +1,4 @@
-# Wellvo — Coolify Deployment Guide
+# Daily OK — Coolify Deployment Guide
 
 ## Architecture Overview
 
@@ -33,8 +33,8 @@
 │                                                  │
 │  ┌──────────────────────────────────────────┐   │
 │  │             Cloudflare DNS               │   │
-│  │  api.wellvo.net → Supabase Kong          │   │
-│  │  edge.wellvo.net → Edge Functions        │   │
+│  │  api.dailyok.net → Supabase Kong          │   │
+│  │  edge.dailyok.net → Edge Functions        │   │
 │  └──────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────┘
 ```
@@ -47,8 +47,8 @@
 2. Configure environment variables:
    - `POSTGRES_PASSWORD` — strong random password
    - `JWT_SECRET` — 32+ character secret
-   - `SITE_URL` — `https://wellvo.net`
-   - `API_EXTERNAL_URL` — `https://api.wellvo.net`
+   - `SITE_URL` — `https://dailyok.net`
+   - `API_EXTERNAL_URL` — `https://api.dailyok.net`
    - Enable Apple Sign-In provider
 3. Deploy and note the **Docker network name** (usually `supabase_default`)
 4. Run the SQL migrations in order:
@@ -63,8 +63,8 @@
 Connect to the Postgres instance and set the app-level config:
 
 ```sql
-ALTER DATABASE wellvo SET app.edge_functions_url = 'http://wellvo-edge-functions:9000';
-ALTER DATABASE wellvo SET app.service_role_key = 'your-service-role-key';
+ALTER DATABASE dailyok SET app.edge_functions_url = 'http://dailyok-edge-functions:9000';
+ALTER DATABASE dailyok SET app.service_role_key = 'your-service-role-key';
 ```
 
 ### 3. Deploy Edge Functions
@@ -88,7 +88,7 @@ ALTER DATABASE wellvo SET app.service_role_key = 'your-service-role-key';
 | @      | A     | Your VPS IP          |
 | api    | A     | Your VPS IP          |
 | edge   | A     | Your VPS IP          |
-| www    | CNAME | wellvo.net           |
+| www    | CNAME | dailyok.net           |
 
 Enable Cloudflare proxy (orange cloud) for all records.
 
@@ -107,12 +107,12 @@ In your GitHub repository **Settings → Secrets and Variables → Actions**, ad
 | `ASC_KEY_ID`                 | App Store Connect API Key ID             |
 | `ASC_ISSUER_ID`              | App Store Connect API Issuer ID          |
 | `ASC_PRIVATE_KEY`            | App Store Connect API .p8 key contents   |
-| `SUPABASE_URL`               | `https://api.wellvo.net`                 |
+| `SUPABASE_URL`               | `https://api.dailyok.net`                 |
 | `SUPABASE_ANON_KEY`          | Supabase anonymous key                   |
 | `SUPABASE_DB_URL`            | PostgreSQL connection string             |
 | `COOLIFY_WEBHOOK_URL`        | Coolify deployment webhook URL           |
 | `COOLIFY_API_TOKEN`          | Coolify API token                        |
-| `EDGE_FUNCTIONS_HEALTH_URL`  | `https://edge.wellvo.net`                |
+| `EDGE_FUNCTIONS_HEALTH_URL`  | `https://edge.dailyok.net`                |
 
 ### 6. Database Backup Setup
 
@@ -122,13 +122,13 @@ The `backup-db.sh` script automates daily PostgreSQL backups with 30-day retenti
 
 ```bash
 # Copy script to server
-scp coolify/backup-db.sh your-vps:/opt/wellvo/coolify/
+scp coolify/backup-db.sh your-vps:/opt/dailyok/coolify/
 
 # Make executable
-chmod +x /opt/wellvo/coolify/backup-db.sh
+chmod +x /opt/dailyok/coolify/backup-db.sh
 
 # Add cron job (runs daily at 3 AM)
-echo "0 3 * * * DATABASE_URL='postgresql://...' /opt/wellvo/coolify/backup-db.sh >> /var/log/wellvo-backup.log 2>&1" | crontab -
+echo "0 3 * * * DATABASE_URL='postgresql://...' /opt/dailyok/coolify/backup-db.sh >> /var/log/dailyok-backup.log 2>&1" | crontab -
 
 # Verify cron is set
 crontab -l
@@ -139,32 +139,32 @@ crontab -l
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_URL` | (required) | PostgreSQL connection string |
-| `BACKUP_DIR` | `/var/backups/wellvo` | Where backups are stored |
+| `BACKUP_DIR` | `/var/backups/dailyok` | Where backups are stored |
 | `RETENTION_DAYS` | `30` | Delete backups older than this |
 
 **Restore from backup:**
 
 ```bash
 # Decompress and restore
-gunzip -c /var/backups/wellvo/wellvo-backup-20260318-030000.sql.gz | psql "$DATABASE_URL"
+gunzip -c /var/backups/dailyok/dailyok-backup-20260318-030000.sql.gz | psql "$DATABASE_URL"
 ```
 
 ### 7. Apple Developer Setup
 
-1. **App ID**: Register `net.wellvo.app` with capabilities:
+1. **App ID**: Register `net.dailyok.app` with capabilities:
    - Push Notifications
    - Sign in with Apple
    - Critical Alerts (requires justification)
 2. **APNs Key**: Create in Certificates, Identifiers & Profiles → Keys
 3. **Provisioning Profile**: App Store distribution profile
 4. **App Store Connect**: Create the app, configure subscriptions:
-   - `net.wellvo.caregiver.monthly` — $3.99/mo
-   - `net.wellvo.caregiver.yearly` — $29.99/yr
-   - `net.wellvo.family.monthly` — $6.99/mo
-   - `net.wellvo.family.yearly` — $49.99/yr
-   - `net.wellvo.familyplus.monthly` — $9.99/mo
-   - `net.wellvo.familyplus.yearly` — $79.99/yr
-   - `net.wellvo.addon.receiver` — $2.49/mo
-   - `net.wellvo.addon.viewer` — $0.99/mo
+   - `net.dailyok.caregiver.monthly` — $3.99/mo
+   - `net.dailyok.caregiver.yearly` — $29.99/yr
+   - `net.dailyok.family.monthly` — $6.99/mo
+   - `net.dailyok.family.yearly` — $49.99/yr
+   - `net.dailyok.familyplus.monthly` — $9.99/mo
+   - `net.dailyok.familyplus.yearly` — $79.99/yr
+   - `net.dailyok.addon.receiver` — $2.49/mo
+   - `net.dailyok.addon.viewer` — $0.99/mo
    See `docs/PRICING_RESEARCH.md` and
    `docs/APP_STORE_CONNECT_AND_SUPABASE_SETUP.md` §3 for full config.

@@ -21,8 +21,8 @@ export default function Home() {
   return (
     <>
       <SEO
-        title="Wellvo — Daily Check-In App for Families & Caregivers | Elderly Parent & Child Safety"
-        description="Wellvo is the simplest daily check-in app for families caring for aging parents with dementia, children playing outside, and long-distance loved ones. One tap confirms safety. Escalating alerts if no response. Plans from $3.99/mo with a free trial."
+        title="Daily OK — Daily Check-In App for Families & Caregivers | Elderly Parent & Child Safety"
+        description="Daily OK is the simplest daily check-in app for families caring for aging parents with dementia, children playing outside, and long-distance loved ones. One tap confirms safety. Escalating alerts if no response. Plans from $3.99/mo with a free trial."
         path="/"
         keywords="daily check-in app, elderly parent check-in, dementia caregiver app, child safety check-in, family wellness app, aging parent monitoring, senior safety app, kids check-in app, caregiver app for elderly, family safety app, alzheimers caregiver tool, check on elderly parents, child wellness check, latchkey kid safety"
       />
@@ -37,7 +37,7 @@ export default function Home() {
           </h1>
           <p className="hero-subtitle">
             Whether you're caring for an aging parent with dementia, keeping tabs on your kids
-            playing outside, or staying connected across the miles — Wellvo gives you peace of
+            playing outside, or staying connected across the miles — Daily OK gives you peace of
             mind with a single daily check-in. One notification. One tap. That's it.
           </p>
           <div className="hero-actions">
@@ -85,7 +85,7 @@ export default function Home() {
       <section className="section how-it-works" id="how-it-works">
         <div className="container">
           <div className="section-header">
-            <h2>How Wellvo Works</h2>
+            <h2>How Daily OK Works</h2>
             <p>Simple for everyone involved — set up in under 2 minutes</p>
           </div>
 
@@ -257,7 +257,7 @@ export default function Home() {
         <div className="container">
           <div className="section-header">
             <h2>Care, Not Surveillance</h2>
-            <p>Wellvo respects the dignity and independence of your loved ones</p>
+            <p>Daily OK respects the dignity and independence of your loved ones</p>
           </div>
 
           <div className="no-tracking-grid">
@@ -326,7 +326,7 @@ export default function Home() {
               <h4>Family & Professional Caregivers</h4>
               <p>
                 Whether you're a professional caregiver or a family member coordinating care,
-                Wellvo provides a reliable daily wellness signal with history and PDF reports
+                Daily OK provides a reliable daily wellness signal with history and PDF reports
                 you can share with healthcare providers.
               </p>
             </div>
