@@ -89,7 +89,7 @@ export default function Pricing() {
     { q: 'Who pays for the subscription?', a: 'Only the Owner (the person managing the family group) pays. Receivers and Viewers never see billing or need to pay anything.' },
     { q: 'Can I try before I buy?', a: 'Yes. Every plan includes a 7-day free trial on monthly, or a 14-day free trial on yearly. You won\'t be charged until the trial ends, and you can cancel anytime from your Apple ID or Google Play settings.' },
     { q: 'Which plan is right for a parent with dementia?', a: 'The Caregiver plan. It\'s sized for exactly that situation — one Receiver (the parent) and up to 3 Viewers (you and your siblings who all want peace of mind). Pattern alerts are included, which help you spot changes in daily routine that can signal dementia progression.' },
-    { q: 'How does Wellvo compare to medical alert devices?', a: 'Medical alerts like Life Alert or Medical Guardian cost $30–50/month and are designed for emergency response. Wellvo is for daily connection and early warning — a fraction of the price, no hardware, and built around one simple tap instead of a call center.' },
+    { q: 'How does Daily OK compare to medical alert devices?', a: 'Medical alerts like Life Alert or Medical Guardian cost $30–50/month and are designed for emergency response. Daily OK is for daily connection and early warning — a fraction of the price, no hardware, and built around one simple tap instead of a call center.' },
     { q: 'What happens if I cancel?', a: 'Your plan stays active until the end of your billing period. After that, check-ins stop being sent. Your data is retained per our data retention policy and you can export or delete it anytime.' },
     { q: 'Can I switch plans?', a: 'Yes, you can upgrade or downgrade anytime. Changes take effect at your next billing date. Upgrades are prorated.' },
     { q: 'What are Critical Alerts?', a: 'On the Family+ plan, missed check-in alerts can bypass Do Not Disturb mode on your iPhone — so you\'ll never miss a 3 AM escalation because your phone was on silent.' },
@@ -113,9 +113,9 @@ export default function Pricing() {
     <>
       <SEO
         title="Pricing — Caregiver, Family & Family+ Plans"
-        description="Wellvo pricing starts at $3.99/mo for the Caregiver plan — built for families watching over one parent with dementia. Family ($6.99/mo) and Family+ ($9.99/mo with Critical Alerts) for larger households. Every plan includes a free trial."
+        description="Daily OK pricing starts at $3.99/mo for the Caregiver plan — built for families watching over one parent with dementia. Family ($6.99/mo) and Family+ ($9.99/mo with Critical Alerts) for larger households. Every plan includes a free trial."
         path="/pricing"
-        keywords="wellvo pricing, dementia caregiver app cost, family check-in app price, elderly parent monitoring app subscription, caregiver app free trial"
+        keywords="dailyok pricing, dementia caregiver app cost, family check-in app price, elderly parent monitoring app subscription, caregiver app free trial"
         jsonLd={faqJsonLd}
       />
 

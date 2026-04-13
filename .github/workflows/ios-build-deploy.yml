@@ -37,7 +37,7 @@ jobs:
           client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
           client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
           env-slug: "prod"
-          project-slug: "wellvo"
+          project-slug: "dailyok"
           export-type: "env"
 
       - name: Select Xcode version
@@ -86,28 +86,28 @@ jobs:
         working-directory: ios
         run: |
           xcodebuild -resolvePackageDependencies \
-            -project Wellvo.xcodeproj \
-            -scheme Wellvo
+            -project DailyOK.xcodeproj \
+            -scheme DailyOK
 
       - name: Inject build configuration
         run: |
           # Write code signing config to xcconfig (these values are safe for xcconfig)
           {
-            echo "// Wellvo Build Configuration (CI-generated)"
+            echo "// Daily OK Build Configuration (CI-generated)"
             echo "CODE_SIGN_STYLE = Manual"
             echo "CODE_SIGN_IDENTITY = Apple Distribution"
             echo "DEVELOPMENT_TEAM = ${{ env.APPLE_TEAM_ID }}"
             echo "PROVISIONING_PROFILE_SPECIFIER = ${{ env.PROVISIONING_PROFILE_NAME }}"
-            echo "PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios"
-          } > ios/Wellvo/BuildConfig.xcconfig
+            echo "PRODUCT_BUNDLE_IDENTIFIER = com.dailyok.ios"
+          } > ios/DailyOK/BuildConfig.xcconfig
 
           # Write Supabase config directly to Info.plist using PlistBuddy.
           # xcconfig treats "//" as comments, which truncates JWT tokens (anon key).
-          /usr/libexec/PlistBuddy -c "Set :SUPABASE_URL ${{ env.SUPABASE_URL }}" ios/Wellvo/Info.plist
-          /usr/libexec/PlistBuddy -c "Set :SUPABASE_ANON_KEY ${{ env.SUPABASE_ANON_KEY }}" ios/Wellvo/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :SUPABASE_URL ${{ env.SUPABASE_URL }}" ios/DailyOK/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :SUPABASE_ANON_KEY ${{ env.SUPABASE_ANON_KEY }}" ios/DailyOK/Info.plist
 
           # Verify
-          echo "SUPABASE_URL: $(/usr/libexec/PlistBuddy -c 'Print :SUPABASE_URL' ios/Wellvo/Info.plist)"
+          echo "SUPABASE_URL: $(/usr/libexec/PlistBuddy -c 'Print :SUPABASE_URL' ios/DailyOK/Info.plist)"
           echo "SUPABASE_ANON_KEY length: $(echo -n '${{ env.SUPABASE_ANON_KEY }}' | wc -c | tr -d ' ')"
 
       - name: Set version and build number
@@ -117,7 +117,7 @@ jobs:
 
           # If no version provided, read from project
           if [ -z "$VERSION" ]; then
-            VERSION=$(sed -n 's/.*MARKETING_VERSION = \(.*\);/\1/p' ios/Wellvo.xcodeproj/project.pbxproj | head -1 | xargs)
+            VERSION=$(sed -n 's/.*MARKETING_VERSION = \(.*\);/\1/p' ios/DailyOK.xcodeproj/project.pbxproj | head -1 | xargs)
           fi
 
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
@@ -129,18 +129,18 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild archive \
-            -project Wellvo.xcodeproj \
-            -scheme Wellvo \
+            -project DailyOK.xcodeproj \
+            -scheme DailyOK \
             -configuration Release \
-            -archivePath $RUNNER_TEMP/Wellvo.xcarchive \
+            -archivePath $RUNNER_TEMP/DailyOK.xcarchive \
             -destination "generic/platform=iOS" \
             MARKETING_VERSION="${{ env.APP_VERSION }}" \
             CURRENT_PROJECT_VERSION="${{ env.BUILD_NUMBER }}" \
             | xcbeautify
 
           # Verify archive was created
-          if [ ! -d "$RUNNER_TEMP/Wellvo.xcarchive" ]; then
-            echo "::error::Archive was not created at $RUNNER_TEMP/Wellvo.xcarchive"
+          if [ ! -d "$RUNNER_TEMP/DailyOK.xcarchive" ]; then
+            echo "::error::Archive was not created at $RUNNER_TEMP/DailyOK.xcarchive"
             exit 1
           fi
 
@@ -165,7 +165,7 @@ jobs:
               <string>manual</string>
               <key>provisioningProfiles</key>
               <dict>
-                  <key>com.wellvo.ios</key>
+                  <key>com.dailyok.ios</key>
                   <string>${{ env.PROVISIONING_PROFILE_NAME }}</string>
               </dict>
           </dict>
@@ -184,7 +184,7 @@ jobs:
       - name: Export IPA
         run: |
           xcodebuild -exportArchive \
-            -archivePath $RUNNER_TEMP/Wellvo.xcarchive \
+            -archivePath $RUNNER_TEMP/DailyOK.xcarchive \
             -exportPath $RUNNER_TEMP/export \
             -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
             -authenticationKeyPath ~/.private_keys/AuthKey_${{ env.ASC_KEY_ID }}.p8 \
@@ -195,7 +195,7 @@ jobs:
         run: |
           xcrun altool --upload-app \
             --type ios \
-            --file "$RUNNER_TEMP/export/Wellvo.ipa" \
+            --file "$RUNNER_TEMP/export/DailyOK.ipa" \
             --apiKey "${{ env.ASC_KEY_ID }}" \
             --apiIssuer "${{ env.ASC_ISSUER_ID }}"
 

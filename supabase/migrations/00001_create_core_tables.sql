@@ -1,4 +1,4 @@
--- Wellvo Core Schema
+-- Daily OK Core Schema
 -- Migration: 00001_create_core_tables
 
 -- Enable required extensions

@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Wellvo"
+rootProject.name = "DailyOK"
 include(":app")

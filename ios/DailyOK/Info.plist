@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Daily OK</string>
+	<key>CFBundleName</key>
+	<string>Daily OK</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.dailyok.ios</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>SUPABASE_URL</key>
+	<string>REPLACE_AT_BUILD_TIME</string>
+	<key>SUPABASE_ANON_KEY</key>
+	<string>REPLACE_AT_BUILD_TIME</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>dailyok</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Daily OK uses your location to include it with your check-in so your family knows you're safe.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Daily OK uses your location to include it with your check-in so your family knows you're safe.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+	</dict>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>

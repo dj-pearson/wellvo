@@ -1,4 +1,4 @@
-# Wellvo iOS — Pricing Model Research & Recommendation
+# Daily OK iOS — Pricing Model Research & Recommendation
 
 **Status:** Research / proposal
 **Last updated:** 2026-04-11
@@ -40,7 +40,7 @@ The goal of this doc is to recommend a pricing structure where:
 ## 2. Current pricing (for reference)
 
 Source: `website/src/pages/Pricing.tsx`, `docs/APP_STORE_CONNECT_AND_SUPABASE_SETUP.md`,
-`Wellvo-PRD-v1.md` §5.1.
+`Daily OK-PRD-v1.md` §5.1.
 
 | Tier         | Monthly | Yearly   | Receivers | Viewers | Notes                                   |
 | ------------ | ------- | -------- | --------- | ------- | --------------------------------------- |
@@ -92,12 +92,12 @@ incident. A chronic misser could push $0.50/mo.
 ### 3.3 Apple's cut
 
 Apple takes **15%** under the Small Business Program (< $1M/yr revenue), which
-Wellvo will qualify for from day one. Once past $1M it becomes 30% on net-new
+Daily OK will qualify for from day one. Once past $1M it becomes 30% on net-new
 subscribers and 15% on subscribers in year 2+.
 
 Applied to the current tiers (monthly, SBP 15%):
 
-| Tier    | Gross   | Apple 15% | Net to Wellvo | Variable cost | **Margin**   |
+| Tier    | Gross   | Apple 15% | Net to Daily OK | Variable cost | **Margin**   |
 | ------- | ------- | --------- | ------------- | ------------- | ------------ |
 | Family  | $4.99   | $0.75     | $4.24         | ~$0.15        | **~$4.09**   |
 | Family+ | $7.99   | $1.20     | $6.79         | ~$0.20        | **~$6.59**   |
@@ -105,7 +105,7 @@ Applied to the current tiers (monthly, SBP 15%):
 On yearly plans, per-month net is lower (Family yearly nets ~$2.83/mo after
 Apple's cut) but churn is drastically lower and no payment processing ping-pong.
 
-**Bottom line:** at any price above ~$1.99/mo, Wellvo is profitable on
+**Bottom line:** at any price above ~$1.99/mo, Daily OK is profitable on
 variable costs. The question isn't "can we cover costs" — it's "what price
 captures value without suppressing conversion."
 
@@ -132,7 +132,7 @@ captures value without suppressing conversion."
 - Snug Safety's free tier is the closest direct competitor. It's relevant
   because it proves people will use a free daily check-in — but Snug's
   $19.99/mo upsell is a phone dispatcher, not more features, so they haven't
-  figured out software monetization. Wellvo can.
+  figured out software monetization. Daily OK can.
 - No competitor has a dedicated "1 parent with dementia" tier. This is a
   positioning gap.
 
@@ -153,7 +153,7 @@ benchmarks:
   Headspace famously uses 7 days on monthly and 14 days on annual — the longer
   trial is a tool to push users onto the higher-LTV annual plan.
 
-**Implication for Wellvo:** The check-in loop takes at least a week to feel
+**Implication for Daily OK:** The check-in loop takes at least a week to feel
 real — you need to experience a scheduled check-in, an on-demand ping, and
 ideally one "near-miss" to understand the escalation value. A 7-day monthly
 trial is the minimum viable length. A 14-day yearly trial is the right carrot
@@ -275,7 +275,7 @@ their need.
    been-Free" audience won't convert even to $3.99. Mitigation: make the
    trial the entry point, not a paywall. Onboarding shouldn't show pricing
    until after the user has set up a Receiver and seen the dashboard. The
-   trial should feel like "start using Wellvo" not "start your subscription."
+   trial should feel like "start using Daily OK" not "start your subscription."
 2. **App Store review risk.** Apple will scrutinize a trial-first flow to
    make sure the paywall is honest. The paywall must clearly show: trial
    length, price after trial, auto-renewal, cancellation instructions. This
@@ -303,16 +303,16 @@ their need.
 ## 8. Implementation checklist (if this is approved)
 
 - [ ] Create 6 new StoreKit products in App Store Connect:
-  - `net.wellvo.caregiver.monthly` ($3.99)
-  - `net.wellvo.caregiver.yearly` ($29.99)
-  - `net.wellvo.family.monthly` ($6.99) — reprice
-  - `net.wellvo.family.yearly` ($49.99) — reprice
-  - `net.wellvo.familyplus.monthly` ($9.99) — reprice
-  - `net.wellvo.familyplus.yearly` ($79.99) — reprice
+  - `net.dailyok.caregiver.monthly` ($3.99)
+  - `net.dailyok.caregiver.yearly` ($29.99)
+  - `net.dailyok.family.monthly` ($6.99) — reprice
+  - `net.dailyok.family.yearly` ($49.99) — reprice
+  - `net.dailyok.familyplus.monthly` ($9.99) — reprice
+  - `net.dailyok.familyplus.yearly` ($79.99) — reprice
 - [ ] Add `caregiver` case to `SubscriptionTier` enum
-  (`ios/Wellvo/Models/Family.swift:3`).
+  (`ios/Daily OK/Models/Family.swift:3`).
 - [ ] Add Caregiver product IDs + tier mapping to
-  `ios/Wellvo/Services/SubscriptionService.swift:17` (`ProductIDs` struct) and
+  `ios/Daily OK/Services/SubscriptionService.swift:17` (`ProductIDs` struct) and
   update `updateCurrentTier()` to include `caregiver`.
 - [ ] Update `hasAccess(to:)` precedence: `familyPlus` > `family` > `caregiver`
   > `free`. Keep `free` as a grandfather-only state.
@@ -325,15 +325,15 @@ their need.
   table (and update `Pricing.css` grid to handle 3 equal-weight tiers).
 - [ ] Update `docs/APP_STORE_CONNECT_AND_SUPABASE_SETUP.md` §3.1–3.4 with
   new product IDs, prices, and introductory offers.
-- [ ] Update `Wellvo-PRD-v1.md` §5.1 pricing table.
+- [ ] Update `Daily OK-PRD-v1.md` §5.1 pricing table.
 - [ ] Grandfather-plan migration job: for existing Free users, set a
   `free_tier_expires_at` 90 days from the migration date and trigger a push
   campaign pointing at Caregiver.
 - [ ] Update Android mirroring in
-  `android/app/src/main/java/net/wellvo/android/services/SubscriptionService.kt`.
+  `android/app/src/main/java/net/dailyok/android/services/SubscriptionService.kt`.
 - [ ] Update subscription unit tests in
-  `ios/WellvoTests/SubscriptionServiceTests.swift` and
-  `android/app/src/test/java/net/wellvo/android/services/SubscriptionServiceTest.kt`.
+  `ios/Daily OKTests/SubscriptionServiceTests.swift` and
+  `android/app/src/test/java/net/dailyok/android/services/SubscriptionServiceTest.kt`.
 
 ---
 

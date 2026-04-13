@@ -114,7 +114,7 @@ export function buildEscalationSMS(
   type: "owner_alert" | "viewer_alert"
 ): string {
   if (type === "owner_alert") {
-    return `Wellvo Alert: ${receiverName} has missed their daily check-in. They've been reminded twice with no response. Open the Wellvo app for details.`;
+    return `Daily OK Alert: ${receiverName} has missed their daily check-in. They've been reminded twice with no response. Open the Daily OK app for details.`;
   }
-  return `Wellvo Family Alert: ${receiverName} has missed their daily check-in today. Please check on them.`;
+  return `Daily OK Family Alert: ${receiverName} has missed their daily check-in today. Please check on them.`;
 }

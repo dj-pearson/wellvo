@@ -16,16 +16,16 @@ import './ChildSafety.css'
 
 const faqs = [
   {
-    q: 'What age is Wellvo appropriate for?',
-    a: 'Wellvo is designed for users ages 13 and up (as Receivers). The one-tap interface is simple enough for any teenager, and many younger teens find it easier than remembering to text their parents.',
+    q: 'What age is Daily OK appropriate for?',
+    a: 'Daily OK is designed for users ages 13 and up (as Receivers). The one-tap interface is simple enough for any teenager, and many younger teens find it easier than remembering to text their parents.',
   },
   {
-    q: 'Does Wellvo track my child\'s location?',
-    a: 'No. Wellvo never accesses location data. It\'s a simple "I\'m OK" check-in — not a tracking app. This approach respects your child\'s growing independence while keeping you informed.',
+    q: 'Does Daily OK track my child\'s location?',
+    a: 'No. Daily OK never accesses location data. It\'s a simple "I\'m OK" check-in — not a tracking app. This approach respects your child\'s growing independence while keeping you informed.',
   },
   {
     q: 'What if my child forgets to check in?',
-    a: 'Wellvo sends a gentle reminder first. If they still don\'t respond within your configured time window (15–120 minutes), you get an alert. On the Family+ plan, alerts can bypass Do Not Disturb on your phone.',
+    a: 'Daily OK sends a gentle reminder first. If they still don\'t respond within your configured time window (15–120 minutes), you get an alert. On the Family+ plan, alerts can bypass Do Not Disturb on your phone.',
   },
   {
     q: 'Can my child respond without opening the app?',
@@ -37,7 +37,7 @@ const faqs = [
   },
   {
     q: 'How is this different from just texting my kid?',
-    a: 'Texts get lost in group chats, ignored, or forgotten. Wellvo is a dedicated, structured check-in with escalating alerts if there\'s no response. It\'s consistent, reliable, and takes the guesswork out of "Did they see my message?"',
+    a: 'Texts get lost in group chats, ignored, or forgotten. Daily OK is a dedicated, structured check-in with escalating alerts if there\'s no response. It\'s consistent, reliable, and takes the guesswork out of "Did they see my message?"',
   },
 ]
 
@@ -59,7 +59,7 @@ export default function ChildSafety() {
     <>
       <SEO
         title="Daily Check-In App for Kids & Teen Safety"
-        description="Wellvo helps parents stay connected with children playing outside, walking home from school, or home alone. Simple one-tap daily check-in with alerts. No GPS tracking. Free on iPhone."
+        description="Daily OK helps parents stay connected with children playing outside, walking home from school, or home alone. Simple one-tap daily check-in with alerts. No GPS tracking. Free on iPhone."
         path="/child-safety"
         keywords="child safety check-in app, kids check-in app, teen safety app, latchkey kid app, child wellness check app, kids playing outside safety, after school check-in app, parent child check-in, child safety app no tracking, teen check-in app for parents, kid home alone safety app"
         jsonLd={faqJsonLd}
@@ -75,7 +75,7 @@ export default function ChildSafety() {
           </h1>
           <p className="cs-hero-subtitle">
             Whether they're playing outside, walking home from school, or staying home
-            alone — Wellvo lets you check in with your children every day. One notification.
+            alone — Daily OK lets you check in with your children every day. One notification.
             One tap. No GPS tracking, no surveillance. Just a simple "I'm OK."
           </p>
           <div className="hero-actions">
@@ -160,7 +160,7 @@ export default function ChildSafety() {
               </ul>
             </div>
             <div className="cs-compare-card cs-compare-new">
-              <h4>Wellvo</h4>
+              <h4>Daily OK</h4>
               <ul>
                 <li><CheckCircle size={16} /> Dedicated check-in notification</li>
                 <li><CheckCircle size={16} /> One-tap response from notification</li>
@@ -179,7 +179,7 @@ export default function ChildSafety() {
           <div className="section-header">
             <h2>Safety without surveillance</h2>
             <p>
-              We believe kids deserve privacy too. Wellvo checks in —
+              We believe kids deserve privacy too. Daily OK checks in —
               it doesn't track, watch, or listen.
             </p>
           </div>

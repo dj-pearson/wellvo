@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Wellvo</string>
+    <string name="app_name">Daily OK</string>
     <string name="tagline">One tap. Peace of mind.</string>
 
     <!-- Auth Screen -->
@@ -32,8 +32,8 @@
     <!-- Onboarding Screen -->
     <string name="onboarding_back">Back</string>
     <string name="onboarding_step_counter">Step %1$d of %2$d</string>
-    <string name="onboarding_welcome_title">Welcome to Wellvo</string>
-    <string name="onboarding_welcome_body">Wellvo helps families stay connected with a simple daily check-in. Set up your family, invite your loved ones, and get peace of mind with just one tap.</string>
+    <string name="onboarding_welcome_title">Welcome to Daily OK</string>
+    <string name="onboarding_welcome_body">Daily OK helps families stay connected with a simple daily check-in. Set up your family, invite your loved ones, and get peace of mind with just one tap.</string>
     <string name="onboarding_get_started">Get Started</string>
     <string name="onboarding_user_type_title">Who are you checking in on?</string>
     <string name="onboarding_user_type_subtitle">This helps us tailor your experience</string>
@@ -129,7 +129,7 @@
     <string name="receiver_onboarding_complete_title">You\'re all set!</string>
     <string name="receiver_onboarding_complete_body">When it\'s time for your daily check-in, just open the app and tap the button. It takes one second.</string>
     <string name="receiver_onboarding_notifications_hint">You can enable notifications later in Settings to get check-in reminders.</string>
-    <string name="receiver_onboarding_start">Start Using Wellvo</string>
+    <string name="receiver_onboarding_start">Start Using Daily OK</string>
 
     <!-- Receiver Home Screen -->
     <string name="receiver_offline_banner">You\'re offline. Check-ins will be saved and synced later.</string>
@@ -302,9 +302,9 @@
     <string name="setup_guide_subtitle">%1$s will receive a text message with instructions to get started.</string>
     <string name="setup_guide_steps_title">What %1$s needs to do:</string>
     <string name="setup_guide_step1_title">Open the Text Message</string>
-    <string name="setup_guide_step1_desc">%1$s will receive a text with a link to download Wellvo from the Play Store.</string>
+    <string name="setup_guide_step1_desc">%1$s will receive a text with a link to download Daily OK from the Play Store.</string>
     <string name="setup_guide_step2_title">Download the App</string>
-    <string name="setup_guide_step2_desc">Tap the link in the text to open the Play Store and download Wellvo.</string>
+    <string name="setup_guide_step2_desc">Tap the link in the text to open the Play Store and download Daily OK.</string>
     <string name="setup_guide_step3_title">Sign In with Their Phone Number</string>
     <string name="setup_guide_step3_desc">Open the app and enter the same phone number the text was sent to. They\'ll receive a verification code.</string>
     <string name="setup_guide_step4_title">Allow Notifications</string>

@@ -1,5 +1,5 @@
 ###############################################################################
-# Wellvo Backend — Docker Compose for Coolify Deployment
+# Daily OK Backend — Docker Compose for Coolify Deployment
 #
 # This compose file runs alongside your self-hosted Supabase instance.
 # Supabase itself is managed separately by Coolify's Supabase service.
@@ -16,7 +16,7 @@ services:
     build:
       context: ./edge-functions
       dockerfile: Dockerfile
-    container_name: wellvo-edge-functions
+    container_name: dailyok-edge-functions
     restart: unless-stopped
     ports:
       - "9000:9000"
@@ -37,7 +37,7 @@ services:
         max-size: "10m"
         max-file: "3"
     networks:
-      - wellvo-network
+      - dailyok-network
     healthcheck:
       test: ["CMD", "deno", "eval", "const r = await fetch('http://localhost:9000/health'); const d = await r.json(); if (d.status !== 'ok') Deno.exit(1);"]
       interval: 30s
@@ -51,6 +51,6 @@ services:
           cpus: '0.5'
 
 networks:
-  wellvo-network:
+  dailyok-network:
     external: true
     name: ${SUPABASE_NETWORK:-coolify}

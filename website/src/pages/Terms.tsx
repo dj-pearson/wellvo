@@ -6,7 +6,7 @@ export default function Terms() {
     <main className="legal-page">
       <SEO
         title="Terms of Use"
-        description="Wellvo terms of use. Service description, eligibility requirements, subscription details, and acceptable use policy for the daily family check-in app."
+        description="Daily OK terms of use. Service description, eligibility requirements, subscription details, and acceptable use policy for the daily family check-in app."
         path="/terms"
       />
       <div className="container">
@@ -17,7 +17,7 @@ export default function Terms() {
           <section>
             <h2>1. Acceptance of Terms</h2>
             <p>
-              By downloading, installing, or using the Wellvo application and related services
+              By downloading, installing, or using the Daily OK application and related services
               (the "Service"), you agree to be bound by these Terms of Use ("Terms"). If you do
               not agree to these Terms, do not use the Service.
             </p>
@@ -26,13 +26,13 @@ export default function Terms() {
           <section>
             <h2>2. Description of Service</h2>
             <p>
-              Wellvo is a daily check-in application designed to help families stay connected and
+              Daily OK is a daily check-in application designed to help families stay connected and
               monitor the wellness of loved ones. The Service allows an Owner to set up check-in
               schedules for Receivers, who confirm their well-being with a simple daily tap.
               Viewers may observe check-in status.
             </p>
             <p>
-              Wellvo is <strong>not</strong> a medical device, emergency service, or substitute
+              Daily OK is <strong>not</strong> a medical device, emergency service, or substitute
               for professional medical care, emergency services, or in-person caregiving. The
               Service is designed as a supplementary communication tool only.
             </p>
@@ -63,7 +63,7 @@ export default function Terms() {
           <section>
             <h2>5. Subscriptions and Payments</h2>
             <p>
-              Wellvo offers paid subscription plans (Caregiver, Family, and Family+), each
+              Daily OK offers paid subscription plans (Caregiver, Family, and Family+), each
               with a free trial. All paid subscriptions are processed through the Apple App
               Store or Google Play Store and are subject to their respective terms and
               conditions for in-app purchases.
@@ -130,7 +130,7 @@ export default function Terms() {
             <h2>8. Intellectual Property</h2>
             <p>
               The Service, including its design, features, content, and underlying technology,
-              is owned by Wellvo and protected by intellectual property laws. You are granted a
+              is owned by Daily OK and protected by intellectual property laws. You are granted a
               limited, non-exclusive, non-transferable license to use the Service for personal,
               non-commercial purposes.
             </p>
@@ -145,7 +145,7 @@ export default function Terms() {
             </p>
             <p>
               <strong>
-                WELLVO IS NOT A MEDICAL DEVICE OR EMERGENCY SERVICE. A MISSED CHECK-IN DOES NOT
+                DAILY OK IS NOT A MEDICAL DEVICE OR EMERGENCY SERVICE. A MISSED CHECK-IN DOES NOT
                 NECESSARILY INDICATE AN EMERGENCY. YOU SHOULD NOT RELY SOLELY ON THE SERVICE TO
                 DETERMINE THE SAFETY OR WELL-BEING OF ANY INDIVIDUAL. IN ANY EMERGENCY, CALL
                 YOUR LOCAL EMERGENCY SERVICES (911 IN THE UNITED STATES).
@@ -156,7 +156,7 @@ export default function Terms() {
           <section>
             <h2>10. Limitation of Liability</h2>
             <p>
-              TO THE MAXIMUM EXTENT PERMITTED BY LAW, WELLVO SHALL NOT BE LIABLE FOR ANY
+              TO THE MAXIMUM EXTENT PERMITTED BY LAW, DAILY OK SHALL NOT BE LIABLE FOR ANY
               INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS
               OF PROFITS OR REVENUES, WHETHER INCURRED DIRECTLY OR INDIRECTLY, OR ANY LOSS OF
               DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES RESULTING FROM:
@@ -174,7 +174,7 @@ export default function Terms() {
           <section>
             <h2>11. Indemnification</h2>
             <p>
-              You agree to indemnify and hold harmless Wellvo and its officers, directors,
+              You agree to indemnify and hold harmless Daily OK and its officers, directors,
               employees, and agents from any claims, damages, losses, liabilities, costs, or
               expenses arising out of your use of the Service or violation of these Terms.
             </p>
@@ -215,10 +215,10 @@ export default function Terms() {
             </p>
             <p>
               <strong>Email:</strong>{' '}
-              <a href="mailto:support@wellvo.net">support@wellvo.net</a>
+              <a href="mailto:support@dailyok.net">support@dailyok.net</a>
               <br />
               <strong>Website:</strong>{' '}
-              <a href="https://wellvo.net/support">wellvo.net/support</a>
+              <a href="https://dailyok.net/support">dailyok.net/support</a>
             </p>
           </section>
         </div>

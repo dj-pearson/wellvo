@@ -1,0 +1,830 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		/* App */
+		B1A00001 /* DailyOKApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A00001; };
+		B1A00002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A00002; };
+		B1A00003 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A00003; };
+		B1A00004 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A00004; };
+		/* Models */
+		B1B00001 /* CheckIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B00001; };
+		B1B00002 /* Family.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B00002; };
+		B1B00003 /* OfflineCheckIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B00003; };
+		B1B00004 /* ReceiverSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B00004; };
+		B1B00005 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B00005; };
+		B1B00006 /* DailyOKAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B00006; };
+		B1B00007 /* DailyOKError.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B00007; };
+		/* Services */
+		B1C00001 /* AnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00001; };
+		B1C00002 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00002; };
+		B1C00003 /* CheckInService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00003; };
+		B1C00004 /* FamilyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00004; };
+		B1C00005 /* OfflineCheckInService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00005; };
+		B1C00006 /* PushNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00006; };
+		B1C00007 /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00007; };
+		B1C00008 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00008; };
+		/* Utilities */
+		B1D00001 /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00001; };
+		B1D00002 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00002; };
+		B1D00003 /* NetworkRetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00003; };
+		/* ViewModels */
+		B1E00001 /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1E00001; };
+		B1E00002 /* DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1E00002; };
+		B1E00003 /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1E00003; };
+		B1E00004 /* ReceiverViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1E00004; };
+		/* Views/Auth */
+		B1F00001 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00001; };
+		/* Views/Onboarding */
+		B1F00002 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00002; };
+		B1F00003 /* ReceiverOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00003; };
+		B1F00011 /* PairingCodeEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00011; };
+		/* Views/Owner */
+		B1F00004 /* CalendarHeatmapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00004; };
+		B1F00005 /* CheckInReportGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00005; };
+		B1F00006 /* CheckInTrendChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00006; };
+		B1F00007 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00007; };
+		B1F00008 /* FamilyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00008; };
+		B1F00009 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00009; };
+		B1F0000A /* OwnerTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0000A; };
+		B1F00010 /* ReceiverSetupGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00010; };
+		/* Views/Receiver */
+		B1F0000B /* ReceiverHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0000B; };
+		/* Views/Settings */
+		B1F0000C /* NotificationPermissionBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0000C; };
+		B1F0000D /* ReceiverSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0000D; };
+		B1F0000E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0000E; };
+		/* Views/Viewer */
+		B1F0000F /* ViewerTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0000F; };
+		/* Resources */
+		B1G00001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F1G00001; };
+		/* SPM Products */
+		B1H00001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = P1H00001; };
+		B1H00002 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = P1H00002; };
+		B1H00003 /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = P1H00003; };
+		/* New Services */
+		B1C00009 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00009; };
+		B1C0000A /* HeartbeatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C0000A; };
+		B1C0000B /* BiometricService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C0000B; };
+		B1C0000C /* CertificatePinningService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C0000C; };
+		/* Utilities */
+		B1D00004 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00004; };
+		/* Views/Components */
+		B1F00012 /* SkeletonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00012; };
+		/* Views/Auth */
+		B1F00013 /* PasswordStrength.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00013; };
+		/* Utilities (added) */
+		B1D00005 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00005; };
+		B1D00006 /* AccessibilityHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00006; };
+		B1D00007 /* Streaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00007; };
+		/* Views/Components (added) */
+		B1F00014 /* BrandedProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00014; };
+		B1F00015 /* CelebrationOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00015; };
+		B1F00016 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00016; };
+		B1F00017 /* FloatingBottomNav.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00017; };
+		B1F00018 /* OnboardingCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00018; };
+		B1F00019 /* PaywallFeatureCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00019; };
+		B1F0001A /* PremiumCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0001A; };
+		B1F0001B /* StreakBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0001B; };
+		/* UI Tests */
+		B2U00001 /* DailyOKUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00001; };
+		B2U00002 /* OwnerFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00002; };
+		B2U00003 /* ReceiverFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00003; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		/* App */
+		F1A00001 /* DailyOKApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKApp.swift; sourceTree = "<group>"; };
+		F1A00002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		F1A00003 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		F1A00004 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		/* Models */
+		F1B00001 /* CheckIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckIn.swift; sourceTree = "<group>"; };
+		F1B00002 /* Family.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Family.swift; sourceTree = "<group>"; };
+		F1B00003 /* OfflineCheckIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineCheckIn.swift; sourceTree = "<group>"; };
+		F1B00004 /* ReceiverSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverSettings.swift; sourceTree = "<group>"; };
+		F1B00005 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
+		F1B00006 /* DailyOKAlert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKAlert.swift; sourceTree = "<group>"; };
+		F1B00007 /* DailyOKError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKError.swift; sourceTree = "<group>"; };
+		/* Services */
+		F1C00001 /* AnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsService.swift; sourceTree = "<group>"; };
+		F1C00002 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
+		F1C00003 /* CheckInService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInService.swift; sourceTree = "<group>"; };
+		F1C00004 /* FamilyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyService.swift; sourceTree = "<group>"; };
+		F1C00005 /* OfflineCheckInService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineCheckInService.swift; sourceTree = "<group>"; };
+		F1C00006 /* PushNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationService.swift; sourceTree = "<group>"; };
+		F1C00007 /* SubscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionService.swift; sourceTree = "<group>"; };
+		F1C00008 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
+		F1C00009 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
+		F1C0000A /* HeartbeatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartbeatService.swift; sourceTree = "<group>"; };
+		F1C0000B /* BiometricService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricService.swift; sourceTree = "<group>"; };
+		F1C0000C /* CertificatePinningService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertificatePinningService.swift; sourceTree = "<group>"; };
+		/* Utilities */
+		F1D00001 /* Configuration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
+		F1D00002 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
+		F1D00003 /* NetworkRetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkRetry.swift; sourceTree = "<group>"; };
+		F1D00004 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
+		/* ViewModels */
+		F1E00001 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
+		F1E00002 /* DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModel.swift; sourceTree = "<group>"; };
+		F1E00003 /* OnboardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewModel.swift; sourceTree = "<group>"; };
+		F1E00004 /* ReceiverViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverViewModel.swift; sourceTree = "<group>"; };
+		/* Views */
+		F1F00001 /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		F1F00002 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		F1F00003 /* ReceiverOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverOnboardingView.swift; sourceTree = "<group>"; };
+		F1F00011 /* PairingCodeEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingCodeEntryView.swift; sourceTree = "<group>"; };
+		F1F00004 /* CalendarHeatmapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarHeatmapView.swift; sourceTree = "<group>"; };
+		F1F00005 /* CheckInReportGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInReportGenerator.swift; sourceTree = "<group>"; };
+		F1F00006 /* CheckInTrendChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInTrendChartView.swift; sourceTree = "<group>"; };
+		F1F00007 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		F1F00008 /* FamilyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyView.swift; sourceTree = "<group>"; };
+		F1F00009 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		F1F0000A /* OwnerTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnerTabView.swift; sourceTree = "<group>"; };
+		F1F00010 /* ReceiverSetupGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverSetupGuideView.swift; sourceTree = "<group>"; };
+		F1F0000B /* ReceiverHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverHomeView.swift; sourceTree = "<group>"; };
+		F1F0000C /* NotificationPermissionBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPermissionBanner.swift; sourceTree = "<group>"; };
+		F1F0000D /* ReceiverSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverSettingsView.swift; sourceTree = "<group>"; };
+		F1F0000E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		F1F0000F /* ViewerTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerTabView.swift; sourceTree = "<group>"; };
+		F1F00012 /* SkeletonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonView.swift; sourceTree = "<group>"; };
+		F1F00013 /* PasswordStrength.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordStrength.swift; sourceTree = "<group>"; };
+		/* Utilities (added) */
+		F1D00005 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		F1D00006 /* AccessibilityHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityHelpers.swift; sourceTree = "<group>"; };
+		F1D00007 /* Streaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Streaks.swift; sourceTree = "<group>"; };
+		/* Views/Components (added) */
+		F1F00014 /* BrandedProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandedProgressView.swift; sourceTree = "<group>"; };
+		F1F00015 /* CelebrationOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CelebrationOverlay.swift; sourceTree = "<group>"; };
+		F1F00016 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
+		F1F00017 /* FloatingBottomNav.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingBottomNav.swift; sourceTree = "<group>"; };
+		F1F00018 /* OnboardingCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCarousel.swift; sourceTree = "<group>"; };
+		F1F00019 /* PaywallFeatureCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallFeatureCarousel.swift; sourceTree = "<group>"; };
+		F1F0001A /* PremiumCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumCards.swift; sourceTree = "<group>"; };
+		F1F0001B /* StreakBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakBadge.swift; sourceTree = "<group>"; };
+		/* Resources */
+		F1G00001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		/* Config */
+		F1X00001 /* BuildConfig.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = BuildConfig.xcconfig; sourceTree = "<group>"; };
+		/* Product */
+		F1P00001 /* DailyOK.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DailyOK.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F1P00002 /* DailyOKUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DailyOKUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		/* UI Test Files */
+		F2U00001 /* DailyOKUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKUITests.swift; sourceTree = "<group>"; };
+		F2U00002 /* OwnerFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnerFlowTests.swift; sourceTree = "<group>"; };
+		F2U00003 /* ReceiverFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverFlowTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXContainerItemProxy section */
+		CP000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = PR000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = T1000001;
+			remoteInfo = DailyOK;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		TD000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = T1000001 /* DailyOK */;
+			targetProxy = CP000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D1000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B1H00001 /* Supabase in Frameworks */,
+				B1H00002 /* PostHog in Frameworks */,
+				B1H00003 /* TelemetryDeck in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		G1000001 = {
+			isa = PBXGroup;
+			children = (
+				G1000002 /* DailyOK */,
+				G2U00001 /* DailyOKUITests */,
+				G1000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		G1000002 /* DailyOK */ = {
+			isa = PBXGroup;
+			children = (
+				G1A00001 /* App */,
+				G1B00001 /* Models */,
+				G1C00001 /* Services */,
+				G1D00001 /* Utilities */,
+				G1E00001 /* ViewModels */,
+				G1F00001 /* Views */,
+				F1G00001 /* Assets.xcassets */,
+				F1X00001 /* BuildConfig.xcconfig */,
+			);
+			path = DailyOK;
+			sourceTree = "<group>";
+		};
+		G1000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F1P00001 /* DailyOK.app */,
+				F1P00002 /* DailyOKUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		G2U00001 /* DailyOKUITests */ = {
+			isa = PBXGroup;
+			children = (
+				F2U00001 /* DailyOKUITests.swift */,
+				F2U00002 /* OwnerFlowTests.swift */,
+				F2U00003 /* ReceiverFlowTests.swift */,
+			);
+			path = DailyOKUITests;
+			sourceTree = "<group>";
+		};
+		G1A00001 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				F1A00001 /* DailyOKApp.swift */,
+				F1A00002 /* AppDelegate.swift */,
+				F1A00003 /* AppState.swift */,
+				F1A00004 /* ContentView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		G1B00001 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				F1B00001 /* CheckIn.swift */,
+				F1B00002 /* Family.swift */,
+				F1B00003 /* OfflineCheckIn.swift */,
+				F1B00004 /* ReceiverSettings.swift */,
+				F1B00005 /* User.swift */,
+				F1B00006 /* DailyOKAlert.swift */,
+				F1B00007 /* DailyOKError.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		G1C00001 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				F1C00001 /* AnalyticsService.swift */,
+				F1C00002 /* AuthService.swift */,
+				F1C0000B /* BiometricService.swift */,
+				F1C0000C /* CertificatePinningService.swift */,
+				F1C00003 /* CheckInService.swift */,
+				F1C00004 /* FamilyService.swift */,
+				F1C0000A /* HeartbeatService.swift */,
+				F1C00009 /* LocationService.swift */,
+				F1C00005 /* OfflineCheckInService.swift */,
+				F1C00006 /* PushNotificationService.swift */,
+				F1C00007 /* SubscriptionService.swift */,
+				F1C00008 /* SupabaseService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		G1D00001 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				F1D00006 /* AccessibilityHelpers.swift */,
+				F1D00004 /* Colors.swift */,
+				F1D00001 /* Configuration.swift */,
+				F1D00002 /* KeychainService.swift */,
+				F1D00003 /* NetworkRetry.swift */,
+				F1D00007 /* Streaks.swift */,
+				F1D00005 /* Theme.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		G1E00001 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				F1E00001 /* AuthViewModel.swift */,
+				F1E00002 /* DashboardViewModel.swift */,
+				F1E00003 /* OnboardingViewModel.swift */,
+				F1E00004 /* ReceiverViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		G1F00001 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				G1F00002 /* Auth */,
+				G1F00008 /* Components */,
+				G1F00003 /* Onboarding */,
+				G1F00004 /* Owner */,
+				G1F00005 /* Receiver */,
+				G1F00006 /* Settings */,
+				G1F00007 /* Viewer */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		G1F00002 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				F1F00001 /* AuthView.swift */,
+				F1F00013 /* PasswordStrength.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		G1F00008 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				F1F00014 /* BrandedProgressView.swift */,
+				F1F00015 /* CelebrationOverlay.swift */,
+				F1F00016 /* EmptyStateView.swift */,
+				F1F00017 /* FloatingBottomNav.swift */,
+				F1F00018 /* OnboardingCarousel.swift */,
+				F1F00019 /* PaywallFeatureCarousel.swift */,
+				F1F0001A /* PremiumCards.swift */,
+				F1F00012 /* SkeletonView.swift */,
+				F1F0001B /* StreakBadge.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		G1F00003 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				F1F00002 /* OnboardingView.swift */,
+				F1F00003 /* ReceiverOnboardingView.swift */,
+				F1F00011 /* PairingCodeEntryView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		G1F00004 /* Owner */ = {
+			isa = PBXGroup;
+			children = (
+				F1F00004 /* CalendarHeatmapView.swift */,
+				F1F00005 /* CheckInReportGenerator.swift */,
+				F1F00006 /* CheckInTrendChartView.swift */,
+				F1F00007 /* DashboardView.swift */,
+				F1F00008 /* FamilyView.swift */,
+				F1F00009 /* HistoryView.swift */,
+				F1F0000A /* OwnerTabView.swift */,
+				F1F00010 /* ReceiverSetupGuideView.swift */,
+			);
+			path = Owner;
+			sourceTree = "<group>";
+		};
+		G1F00005 /* Receiver */ = {
+			isa = PBXGroup;
+			children = (
+				F1F0000B /* ReceiverHomeView.swift */,
+			);
+			path = Receiver;
+			sourceTree = "<group>";
+		};
+		G1F00006 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				F1F0000C /* NotificationPermissionBanner.swift */,
+				F1F0000D /* ReceiverSettingsView.swift */,
+				F1F0000E /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		G1F00007 /* Viewer */ = {
+			isa = PBXGroup;
+			children = (
+				F1F0000F /* ViewerTabView.swift */,
+			);
+			path = Viewer;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		T1000001 /* DailyOK */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CL000001 /* Build configuration list for PBXNativeTarget "DailyOK" */;
+			buildPhases = (
+				S1000001 /* Sources */,
+				D1000001 /* Frameworks */,
+				R1000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DailyOK;
+			packageProductDependencies = (
+				P1H00001 /* Supabase */,
+				P1H00002 /* PostHog */,
+				P1H00003 /* TelemetryDeck */,
+			);
+			productName = DailyOK;
+			productReference = F1P00001 /* DailyOK.app */;
+			productType = "com.apple.product-type.application";
+		};
+	T2000001 /* DailyOKUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CL000003 /* Build configuration list for PBXNativeTarget "DailyOKUITests" */;
+			buildPhases = (
+				S2000001 /* Sources */,
+				D2000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				TD000001 /* PBXTargetDependency */,
+			);
+			name = DailyOKUITests;
+			productName = DailyOKUITests;
+			productReference = F1P00002 /* DailyOKUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		PR000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1520;
+				LastUpgradeCheck = 1520;
+				TargetAttributes = {
+					T1000001 = {
+						CreatedOnToolsVersion = 15.2;
+					};
+					T2000001 = {
+						CreatedOnToolsVersion = 15.2;
+						TestTargetID = T1000001;
+					};
+				};
+			};
+			buildConfigurationList = CL000002 /* Build configuration list for PBXProject "DailyOK" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = G1000001;
+			packageReferences = (
+				PKG00001 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				PKG00002 /* XCRemoteSwiftPackageReference "posthog-ios" */,
+				PKG00003 /* XCRemoteSwiftPackageReference "SwiftSDK" */,
+			);
+			productRefGroup = G1000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				T1000001 /* DailyOK */,
+				T2000001 /* DailyOKUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		S1000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B1A00001 /* DailyOKApp.swift in Sources */,
+				B1A00002 /* AppDelegate.swift in Sources */,
+				B1A00003 /* AppState.swift in Sources */,
+				B1A00004 /* ContentView.swift in Sources */,
+				B1B00001 /* CheckIn.swift in Sources */,
+				B1B00002 /* Family.swift in Sources */,
+				B1B00003 /* OfflineCheckIn.swift in Sources */,
+				B1B00004 /* ReceiverSettings.swift in Sources */,
+				B1B00005 /* User.swift in Sources */,
+				B1B00006 /* DailyOKAlert.swift in Sources */,
+				B1B00007 /* DailyOKError.swift in Sources */,
+				B1C00001 /* AnalyticsService.swift in Sources */,
+				B1C00002 /* AuthService.swift in Sources */,
+				B1C00003 /* CheckInService.swift in Sources */,
+				B1C00004 /* FamilyService.swift in Sources */,
+				B1C00005 /* OfflineCheckInService.swift in Sources */,
+				B1C00006 /* PushNotificationService.swift in Sources */,
+				B1C00007 /* SubscriptionService.swift in Sources */,
+				B1C00008 /* SupabaseService.swift in Sources */,
+				B1D00001 /* Configuration.swift in Sources */,
+				B1D00002 /* KeychainService.swift in Sources */,
+				B1D00003 /* NetworkRetry.swift in Sources */,
+				B1E00001 /* AuthViewModel.swift in Sources */,
+				B1E00002 /* DashboardViewModel.swift in Sources */,
+				B1E00003 /* OnboardingViewModel.swift in Sources */,
+				B1E00004 /* ReceiverViewModel.swift in Sources */,
+				B1F00001 /* AuthView.swift in Sources */,
+				B1F00002 /* OnboardingView.swift in Sources */,
+				B1F00003 /* ReceiverOnboardingView.swift in Sources */,
+				B1F00011 /* PairingCodeEntryView.swift in Sources */,
+				B1F00004 /* CalendarHeatmapView.swift in Sources */,
+				B1F00005 /* CheckInReportGenerator.swift in Sources */,
+				B1F00006 /* CheckInTrendChartView.swift in Sources */,
+				B1F00007 /* DashboardView.swift in Sources */,
+				B1F00008 /* FamilyView.swift in Sources */,
+				B1F00009 /* HistoryView.swift in Sources */,
+				B1F0000A /* OwnerTabView.swift in Sources */,
+				B1F00010 /* ReceiverSetupGuideView.swift in Sources */,
+				B1F0000B /* ReceiverHomeView.swift in Sources */,
+				B1F0000C /* NotificationPermissionBanner.swift in Sources */,
+				B1F0000D /* ReceiverSettingsView.swift in Sources */,
+				B1F0000E /* SettingsView.swift in Sources */,
+				B1F0000F /* ViewerTabView.swift in Sources */,
+				B1C00009 /* LocationService.swift in Sources */,
+				B1C0000A /* HeartbeatService.swift in Sources */,
+				B1C0000B /* BiometricService.swift in Sources */,
+				B1C0000C /* CertificatePinningService.swift in Sources */,
+				B1D00004 /* Colors.swift in Sources */,
+				B1F00012 /* SkeletonView.swift in Sources */,
+				B1F00013 /* PasswordStrength.swift in Sources */,
+				B1D00005 /* Theme.swift in Sources */,
+				B1D00006 /* AccessibilityHelpers.swift in Sources */,
+				B1D00007 /* Streaks.swift in Sources */,
+				B1F00014 /* BrandedProgressView.swift in Sources */,
+				B1F00015 /* CelebrationOverlay.swift in Sources */,
+				B1F00016 /* EmptyStateView.swift in Sources */,
+				B1F00017 /* FloatingBottomNav.swift in Sources */,
+				B1F00018 /* OnboardingCarousel.swift in Sources */,
+				B1F00019 /* PaywallFeatureCarousel.swift in Sources */,
+				B1F0001A /* PremiumCards.swift in Sources */,
+				B1F0001B /* StreakBadge.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+	S2000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B2U00001 /* DailyOKUITests.swift in Sources */,
+				B2U00002 /* OwnerFlowTests.swift in Sources */,
+				B2U00003 /* ReceiverFlowTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		R1000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B1G00001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		BC000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		BC000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		BC000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = F1X00001 /* BuildConfig.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = DailyOK/DailyOK.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DailyOK/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Daily OK;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.3;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BC000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = F1X00001 /* BuildConfig.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = DailyOK/DailyOK.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DailyOK/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Daily OK;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.3;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+	BC000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0.3;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dailyok.ios.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = DailyOK;
+			};
+			name = Debug;
+		};
+		BC000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0.3;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dailyok.ios.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = DailyOK;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		CL000002 /* Build configuration list for PBXProject "DailyOK" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BC000001 /* Debug */,
+				BC000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CL000001 /* Build configuration list for PBXNativeTarget "DailyOK" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BC000003 /* Debug */,
+				BC000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+	CL000003 /* Build configuration list for PBXNativeTarget "DailyOKUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BC000005 /* Debug */,
+				BC000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		PKG00001 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+		PKG00002 /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.0;
+			};
+		};
+		PKG00003 /* XCRemoteSwiftPackageReference "SwiftSDK" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/TelemetryDeck/SwiftSDK.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		P1H00001 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = PKG00001 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+		P1H00002 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = PKG00002 /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
+		};
+		P1H00003 /* TelemetryDeck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = PKG00003 /* XCRemoteSwiftPackageReference "SwiftSDK" */;
+			productName = TelemetryDeck;
+		};
+/* End XCSwiftPackageProductDependency section */
+
+	};
+	rootObject = PR000001 /* Project object */;
+}

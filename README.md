@@ -1,4 +1,4 @@
-# Wellvo — Daily Check-In App for Families
+# Daily OK — Daily Check-In App for Families
 
 One person sends check-in requests. Their loved ones tap "I'm OK." If no response, escalation alerts fire. Simple, private, and built for ages 13 to 95.
 
@@ -45,9 +45,9 @@ docker compose up --build    # Runs on port 9000
 
 ### iOS App (requires Xcode 15+ on macOS)
 
-1. Copy `ios/Wellvo/BuildConfig.xcconfig.example` to `BuildConfig.xcconfig`
+1. Copy `ios/Daily OK/BuildConfig.xcconfig.example` to `BuildConfig.xcconfig`
 2. Fill in `SUPABASE_URL` and `SUPABASE_ANON_KEY`
-3. Open `ios/Wellvo.xcodeproj` in Xcode and build
+3. Open `ios/Daily OK.xcodeproj` in Xcode and build
 
 ### Database Migrations
 
@@ -73,7 +73,7 @@ CI runs migrations automatically on push to `main` (requires GitHub environment 
 
 ## Documentation
 
-- **[Wellvo-PRD-v1.md](./Wellvo-PRD-v1.md)** — Full product requirements document
+- **[Daily OK-PRD-v1.md](./Daily OK-PRD-v1.md)** — Full product requirements document
 - **[coolify/README-DEPLOYMENT.md](./coolify/README-DEPLOYMENT.md)** — Production deployment guide
 - **[CLAUDE.md](./CLAUDE.md)** — AI development context
 

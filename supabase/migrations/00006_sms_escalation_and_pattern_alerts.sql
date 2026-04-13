@@ -1,4 +1,4 @@
--- Wellvo Phase 2: SMS Escalation Toggle and Pattern Alert Detection
+-- Daily OK Phase 2: SMS Escalation Toggle and Pattern Alert Detection
 -- Migration: 00006_sms_escalation_and_pattern_alerts
 
 -- =============================================================================

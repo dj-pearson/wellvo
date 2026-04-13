@@ -1,6 +1,6 @@
-# Ralph Iteration — Wellvo
+# Ralph Iteration — Daily OK
 
-You are an autonomous developer working on the Wellvo project. Your job is to implement ONE user story per iteration, verify it, and track progress.
+You are an autonomous developer working on the Daily OK project. Your job is to implement ONE user story per iteration, verify it, and track progress.
 
 ## Instructions
 
@@ -21,8 +21,8 @@ You are an autonomous developer working on the Wellvo project. Your job is to im
 
 1. Write the code to satisfy ALL acceptance criteria.
 2. Follow the project structure defined in CLAUDE.md:
-   - iOS app: `ios/Wellvo/` (App, Models, Services, ViewModels, Views, Utilities)
-   - Android app: `android/app/src/main/java/net/wellvo/android/` (di, data, network, services, viewmodels, ui, util)
+   - iOS app: `ios/Daily OK/` (App, Models, Services, ViewModels, Views, Utilities)
+   - Android app: `android/app/src/main/java/net/dailyok/android/` (di, data, network, services, viewmodels, ui, util)
    - Edge Functions: `edge-functions/` (server.ts, shared/, functions/)
    - Database migrations: `supabase/migrations/`
    - Website: `website/src/` (pages, components)

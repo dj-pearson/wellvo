@@ -1,4 +1,4 @@
-# Wellvo Android — Release Guide
+# Daily OK Android — Release Guide
 
 ## Version Strategy
 
@@ -18,13 +18,13 @@ Both values are set in `app/build.gradle.kts` under `defaultConfig`.
 
 ```bash
 keytool -genkeypair \
-  -alias wellvo-release \
+  -alias dailyok-release \
   -keyalg RSA -keysize 2048 \
   -validity 10000 \
-  -keystore wellvo-release.jks \
+  -keystore dailyok-release.jks \
   -storepass <STORE_PASSWORD> \
   -keypass <KEY_PASSWORD> \
-  -dname "CN=Wellvo, O=Pearson Media LLC, L=City, ST=State, C=US"
+  -dname "CN=Daily OK, O=Pearson Media LLC, L=City, ST=State, C=US"
 ```
 
 **DO NOT** commit the keystore file. Store it securely (e.g., 1Password, Google Cloud Secret Manager).
@@ -34,9 +34,9 @@ keytool -genkeypair \
 Set these in `local.properties` (local dev) or environment variables (CI):
 
 ```properties
-KEYSTORE_PATH=/path/to/wellvo-release.jks
+KEYSTORE_PATH=/path/to/dailyok-release.jks
 KEYSTORE_PASSWORD=<store_password>
-KEY_ALIAS=wellvo-release
+KEY_ALIAS=dailyok-release
 KEY_PASSWORD=<key_password>
 ```
 

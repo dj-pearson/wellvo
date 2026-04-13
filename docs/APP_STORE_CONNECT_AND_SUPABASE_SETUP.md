@@ -1,4 +1,4 @@
-# Wellvo — App Store Connect & Self-Hosted Supabase Complete Setup Guide
+# Daily OK — App Store Connect & Self-Hosted Supabase Complete Setup Guide
 
 **Version 1.0 | March 2026**
 **Pearson Media LLC**
@@ -24,10 +24,10 @@
 
 | Field                  | Value                                |
 | ---------------------- | ------------------------------------ |
-| **App Name**           | Wellvo — Daily Check-In              |
+| **App Name**           | Daily OK — Daily Check-In              |
 | **Subtitle**           | One tap. Peace of mind.              |
-| **Bundle ID**          | `net.wellvo.app`                     |
-| **SKU**                | `wellvo-ios-001`                     |
+| **Bundle ID**          | `net.dailyok.app`                     |
+| **SKU**                | `dailyok-ios-001`                     |
 | **Primary Language**   | English (U.S.)                       |
 | **Primary Category**   | Lifestyle                            |
 | **Secondary Category** | Health & Fitness                     |
@@ -50,7 +50,7 @@
 ```
 Know your loved ones are OK — every single day.
 
-Wellvo is the simplest way to stay connected to the people you care about most. Set up a daily check-in for your aging parent, teenager, or anyone you worry about. They get one notification. They tap one button. You get peace of mind.
+Daily OK is the simplest way to stay connected to the people you care about most. Set up a daily check-in for your aging parent, teenager, or anyone you worry about. They get one notification. They tap one button. You get peace of mind.
 
 HOW IT WORKS
 
@@ -66,7 +66,7 @@ For Your Loved One (the Receiver):
 • Optional mood indicator (happy / neutral / tired)
 • No settings, no menus, no confusion
 
-WHY FAMILIES LOVE WELLVO
+WHY FAMILIES LOVE DAILY OK
 
 ✓ Not surveillance — no location tracking, no cameras, no sensors
 ✓ Works for ages 13 to 95 — designed for everyone
@@ -92,8 +92,8 @@ Additional receivers ($2.49/mo each) and viewers ($0.99/mo each) available on Fa
 
 Payment is charged to your Apple ID account at confirmation of purchase after the free trial ends. Subscriptions automatically renew unless cancelled at least 24 hours before the end of the current period. You can manage and cancel subscriptions in your Apple ID account settings.
 
-Privacy Policy: https://wellvo.net/privacy
-Terms of Use: https://wellvo.net/terms
+Privacy Policy: https://dailyok.net/privacy
+Terms of Use: https://dailyok.net/terms
 ```
 
 #### Promotional Text (170 chars, can be updated without new build)
@@ -111,25 +111,25 @@ check in,family safety,aging parents,daily check,senior safety,teen check in,car
 #### What's New (v1.0.0)
 
 ```
-Welcome to Wellvo! Set up your first daily check-in and give your family peace of mind.
+Welcome to Daily OK! Set up your first daily check-in and give your family peace of mind.
 ```
 
 #### Support URL
 
 ```
-https://wellvo.net/support
+https://dailyok.net/support
 ```
 
 #### Marketing URL
 
 ```
-https://wellvo.net
+https://dailyok.net
 ```
 
 #### Privacy Policy URL
 
 ```
-https://wellvo.net/privacy
+https://dailyok.net/privacy
 ```
 
 ### 1.4 App Store Screenshots Required
@@ -167,7 +167,7 @@ Screenshots must be provided for these device sizes:
 | Format     | H.264, .mp4 or .mov                 |
 | Audio      | Optional, muted by default on store |
 
-**Storyboard suggestion:** Open with "Are they OK?" → show notification arrive → receiver taps "I'm OK" → owner sees green checkmark → close with "Wellvo. One tap. Peace of mind."
+**Storyboard suggestion:** Open with "Are they OK?" → show notification arrive → receiver taps "I'm OK" → owner sees green checkmark → close with "Daily OK. One tap. Peace of mind."
 
 ### 1.6 App Review Information
 
@@ -175,16 +175,16 @@ Screenshots must be provided for these device sizes:
 | --------------------------- | ----------------------------------- |
 | **Contact First Name**      | (Your first name)                   |
 | **Contact Last Name**       | (Your last name)                    |
-| **Contact Email**           | support@wellvo.net                  |
+| **Contact Email**           | support@dailyok.net                  |
 | **Contact Phone**           | (Your phone number)                 |
-| **Demo Account — Username** | demo@wellvo.net                     |
+| **Demo Account — Username** | demo@dailyok.net                     |
 | **Demo Account — Password** | (Create a demo account in Supabase) |
 | **Notes for Reviewer**      | See below                           |
 
 **Review Notes:**
 
 ```
-Wellvo is a family check-in app. To fully test:
+Daily OK is a family check-in app. To fully test:
 
 1. OWNER ACCOUNT: Log in with the demo credentials above. This account has
    two test Receivers already configured.
@@ -270,8 +270,8 @@ Go to **Certificates, Identifiers & Profiles → Identifiers → App IDs → Reg
 
 | Field       | Value                       |
 | ----------- | --------------------------- |
-| Description | Wellvo iOS App              |
-| Bundle ID   | `net.wellvo.app` (Explicit) |
+| Description | Daily OK iOS App              |
+| Bundle ID   | `net.dailyok.app` (Explicit) |
 
 **Enable these Capabilities:**
 
@@ -287,7 +287,7 @@ Go to **Keys → Create a New Key**
 
 | Field    | Value                                   |
 | -------- | --------------------------------------- |
-| Key Name | Wellvo APNs Key                         |
+| Key Name | Daily OK APNs Key                         |
 | Enable   | Apple Push Notifications service (APNs) |
 
 After creation:
@@ -308,7 +308,7 @@ Create **two** provisioning profiles:
 | Field | Value |
 |-------|-------|
 | Type | iOS App Development |
-| App ID | net.wellvo.app |
+| App ID | net.dailyok.app |
 | Certificates | Your dev certificate |
 | Devices | Your test devices |
 
@@ -316,7 +316,7 @@ Create **two** provisioning profiles:
 | Field | Value |
 |-------|-------|
 | Type | App Store Distribution |
-| App ID | net.wellvo.app |
+| App ID | net.dailyok.app |
 | Certificates | Your distribution certificate |
 
 ### 2.4 Critical Alerts Entitlement Request
@@ -327,10 +327,10 @@ Critical Alerts require a **separate approval from Apple**. Submit a request at:
 **Justification template:**
 
 ```
-App Name: Wellvo — Daily Check-In
-Bundle ID: net.wellvo.app
+App Name: Daily OK — Daily Check-In
+Bundle ID: net.dailyok.app
 
-Wellvo is a family safety app that monitors daily check-ins from aging parents
+Daily OK is a family safety app that monitors daily check-ins from aging parents
 and vulnerable family members. When a family member fails to respond to their
 daily check-in within the configured escalation window, the app sends a Critical
 Alert to the monitoring family member (Owner).
@@ -354,7 +354,7 @@ Go to **Users and Access → Integrations → App Store Connect API → Generate
 
 | Field  | Value                  |
 | ------ | ---------------------- |
-| Name   | Wellvo CI/CD           |
+| Name   | Daily OK CI/CD           |
 | Access | App Manager (or Admin) |
 
 After creation:
@@ -369,13 +369,13 @@ Go to **Certificates, Identifiers & Profiles → Identifiers → Services IDs �
 
 | Field       | Value                                     |
 | ----------- | ----------------------------------------- |
-| Description | Wellvo Web Auth                           |
-| Identifier  | `net.wellvo.auth`                         |
+| Description | Daily OK Web Auth                           |
+| Identifier  | `net.dailyok.auth`                         |
 | Enable      | Sign in with Apple                        |
-| Domains     | `api.wellvo.net`                          |
-| Return URLs | `https://api.wellvo.net/auth/v1/callback` |
+| Domains     | `api.dailyok.net`                          |
+| Return URLs | `https://api.dailyok.net/auth/v1/callback` |
 
-> Note: Also enable Apple Sign-In on your primary App ID (`net.wellvo.app`).
+> Note: Also enable Apple Sign-In on your primary App ID (`net.dailyok.app`).
 
 ---
 
@@ -387,12 +387,12 @@ Create **one** subscription group in App Store Connect:
 
 | Field          | Value          |
 | -------------- | -------------- |
-| Group Name     | Wellvo Premium |
-| Reference Name | wellvo_premium |
+| Group Name     | Daily OK Premium |
+| Reference Name | dailyok_premium |
 
 ### 3.2 Auto-Renewable Subscriptions
 
-Create these products within the "Wellvo Premium" group. See
+Create these products within the "Daily OK Premium" group. See
 `docs/PRICING_RESEARCH.md` for the pricing rationale.
 
 **Level of Service** determines upgrade/downgrade ordering inside a
@@ -404,10 +404,10 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field              | Value                          |
 | ------------------ | ------------------------------ |
 | Reference Name     | Caregiver Monthly              |
-| Product ID         | `net.wellvo.caregiver.monthly` |
+| Product ID         | `net.dailyok.caregiver.monthly` |
 | Price              | $3.99 USD                      |
 | Duration           | 1 Month                        |
-| Subscription Group | Wellvo Premium                 |
+| Subscription Group | Daily OK Premium                 |
 | Level of Service   | 3 (lowest paid tier)           |
 
 **Localization (English US):**
@@ -421,10 +421,10 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field              | Value                         |
 | ------------------ | ----------------------------- |
 | Reference Name     | Caregiver Yearly              |
-| Product ID         | `net.wellvo.caregiver.yearly` |
+| Product ID         | `net.dailyok.caregiver.yearly` |
 | Price              | $29.99 USD (~37% savings)     |
 | Duration           | 1 Year                        |
-| Subscription Group | Wellvo Premium                |
+| Subscription Group | Daily OK Premium                |
 | Level of Service   | 3                             |
 
 **Localization (English US):**
@@ -438,10 +438,10 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field              | Value                       |
 | ------------------ | --------------------------- |
 | Reference Name     | Family Monthly              |
-| Product ID         | `net.wellvo.family.monthly` |
+| Product ID         | `net.dailyok.family.monthly` |
 | Price              | $6.99 USD                   |
 | Duration           | 1 Month                     |
-| Subscription Group | Wellvo Premium              |
+| Subscription Group | Daily OK Premium              |
 | Level of Service   | 2 (mid-tier)                |
 
 **Localization (English US):**
@@ -455,10 +455,10 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field              | Value                      |
 | ------------------ | -------------------------- |
 | Reference Name     | Family Yearly              |
-| Product ID         | `net.wellvo.family.yearly` |
+| Product ID         | `net.dailyok.family.yearly` |
 | Price              | $49.99 USD (~40% savings)  |
 | Duration           | 1 Year                     |
-| Subscription Group | Wellvo Premium             |
+| Subscription Group | Daily OK Premium             |
 | Level of Service   | 2                          |
 
 **Localization (English US):**
@@ -472,10 +472,10 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field              | Value                           |
 | ------------------ | ------------------------------- |
 | Reference Name     | Family Plus Monthly             |
-| Product ID         | `net.wellvo.familyplus.monthly` |
+| Product ID         | `net.dailyok.familyplus.monthly` |
 | Price              | $9.99 USD                       |
 | Duration           | 1 Month                         |
-| Subscription Group | Wellvo Premium                  |
+| Subscription Group | Daily OK Premium                  |
 | Level of Service   | 1 (highest tier)                |
 
 **Localization (English US):**
@@ -489,10 +489,10 @@ subscription group. Lower numbers are higher tiers, so: `1 = Family+`,
 | Field              | Value                          |
 | ------------------ | ------------------------------ |
 | Reference Name     | Family Plus Yearly             |
-| Product ID         | `net.wellvo.familyplus.yearly` |
+| Product ID         | `net.dailyok.familyplus.yearly` |
 | Price              | $79.99 USD (~33% savings)      |
 | Duration           | 1 Year                         |
-| Subscription Group | Wellvo Premium                 |
+| Subscription Group | Daily OK Premium                 |
 | Level of Service   | 1                              |
 
 **Localization (English US):**
@@ -509,18 +509,18 @@ Create a second subscription group:
 
 | Field          | Value          |
 | -------------- | -------------- |
-| Group Name     | Wellvo Add-Ons |
-| Reference Name | wellvo_addons  |
+| Group Name     | Daily OK Add-Ons |
+| Reference Name | dailyok_addons  |
 
 #### Add-On Receiver
 
 | Field              | Value                       |
 | ------------------ | --------------------------- |
 | Reference Name     | Additional Receiver         |
-| Product ID         | `net.wellvo.addon.receiver` |
+| Product ID         | `net.dailyok.addon.receiver` |
 | Price              | $2.49 USD                   |
 | Duration           | 1 Month                     |
-| Subscription Group | Wellvo Add-Ons              |
+| Subscription Group | Daily OK Add-Ons              |
 
 **Localization:**
 | Field | Value |
@@ -533,10 +533,10 @@ Create a second subscription group:
 | Field              | Value                     |
 | ------------------ | ------------------------- |
 | Reference Name     | Additional Viewer         |
-| Product ID         | `net.wellvo.addon.viewer` |
+| Product ID         | `net.dailyok.addon.viewer` |
 | Price              | $0.99 USD                 |
 | Duration           | 1 Month                   |
-| Subscription Group | Wellvo Add-Ons            |
+| Subscription Group | Daily OK Add-Ons            |
 
 **Localization:**
 | Field | Value |
@@ -565,8 +565,8 @@ Configure in **App Store Connect → App → App Information → App Store Serve
 
 | Field          | Value                                          |
 | -------------- | ---------------------------------------------- |
-| Production URL | `https://edge.wellvo.net/subscription-webhook` |
-| Sandbox URL    | `https://edge.wellvo.net/subscription-webhook` |
+| Production URL | `https://edge.dailyok.net/subscription-webhook` |
+| Sandbox URL    | `https://edge.dailyok.net/subscription-webhook` |
 | Version        | Version 2                                      |
 
 **Notification types to handle:**
@@ -618,8 +618,8 @@ charged for renewal within 24 hours prior to the end of the current period.
 Users can manage subscriptions and turn off auto-renewal in Account Settings
 after purchase.
 
-Privacy Policy: https://wellvo.net/privacy
-Terms of Use: https://wellvo.net/terms
+Privacy Policy: https://dailyok.net/privacy
+Terms of Use: https://dailyok.net/terms
 ```
 
 ---
@@ -634,7 +634,7 @@ Terms of Use: https://wellvo.net/terms
 | Deployment Platform | Coolify (self-hosted PaaS)         |
 | OS                  | Ubuntu 22.04+ or Debian 12+        |
 | Docker              | Docker Engine 24+                  |
-| Domain              | wellvo.net (registered and active) |
+| Domain              | dailyok.net (registered and active) |
 | DNS Provider        | Cloudflare (free tier)             |
 
 ### 4.2 Deploy Supabase via Coolify
@@ -654,21 +654,21 @@ SERVICE_ROLE_KEY=<generate-via-supabase-jwt-tool>
 # Use your JWT_SECRET to generate ANON_KEY and SERVICE_ROLE_KEY
 
 # ─── URLs ───
-SITE_URL=https://wellvo.net
-API_EXTERNAL_URL=https://api.wellvo.net
-SUPABASE_PUBLIC_URL=https://api.wellvo.net
+SITE_URL=https://dailyok.net
+API_EXTERNAL_URL=https://api.dailyok.net
+SUPABASE_PUBLIC_URL=https://api.dailyok.net
 
 # ─── SMTP (for email auth, password reset) ───
-SMTP_ADMIN_EMAIL=noreply@wellvo.net
+SMTP_ADMIN_EMAIL=noreply@dailyok.net
 SMTP_HOST=<your-smtp-host>
 SMTP_PORT=587
 SMTP_USER=<your-smtp-user>
 SMTP_PASS=<your-smtp-password>
-SMTP_SENDER_NAME=Wellvo
+SMTP_SENDER_NAME=Daily OK
 
 # ─── Auth Providers ───
 GOTRUE_EXTERNAL_APPLE_ENABLED=true
-GOTRUE_EXTERNAL_APPLE_CLIENT_ID=net.wellvo.auth
+GOTRUE_EXTERNAL_APPLE_CLIENT_ID=net.dailyok.auth
 GOTRUE_EXTERNAL_APPLE_SECRET=<apple-sign-in-client-secret>
 # Apple client secret must be a JWT signed with your Apple Services key
 # See: https://developer.apple.com/documentation/sign_in_with_apple/generate_and_validate_tokens
@@ -723,7 +723,7 @@ psql $DATABASE_URL -f supabase/migrations/00006_sms_escalation_and_pattern_alert
 
 ```sql
 -- Set Edge Functions URL (internal Docker network address)
-ALTER DATABASE postgres SET app.edge_functions_url = 'http://wellvo-edge-functions:9000';
+ALTER DATABASE postgres SET app.edge_functions_url = 'http://dailyok-edge-functions:9000';
 
 -- Set service role key for internal Edge Function calls from pg_cron
 ALTER DATABASE postgres SET app.service_role_key = 'your-service-role-key-here';
@@ -755,9 +755,9 @@ In the Supabase dashboard (or via environment variables):
 3. Configure:
    | Field | Value |
    |-------|-------|
-   | Client ID | `net.wellvo.auth` (your Services ID) |
+   | Client ID | `net.dailyok.auth` (your Services ID) |
    | Secret Key | JWT generated from Apple's private key |
-   | Redirect URL | `https://api.wellvo.net/auth/v1/callback` |
+   | Redirect URL | `https://api.dailyok.net/auth/v1/callback` |
 
 **Generate Apple Client Secret (JWT):**
 
@@ -772,7 +772,7 @@ const token = jwt.sign({}, privateKey, {
   expiresIn: "180d",
   audience: "https://appleid.apple.com",
   issuer: "YOUR_TEAM_ID",
-  subject: "net.wellvo.auth",
+  subject: "net.dailyok.auth",
   keyid: "YOUR_KEY_ID",
 });
 
@@ -859,7 +859,7 @@ PORT=9000
 docker compose up -d
 
 # Verify health
-curl https://edge.wellvo.net/health
+curl https://edge.dailyok.net/health
 # Should return: {"status":"ok"}
 ```
 
@@ -887,7 +887,7 @@ curl https://edge.wellvo.net/health
 | Root   | A     | `@`    | `<VPS-IP>`   | Proxied (orange) |
 | API    | A     | `api`  | `<VPS-IP>`   | Proxied (orange) |
 | Edge   | A     | `edge` | `<VPS-IP>`   | Proxied (orange) |
-| WWW    | CNAME | `www`  | `wellvo.net` | Proxied (orange) |
+| WWW    | CNAME | `www`  | `dailyok.net` | Proxied (orange) |
 
 ### 6.2 Cloudflare SSL/TLS Settings
 
@@ -902,9 +902,9 @@ curl https://edge.wellvo.net/health
 
 Ensure Coolify's Traefik/Caddy is configured to route:
 
-- `api.wellvo.net` → Supabase Kong container (port 8000)
-- `edge.wellvo.net` → Edge Functions container (port 9000)
-- `wellvo.net` → Landing page (if hosted on same VPS)
+- `api.dailyok.net` → Supabase Kong container (port 8000)
+- `edge.dailyok.net` → Edge Functions container (port 9000)
+- `dailyok.net` → Landing page (if hosted on same VPS)
 
 ---
 
@@ -925,21 +925,21 @@ Set all of these in **GitHub → Repository → Settings → Secrets and Variabl
 | `ASC_KEY_ID`                  | App Store Connect API Key ID  | App Store Connect → Keys                                  |
 | `ASC_ISSUER_ID`               | App Store Connect Issuer ID   | App Store Connect → Keys (top of page)                    |
 | `ASC_PRIVATE_KEY`             | .p8 key file contents         | Downloaded when creating ASC API key                      |
-| `SUPABASE_URL`                | `https://api.wellvo.net`      | Your Supabase instance URL                                |
+| `SUPABASE_URL`                | `https://api.dailyok.net`      | Your Supabase instance URL                                |
 | `SUPABASE_ANON_KEY`           | Supabase anon JWT             | Generated in step 4.3                                     |
 | `SUPABASE_DB_URL`             | PostgreSQL connection string  | `postgresql://postgres:<pw>@<host>:5432/postgres`         |
 | `COOLIFY_WEBHOOK_URL`         | Coolify deploy webhook        | Coolify → Resource → Webhooks                             |
 | `COOLIFY_API_TOKEN`           | Coolify API token             | Coolify → Settings → API Tokens                           |
-| `EDGE_FUNCTIONS_HEALTH_URL`   | `https://edge.wellvo.net`     | Your edge functions URL                                   |
+| `EDGE_FUNCTIONS_HEALTH_URL`   | `https://edge.dailyok.net`     | Your edge functions URL                                   |
 
 ### 7.2 iOS Build Configuration
 
-The file `ios/Wellvo/BuildConfig.xcconfig` should contain:
+The file `ios/Daily OK/BuildConfig.xcconfig` should contain:
 
 ```xcconfig
-SUPABASE_URL = https:$()/$()/api.wellvo.net
+SUPABASE_URL = https:$()/$()/api.dailyok.net
 SUPABASE_ANON_KEY = your-anon-key-here
-PRODUCT_BUNDLE_IDENTIFIER = net.wellvo.app
+PRODUCT_BUNDLE_IDENTIFIER = net.dailyok.app
 ```
 
 > Note: In CI/CD, these values are injected from GitHub Secrets, overriding the xcconfig defaults.
@@ -950,20 +950,20 @@ PRODUCT_BUNDLE_IDENTIFIER = net.wellvo.app
 
 ### Phase 1: Apple Developer Portal
 
-- [ ] Register App ID `net.wellvo.app` with all capabilities
+- [ ] Register App ID `net.dailyok.app` with all capabilities
 - [ ] Create APNs Key (.p8) and save Key ID
 - [ ] Request Critical Alerts entitlement from Apple
-- [ ] Create Services ID `net.wellvo.auth` for Sign in with Apple
+- [ ] Create Services ID `net.dailyok.auth` for Sign in with Apple
 - [ ] Create distribution certificate and provisioning profile
 - [ ] Create App Store Connect API key (.p8)
 
 ### Phase 2: App Store Connect
 
-- [ ] Create app with bundle ID `net.wellvo.app`
+- [ ] Create app with bundle ID `net.dailyok.app`
 - [ ] Fill in all app metadata (name, subtitle, description, keywords)
 - [ ] Set primary category (Lifestyle) and secondary (Health & Fitness)
-- [ ] Create subscription group "Wellvo Premium" with 4 products
-- [ ] Create subscription group "Wellvo Add-Ons" with 2 products
+- [ ] Create subscription group "Daily OK Premium" with 4 products
+- [ ] Create subscription group "Daily OK Add-Ons" with 2 products
 - [ ] Configure introductory offers (free trials)
 - [ ] Set up App Store Server Notifications V2 URL
 - [ ] Complete privacy nutrition labels
@@ -998,8 +998,8 @@ PRODUCT_BUNDLE_IDENTIFIER = net.wellvo.app
 - [ ] Configure all Cloudflare DNS records (A and CNAME)
 - [ ] Enable Cloudflare proxy on all records
 - [ ] Set SSL/TLS to Full (Strict)
-- [ ] Verify `api.wellvo.net` routes to Supabase Kong
-- [ ] Verify `edge.wellvo.net` routes to Edge Functions
+- [ ] Verify `api.dailyok.net` routes to Supabase Kong
+- [ ] Verify `edge.dailyok.net` routes to Edge Functions
 - [ ] Test HTTPS on all subdomains
 
 ### Phase 6: CI/CD

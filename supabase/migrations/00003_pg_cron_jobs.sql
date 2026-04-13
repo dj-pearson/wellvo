@@ -1,4 +1,4 @@
--- Wellvo pg_cron Scheduled Jobs
+-- Daily OK pg_cron Scheduled Jobs
 -- Migration: 00003_pg_cron_jobs
 
 -- =============================================================================
@@ -173,5 +173,5 @@ SELECT cron.schedule(
 -- APP SETTINGS (for pg_net URLs)
 -- These are set via ALTER DATABASE in the Coolify deployment.
 -- =============================================================================
--- ALTER DATABASE wellvo SET app.edge_functions_url = 'http://edge-functions:9000';
--- ALTER DATABASE wellvo SET app.service_role_key = 'your-service-role-key';
+-- ALTER DATABASE dailyok SET app.edge_functions_url = 'http://edge-functions:9000';
+-- ALTER DATABASE dailyok SET app.service_role_key = 'your-service-role-key';

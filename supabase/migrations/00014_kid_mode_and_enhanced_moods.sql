@@ -1,4 +1,4 @@
--- Wellvo: Kid Mode and Enhanced Moods
+-- Daily OK: Kid Mode and Enhanced Moods
 -- Migration: 00014_kid_mode_and_enhanced_moods
 -- Features:
 --   1. New mood_type enum values for richer emotional check-ins

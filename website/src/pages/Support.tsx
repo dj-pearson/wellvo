@@ -7,12 +7,12 @@ import './Support.css'
 
 const faqs = [
   {
-    q: 'How do I set up Wellvo for my family?',
-    a: 'Download Wellvo from the App Store, create an account, and set up your family group. Then invite your loved ones via SMS or QR code — they\'ll receive a link to join automatically.',
+    q: 'How do I set up Daily OK for my family?',
+    a: 'Download Daily OK from the App Store, create an account, and set up your family group. Then invite your loved ones via SMS or QR code — they\'ll receive a link to join automatically.',
   },
   {
     q: 'What happens if my loved one misses a check-in?',
-    a: 'Wellvo uses an escalating alert system. First, your loved one gets a gentle reminder. If they still don\'t respond, you\'ll be notified. You can customize all timing windows from 15 to 120 minutes.',
+    a: 'Daily OK uses an escalating alert system. First, your loved one gets a gentle reminder. If they still don\'t respond, you\'ll be notified. You can customize all timing windows from 15 to 120 minutes.',
   },
   {
     q: 'Can my parent respond without opening the app?',
@@ -20,11 +20,11 @@ const faqs = [
   },
   {
     q: 'How do I cancel my subscription?',
-    a: 'Subscriptions are managed through your Apple ID. Go to Settings > [Your Name] > Subscriptions on your iPhone to manage or cancel your Wellvo subscription.',
+    a: 'Subscriptions are managed through your Apple ID. Go to Settings > [Your Name] > Subscriptions on your iPhone to manage or cancel your Daily OK subscription.',
   },
   {
-    q: 'Is Wellvo available on Android?',
-    a: 'Currently, Wellvo is available for iPhone only. We\'re evaluating Android support based on demand.',
+    q: 'Is Daily OK available on Android?',
+    a: 'Currently, Daily OK is available for iPhone only. We\'re evaluating Android support based on demand.',
   },
   {
     q: 'How do I add more family members?',
@@ -36,7 +36,7 @@ const faqs = [
   },
   {
     q: 'How do I delete my account and data?',
-    a: 'Go to Settings in the app and select "Delete Account." This will permanently remove your account and all associated data. You can also email privacy@wellvo.net to request deletion.',
+    a: 'Go to Settings in the app and select "Delete Account." This will permanently remove your account and all associated data. You can also email privacy@dailyok.net to request deletion.',
   },
 ]
 
@@ -62,9 +62,9 @@ export default function Support() {
     <>
       <SEO
         title="Support & FAQ"
-        description="Get help with Wellvo, the daily check-in app for families and caregivers. Find answers about setting up check-ins for elderly parents, children, and loved ones."
+        description="Get help with Daily OK, the daily check-in app for families and caregivers. Find answers about setting up check-ins for elderly parents, children, and loved ones."
         path="/support"
-        keywords="wellvo support, daily check-in app help, elderly parent check-in setup, caregiver app FAQ, family safety app support"
+        keywords="dailyok support, daily check-in app help, elderly parent check-in setup, caregiver app FAQ, family safety app support"
         jsonLd={faqJsonLd}
       />
 
@@ -82,8 +82,8 @@ export default function Support() {
               <Mail size={28} />
               <h3>Email Support</h3>
               <p>Get help from our team. We typically respond within 24 hours.</p>
-              <a href="mailto:support@wellvo.net" className="btn btn-secondary">
-                support@wellvo.net
+              <a href="mailto:support@dailyok.net" className="btn btn-secondary">
+                support@dailyok.net
               </a>
             </div>
             <div className="contact-card">
@@ -98,8 +98,8 @@ export default function Support() {
               <FileText size={28} />
               <h3>Legal & Privacy</h3>
               <p>Questions about your data, privacy rights, or our policies.</p>
-              <a href="mailto:privacy@wellvo.net" className="btn btn-secondary">
-                privacy@wellvo.net
+              <a href="mailto:privacy@dailyok.net" className="btn btn-secondary">
+                privacy@dailyok.net
               </a>
             </div>
           </div>
@@ -132,7 +132,7 @@ export default function Support() {
               Our support team is here for you. Reach out anytime and we'll get back
               to you as soon as possible.
             </p>
-            <a href="mailto:support@wellvo.net" className="btn btn-primary">
+            <a href="mailto:support@dailyok.net" className="btn btn-primary">
               Contact Support
             </a>
           </div>

@@ -1,4 +1,4 @@
--- Wellvo Phase 3: Delivery Confirmation, Location Safety, Enhanced Responses
+-- Daily OK Phase 3: Delivery Confirmation, Location Safety, Enhanced Responses
 -- Migration: 00012_delivery_confirmation_location_safety
 -- Features:
 --   1. Push notification delivery confirmation with retry tracking

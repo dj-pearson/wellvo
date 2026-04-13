@@ -7,7 +7,7 @@ export default function Accessibility() {
     <>
       <SEO
         title="Accessibility"
-        description="Wellvo accessibility statement. VoiceOver support, Dynamic Type, Voice Control, and WCAG AA compliance. Designed for users of all ages and abilities."
+        description="Daily OK accessibility statement. VoiceOver support, Dynamic Type, Voice Control, and WCAG AA compliance. Designed for users of all ages and abilities."
         path="/accessibility"
         keywords="accessible check-in app, voiceover support, elderly friendly app, senior friendly iPhone app, large text app for seniors"
       />
@@ -20,7 +20,7 @@ export default function Accessibility() {
           <section>
             <h2>Our Commitment</h2>
             <p>
-              Wellvo is built for families, including aging adults who may rely on assistive
+              Daily OK is built for families, including aging adults who may rely on assistive
               technology. We are committed to making our app and website usable by everyone,
               regardless of ability or the device they use.
             </p>
@@ -88,7 +88,7 @@ export default function Accessibility() {
             <p>
               If you encounter an accessibility barrier or have suggestions for improvement, we
               want to hear from you. Please email us at{' '}
-              <a href="mailto:support@wellvo.net">support@wellvo.net</a> with "Accessibility"
+              <a href="mailto:support@dailyok.net">support@dailyok.net</a> with "Accessibility"
               in the subject line. We take every report seriously and will do our best to
               respond promptly.
             </p>

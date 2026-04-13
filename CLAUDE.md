@@ -1,7 +1,7 @@
-# Wellvo — Project Configuration
+# Daily OK — Project Configuration
 
 ## Overview
-Wellvo is a daily check-in app for families. Owners send check-in requests; Receivers tap "I'm OK." Escalation alerts fire if no response.
+Daily OK is a daily check-in app for families. Owners send check-in requests; Receivers tap "I'm OK." Escalation alerts fire if no response.
 
 ## Tech Stack
 - **iOS App**: Swift 5.9+, SwiftUI, MVVM, iOS 16+, StoreKit 2
@@ -15,8 +15,8 @@ Wellvo is a daily check-in app for families. Owners send check-in requests; Rece
 ## Directory Structure
 ```
 ios/                    # iOS app (Xcode project)
-  Wellvo/
-    App/                # AppDelegate, WellvoApp, AppState, ContentView
+  Daily OK/
+    App/                # AppDelegate, Daily OKApp, AppState, ContentView
     Models/             # CheckIn, User, Family, ReceiverSettings, etc.
     Services/           # Auth, CheckIn, Subscription, Push, Offline, Analytics
     ViewModels/         # Auth, Dashboard, Onboarding, Receiver
@@ -33,7 +33,7 @@ website/                # React + Vite website
 android/                # Android app (Gradle/Kotlin project)
   app/
     src/main/
-      java/net/wellvo/android/
+      java/net/dailyok/android/
         di/             # Hilt dependency injection modules
         data/           # Models, Room entities, DAOs
         network/        # API service, error handling, retry
@@ -59,7 +59,7 @@ cd edge-functions && deno run --allow-net --allow-env server.ts
 docker compose up --build
 
 # iOS (requires Xcode on macOS)
-xcodebuild -project ios/Wellvo.xcodeproj -scheme Wellvo build
+xcodebuild -project ios/Daily OK.xcodeproj -scheme Daily OK build
 
 # Android (requires JDK 17+)
 cd android && ./gradlew assembleDebug         # Debug build
@@ -69,7 +69,7 @@ cd android && ./gradlew test                  # Unit tests
 
 ## Key Architecture Decisions
 - Edge functions run as a single Deno HTTP server (not Supabase-hosted Edge Functions)
-- CORS restricted to https://wellvo.net (configurable via ALLOWED_ORIGIN env var)
+- CORS restricted to https://dailyok.net (configurable via ALLOWED_ORIGIN env var)
 - Rate limiting is in-memory (resets on container restart, single-instance deploy)
 - iOS app reads Supabase URL/keys from BuildConfig.xcconfig → Info.plist
 - pg_cron triggers edge functions via HTTP with service role key
@@ -91,4 +91,4 @@ cd android && ./gradlew test                  # Unit tests
 ## Task Tracking
 - `prd.json` — User stories with `passes: true/false` status (Ralph loop format)
 - `progress.txt` — Append-only log with story status and iteration details
-- PRD: `Wellvo-PRD-v1.md` — Full product requirements document
+- PRD: `Daily OK-PRD-v1.md` — Full product requirements document

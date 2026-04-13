@@ -8,13 +8,13 @@
     </base-config>
 
     <!--
-        Certificate pinning for Supabase domain (wellvo.net and subdomains).
+        Certificate pinning for Supabase domain (dailyok.net and subdomains).
         Pins to Let's Encrypt ISRG Root X1 (primary) and ISRG Root X2 (backup).
         Expiration set to 1 year — update pins before expiry.
-        If your Supabase domain differs from *.wellvo.net, update the domain below.
+        If your Supabase domain differs from *.dailyok.net, update the domain below.
     -->
     <domain-config>
-        <domain includeSubdomains="true">wellvo.net</domain>
+        <domain includeSubdomains="true">dailyok.net</domain>
         <pin-set expiration="2027-04-01">
             <!-- ISRG Root X1 (Let's Encrypt primary root) -->
             <pin digest="SHA-256">C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</pin>

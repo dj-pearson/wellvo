@@ -1,4 +1,4 @@
--- Wellvo: Add missing database indexes for performance
+-- Daily OK: Add missing database indexes for performance
 -- Migration: 00009_add_missing_indexes
 --
 -- Indexes for frequently queried columns: subscription status,

@@ -9,7 +9,7 @@ interface LinkAppleIdRequest {
 
 const APPLE_ISSUER = "https://appleid.apple.com";
 const APPLE_JWKS_URI = "https://appleid.apple.com/auth/keys";
-const APP_BUNDLE_ID = Deno.env.get("APPLE_BUNDLE_ID") || "com.wellvo.ios";
+const APP_BUNDLE_ID = Deno.env.get("APPLE_BUNDLE_ID") || "com.dailyok.ios";
 
 // jose handles key rotation and caching internally
 const appleJWKS = createRemoteJWKSet(new URL(APPLE_JWKS_URI));

@@ -1,9 +1,9 @@
 Incident Identifier: CAB4F47F-B681-4530-A1BF-12BCE4C5146B
 Distributor ID:      com.apple.TestFlight
 Hardware Model:      iPhone18,1
-Process:             Wellvo [4989]
-Path:                /private/var/containers/Bundle/Application/80D2E46F-B3EB-40B0-8284-257A682A19B3/Wellvo.app/Wellvo
-Identifier:          com.wellvo.ios
+Process:             DailyOK [4989]
+Path:                /private/var/containers/Bundle/Application/80D2E46F-B3EB-40B0-8284-257A682A19B3/DailyOK.app/DailyOK
+Identifier:          com.dailyok.ios
 Version:             1.0.0 (28)
 AppStoreTools:       17E187
 AppVariant:          1:iPhone18,1:26
@@ -11,7 +11,7 @@ Beta:                YES
 Code Type:           ARM-64 (Native)
 Role:                Foreground
 Parent Process:      launchd [1]
-Coalition:           com.wellvo.ios [2086]
+Coalition:           com.dailyok.ios [2086]
 
 Date/Time:           2026-03-19 13:07:24.3590 -0500
 Launch Time:         2026-03-19 13:07:24.2027 -0500
@@ -63,8 +63,8 @@ Thread 0:
 30  SwiftUI                       	0x0000000193e00570 closure #1 in KitRendererCommon(_:) + 168 (UIKitApp.swift:65)
 31  SwiftUI                       	0x0000000193dfd0f4 runApp<A>(_:) + 112 (UIKitApp.swift:16)
 32  SwiftUI                       	0x0000000193dfcc48 static App.main() + 172 (App.swift:137)
-33  Wellvo                        	0x000000010430606c static WellvoApp.$main() + 52 (WellvoApp.swift:0)
-34  Wellvo                        	0x000000010430606c main + 64
+33  DailyOK                        	0x000000010430606c static DailyOKApp.$main() + 52 (DailyOKApp.swift:0)
+34  DailyOK                        	0x000000010430606c main + 64
 35  dyld                          	0x00000001879f9c1c start + 6928
 
 Thread 1:
@@ -95,23 +95,23 @@ Thread 4:
 
 Thread 5 name:
 Thread 5 Crashed:
-0   Wellvo                        	0x00000001043c0f18 Swift runtime failure: Unexpectedly found nil while unwrapping an Optional value + 0 (/<compiler-generated>:0)
-1   Wellvo                        	0x00000001043c0f18 SupabaseClient.init(supabaseURL:supabaseKey:options:) + 2592 (SupabaseClient.swift:168)
-2   Wellvo                        	0x00000001043c0460 SupabaseClient.__allocating_init(supabaseURL:supabaseKey:options:) + 32 (SupabaseClient.swift:0)
-3   Wellvo                        	0x00000001043c0460 SupabaseClient.__allocating_init(supabaseURL:supabaseKey:) + 596 (SupabaseClient.swift:130)
-4   Wellvo                        	0x0000000104334f48 SupabaseService.().init() + 432 (SupabaseService.swift:25)
-5   Wellvo                        	0x0000000104334d84 SupabaseService.__allocating_init() + 24 (SupabaseService.swift:5)
-6   Wellvo                        	0x0000000104334d84 one-time initialization function for shared + 36
+0   DailyOK                        	0x00000001043c0f18 Swift runtime failure: Unexpectedly found nil while unwrapping an Optional value + 0 (/<compiler-generated>:0)
+1   DailyOK                        	0x00000001043c0f18 SupabaseClient.init(supabaseURL:supabaseKey:options:) + 2592 (SupabaseClient.swift:168)
+2   DailyOK                        	0x00000001043c0460 SupabaseClient.__allocating_init(supabaseURL:supabaseKey:options:) + 32 (SupabaseClient.swift:0)
+3   DailyOK                        	0x00000001043c0460 SupabaseClient.__allocating_init(supabaseURL:supabaseKey:) + 596 (SupabaseClient.swift:130)
+4   DailyOK                        	0x0000000104334f48 SupabaseService.().init() + 432 (SupabaseService.swift:25)
+5   DailyOK                        	0x0000000104334d84 SupabaseService.__allocating_init() + 24 (SupabaseService.swift:5)
+6   DailyOK                        	0x0000000104334d84 one-time initialization function for shared + 36
 7   libdispatch.dylib             	0x00000001c50031e4 _dispatch_client_callout + 16 (client_callout.mm:85)
 8   libdispatch.dylib             	0x00000001c4fec5b0 _dispatch_once_callout + 32 (once.c:52)
-9   Wellvo                        	0x000000010431fba4 SupabaseService.shared.unsafeMutableAddressor + 20 (SupabaseService.swift:5)
-10  Wellvo                        	0x000000010431fba4 AuthService.supabase.getter + 20 (AuthService.swift:10)
-11  Wellvo                        	0x000000010431fba4 AuthService.currentSession() + 184 (AuthService.swift:177)
-12  Wellvo                        	0x0000000104336605 AuthViewModel.checkSession() + 1 (AuthViewModel.swift:47)
-13  Wellvo                        	0x000000010433716d closure #1 in AuthViewModel.init() + 1 (AuthViewModel.swift:31)
-14  Wellvo                        	0x0000000104309381 <deduplicated_symbol> + 1
-15  Wellvo                        	0x00000001043073d1 specialized thunk for @escaping @isolated(any) @callee_guaranteed @async () -> (@out A) + 1 (/<compiler-generated>:0)
-16  Wellvo                        	0x0000000104309381 <deduplicated_symbol> + 1
+9   DailyOK                        	0x000000010431fba4 SupabaseService.shared.unsafeMutableAddressor + 20 (SupabaseService.swift:5)
+10  DailyOK                        	0x000000010431fba4 AuthService.supabase.getter + 20 (AuthService.swift:10)
+11  DailyOK                        	0x000000010431fba4 AuthService.currentSession() + 184 (AuthService.swift:177)
+12  DailyOK                        	0x0000000104336605 AuthViewModel.checkSession() + 1 (AuthViewModel.swift:47)
+13  DailyOK                        	0x000000010433716d closure #1 in AuthViewModel.init() + 1 (AuthViewModel.swift:31)
+14  DailyOK                        	0x0000000104309381 <deduplicated_symbol> + 1
+15  DailyOK                        	0x00000001043073d1 specialized thunk for @escaping @isolated(any) @callee_guaranteed @async () -> (@out A) + 1 (/<compiler-generated>:0)
+16  DailyOK                        	0x0000000104309381 <deduplicated_symbol> + 1
 17  libswift_Concurrency.dylib    	0x0000000188edc385 completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*) + 1 (Task.cpp:546)
 
 Thread 6:
@@ -151,7 +151,7 @@ Thread 5 crashed with ARM Thread State (64-bit):
 
 
 Binary Images:
-        0x104300000 -         0x10474ffff Wellvo arm64  <198c1939bfe0343688aca51737c8aef6> /private/var/containers/Bundle/Application/80D2E46F-B3EB-40B0-8284-257A682A19B3/Wellvo.app/Wellvo
+        0x104300000 -         0x10474ffff DailyOK arm64  <198c1939bfe0343688aca51737c8aef6> /private/var/containers/Bundle/Application/80D2E46F-B3EB-40B0-8284-257A682A19B3/DailyOK.app/DailyOK
         0x104ad8000 -         0x104ae3fff libobjc-trampolines.dylib arm64e  <e51a481b92f532ba9e8bfcecda3b8431> /private/preboot/Cryptexes/OS/usr/lib/libobjc-trampolines.dylib
         0x10b660000 -         0x10b673fff GAXClient arm64e  <3137400ebb293bab9c9f1fb7c09cbdab> /System/Library/AccessibilityBundles/GAXClient.bundle/GAXClient
         0x1879f5000 -         0x187a99ec3 dyld arm64e  <e6decfd2efe33f28b2efc8d7042f9330> /usr/lib/dyld

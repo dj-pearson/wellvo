@@ -1,4 +1,4 @@
--- Wellvo: Add Caregiver subscription tier
+-- Daily OK: Add Caregiver subscription tier
 -- Migration: 00019_add_caregiver_tier
 --
 -- Introduces a new "caregiver" subscription tier sized for the dominant

@@ -14,7 +14,7 @@ function renderHeader() {
 describe('Header component', () => {
   it('renders logo text', () => {
     renderHeader()
-    expect(screen.getByAltText('Wellvo')).toBeInTheDocument()
+    expect(screen.getByAltText('Daily OK')).toBeInTheDocument()
   })
 
   it('renders navigation links', () => {

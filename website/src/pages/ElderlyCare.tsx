@@ -15,16 +15,16 @@ import './ElderlyCare.css'
 
 const faqs = [
   {
-    q: 'Is Wellvo easy enough for someone with dementia to use?',
+    q: 'Is Daily OK easy enough for someone with dementia to use?',
     a: 'Yes. Receivers see one large "I\'m OK" button — that\'s the entire interface. They can even respond directly from the push notification without opening the app. No menus, no settings, no confusion. It\'s designed for users who may struggle with complex technology.',
   },
   {
     q: 'What happens if my parent doesn\'t respond to the check-in?',
-    a: 'Wellvo uses an escalating alert system. First, your parent gets a gentle reminder. If they still don\'t respond within your configured window (15–120 minutes), you\'re notified. On the Family+ plan, alerts can even bypass Do Not Disturb mode.',
+    a: 'Daily OK uses an escalating alert system. First, your parent gets a gentle reminder. If they still don\'t respond within your configured window (15–120 minutes), you\'re notified. On the Family+ plan, alerts can even bypass Do Not Disturb mode.',
   },
   {
-    q: 'Does Wellvo track my parent\'s location?',
-    a: 'No. Wellvo never accesses location data, cameras, or microphones. It\'s a simple daily wellness check — not a surveillance tool. We believe in preserving your parent\'s dignity and independence.',
+    q: 'Does Daily OK track my parent\'s location?',
+    a: 'No. Daily OK never accesses location data, cameras, or microphones. It\'s a simple daily wellness check — not a surveillance tool. We believe in preserving your parent\'s dignity and independence.',
   },
   {
     q: 'Can multiple family members monitor the same parent?',
@@ -36,7 +36,7 @@ const faqs = [
   },
   {
     q: 'How is this different from calling my parent every day?',
-    a: 'Wellvo is less intrusive and more consistent. Your parent taps one button instead of having a conversation they may not always want. You get a reliable daily signal that doesn\'t depend on either of you being available at the same time. And if they miss it, you know immediately.',
+    a: 'Daily OK is less intrusive and more consistent. Your parent taps one button instead of having a conversation they may not always want. You get a reliable daily signal that doesn\'t depend on either of you being available at the same time. And if they miss it, you know immediately.',
   },
 ]
 
@@ -58,7 +58,7 @@ export default function ElderlyCare() {
     <>
       <SEO
         title="Daily Check-In App for Elderly Parents & Dementia Caregivers"
-        description="Wellvo helps adult children check on aging parents living alone — especially those with dementia or Alzheimer's. One tap daily check-in with escalating alerts. No location tracking. Free on iPhone."
+        description="Daily OK helps adult children check on aging parents living alone — especially those with dementia or Alzheimer's. One tap daily check-in with escalating alerts. No location tracking. Free on iPhone."
         path="/elderly-care"
         keywords="elderly parent check-in app, dementia caregiver app, alzheimers check-in app, aging parent safety, senior daily check-in, check on elderly parents app, dementia daily wellness check, aging in place app, elderly living alone safety, caregiver peace of mind app, senior wellness monitoring, daily check-in for seniors"
         jsonLd={faqJsonLd}
@@ -74,7 +74,7 @@ export default function ElderlyCare() {
           </h1>
           <p className="ec-hero-subtitle">
             If your parent has dementia, Alzheimer's, or is simply aging independently,
-            you know the worry that comes with distance. Wellvo gives you a reliable daily
+            you know the worry that comes with distance. Daily OK gives you a reliable daily
             signal that they're OK — without invasive monitoring, complicated technology,
             or daily phone calls they may not always want.
           </p>
@@ -137,7 +137,7 @@ export default function ElderlyCare() {
       <section className="section ec-solution">
         <div className="container">
           <div className="section-header">
-            <h2>Wellvo: One button. Total peace of mind.</h2>
+            <h2>Daily OK: One button. Total peace of mind.</h2>
             <p>Designed to be simple enough for anyone — including those with cognitive challenges</p>
           </div>
 
@@ -162,7 +162,7 @@ export default function ElderlyCare() {
               <div className="ec-solution-icon"><Shield size={28} /></div>
               <h3>Escalating alerts if no response</h3>
               <p>
-                If your parent misses their check-in, Wellvo sends them a reminder first.
+                If your parent misses their check-in, Daily OK sends them a reminder first.
                 If they still don't respond, you get alerted — and so do other family members
                 you've designated as Viewers.
               </p>
@@ -189,7 +189,7 @@ export default function ElderlyCare() {
               <h3>Dignity-first design</h3>
               <p>
                 No location tracking. No cameras. No microphone access. No wearables.
-                Wellvo preserves your parent's independence while giving you peace of mind.
+                Daily OK preserves your parent's independence while giving you peace of mind.
               </p>
             </div>
           </div>
