@@ -4,6 +4,7 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
+import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import net.dailyok.android.data.models.Family
@@ -54,12 +55,17 @@ class FamilyService @Inject constructor(
 
     suspend fun getFamily(userId: String): Family? {
         try {
+            // Earliest join wins — keeps owner + receiver apps agreeing on the
+            // same family when stray duplicates exist in the DB.
             val member = supabase.postgrest.from("family_members")
                 .select {
                     filter { eq("user_id", userId) }
                     filter { eq("status", "active") }
+                    order("joined_at", Order.ASCENDING)
+                    limit(1)
                 }
-                .decodeSingleOrNull<FamilyMember>()
+                .decodeList<FamilyMember>()
+                .firstOrNull()
                 ?: return null
 
             return supabase.postgrest.from("families")

@@ -4,6 +4,33 @@ import { sendFCMNotification, buildFCMAlertPayload } from "../../shared/fcm.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID, validateLocationFields, sanitizeDisplayName, truncateString } from "../../shared/validation.ts";
 
+/**
+ * Returns UTC ISO timestamps for the start and end of "today" in the given
+ * IANA timezone. The apps compute `todayCheckInStatus` using the device's
+ * local calendar day (`Calendar.current.startOfDay`), so the server-side
+ * dedup must use the same local day — otherwise a late-evening check-in
+ * (e.g. 23:51 local = 03:51 next-day UTC) gets treated as "today" by the
+ * server but "yesterday" by the dashboard, producing a permanent Pending.
+ */
+function localDayBoundsUTC(tz: string): { startUTC: string; endUTC: string } {
+  const now = new Date();
+  const ymd = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(now);
+  const hms = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }).format(now);
+  const localAsUTC = Date.parse(`${ymd}T${hms}Z`);
+  const offsetMs = now.getTime() - localAsUTC;
+  const localMidnightUTC = Date.parse(`${ymd}T00:00:00Z`) + offsetMs;
+  return {
+    startUTC: new Date(localMidnightUTC).toISOString(),
+    endUTC: new Date(localMidnightUTC + 86_400_000).toISOString(),
+  };
+}
+
 function haversineDistance(
   lat1: number, lon1: number,
   lat2: number, lon2: number
@@ -130,15 +157,24 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
     );
   }
 
-  // Check for existing check-in today (duplicate prevention)
-  const today = new Date().toISOString().split("T")[0];
+  // Check for existing check-in today in the receiver's local calendar day.
+  // Must match the client-side window (`Calendar.current.startOfDay`) so a
+  // late-evening-local check-in isn't deduped against the dashboard's
+  // next-local-day query.
+  const { data: receiverUser } = await supabaseAdmin
+    .from("users")
+    .select("timezone")
+    .eq("id", receiverId)
+    .single();
+  const receiverTz = receiverUser?.timezone || "UTC";
+  const { startUTC, endUTC } = localDayBoundsUTC(receiverTz);
   const { data: existingCheckIn } = await supabaseAdmin
     .from("checkins")
     .select()
     .eq("receiver_id", receiverId)
     .eq("family_id", familyId)
-    .gte("checked_in_at", `${today}T00:00:00Z`)
-    .lt("checked_in_at", `${today}T23:59:59Z`)
+    .gte("checked_in_at", startUTC)
+    .lt("checked_in_at", endUTC)
     .maybeSingle();
 
   if (existingCheckIn) {

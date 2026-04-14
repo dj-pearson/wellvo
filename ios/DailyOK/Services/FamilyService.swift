@@ -43,22 +43,28 @@ actor FamilyService {
     func getFamily() async throws -> Family? {
         guard let session = try? await supabase.auth.session else { return nil }
 
+        // Pick the earliest-created family the user owns so both devices (owner
+        // + receiver) deterministically resolve to the same family when stray
+        // duplicates exist in the DB.
         let families: [Family] = try await supabase
             .from("families")
             .select()
-            .or("owner_id.eq.\(session.user.id.uuidString)")
+            .eq("owner_id", value: session.user.id.uuidString)
+            .order("created_at", ascending: true)
             .limit(1)
             .execute()
             .value
 
         if let family = families.first { return family }
 
-        // Check if user is a member of a family
+        // Check if user is a member of a family — earliest join wins for the
+        // same reason as above.
         let memberships: [FamilyMember] = try await supabase
             .from("family_members")
             .select()
             .eq("user_id", value: session.user.id.uuidString)
             .eq("status", value: MemberStatus.active.rawValue)
+            .order("joined_at", ascending: true)
             .limit(1)
             .execute()
             .value
