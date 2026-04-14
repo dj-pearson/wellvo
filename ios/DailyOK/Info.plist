@@ -29,21 +29,31 @@
 			</array>
 		</dict>
 	</array>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Daily OK uses your location to include it with your check-in so your family knows you're safe.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Daily OK uses your location to include it with your check-in so your family knows you're safe.</string>
+	<string>Daily OK can attach your approximate location to a check-in so your family group knows you're in your usual area. This is optional — Daily OK works without it.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>If you turn on Background Location, Daily OK will notify your family group when you arrive at or leave your usual area (significant location changes only). This is optional and you can turn it off at any time in Settings.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Daily OK uses notifications to deliver check-in reminders and to alert your family group if a check-in is missed. You can change notification settings at any time.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
 		<string>remote-notification</string>
+		<string>location</string>
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
 		<false/>
+		<key>NSExceptionRequiresForwardSecrecy</key>
+		<true/>
 	</dict>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!--
+	  Privacy manifest lives in PrivacyInfo.xcprivacy (app-target-level).
+	  Keep declarations there, not duplicated here.
+	-->
+
 </dict>
 </plist>

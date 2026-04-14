@@ -10,6 +10,8 @@ const Pricing = lazy(() => import('./pages/Pricing'))
 const Accessibility = lazy(() => import('./pages/Accessibility'))
 const ElderlyCare = lazy(() => import('./pages/ElderlyCare'))
 const ChildSafety = lazy(() => import('./pages/ChildSafety'))
+const Cookies = lazy(() => import('./pages/Cookies'))
+const DMCA = lazy(() => import('./pages/DMCA'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 function LoadingSpinner() {
@@ -40,6 +42,8 @@ function App() {
           <Route path="/accessibility" element={<Accessibility />} />
           <Route path="/elderly-care" element={<ElderlyCare />} />
           <Route path="/child-safety" element={<ChildSafety />} />
+          <Route path="/cookies" element={<Cookies />} />
+          <Route path="/dmca" element={<DMCA />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
