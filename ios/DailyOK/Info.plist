@@ -48,16 +48,10 @@
 	</dict>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>NSPrivacyAccessedAPITypes</key>
-	<array>
-		<dict>
-			<key>NSPrivacyAccessedAPIType</key>
-			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
-			<key>NSPrivacyAccessedAPITypeReasons</key>
-			<array>
-				<string>CA92.1</string>
-			</array>
-		</dict>
-	</array>
+	<!--
+	  Privacy manifest lives in PrivacyInfo.xcprivacy (app-target-level).
+	  Keep declarations there, not duplicated here.
+	-->
+
 </dict>
 </plist>
