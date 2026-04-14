@@ -90,9 +90,11 @@ final class DashboardViewModel: ObservableObject {
             var weeklyCheckIns: [CheckIn] = []
 
             for receiver in receivers {
+                let receiverTz = receiver.user?.timezone
                 let todayCheckIn = try await CheckInService.shared.todayCheckInStatus(
                     receiverId: receiver.userId,
-                    familyId: family.id
+                    familyId: family.id,
+                    timezone: receiverTz
                 )
 
                 let history = try await CheckInService.shared.checkInHistory(
@@ -101,7 +103,7 @@ final class DashboardViewModel: ObservableObject {
                     days: 30
                 )
 
-                let streak = calculateStreak(from: history)
+                let streak = calculateStreak(from: history, timezone: receiverTz)
 
                 // Check notification status — look for active push tokens
                 let hasNotifications = await checkNotificationStatus(userId: receiver.userId)
@@ -183,9 +185,12 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
-    private func calculateStreak(from checkIns: [CheckIn]) -> Int {
+    private func calculateStreak(from checkIns: [CheckIn], timezone: String? = nil) -> Int {
         guard !checkIns.isEmpty else { return 0 }
-        let calendar = Calendar.current
+        var calendar = Calendar.current
+        if let tzId = timezone, let tz = TimeZone(identifier: tzId) {
+            calendar.timeZone = tz
+        }
         var streak = 0
         var currentDate = calendar.startOfDay(for: Date())
 

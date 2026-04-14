@@ -12,7 +12,10 @@ import net.dailyok.android.network.CheckInResponseRequest
 import net.dailyok.android.network.ConfirmDeliveryRequest
 import net.dailyok.android.network.OnDemandCheckinRequest
 import net.dailyok.android.network.DailyOKError
+import java.time.Duration
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -100,15 +103,23 @@ class CheckInService @Inject constructor(
         }
     }
 
-    suspend fun todayCheckInStatus(receiverId: String, familyId: String): CheckIn? {
+    /// "Today" must be evaluated in the receiver's IANA zone (from
+    /// users.timezone), not the viewer's device zone — otherwise an owner in a
+    /// different region sees Pending even after the receiver tapped I'm OK.
+    suspend fun todayCheckInStatus(receiverId: String, familyId: String, timezone: String? = null): CheckIn? {
         try {
-            val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+            val zoneId = try {
+                timezone?.let { ZoneId.of(it) } ?: ZoneId.systemDefault()
+            } catch (_: Exception) { ZoneId.systemDefault() }
+            val startOfDay = ZonedDateTime.now(zoneId).toLocalDate().atStartOfDay(zoneId).toInstant()
+            val endOfDay = startOfDay.plus(Duration.ofDays(1))
+            val iso = DateTimeFormatter.ISO_INSTANT
             return supabase.postgrest.from("checkins")
                 .select {
                     filter { eq("receiver_id", receiverId) }
                     filter { eq("family_id", familyId) }
-                    filter { gte("checked_in_at", "${today}T00:00:00") }
-                    filter { lt("checked_in_at", "${today}T23:59:59.999") }
+                    filter { gte("checked_in_at", iso.format(startOfDay)) }
+                    filter { lt("checked_in_at", iso.format(endOfDay)) }
                 }
                 .decodeSingleOrNull<CheckIn>()
         } catch (e: Exception) {

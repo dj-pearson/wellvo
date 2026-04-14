@@ -111,9 +111,16 @@ actor CheckInService {
         )
     }
 
-    /// Fetch today's check-in status for a receiver
-    func todayCheckInStatus(receiverId: UUID, familyId: UUID) async throws -> CheckIn? {
-        let calendar = Calendar.current
+    /// Fetch today's check-in status for a receiver.
+    /// `timezone` is the receiver's IANA zone (from `users.timezone`). "Today"
+    /// must be evaluated in the receiver's zone — not the viewer's device zone
+    /// — otherwise an owner in a different region sees Pending even after the
+    /// receiver tapped I'm OK.
+    func todayCheckInStatus(receiverId: UUID, familyId: UUID, timezone: String? = nil) async throws -> CheckIn? {
+        var calendar = Calendar.current
+        if let tzId = timezone, let tz = TimeZone(identifier: tzId) {
+            calendar.timeZone = tz
+        }
         let startOfDay = calendar.startOfDay(for: Date())
         let formatter = ISO8601DateFormatter()
 

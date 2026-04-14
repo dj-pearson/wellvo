@@ -22,9 +22,19 @@ final class ReceiverViewModel: ObservableObject {
 
         guard let session = try? await SupabaseService.shared.client.auth.session else { return }
 
+        struct TimezoneOnly: Decodable { let timezone: String? }
+        let tzRow: TimezoneOnly? = try? await SupabaseService.shared.client
+            .from("users")
+            .select("timezone")
+            .eq("id", value: session.user.id.uuidString)
+            .single()
+            .execute()
+            .value
+
         if let todayCheckIn = try? await CheckInService.shared.todayCheckInStatus(
             receiverId: session.user.id,
-            familyId: family.id
+            familyId: family.id,
+            timezone: tzRow?.timezone
         ) {
             lastCheckIn = todayCheckIn
             hasCheckedInToday = true
