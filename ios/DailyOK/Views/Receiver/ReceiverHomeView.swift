@@ -15,8 +15,6 @@ struct ReceiverHomeView: View {
     private let hapticSuccess = UINotificationFeedbackGenerator()
     private let hapticImpact = UIImpactFeedbackGenerator(style: .medium)
 
-    @State private var notificationBanner = NotificationPermissionBanner()
-
     private var isKidMode: Bool {
         viewModel.receiverMode == .kid
     }
@@ -28,12 +26,9 @@ struct ReceiverHomeView: View {
 
             ScrollView {
                 VStack(spacing: 24) {
-                    // Notification permission banner
                     NotificationPermissionBanner()
                         .padding(.horizontal)
-                        .task { await notificationBanner.checkPermission() }
 
-                    // Offline banner
                     if viewModel.isOffline {
                         HStack(spacing: 8) {
                             Image(systemName: "wifi.slash")
@@ -52,28 +47,14 @@ struct ReceiverHomeView: View {
                             : "You are offline")
                     }
 
-                    Spacer()
-                        .frame(height: 20)
+                    Spacer().frame(height: 20)
 
                     if viewModel.hasCheckedInToday {
-                        statusCard
-                            .padding(.horizontal)
-
-                        if isKidMode {
-                            kidMoodSelector
-                                .padding(.horizontal)
-
-                            kidLocationPicker
-                                .padding(.horizontal)
-
-                            kidResponseButtons
-                                .padding(.horizontal)
-                        }
+                        statusCard.padding(.horizontal)
                     } else {
                         checkInButton
                     }
 
-                    // Error with retry
                     if let errorMessage = viewModel.errorMessage {
                         VStack(spacing: 12) {
                             Text(errorMessage)
@@ -97,23 +78,13 @@ struct ReceiverHomeView: View {
                         .padding(.horizontal)
                     }
 
-                    Spacer()
-                        .frame(height: 20)
-
-                    // Mood selector overlay (standard mode only)
-                    if viewModel.showMoodSelector && !isKidMode {
-                        moodSelector
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                            .transaction { t in if reduceMotion { t.animation = nil } }
-                    }
+                    Spacer().frame(height: 20)
                 }
                 .padding()
             }
         }
         .task { await viewModel.loadStatus() }
     }
-
-    // MARK: - Check-In Button (Not Yet Checked In)
 
     private var checkInButton: some View {
         VStack(spacing: 24) {
@@ -154,7 +125,6 @@ struct ReceiverHomeView: View {
                     }
 
                     if showCheckmark {
-                        // Animated checkmark transition
                         Image(systemName: "checkmark")
                             .font(.system(size: 60, weight: .bold))
                             .foregroundStyle(.white)
@@ -196,8 +166,6 @@ struct ReceiverHomeView: View {
                 .dynamicTypeSize(...DynamicTypeSize.accessibility3)
         }
     }
-
-    // MARK: - Post-Check-In Status Card
 
     private var statusCard: some View {
         VStack(spacing: 16) {
@@ -246,239 +214,6 @@ struct ReceiverHomeView: View {
         .accessibilityLabel("Checked in successfully. Your family has been notified.")
     }
 
-    // MARK: - Kid Mode: Mood Selector (2x4 grid)
-
-    private var kidMoodSelector: some View {
-        VStack(spacing: 12) {
-            Text("How are you feeling?")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 12) {
-                ForEach(Mood.kidMoods, id: \.self) { mood in
-                    kidMoodButton(mood: mood)
-                }
-            }
-        }
-        .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-    }
-
-    private func kidMoodButton(mood: Mood) -> some View {
-        Button {
-            hapticImpact.impactOccurred()
-            Task { await viewModel.submitMood(mood) }
-        } label: {
-            VStack(spacing: 6) {
-                Text(mood.emoji)
-                    .font(.system(size: 32))
-                Text(mood.label)
-                    .font(.caption2)
-                    .foregroundStyle(.primary)
-                    .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(viewModel.selectedMood == mood
-                          ? Color.accentColor.opacity(0.2)
-                          : Color(.tertiarySystemGroupedBackground))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(viewModel.selectedMood == mood ? Color.accentColor : Color.clear, lineWidth: 2)
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Select mood: \(mood.label)")
-        .accessibilityHint("Double tap to select \(mood.label) mood")
-    }
-
-    // MARK: - Kid Mode: Location Label Picker (3x2 grid)
-
-    private var kidLocationPicker: some View {
-        VStack(spacing: 12) {
-            Text("Where are you?")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 12) {
-                ForEach(LocationLabel.allCases, id: \.self) { location in
-                    Button {
-                        hapticImpact.impactOccurred()
-                        viewModel.submitLocationLabel(location)
-                    } label: {
-                        VStack(spacing: 6) {
-                            Image(systemName: location.icon)
-                                .font(.title2)
-                            Text(location.label)
-                                .font(.caption)
-                                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(viewModel.selectedLocationLabel == location
-                                      ? Color.accentColor.opacity(0.2)
-                                      : Color(.tertiarySystemGroupedBackground))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(viewModel.selectedLocationLabel == location ? Color.accentColor : Color.clear, lineWidth: 2)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Location: \(location.label)")
-                    .accessibilityHint("Double tap to select \(location.label)")
-                }
-            }
-        }
-        .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-    }
-
-    // MARK: - Kid Mode: Response Buttons
-
-    private var kidResponseButtons: some View {
-        VStack(spacing: 12) {
-            Text("Need anything?")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-
-            HStack(spacing: 12) {
-                // Pick me up
-                Button {
-                    hapticImpact.impactOccurred()
-                    Task { await viewModel.submitKidResponse(.pickingMeUp) }
-                } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: KidResponseType.pickingMeUp.icon)
-                            .font(.title3)
-                        Text(KidResponseType.pickingMeUp.label)
-                            .font(.caption)
-                            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(viewModel.selectedKidResponse == .pickingMeUp
-                                  ? Color.orange.opacity(0.3)
-                                  : Color.orange.opacity(0.1))
-                    )
-                    .foregroundStyle(.orange)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Request: \(KidResponseType.pickingMeUp.label)")
-
-                // Can I stay longer
-                Button {
-                    hapticImpact.impactOccurred()
-                    Task { await viewModel.submitKidResponse(.canStayLonger) }
-                } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: KidResponseType.canStayLonger.icon)
-                            .font(.title3)
-                        Text(KidResponseType.canStayLonger.label)
-                            .font(.caption)
-                            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(viewModel.selectedKidResponse == .canStayLonger
-                                  ? Color.blue.opacity(0.3)
-                                  : Color.blue.opacity(0.1))
-                    )
-                    .foregroundStyle(.blue)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Request: \(KidResponseType.canStayLonger.label)")
-
-                // SOS
-                Button {
-                    hapticImpact.impactOccurred()
-                    Task { await viewModel.submitKidResponse(.sos) }
-                } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: KidResponseType.sos.icon)
-                            .font(.title3)
-                            .fontWeight(.bold)
-                        Text(KidResponseType.sos.label)
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.red)
-                    )
-                    .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("SOS: Send emergency alert to your family")
-                .accessibilityHint("Double tap to send an SOS alert")
-            }
-        }
-        .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-    }
-
-    // MARK: - Mood Selector (Standard Mode)
-
-    private var moodSelector: some View {
-        VStack(spacing: 16) {
-            Text("How are you feeling?")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-
-            HStack(spacing: 24) {
-                MoodButton(mood: .happy, emoji: Mood.happy.emoji, label: Mood.happy.label) {
-                    hapticImpact.impactOccurred()
-                    Task { await viewModel.submitMood(.happy) }
-                }
-
-                MoodButton(mood: .neutral, emoji: Mood.neutral.emoji, label: Mood.neutral.label) {
-                    hapticImpact.impactOccurred()
-                    Task { await viewModel.submitMood(.neutral) }
-                }
-
-                MoodButton(mood: .tired, emoji: Mood.tired.emoji, label: Mood.tired.label) {
-                    hapticImpact.impactOccurred()
-                    Task { await viewModel.submitMood(.tired) }
-                }
-            }
-
-            Button("Skip") {
-                viewModel.showMoodSelector = false
-            }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-        }
-        .padding(24)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-    }
-
-    // MARK: - Animations
-
     private func animateCheckmark() {
         showCheckmark = true
         if reduceMotion {
@@ -495,34 +230,9 @@ struct ReceiverHomeView: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.7).delay(0.2)) {
                 checkmarkScale = 1.0
             }
-            // Transition to checked-in state after animation
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                 showCheckmark = false
             }
         }
-    }
-}
-
-struct MoodButton: View {
-    let mood: Mood
-    let emoji: String
-    let label: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                Text(emoji)
-                    .font(.system(size: 44))
-                Text(label)
-                    .font(.caption)
-                    .foregroundStyle(.primary)
-                    .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-            }
-            .frame(width: 80, height: 80)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Select mood: \(label)")
-        .accessibilityHint("Double tap to select \(label) mood")
     }
 }

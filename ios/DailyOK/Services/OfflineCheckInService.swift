@@ -91,15 +91,16 @@ final class OfflineCheckInService: ObservableObject {
 
         for offlineCheckIn in pending {
             do {
+                let payload = OfflineCheckInInsert(
+                    receiver_id: offlineCheckIn.receiverId.uuidString,
+                    family_id: offlineCheckIn.familyId.uuidString,
+                    checked_in_at: ISO8601DateFormatter().string(from: offlineCheckIn.createdAt),
+                    mood: offlineCheckIn.mood,
+                    source: offlineCheckIn.source
+                )
                 _ = try await SupabaseService.shared.client
                     .from("checkins")
-                    .insert([
-                        "receiver_id": offlineCheckIn.receiverId.uuidString,
-                        "family_id": offlineCheckIn.familyId.uuidString,
-                        "checked_in_at": ISO8601DateFormatter().string(from: offlineCheckIn.createdAt),
-                        "mood": offlineCheckIn.mood ?? "",
-                        "source": offlineCheckIn.source,
-                    ])
+                    .insert(payload)
                     .execute()
 
                 offlineCheckIn.synced = true
@@ -136,6 +137,14 @@ final class OfflineCheckInService: ObservableObject {
             }
         }
         monitor.start(queue: monitorQueue)
+    }
+
+    private struct OfflineCheckInInsert: Encodable {
+        let receiver_id: String
+        let family_id: String
+        let checked_in_at: String
+        let mood: String?
+        let source: String
     }
 
     private func updatePendingCount() {

@@ -5,16 +5,12 @@ import Supabase
 final class ReceiverViewModel: ObservableObject {
     @Published var hasCheckedInToday = false
     @Published var isCheckingIn = false
-    @Published var showMoodSelector = false
-    @Published var selectedMood: Mood?
     @Published var lastCheckIn: CheckIn?
     @Published var errorMessage: String?
     @Published var familyId: UUID?
     @Published var isOffline = false
     @Published var pendingOfflineCount = 0
     @Published var receiverMode: ReceiverMode = .standard
-    @Published var selectedLocationLabel: LocationLabel?
-    @Published var selectedKidResponse: KidResponseType?
     @Published var nextCheckInTime: Date?
     @Published var receiverSettings: ReceiverSettings?
 
@@ -34,10 +30,8 @@ final class ReceiverViewModel: ObservableObject {
             hasCheckedInToday = true
         }
 
-        // Fetch receiver settings to determine receiver mode
         await loadReceiverSettings(userId: session.user.id, familyId: family.id)
 
-        // Sync any pending offline check-ins
         await offlineService.syncPendingCheckIns()
         isOffline = !offlineService.isOnline
         pendingOfflineCount = offlineService.pendingCount
@@ -45,7 +39,6 @@ final class ReceiverViewModel: ObservableObject {
 
     private func loadReceiverSettings(userId: UUID, familyId: UUID) async {
         do {
-            // Find the family member record for this user
             let members: [FamilyMember] = try await SupabaseService.shared.client
                 .from("family_members")
                 .select()
@@ -57,7 +50,6 @@ final class ReceiverViewModel: ObservableObject {
 
             guard let member = members.first else { return }
 
-            // Fetch receiver_settings by family_member_id
             let settings: ReceiverSettings = try await SupabaseService.shared.client
                 .from("receiver_settings")
                 .select()
@@ -77,7 +69,6 @@ final class ReceiverViewModel: ObservableObject {
     private func computeNextCheckInTime(from settings: ReceiverSettings) {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
-        // checkinTime may come as "HH:mm" or "HH:mm:ss"
         let timeString = String(settings.checkinTime.prefix(5))
         guard let parsedTime = formatter.date(from: timeString) else { return }
 
@@ -91,7 +82,7 @@ final class ReceiverViewModel: ObservableObject {
         nextCheckInTime = tomorrow
     }
 
-    func performCheckIn(mood: Mood? = nil) async {
+    func performCheckIn() async {
         guard let familyId, !isCheckingIn else { return }
 
         isCheckingIn = true
@@ -100,7 +91,7 @@ final class ReceiverViewModel: ObservableObject {
         do {
             let checkIn = try await offlineService.performCheckIn(
                 familyId: familyId,
-                mood: mood,
+                mood: nil,
                 source: .app
             )
 
@@ -109,12 +100,7 @@ final class ReceiverViewModel: ObservableObject {
             }
             hasCheckedInToday = true
             Task { await AnalyticsService.shared.track(.checkIn) }
-
-            if mood == nil {
-                showMoodSelector = true
-            }
         } catch let error as NetworkError {
-            // Offline — check-in was queued
             hasCheckedInToday = true
             isOffline = true
             Task { await AnalyticsService.shared.track(.checkInOffline) }
@@ -125,32 +111,5 @@ final class ReceiverViewModel: ObservableObject {
         }
 
         isCheckingIn = false
-    }
-
-    func submitMood(_ mood: Mood) async {
-        selectedMood = mood
-        showMoodSelector = false
-        Task { await AnalyticsService.shared.track(.moodSubmitted, properties: ["mood": mood.rawValue]) }
-    }
-
-    func submitLocationLabel(_ label: LocationLabel) {
-        selectedLocationLabel = label
-        Task { await AnalyticsService.shared.track(.checkIn, properties: ["location_label": label.rawValue]) }
-    }
-
-    func submitKidResponse(_ type: KidResponseType) async {
-        selectedKidResponse = type
-        guard let familyId else { return }
-
-        do {
-            _ = try await CheckInService.shared.checkIn(
-                familyId: familyId,
-                source: .app,
-                kidResponseType: type.rawValue
-            )
-            Task { await AnalyticsService.shared.track(.checkIn, properties: ["kid_response": type.rawValue]) }
-        } catch {
-            errorMessage = error.localizedDescription
-        }
     }
 }
