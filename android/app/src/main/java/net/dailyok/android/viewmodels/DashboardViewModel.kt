@@ -248,17 +248,34 @@ class DashboardViewModel @Inject constructor(
         }
 
         try {
-            val channel = supabase.channel("checkins:$familyId")
+            val channel = supabase.channel("owner-dashboard:$familyId")
 
-            val changeFlow = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+            // Three flows — one per table. `checkin_requests` is what tracks
+            // the Pending → Checked-In transition on the server, so we must
+            // listen there to flip the owner dashboard reactively. `alerts`
+            // covers urgent / pattern banners.
+            val checkinsFlow = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
                 table = "checkins"
                 filter = "family_id=eq.$familyId"
             }
+            val requestsFlow = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                table = "checkin_requests"
+                filter = "family_id=eq.$familyId"
+            }
+            val alertsFlow = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                table = "alerts"
+                filter = "family_id=eq.$familyId"
+            }
 
-            realtimeJob = changeFlow.onEach {
-                // On any change (INSERT, UPDATE, DELETE), reload the dashboard
+            val reload: () -> Unit = {
                 currentUserId?.let { userId -> loadDashboard(userId) }
-            }.launchIn(viewModelScope)
+            }
+
+            realtimeJob = viewModelScope.launch {
+                launch { checkinsFlow.onEach { reload() }.launchIn(this) }
+                launch { requestsFlow.onEach { reload() }.launchIn(this) }
+                launch { alertsFlow.onEach { reload() }.launchIn(this) }
+            }
 
             channel.subscribe()
             realtimeChannel = channel
