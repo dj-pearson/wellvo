@@ -14,7 +14,7 @@ final class OfflineCheckInService: ObservableObject {
     @Published var pendingCount = 0
 
     private let monitor = NWPathMonitor()
-    private let monitorQueue = DispatchQueue(label: "net.dailyok.networkmonitor")
+    private let monitorQueue = DispatchQueue(label: "net.wellvo.networkmonitor")
     private var modelContainer: ModelContainer?
     private var syncTask: Task<Void, Never>?
 

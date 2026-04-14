@@ -7,7 +7,7 @@
 	<key>CFBundleName</key>
 	<string>Daily OK</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.dailyok.ios</string>
+	<string>com.wellvo.ios</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>

@@ -14,14 +14,14 @@ final class SubscriptionService: ObservableObject {
     // MARK: - Product IDs (update these to match your App Store Connect configuration)
 
     struct ProductIDs {
-        static let caregiverMonthly = "net.dailyok.caregiver.monthly"
-        static let caregiverYearly = "net.dailyok.caregiver.yearly"
-        static let familyMonthly = "net.dailyok.family.monthly"
-        static let familyYearly = "net.dailyok.family.yearly"
-        static let familyPlusMonthly = "net.dailyok.familyplus.monthly"
-        static let familyPlusYearly = "net.dailyok.familyplus.yearly"
-        static let addonReceiver = "net.dailyok.addon.receiver"
-        static let addonViewer = "net.dailyok.addon.viewer"
+        static let caregiverMonthly = "net.wellvo.caregiver.monthly"
+        static let caregiverYearly = "net.wellvo.caregiver.yearly"
+        static let familyMonthly = "net.wellvo.family.monthly"
+        static let familyYearly = "net.wellvo.family.yearly"
+        static let familyPlusMonthly = "net.wellvo.familyplus.monthly"
+        static let familyPlusYearly = "net.wellvo.familyplus.yearly"
+        static let addonReceiver = "net.wellvo.addon.receiver"
+        static let addonViewer = "net.wellvo.addon.viewer"
 
         static let all: Set<String> = [
             caregiverMonthly, caregiverYearly,

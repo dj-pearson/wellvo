@@ -28,7 +28,7 @@ final class SupabaseService {
         )
 
         // Share Supabase URL with Notification Service Extension via App Group
-        let sharedDefaults = UserDefaults(suiteName: "group.com.dailyok.ios")
+        let sharedDefaults = UserDefaults(suiteName: "group.com.wellvo.ios")
         sharedDefaults?.set(urlString, forKey: "supabase_url")
     }
 
@@ -38,7 +38,7 @@ final class SupabaseService {
     func syncAccessTokenToExtension() async {
         guard let session = try? await client.auth.session else { return }
         // Migrate: remove old UserDefaults storage
-        let sharedDefaults = UserDefaults(suiteName: "group.com.dailyok.ios")
+        let sharedDefaults = UserDefaults(suiteName: "group.com.wellvo.ios")
         if sharedDefaults?.string(forKey: "supabase_access_token") != nil {
             sharedDefaults?.removeObject(forKey: "supabase_access_token")
         }

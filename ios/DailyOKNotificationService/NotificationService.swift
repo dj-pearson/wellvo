@@ -46,7 +46,7 @@ class NotificationService: UNNotificationServiceExtension {
     private func confirmDelivery(checkinRequestId: String, completion: @escaping () -> Void) {
         // Read Supabase config from shared App Group UserDefaults
         // The main app writes these values on launch
-        guard let defaults = UserDefaults(suiteName: "group.com.dailyok.ios"),
+        guard let defaults = UserDefaults(suiteName: "group.com.wellvo.ios"),
               let supabaseURL = defaults.string(forKey: "supabase_url"),
               !supabaseURL.isEmpty,
               let accessToken = defaults.string(forKey: "supabase_access_token"),

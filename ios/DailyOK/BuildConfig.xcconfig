@@ -5,4 +5,4 @@
 // Info.plist via PlistBuddy in CI (xcconfig truncates JWTs containing "//")
 
 // Bundle
-PRODUCT_BUNDLE_IDENTIFIER = com.dailyok.ios
+PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios

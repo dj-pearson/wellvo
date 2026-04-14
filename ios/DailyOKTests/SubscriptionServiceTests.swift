@@ -7,32 +7,32 @@ final class SubscriptionServiceTests: XCTestCase {
     // MARK: - Product ID Constants
 
     func testProductIDsContainAllPlans() {
-        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.dailyok.caregiver.monthly"))
-        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.dailyok.caregiver.yearly"))
-        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.dailyok.family.monthly"))
-        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.dailyok.family.yearly"))
-        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.dailyok.familyplus.monthly"))
-        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.dailyok.familyplus.yearly"))
-        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.dailyok.addon.receiver"))
-        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.dailyok.addon.viewer"))
+        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.wellvo.caregiver.monthly"))
+        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.wellvo.caregiver.yearly"))
+        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.wellvo.family.monthly"))
+        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.wellvo.family.yearly"))
+        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.wellvo.familyplus.monthly"))
+        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.wellvo.familyplus.yearly"))
+        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.wellvo.addon.receiver"))
+        XCTAssertTrue(SubscriptionService.ProductIDs.all.contains("net.wellvo.addon.viewer"))
         XCTAssertEqual(SubscriptionService.ProductIDs.all.count, 8)
     }
 
     func testCaregiverProductIDs() {
-        XCTAssertTrue(SubscriptionService.ProductIDs.caregiver.contains("net.dailyok.caregiver.monthly"))
-        XCTAssertTrue(SubscriptionService.ProductIDs.caregiver.contains("net.dailyok.caregiver.yearly"))
+        XCTAssertTrue(SubscriptionService.ProductIDs.caregiver.contains("net.wellvo.caregiver.monthly"))
+        XCTAssertTrue(SubscriptionService.ProductIDs.caregiver.contains("net.wellvo.caregiver.yearly"))
         XCTAssertEqual(SubscriptionService.ProductIDs.caregiver.count, 2)
     }
 
     func testFamilyPlusProductIDs() {
-        XCTAssertTrue(SubscriptionService.ProductIDs.familyPlus.contains("net.dailyok.familyplus.monthly"))
-        XCTAssertTrue(SubscriptionService.ProductIDs.familyPlus.contains("net.dailyok.familyplus.yearly"))
+        XCTAssertTrue(SubscriptionService.ProductIDs.familyPlus.contains("net.wellvo.familyplus.monthly"))
+        XCTAssertTrue(SubscriptionService.ProductIDs.familyPlus.contains("net.wellvo.familyplus.yearly"))
         XCTAssertEqual(SubscriptionService.ProductIDs.familyPlus.count, 2)
     }
 
     func testFamilyProductIDs() {
-        XCTAssertTrue(SubscriptionService.ProductIDs.family.contains("net.dailyok.family.monthly"))
-        XCTAssertTrue(SubscriptionService.ProductIDs.family.contains("net.dailyok.family.yearly"))
+        XCTAssertTrue(SubscriptionService.ProductIDs.family.contains("net.wellvo.family.monthly"))
+        XCTAssertTrue(SubscriptionService.ProductIDs.family.contains("net.wellvo.family.yearly"))
         XCTAssertEqual(SubscriptionService.ProductIDs.family.count, 2)
     }
 
@@ -61,21 +61,21 @@ final class SubscriptionServiceTests: XCTestCase {
     // MARK: - Tier Disjoint Set Logic
 
     func testFamilyPlusDetection() {
-        let purchased: Set<String> = ["net.dailyok.familyplus.monthly"]
+        let purchased: Set<String> = ["net.wellvo.familyplus.monthly"]
         XCTAssertFalse(purchased.isDisjoint(with: SubscriptionService.ProductIDs.familyPlus))
         XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.family))
         XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.caregiver))
     }
 
     func testFamilyDetection() {
-        let purchased: Set<String> = ["net.dailyok.family.yearly"]
+        let purchased: Set<String> = ["net.wellvo.family.yearly"]
         XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.familyPlus))
         XCTAssertFalse(purchased.isDisjoint(with: SubscriptionService.ProductIDs.family))
         XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.caregiver))
     }
 
     func testCaregiverDetection() {
-        let purchased: Set<String> = ["net.dailyok.caregiver.yearly"]
+        let purchased: Set<String> = ["net.wellvo.caregiver.yearly"]
         XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.familyPlus))
         XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.family))
         XCTAssertFalse(purchased.isDisjoint(with: SubscriptionService.ProductIDs.caregiver))
