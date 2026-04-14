@@ -42,8 +42,16 @@ tracks whether the SDK ships a privacy manifest at the version we pin.
 | SDK | Purpose | Ships `PrivacyInfo.xcprivacy`? | Code-signed? | Notes |
 |---|---|---|---|---|
 | `supabase-swift` | Auth, database, realtime | ✅ (since 2.3.x) | ✅ | Verify at bump; manifest is inside the built `.xcframework`. |
-| `posthog-ios` | Product analytics | ✅ (since 3.4.x) | ✅ | Keep session replay **disabled** (`config.enableSessionRecording = false`). Keep autocapture **off** for forms that collect PII. Use the EU host (`eu.i.posthog.com`) to match the sub-processor listed in the Privacy Policy. |
-| `TelemetryDeck/SwiftSDK` | Aggregate hashed analytics | ✅ (since 2.1.x) | ✅ | No configuration required; SDK one-way hashes the user identifier before send. |
+| `TelemetryDeck/SwiftSDK` | Aggregate hashed analytics | ✅ (since 2.1.x) | ✅ | No configuration required; SDK one-way hashes the user identifier before send. Initialized in release builds only (`#if !DEBUG`). |
+
+> **Historical note — PostHog.** The iOS project briefly pulled in
+> `posthog-ios`, but the SDK was never imported or initialized in Swift
+> code. It was removed from `Package.swift` and `project.pbxproj` on
+> 2026-04-13 to eliminate the unused compliance surface. If PostHog (or
+> any similar product-analytics SDK) is ever added back, the Privacy
+> Policy sub-processor list and the Google Play Data safety form both
+> need to be updated in the same commit, and the SDK must be configured
+> with session replay off and the EU host (`eu.i.posthog.com`).
 
 **Verification command (run locally when bumping SDK versions):**
 
@@ -103,10 +111,12 @@ safety** form in the Google Play Console. Keep it in sync with:
 
 ## Change log
 
-- **2026-04-13** — Initial manifest added for both iOS targets. PostHog and
-  TelemetryDeck added to the Privacy Policy sub-processor list after the
-  audit found them in `Package.swift` and `build.gradle.kts` but not
-  previously disclosed.
+- **2026-04-13** — Initial manifest added for both iOS targets. TelemetryDeck
+  added to the Privacy Policy sub-processor list after the audit found it in
+  `Package.swift` and `build.gradle.kts` but not previously disclosed.
+  `posthog-ios` was declared in `Package.swift` and linked in the Xcode
+  project, but a source-level audit showed it was never imported or
+  initialized — so it was removed in the same pass rather than disclosed.
 
 ---
 

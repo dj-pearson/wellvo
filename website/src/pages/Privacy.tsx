@@ -83,12 +83,11 @@ export default function Privacy() {
               </li>
               <li>
                 <strong>Diagnostic &amp; Usage Data:</strong> Aggregate signals such as feature
-                usage counts, crash reports, and performance traces. Our mobile apps use
-                PostHog (product analytics; iOS only) and TelemetryDeck (aggregate, hashed
-                analytics; iOS and Android) configured to minimize personal data. Our website
-                uses Cloudflare Web Analytics, which does not set cookies or identify
-                individuals. None of these providers are used for advertising, and we do not
-                share usage data with data brokers.
+                usage counts and crash reports. Our mobile apps use TelemetryDeck, which
+                one-way hashes identifiers on the device before sending, and our website uses
+                Cloudflare Web Analytics, which does not set cookies or identify individuals.
+                Neither provider is used for advertising, and we do not share usage data with
+                data brokers.
               </li>
               <li>
                 <strong>Log Data:</strong> Server logs (IP address, request path, status, and
@@ -168,8 +167,7 @@ export default function Privacy() {
               <li><strong>Supabase (PostgreSQL hosting and authentication)</strong> — primary application database, encrypted at rest.</li>
               <li><strong>Contabo / Coolify (VPS hosting)</strong> — hosts our edge functions in the European Union.</li>
               <li><strong>Cloudflare</strong> — content delivery, DDoS protection, and privacy-first web analytics.</li>
-              <li><strong>PostHog (EU region)</strong> — product analytics for the iOS app. Configured without session replay and without autocapture of form input; identifies devices via a random distinct ID, not a personal identifier.</li>
-              <li><strong>TelemetryDeck</strong> — aggregate, hashed analytics for the iOS and Android apps. User identifiers are one-way hashed before leaving the device.</li>
+              <li><strong>TelemetryDeck</strong> — aggregate, hashed analytics for the iOS and Android apps. User identifiers are one-way hashed before leaving the device; no personal information is transmitted.</li>
               <li><strong>Apple Push Notification service (APNs)</strong> — delivery of iOS push notifications.</li>
               <li><strong>Google Firebase Cloud Messaging (FCM)</strong> — delivery of Android push notifications.</li>
               <li><strong>Twilio (SMS)</strong> — escalation text messages where SMS fallback is enabled.</li>
