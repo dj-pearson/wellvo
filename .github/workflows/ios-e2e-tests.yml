@@ -86,7 +86,7 @@ jobs:
             echo "// Daily OK Build Configuration (CI E2E Tests)"
             echo "CODE_SIGN_STYLE = Automatic"
             echo "CODE_SIGN_IDENTITY = -"
-            echo "PRODUCT_BUNDLE_IDENTIFIER = com.dailyok.ios"
+            echo "PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios"
           } > ios/DailyOK/BuildConfig.xcconfig
 
           # Write Supabase config to Info.plist
