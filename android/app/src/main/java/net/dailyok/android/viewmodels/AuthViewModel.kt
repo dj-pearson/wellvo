@@ -109,6 +109,10 @@ class AuthViewModel @Inject constructor(
     private suspend fun fetchUserAndAuthenticate() {
         val user = authService.getCurrentUser()
         if (user != null) {
+            // Keep users.timezone aligned with device zone so the edge
+            // function dedup and the owner dashboard's "today" window never
+            // drift when the user travels or reinstalls.
+            authService.syncTimezoneIfChanged()
             checkAutoJoin()
             _authState.value = AuthState.Authenticated(user = user)
             checkBiometricSetupPrompt()

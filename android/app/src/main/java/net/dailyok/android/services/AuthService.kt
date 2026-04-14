@@ -161,6 +161,36 @@ class AuthService @Inject constructor(
         }
     }
 
+    /**
+     * Push the device's current IANA timezone to users.timezone when it
+     * differs from the stored value. The edge-function dedup and the owner
+     * dashboard's "today" window both key off this column, so a stale value
+     * produces off-by-hours bugs. Best-effort: silent no-op on any failure.
+     */
+    suspend fun syncTimezoneIfChanged() {
+        val userId = currentUserId() ?: return
+        val deviceTz = java.time.ZoneId.systemDefault().id
+        if (deviceTz.isBlank()) return
+
+        try {
+            val stored = supabase.postgrest.from("users")
+                .select(columns = Columns.list("timezone")) {
+                    filter { eq("id", userId) }
+                }
+                .decodeSingleOrNull<TimezoneOnly>()
+
+            if (stored?.timezone == deviceTz) return
+
+            supabase.postgrest.from("users")
+                .update(buildJsonObject { put("timezone", JsonPrimitive(deviceTz)) }) {
+                    filter { eq("id", userId) }
+                }
+        } catch (_: Exception) { /* best-effort */ }
+    }
+
+    @kotlinx.serialization.Serializable
+    private data class TimezoneOnly(val timezone: String? = null)
+
     suspend fun signOut() {
         try {
             supabase.auth.signOut()

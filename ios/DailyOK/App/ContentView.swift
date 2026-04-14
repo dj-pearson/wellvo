@@ -42,6 +42,11 @@ struct ContentView: View {
                   appState.pendingAutoJoin == nil,
                   appState.currentUserRole == nil else { return }
 
+            // Keep `users.timezone` aligned with the device zone so the edge
+            // function dedup and the owner dashboard's "today" window never
+            // drift when the user travels or reinstalls.
+            Task { await AuthService.shared.syncTimezoneIfChanged() }
+
             // Load the user's existing role from the DB first.
             // This ensures receivers/viewers are routed correctly on every login,
             // not just after the initial onboarding flow.

@@ -140,6 +140,34 @@ actor AuthService {
         persistAppleUserID(credential.user)
     }
 
+    /// Push the device's current IANA timezone to `users.timezone` when it
+    /// differs from the stored value. The edge-function dedup and the owner
+    /// dashboard's "today" window both key off this column, so a stale value
+    /// (user traveled, new device, wrong region on first signup) produces
+    /// off-by-hours bugs. Best-effort: silent no-op on any failure.
+    func syncTimezoneIfChanged() async {
+        guard let session = try? await supabase.auth.session else { return }
+        let deviceTz = TimeZone.current.identifier
+        guard !deviceTz.isEmpty else { return }
+
+        struct TimezoneOnly: Decodable { let timezone: String? }
+        let stored: TimezoneOnly? = try? await supabase
+            .from("users")
+            .select("timezone")
+            .eq("id", value: session.user.id.uuidString)
+            .single()
+            .execute()
+            .value
+
+        guard stored?.timezone != deviceTz else { return }
+
+        _ = try? await supabase
+            .from("users")
+            .update(["timezone": deviceTz])
+            .eq("id", value: session.user.id.uuidString)
+            .execute()
+    }
+
     /// Check if the current user has an Apple identity linked.
     func hasLinkedAppleID() async -> Bool {
         guard let session = try? await supabase.auth.session else { return false }
