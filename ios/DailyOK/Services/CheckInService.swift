@@ -22,8 +22,8 @@ actor CheckInService {
         }
 
         var body: [String: String] = [
-            "receiver_id": session.user.id.uuidString,
-            "family_id": familyId.uuidString,
+            "receiver_id": session.user.id.uuidString.lowercased(),
+            "family_id": familyId.uuidString.lowercased(),
             "source": source.rawValue,
             "response_type": responseType.rawValue,
         ]

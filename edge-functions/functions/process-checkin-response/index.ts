@@ -99,10 +99,14 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
     );
   }
 
+  // Normalize UUIDs to lowercase — clients (e.g. Swift's UUID.uuidString) may send uppercase
+  receiverId = receiverId?.toLowerCase();
+  familyId = familyId?.toLowerCase();
+
   // AUTHORIZATION: Verify the authenticated user IS the receiver
   // Service role calls (from notification actions) are trusted
   if (!auth.isServiceRole) {
-    if (!auth.userId || auth.userId !== receiverId) {
+    if (!auth.userId || auth.userId.toLowerCase() !== receiverId) {
       return new Response(
         JSON.stringify({ error: "You can only check in for yourself" }),
         { status: 403, headers: { "Content-Type": "application/json" } }
