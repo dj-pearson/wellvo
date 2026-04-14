@@ -68,6 +68,9 @@ final class DashboardViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     private var realtimeChannel: RealtimeChannelV2?
+    private var realtimeFamilyId: UUID?
+    private var realtimeListenerTask: Task<Void, Never>?
+    private var pendingRefreshTask: Task<Void, Never>?
 
     func loadDashboard() async {
         isLoading = true
@@ -261,25 +264,88 @@ final class DashboardViewModel: ObservableObject {
         )
     }
 
+    /// Subscribe to realtime changes on the three tables that drive the owner UI:
+    ///   - `checkins`          — new "I'm OK" responses flip Pending → Checked In
+    ///   - `checkin_requests`  — status transitions (pending → checked_in / missed)
+    ///   - `alerts`            — urgent / pattern alerts show in the banner
+    ///
+    /// The subscription is gated by `family_id` so each owner only receives their
+    /// own family's events. Duplicate reloads are debounced (250 ms) so a burst of
+    /// events (e.g. edge function inserts a checkin AND updates the request row)
+    /// triggers a single refresh.
     private func subscribeToRealtime(familyId: UUID) async {
-        let channel = SupabaseService.shared.client.realtimeV2.channel("checkins:\(familyId.uuidString)")
+        // Skip if we're already subscribed to this family
+        if realtimeFamilyId == familyId, realtimeChannel != nil {
+            return
+        }
 
-        let changes = channel.postgresChange(
+        // Tear down any prior subscription (family switch, sign-out/sign-in, etc.)
+        await teardownRealtime()
+
+        let client = SupabaseService.shared.client
+        let channel = client.realtimeV2.channel("owner-dashboard:\(familyId.uuidString)")
+
+        let checkinChanges = channel.postgresChange(
             AnyAction.self,
             schema: "public",
             table: "checkins",
             filter: "family_id=eq.\(familyId.uuidString)"
         )
 
+        let requestChanges = channel.postgresChange(
+            AnyAction.self,
+            schema: "public",
+            table: "checkin_requests",
+            filter: "family_id=eq.\(familyId.uuidString)"
+        )
+
+        let alertChanges = channel.postgresChange(
+            AnyAction.self,
+            schema: "public",
+            table: "alerts",
+            filter: "family_id=eq.\(familyId.uuidString)"
+        )
+
         await channel.subscribe()
 
-        Task {
-            for await _ in changes {
-                await loadDashboard()
+        realtimeListenerTask = Task { [weak self] in
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { [weak self] in
+                    for await _ in checkinChanges { await self?.scheduleRefresh() }
+                }
+                group.addTask { [weak self] in
+                    for await _ in requestChanges { await self?.scheduleRefresh() }
+                }
+                group.addTask { [weak self] in
+                    for await _ in alertChanges { await self?.scheduleRefresh() }
+                }
             }
         }
 
         realtimeChannel = channel
+        realtimeFamilyId = familyId
+    }
+
+    /// Debounced reload — coalesces bursts of realtime events into one reload.
+    private func scheduleRefresh() {
+        pendingRefreshTask?.cancel()
+        pendingRefreshTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 250_000_000) // 250 ms
+            guard !Task.isCancelled else { return }
+            await self?.loadDashboard()
+        }
+    }
+
+    private func teardownRealtime() async {
+        realtimeListenerTask?.cancel()
+        realtimeListenerTask = nil
+        pendingRefreshTask?.cancel()
+        pendingRefreshTask = nil
+        if let channel = realtimeChannel {
+            await channel.unsubscribe()
+        }
+        realtimeChannel = nil
+        realtimeFamilyId = nil
     }
 }
 

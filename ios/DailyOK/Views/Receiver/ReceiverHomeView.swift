@@ -4,6 +4,7 @@ struct ReceiverHomeView: View {
     @StateObject private var viewModel = ReceiverViewModel()
     @EnvironmentObject var authViewModel: AuthViewModel
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @State private var buttonScale: CGFloat = 1.0
     @State private var isPulsing = false
     @State private var showCheckmark = false
@@ -96,6 +97,14 @@ struct ReceiverHomeView: View {
             }
         }
         .task { await viewModel.loadStatus() }
+        // If a silent push request arrived while the app was backgrounded, or the
+        // user checked in on another device, re-fetch on foreground so the home
+        // screen reflects the true state instead of stale "please check in" UI.
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                Task { await viewModel.loadStatus() }
+            }
+        }
         .alert("Sign Out", isPresented: $showSignOutConfirmation) {
             Button("Sign Out", role: .destructive) {
                 Task { await authViewModel.signOut() }

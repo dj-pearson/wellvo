@@ -107,6 +107,23 @@ final class OfflineCheckInService: ObservableObject {
                     .insert(payload)
                     .execute()
 
+                // Clear any still-pending check-in requests for this receiver+family
+                // so the owner dashboard stops showing "Pending" once the queued
+                // check-in syncs. The normal (online) path does this inside the
+                // `process-checkin-response` edge function; the direct-insert
+                // offline path has to do it here.
+                let nowISO = ISO8601DateFormatter().string(from: Date())
+                try? await SupabaseService.shared.client
+                    .from("checkin_requests")
+                    .update([
+                        "status": "checked_in",
+                        "responded_at": nowISO,
+                    ])
+                    .eq("receiver_id", value: offlineCheckIn.receiverId.uuidString)
+                    .eq("family_id", value: offlineCheckIn.familyId.uuidString)
+                    .eq("status", value: "pending")
+                    .execute()
+
                 offlineCheckIn.synced = true
                 try context.save()
             } catch {

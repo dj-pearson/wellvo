@@ -3,6 +3,8 @@ import SwiftUI
 struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
     @State private var notificationBanner = NotificationPermissionBanner()
+    @EnvironmentObject var appState: AppState
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationStack {
@@ -77,6 +79,22 @@ struct DashboardView: View {
             .navigationTitle("Dashboard")
             .refreshable { await viewModel.loadDashboard() }
             .task { await viewModel.loadDashboard() }
+            // Reload when the app is brought back to the foreground so the owner
+            // sees check-ins that landed while the app was suspended (e.g. the
+            // receiver tapped "I'm OK" on another device).
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .active {
+                    Task { await viewModel.loadDashboard() }
+                }
+            }
+            // Reload when the owner navigates back to the Dashboard tab after
+            // visiting another tab. SwiftUI keeps tabs alive, so `.task` only
+            // fires once per view lifetime — `onChange` covers the rest.
+            .onChange(of: appState.selectedTab) { _, newTab in
+                if newTab == .dashboard {
+                    Task { await viewModel.loadDashboard() }
+                }
+            }
         }
     }
 
