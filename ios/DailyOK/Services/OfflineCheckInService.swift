@@ -66,9 +66,13 @@ final class OfflineCheckInService: ObservableObject {
                 }
                 return checkIn
             } catch {
-                // If network fails at this point, queue offline
-                try queueCheckIn(familyId: familyId, receiverId: receiverId, mood: mood, source: source)
-                throw NetworkError.offline
+                // Only queue + mark offline if the device actually lost connectivity
+                // mid-request. Otherwise surface the real error (server down, auth, etc).
+                if !isOnline {
+                    try queueCheckIn(familyId: familyId, receiverId: receiverId, mood: mood, source: source)
+                    throw NetworkError.offline
+                }
+                throw error
             }
         } else {
             try queueCheckIn(familyId: familyId, receiverId: receiverId, mood: mood, source: source)

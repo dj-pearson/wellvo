@@ -2,12 +2,14 @@ import SwiftUI
 
 struct ReceiverHomeView: View {
     @StateObject private var viewModel = ReceiverViewModel()
+    @EnvironmentObject var authViewModel: AuthViewModel
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State private var buttonScale: CGFloat = 1.0
     @State private var isPulsing = false
     @State private var showCheckmark = false
     @State private var checkmarkScale: CGFloat = 0.0
     @State private var checkmarkOpacity: Double = 0.0
+    @State private var showSignOutConfirmation = false
     @ScaledMetric(relativeTo: .largeTitle) private var buttonDiameter: CGFloat = 200
     @ScaledMetric(relativeTo: .title) private var tapIconSize: CGFloat = 40
     @ScaledMetric(relativeTo: .title) private var tapTextSize: CGFloat = 28
@@ -79,11 +81,29 @@ struct ReceiverHomeView: View {
                     }
 
                     Spacer().frame(height: 20)
+
+                    Button {
+                        showSignOutConfirmation = true
+                    } label: {
+                        Text("Sign out")
+                            .font(.footnote)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.top, 40)
+                    .accessibilityLabel("Sign out of your account")
                 }
                 .padding()
             }
         }
         .task { await viewModel.loadStatus() }
+        .alert("Sign Out", isPresented: $showSignOutConfirmation) {
+            Button("Sign Out", role: .destructive) {
+                Task { await authViewModel.signOut() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You'll stop receiving check-in notifications until you sign back in.")
+        }
     }
 
     private var checkInButton: some View {
