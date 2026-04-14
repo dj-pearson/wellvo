@@ -27,15 +27,62 @@ jobs:
           export-type: "env"
 
       - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
-
-      - name: Backup database before migration
+        # Use the PostgreSQL APT repo so pg_dump matches the server major
+        # version. Mismatched clients (runner default is commonly older) fail
+        # pg_dump with "aborting because of server version mismatch".
         run: |
-          DB_URL="${SUPABASE_DB_URL:-$DATABASE_URL}"
-          if [ -z "$DB_URL" ]; then
-            echo "::error::Neither SUPABASE_DB_URL nor DATABASE_URL is set. Check Infisical secrets."
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-16
+
+      - name: Normalize and validate DB URL
+        # Runs first so every later step gets a clean, validated DATABASE_URL
+        # via GITHUB_ENV. We also print the scheme + host (with password
+        # redacted) so a bad Infisical secret is obvious in the logs — the
+        # previous failure mode was pg_dump silently falling back to a local
+        # Unix socket when the URL was empty or missing the scheme.
+        run: |
+          set -eo pipefail
+          RAW="${SUPABASE_DB_URL:-${DATABASE_URL:-}}"
+
+          # Strip leading/trailing whitespace and surrounding single/double
+          # quotes that sometimes wrap secrets when copy-pasted into vaults.
+          CLEANED="$(printf '%s' "$RAW" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          CLEANED="${CLEANED%\"}"; CLEANED="${CLEANED#\"}"
+          CLEANED="${CLEANED%\'}"; CLEANED="${CLEANED#\'}"
+
+          if [ -z "$CLEANED" ]; then
+            echo "::error::SUPABASE_DB_URL / DATABASE_URL is empty. Check the Infisical 'prod' env — the secret is either missing or returned blank."
             exit 1
           fi
+
+          case "$CLEANED" in
+            postgres://*|postgresql://*) ;;
+            *)
+              echo "::error::DB URL is set but does not start with postgres:// or postgresql://. pg_dump falls back to a local Unix socket when the URL lacks a scheme — this was the root cause of the 'socket ... No such file' error. Update the Infisical secret to a full connection string, e.g. postgresql://user:pass@host:5432/dbname"
+              # Scrub before echoing in case the value contains a password.
+              echo "::error::Scheme-less value first 8 chars: $(printf '%s' "$CLEANED" | cut -c1-8)..."
+              exit 1
+              ;;
+          esac
+
+          # Redact password for the log line but show scheme + host so the
+          # operator can verify the secret points at the right server.
+          REDACTED="$(printf '%s' "$CLEANED" | sed -E 's#(://[^:/@]+):[^@]*@#\1:***@#')"
+          echo "Using DB URL: $REDACTED"
+
+          # Expose the cleaned value to every subsequent step.
+          echo "DB_URL=$CLEANED" >> "$GITHUB_ENV"
+
+      - name: Backup database before migration
+        env:
+          DB_URL: ${{ env.DB_URL }}
+        run: |
+          set -eo pipefail
           echo "Creating pre-migration backup..."
           pg_dump "$DB_URL" --no-owner --no-acl --compress=9 \
             -f "backup-pre-migration-$(date +%Y%m%d-%H%M%S).sql.gz"
@@ -49,9 +96,10 @@ jobs:
           retention-days: 30
 
       - name: Run migrations in transactions
+        env:
+          DB_URL: ${{ env.DB_URL }}
         run: |
           set -euo pipefail
-          DB_URL="${SUPABASE_DB_URL:-$DATABASE_URL}"
           for migration in $(ls supabase/migrations/*.sql | sort); do
             echo "Running migration: $migration"
             # Wrap each migration in a transaction
@@ -64,9 +112,10 @@ jobs:
           done
 
       - name: Verify migration integrity
+        env:
+          DB_URL: ${{ env.DB_URL }}
         run: |
           set -euo pipefail
-          DB_URL="${SUPABASE_DB_URL:-$DATABASE_URL}"
           echo "=== Tables ==="
           TABLE_COUNT=$(psql "$DB_URL" -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';")
           echo "Public tables: $TABLE_COUNT"
