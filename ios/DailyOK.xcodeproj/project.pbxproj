@@ -70,6 +70,7 @@
 		/* New Services */
 		B1C00009 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00009; };
 		B1C0000A /* HeartbeatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C0000A; };
+		B1C00020 /* EdgeFunctionsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00020; };
 		B1C0000B /* BiometricService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C0000B; };
 		B1C0000C /* CertificatePinningService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C0000C; };
 		/* Utilities */
@@ -122,6 +123,7 @@
 		F1C00008 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
 		F1C00009 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		F1C0000A /* HeartbeatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartbeatService.swift; sourceTree = "<group>"; };
+		F1C00020 /* EdgeFunctionsClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EdgeFunctionsClient.swift; sourceTree = "<group>"; };
 		F1C0000B /* BiometricService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricService.swift; sourceTree = "<group>"; };
 		F1C0000C /* CertificatePinningService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertificatePinningService.swift; sourceTree = "<group>"; };
 		/* Utilities */
@@ -295,6 +297,7 @@
 				F1C0000B /* BiometricService.swift */,
 				F1C0000C /* CertificatePinningService.swift */,
 				F1C00003 /* CheckInService.swift */,
+				F1C00020 /* EdgeFunctionsClient.swift */,
 				F1C00004 /* FamilyService.swift */,
 				F1C0000A /* HeartbeatService.swift */,
 				F1C00009 /* LocationService.swift */,
@@ -556,6 +559,7 @@
 				B1F0000F /* ViewerTabView.swift in Sources */,
 				B1C00009 /* LocationService.swift in Sources */,
 				B1C0000A /* HeartbeatService.swift in Sources */,
+				B1C00020 /* EdgeFunctionsClient.swift in Sources */,
 				B1C0000B /* BiometricService.swift in Sources */,
 				B1C0000C /* CertificatePinningService.swift in Sources */,
 				B1D00004 /* Colors.swift in Sources */,

@@ -106,10 +106,7 @@ class LocationService: NSObject, CLLocationManagerDelegate {
             body["battery_level"] = String(battery)
         }
 
-        try? await supabase.functions.invoke(
-            "report-location",
-            options: .init(body: body)
-        )
+        try? await EdgeFunctionsClient.invoke("report-location", body: body)
     }
 
     // MARK: - CLLocationManagerDelegate
@@ -151,10 +148,7 @@ class LocationService: NSObject, CLLocationManagerDelegate {
         let bgTask = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
 
         Task {
-            try? await supabase.functions.invoke(
-                "report-location",
-                options: .init(body: body)
-            )
+            try? await EdgeFunctionsClient.invoke("report-location", body: body)
             if bgTask != .invalid {
                 UIApplication.shared.endBackgroundTask(bgTask)
             }

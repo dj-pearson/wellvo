@@ -47,15 +47,25 @@ class NotificationService: UNNotificationServiceExtension {
         // Read Supabase config from shared App Group UserDefaults
         // The main app writes these values on launch
         guard let defaults = UserDefaults(suiteName: "group.com.wellvo.ios"),
-              let supabaseURL = defaults.string(forKey: "supabase_url"),
-              !supabaseURL.isEmpty,
               let accessToken = defaults.string(forKey: "supabase_access_token"),
               !accessToken.isEmpty else {
             completion()
             return
         }
 
-        let urlString = "\(supabaseURL)/functions/v1/confirm-delivery"
+        // Prefer the self-hosted edge-functions URL; fall back to supabase-hosted
+        // path for backward compatibility with older app installs.
+        let edgeBase = defaults.string(forKey: "edge_functions_url") ?? ""
+        let supabaseBase = defaults.string(forKey: "supabase_url") ?? ""
+        let urlString: String
+        if !edgeBase.isEmpty {
+            urlString = "\(edgeBase)/confirm-delivery"
+        } else if !supabaseBase.isEmpty {
+            urlString = "\(supabaseBase)/functions/v1/confirm-delivery"
+        } else {
+            completion()
+            return
+        }
         guard let url = URL(string: urlString) else {
             completion()
             return

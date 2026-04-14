@@ -128,12 +128,12 @@ actor AuthService {
         // Send the Apple identity token to our edge function which verifies it
         // and links the identity in auth.identities via the admin API.
         let hashedNonce = sha256(rawNonce)
-        try await supabase.functions.invoke(
+        try await EdgeFunctionsClient.invoke(
             "link-apple-id",
-            options: .init(body: [
+            body: [
                 "identity_token": tokenString,
                 "nonce": hashedNonce,
-            ])
+            ]
         )
 
         // Persist the Apple user ID for revocation checks

@@ -120,14 +120,14 @@ actor FamilyService {
     }
 
     func inviteReceiver(familyId: UUID, name: String, phone: String, checkinTime: String) async throws {
-        try await supabase.functions.invoke(
+        try await EdgeFunctionsClient.invoke(
             "invite-receiver",
-            options: .init(body: [
+            body: [
                 "family_id": familyId.uuidString,
                 "name": name,
                 "phone": phone,
                 "checkin_time": checkinTime,
-            ])
+            ]
         )
     }
 
@@ -140,32 +140,28 @@ actor FamilyService {
     }
 
     func acceptInvite(token: String) async throws {
-        try await supabase.functions.invoke(
+        try await EdgeFunctionsClient.invoke(
             "invite-receiver",
-            options: .init(body: [
+            body: [
                 "action": "accept",
                 "token": token,
-            ])
+            ]
         )
     }
 
     /// Redeem a 6-digit pairing code (iPad / alternate-device setup).
     /// Returns the join result from the server.
     func redeemPairingCode(_ code: String) async throws -> RedeemCodeResponse {
-        let data: RedeemCodeResponse = try await supabase.functions.invoke(
+        try await EdgeFunctionsClient.invoke(
             "redeem-code",
-            options: .init(body: ["code": code])
+            body: ["code": code]
         )
-        return data
     }
 
     /// Check if the authenticated user's phone matches a pending invite and auto-join.
     /// Returns the auto-join result, or nil if no match found.
     func checkAutoJoin() async throws -> AutoJoinResult? {
-        let data: AutoJoinResponse = try await supabase.functions.invoke(
-            "auto-join",
-            options: .init(body: [:] as [String: String])
-        )
+        let data: AutoJoinResponse = try await EdgeFunctionsClient.invoke("auto-join", body: [:])
 
         guard data.matched else { return nil }
 

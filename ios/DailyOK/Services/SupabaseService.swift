@@ -27,9 +27,10 @@ final class SupabaseService {
             supabaseKey: anonKey
         )
 
-        // Share Supabase URL with Notification Service Extension via App Group
+        // Share URLs with Notification Service Extension via App Group
         let sharedDefaults = UserDefaults(suiteName: "group.com.wellvo.ios")
         sharedDefaults?.set(urlString, forKey: "supabase_url")
+        sharedDefaults?.set(Configuration.edgeFunctionsURL, forKey: "edge_functions_url")
     }
 
     /// Writes the current access token to Keychain (shared via App Group)

@@ -201,15 +201,15 @@ final class SubscriptionService: ObservableObject {
     private func syncSubscriptionToBackend(_ transaction: StoreKit.Transaction, attempt: Int = 1) async {
         let maxRetries = 3
         do {
-            try await SupabaseService.shared.client.functions.invoke(
+            try await EdgeFunctionsClient.invoke(
                 "subscription-webhook",
-                options: .init(body: [
+                body: [
                     "product_id": transaction.productID,
                     "transaction_id": String(transaction.id),
                     "original_id": String(transaction.originalID),
                     "expiration_date": transaction.expirationDate?.ISO8601Format() ?? "",
                     "app_account_token": transaction.appAccountToken?.uuidString ?? "",
-                ])
+                ]
             )
         } catch {
             if attempt < maxRetries {

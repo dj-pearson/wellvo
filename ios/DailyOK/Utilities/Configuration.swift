@@ -17,6 +17,22 @@ enum Configuration {
         return value
     }
 
+    /// Base URL for the self-hosted edge-functions Deno server (Coolify container).
+    /// Function calls are POSTed to `<edgeFunctionsURL>/<function-name>`.
+    static var edgeFunctionsURL: String {
+        guard let value = Bundle.main.infoDictionary?["EDGE_FUNCTIONS_URL"] as? String,
+              !value.isEmpty,
+              value != "$(EDGE_FUNCTIONS_URL)",
+              !value.hasPrefix("REPLACE_AT_BUILD") else {
+            #if DEBUG
+            return "http://localhost:9000"
+            #else
+            return "https://functions.dailyok.net"
+            #endif
+        }
+        return value
+    }
+
     static var supabaseAnonKey: String {
         guard let value = Bundle.main.infoDictionary?["SUPABASE_ANON_KEY"] as? String,
               !value.isEmpty,

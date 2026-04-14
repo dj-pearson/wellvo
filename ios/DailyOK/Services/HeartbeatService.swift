@@ -43,9 +43,6 @@ final class HeartbeatService {
             body["app_version"] = version
         }
 
-        try? await supabase.functions.invoke(
-            "heartbeat",
-            options: .init(body: body)
-        )
+        try? await EdgeFunctionsClient.invoke("heartbeat", body: body)
     }
 }

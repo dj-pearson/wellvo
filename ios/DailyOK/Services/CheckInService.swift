@@ -51,9 +51,9 @@ actor CheckInService {
         }
 
         // Use the edge function which handles location, response type, and alerts
-        let result: CheckInResponse = try await supabase.functions.invoke(
+        let result: CheckInResponse = try await EdgeFunctionsClient.invoke(
             "process-checkin-response",
-            options: .init(body: body)
+            body: body
         )
         return result.checkin
     }
@@ -83,9 +83,9 @@ actor CheckInService {
                 body["battery_level"] = String(battery)
             }
 
-            try await supabase.functions.invoke(
+            try await EdgeFunctionsClient.invoke(
                 "process-checkin-response",
-                options: .init(body: body)
+                body: body
             )
         } catch {
             throw DailyOKError.network(error)
@@ -94,22 +94,20 @@ actor CheckInService {
 
     /// Confirm delivery of a push notification
     func confirmDelivery(checkinRequestId: String) async {
-        try? await supabase.functions.invoke(
+        try? await EdgeFunctionsClient.invoke(
             "confirm-delivery",
-            options: .init(body: [
-                "checkin_request_id": checkinRequestId,
-            ])
+            body: ["checkin_request_id": checkinRequestId]
         )
     }
 
     /// Owner sends on-demand check-in request
     func sendOnDemandCheckIn(receiverId: UUID, familyId: UUID) async throws {
-        try await supabase.functions.invoke(
+        try await EdgeFunctionsClient.invoke(
             "on-demand-checkin",
-            options: .init(body: [
+            body: [
                 "receiver_id": receiverId.uuidString,
                 "family_id": familyId.uuidString,
-            ])
+            ]
         )
     }
 

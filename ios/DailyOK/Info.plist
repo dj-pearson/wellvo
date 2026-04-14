@@ -16,6 +16,8 @@
 	<string>REPLACE_AT_BUILD_TIME</string>
 	<key>SUPABASE_ANON_KEY</key>
 	<string>REPLACE_AT_BUILD_TIME</string>
+	<key>EDGE_FUNCTIONS_URL</key>
+	<string>https://functions.dailyok.net</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
