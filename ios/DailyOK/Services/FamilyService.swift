@@ -81,6 +81,21 @@ actor FamilyService {
     func getCurrentUserRole() async -> UserRole? {
         guard let session = try? await supabase.auth.session else { return nil }
 
+        // If the user owns any family, they are an owner. This takes precedence
+        // over any receiver/viewer memberships they may also hold (e.g. if the
+        // same account was invited into another family for testing).
+        let ownedFamilies: [Family] = (try? await supabase
+            .from("families")
+            .select("id")
+            .eq("owner_id", value: session.user.id.uuidString)
+            .limit(1)
+            .execute()
+            .value) ?? []
+
+        if !ownedFamilies.isEmpty {
+            return .owner
+        }
+
         let members: [FamilyMember] = (try? await supabase
             .from("family_members")
             .select()

@@ -31,6 +31,11 @@ struct ContentView: View {
             }
         }
         .animation(reduceMotion ? nil : .easeInOut, value: authViewModel.authState)
+        .onChange(of: authViewModel.authState) { newState in
+            if newState == .unauthenticated {
+                appState.currentUserRole = nil
+            }
+        }
         .task(id: authViewModel.authState) {
             guard authViewModel.authState == .authenticated,
                   appState.pendingInviteToken == nil,
