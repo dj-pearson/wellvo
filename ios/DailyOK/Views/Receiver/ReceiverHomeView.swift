@@ -82,19 +82,42 @@ struct ReceiverHomeView: View {
                     }
 
                     Spacer().frame(height: 20)
-
-                    Button {
-                        showSignOutConfirmation = true
-                    } label: {
-                        Text("Sign out")
-                            .font(.footnote)
-                            .foregroundStyle(.tertiary)
-                    }
-                    .padding(.top, 40)
-                    .accessibilityLabel("Sign out of your account")
                 }
                 .padding()
             }
+
+            // Discreet menu — sign out + link into iOS notification settings.
+            // Placed top-right as an overlay so it stays accessible from either
+            // the check-in button state or the "all set" state without
+            // cluttering the main content.
+            VStack {
+                HStack {
+                    Spacer()
+                    Menu {
+                        Button {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                        } label: {
+                            Label("Notification Settings", systemImage: "bell.badge")
+                        }
+                        Button(role: .destructive) {
+                            showSignOutConfirmation = true
+                        } label: {
+                            Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                            .padding(12)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel("More options")
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 8)
         }
         .task { await viewModel.loadStatus() }
         // If a silent push request arrived while the app was backgrounded, or the

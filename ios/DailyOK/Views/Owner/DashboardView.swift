@@ -401,14 +401,17 @@ struct ReceiverStatusCardView: View {
                 kidResponseBadge(kidResponse)
             }
 
-            // Check on button (owner-only)
-            if !isReadOnly && card.status != .checkedIn {
+            // Check on button (owner-only) — always available so a parent can
+            // ping the receiver on demand even after today's scheduled check-in
+            // (e.g. "kid is out playing, want another update right now").
+            if !isReadOnly {
+                let alreadyChecked = card.status == .checkedIn
                 Button {
                     onCheckOn()
                 } label: {
                     HStack {
                         Image(systemName: "bell.badge")
-                        Text("Check on \(card.name)")
+                        Text(alreadyChecked ? "Request another update" : "Check on \(card.name)")
                     }
                     .font(.subheadline)
                     .fontWeight(.medium)
@@ -416,8 +419,8 @@ struct ReceiverStatusCardView: View {
                     .padding(.vertical, 10)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.orange)
-                .accessibilityLabel("Check on \(card.name)")
+                .tint(alreadyChecked ? .blue : .orange)
+                .accessibilityLabel(alreadyChecked ? "Request another update from \(card.name)" : "Check on \(card.name)")
                 .accessibilityHint("Sends an immediate check-in notification")
             }
         }

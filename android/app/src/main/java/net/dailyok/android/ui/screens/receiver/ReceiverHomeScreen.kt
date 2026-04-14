@@ -15,15 +15,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Box as LayoutBox
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
@@ -50,17 +59,22 @@ import net.dailyok.android.data.models.Mood
 import net.dailyok.android.data.models.displayName
 import net.dailyok.android.data.models.emoji
 import net.dailyok.android.services.OfflineCheckInService
+import net.dailyok.android.viewmodels.AuthViewModel
 import net.dailyok.android.viewmodels.ReceiverViewModel
 
 @Composable
 fun ReceiverHomeScreen(
-    viewModel: ReceiverViewModel = hiltViewModel()
+    viewModel: ReceiverViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
     val haptic = LocalHapticFeedback.current
     val view = LocalView.current
+    val context = LocalContext.current
     val isOffline by viewModel.isOffline.collectAsState()
     val pendingOfflineCount by viewModel.pendingOfflineCount.collectAsState()
+    var menuExpanded by remember { mutableStateOf(false) }
+    var showSignOutConfirmation by remember { mutableStateOf(false) }
 
     // Track previous state to detect transitions
     var wasCheckedIn by remember { mutableStateOf(state.hasCheckedInToday) }
@@ -90,6 +104,7 @@ fun ReceiverHomeScreen(
         hadError = state.errorMessage != null
     }
 
+    LayoutBox(modifier = Modifier.fillMaxSize()) {
     Column(modifier = Modifier.fillMaxSize()) {
         // Offline banner
         if (isOffline) {
@@ -182,6 +197,65 @@ fun ReceiverHomeScreen(
             }
         }
         }
+    }
+
+        // Discreet top-right menu — sign out + link into Android app
+        // notification settings. Overlay so it's reachable from either the
+        // check-in button state or the "all set" state.
+        IconButton(
+            onClick = { menuExpanded = true },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = "More options",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        DropdownMenu(
+            expanded = menuExpanded,
+            onDismissRequest = { menuExpanded = false },
+            modifier = Modifier.align(Alignment.TopEnd)
+        ) {
+            DropdownMenuItem(
+                text = { Text("Notification Settings") },
+                leadingIcon = { Icon(Icons.Default.Notifications, contentDescription = null) },
+                onClick = {
+                    menuExpanded = false
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                        putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    }
+                    context.startActivity(intent)
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Sign Out") },
+                leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null) },
+                onClick = {
+                    menuExpanded = false
+                    showSignOutConfirmation = true
+                }
+            )
+        }
+    }
+
+    if (showSignOutConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showSignOutConfirmation = false },
+            title = { Text("Sign Out") },
+            text = { Text("You'll stop receiving check-in notifications until you sign back in.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showSignOutConfirmation = false
+                    authViewModel.signOut()
+                }) { Text("Sign Out") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSignOutConfirmation = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 
