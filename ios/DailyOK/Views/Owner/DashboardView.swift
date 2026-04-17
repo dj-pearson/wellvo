@@ -11,6 +11,7 @@ struct DashboardView: View {
             ScrollView {
                 if viewModel.isLoading && viewModel.receiverCards.isEmpty && viewModel.errorMessage == nil {
                     DashboardSkeletonView()
+                        .padding(.top, 8)
                 } else if let errorMessage = viewModel.errorMessage, viewModel.receiverCards.isEmpty {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle")
@@ -54,6 +55,10 @@ struct DashboardView: View {
                             AlertsBannerView(alerts: viewModel.alerts) { alert in
                                 Task { await viewModel.dismissAlert(alert) }
                             }
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .move(edge: .top)),
+                                removal: .opacity
+                            ))
                         }
 
                         // Weekly Summary
@@ -67,15 +72,22 @@ struct DashboardView: View {
                         }
 
                         // Receiver Cards
-                        ForEach(viewModel.receiverCards) { card in
+                        ForEach(Array(viewModel.receiverCards.enumerated()), id: \.element.id) { index, card in
                             ReceiverStatusCardView(card: card) {
                                 Task { await viewModel.sendOnDemandCheckIn(to: card.id) }
                             }
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .move(edge: .bottom)).animation(DailyOKMotion.smoothSpring.delay(Double(index) * 0.05)),
+                                removal: .opacity
+                            ))
                         }
                     }
                     .padding()
+                    .animation(DailyOKMotion.smoothSpring, value: viewModel.receiverCards.count)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(AmbientBackground(tone: alertsPresent ? .alert : .calm))
             .navigationTitle("Dashboard")
             .refreshable { await viewModel.loadDashboard() }
             .task { await viewModel.loadDashboard() }
@@ -96,6 +108,10 @@ struct DashboardView: View {
                 }
             }
         }
+    }
+
+    private var alertsPresent: Bool {
+        !viewModel.alerts.isEmpty || viewModel.receiverCards.contains(where: { $0.status == .missed })
     }
 
     private var emptyState: some View {
@@ -167,8 +183,7 @@ struct WeeklySummaryCard: View {
             }
         }
         .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(16)
+        .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level2)
     }
 }
 
@@ -246,8 +261,7 @@ struct TodayTimelineCard: View {
             }
         }
         .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(16)
+        .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level2)
     }
 
     private func timelineStatusIcon(for card: ReceiverStatusCard) -> String {
@@ -425,9 +439,7 @@ struct ReceiverStatusCardView: View {
             }
         }
         .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
+        .glassCard(style: .regular, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(card.name), \(card.status.label), \(card.streak) day streak")
     }
@@ -511,8 +523,14 @@ struct AlertsBannerView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(12)
-                .background(Color.orange.opacity(0.1))
-                .cornerRadius(12)
+                .background(
+                    RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
+                        .fill(DailyOKColor.warning.opacity(0.12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
+                                .strokeBorder(DailyOKColor.warning.opacity(0.3), lineWidth: 0.75)
+                        )
+                )
             }
         }
     }

@@ -25,8 +25,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -53,8 +51,33 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.hilt.navigation.compose.hiltViewModel
 import net.dailyok.android.R
+import net.dailyok.android.ui.components.AmbientBackground
+import net.dailyok.android.ui.components.AmbientTone
+import net.dailyok.android.ui.components.GlassCard
+import net.dailyok.android.ui.theme.DailyOKElevation
+import net.dailyok.android.ui.theme.DailyOKGlass
+import net.dailyok.android.ui.theme.DailyOKGlassStyle
+import net.dailyok.android.ui.theme.DailyOKGreen300
+import net.dailyok.android.ui.theme.DailyOKGreen400
+import net.dailyok.android.ui.theme.DailyOKGreen600
+import net.dailyok.android.ui.theme.DailyOKTeal
+import net.dailyok.android.ui.theme.WarningOrange
 import net.dailyok.android.data.models.Mood
 import net.dailyok.android.data.models.displayName
 import net.dailyok.android.data.models.emoji
@@ -105,40 +128,41 @@ fun ReceiverHomeScreen(
     }
 
     LayoutBox(modifier = Modifier.fillMaxSize()) {
+    AmbientBackground(tone = if (state.hasCheckedInToday) AmbientTone.Calm else AmbientTone.Warm)
     Column(modifier = Modifier.fillMaxSize()) {
         // Offline banner
         if (isOffline) {
-            Card(
+            GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                )
+                style = DailyOKGlassStyle.Thin,
+                shape = RoundedCornerShape(DailyOKGlass.RadiusMedium),
+                elevation = DailyOKElevation.level2,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp)
             ) {
                 Text(
                     text = stringResource(R.string.receiver_offline_banner),
-                    modifier = Modifier.padding(12.dp),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    color = WarningOrange
                 )
             }
         }
 
         if (pendingOfflineCount > 0) {
-            Card(
+            GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                )
+                style = DailyOKGlassStyle.Thin,
+                shape = RoundedCornerShape(DailyOKGlass.RadiusMedium),
+                elevation = DailyOKElevation.level2,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp)
             ) {
                 Text(
                     text = stringResource(R.string.receiver_pending_sync, pendingOfflineCount),
-                    modifier = Modifier.padding(12.dp),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -267,34 +291,93 @@ private fun CheckInButton(
     onCheckIn: () -> Unit,
     onClearError: () -> Unit
 ) {
+    // Slow breathing pulse
+    val transition = rememberInfiniteTransition(label = "pulse")
+    val pulse by transition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseAnim"
+    )
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(24.dp)
     ) {
-        Button(
-            onClick = onCheckIn,
-            modifier = Modifier.size(200.dp),
-            shape = CircleShape,
-            enabled = !isCheckingIn,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary
+        LayoutBox(contentAlignment = Alignment.Center) {
+            // Aurora halo — soft blurred orbs that breathe with the pulse
+            LayoutBox(
+                modifier = Modifier
+                    .size(280.dp)
+                    .scale(pulse)
+                    .background(
+                        brush = Brush.radialGradient(
+                            listOf(DailyOKGreen300.copy(alpha = 0.55f), Color.Transparent),
+                        ),
+                        shape = CircleShape
+                    )
             )
-        ) {
-            if (isCheckingIn) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(48.dp),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    strokeWidth = 4.dp
-                )
-            } else {
-                Text(
-                    text = stringResource(R.string.receiver_im_ok),
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
+            LayoutBox(
+                modifier = Modifier
+                    .size(240.dp)
+                    .scale(pulse)
+                    .background(
+                        brush = Brush.radialGradient(
+                            listOf(DailyOKTeal.copy(alpha = 0.4f), Color.Transparent),
+                        ),
+                        shape = CircleShape
+                    )
+            )
+
+            // Main button with brand gradient + specular highlight + hairline stroke
+            Button(
+                onClick = onCheckIn,
+                modifier = Modifier
+                    .size(200.dp)
+                    .shadow(
+                        elevation = 24.dp,
+                        shape = CircleShape,
+                        ambientColor = DailyOKGreen600.copy(alpha = 0.45f),
+                        spotColor = DailyOKGreen600.copy(alpha = 0.45f)
+                    )
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(listOf(DailyOKGreen400, DailyOKGreen600))
+                    )
+                    .background(
+                        brush = Brush.verticalGradient(
+                            listOf(Color.White.copy(alpha = 0.35f), Color.Transparent)
+                        ),
+                        shape = CircleShape
+                    )
+                    .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape),
+                shape = CircleShape,
+                enabled = !isCheckingIn,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent
+                ),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+            ) {
+                if (isCheckingIn) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(48.dp),
+                        color = Color.White,
+                        strokeWidth = 4.dp
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.receiver_im_ok),
+                        style = MaterialTheme.typography.headlineLarge.copy(
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = Color.White
+                    )
+                }
             }
         }
 
@@ -378,29 +461,28 @@ private fun CheckedInState(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Card(
+        GlassCard(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
+            style = DailyOKGlassStyle.Regular,
+            shape = RoundedCornerShape(DailyOKGlass.RadiusLarge),
+            elevation = DailyOKElevation.level3,
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = stringResource(R.string.receiver_checked_in_today),
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 checkInTime?.let {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 mood?.let {

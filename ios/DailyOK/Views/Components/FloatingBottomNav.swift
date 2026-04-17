@@ -13,23 +13,26 @@ struct FloatingNavItem: Identifiable {
     }
 }
 
-/// Floating, rounded bottom navigation bar with a pill indicator behind the
-/// selected tab. Can be overlaid on top of a `ZStack`-based tab layout as an
-/// alternative to SwiftUI's standard `TabView`. Adopt incrementally — not a
-/// drop-in replacement for existing `.tabItem` screens.
+/// Floating, frosted-glass bottom navigation bar with a matched-geometry pill
+/// indicator that smoothly slides between tabs. Blurs the content behind it
+/// (`.ultraThinMaterial`) so the UI feels layered and modern.
 struct FloatingBottomNav: View {
     let items: [FloatingNavItem]
     @Binding var selectedIndex: Int
+    @Namespace private var pillNamespace
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 4) {
             ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                 NavItemView(
                     item: item,
-                    selected: index == selectedIndex
+                    selected: index == selectedIndex,
+                    namespace: pillNamespace
                 )
                 .contentShape(Rectangle())
                 .onTapGesture {
+                    let feedback = UIImpactFeedbackGenerator(style: .soft)
+                    feedback.impactOccurred()
                     withAnimation(DailyOKMotion.smoothSpring) {
                         selectedIndex = index
                     }
@@ -39,11 +42,7 @@ struct FloatingBottomNav: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(Color(.systemBackground))
-        )
-        .dailyokShadow(DailyOKElevation.level4, opacity: 0.12)
+        .glassCard(style: .regular, radius: 32, elevation: DailyOKElevation.level4)
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
     }
@@ -52,12 +51,14 @@ struct FloatingBottomNav: View {
 private struct NavItemView: View {
     let item: FloatingNavItem
     let selected: Bool
+    let namespace: Namespace.ID
 
     var body: some View {
         HStack(spacing: 6) {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: item.systemImage)
                     .font(.system(size: 20, weight: .semibold))
+                    .symbolEffect(.bounce, value: selected)
                 if item.badgeCount > 0 {
                     Text("\(item.badgeCount)")
                         .font(.system(size: 10, weight: .bold))
@@ -71,14 +72,33 @@ private struct NavItemView: View {
             if selected {
                 Text(item.label)
                     .font(.subheadline.weight(.semibold))
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .scale(scale: 0.8)).animation(DailyOKMotion.smoothSpring),
+                        removal: .opacity
+                    ))
             }
         }
         .foregroundStyle(selected ? DailyOKColor.green700 : Color.secondary)
-        .padding(.horizontal, selected ? 14 : 10)
+        .padding(.horizontal, selected ? 16 : 10)
         .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(selected ? DailyOKColor.green100 : Color.clear)
+            ZStack {
+                if selected {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [DailyOKColor.green100, DailyOKColor.green200.opacity(0.75)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .strokeBorder(DailyOKColor.green300.opacity(0.5), lineWidth: 0.75)
+                        )
+                        .matchedGeometryEffect(id: "pill", in: namespace)
+                }
+            }
         )
         .accessibilityElement()
         .accessibilityLabel(item.label)

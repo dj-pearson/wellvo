@@ -13,72 +13,94 @@ struct AuthView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 32) {
-                Spacer()
+            ZStack {
+                AmbientBackground(tone: .calm)
 
-                // Logo & Tagline
-                VStack(spacing: 12) {
-                    Image(systemName: "heart.circle.fill")
-                        .font(.system(size: logoSize))
-                        .foregroundStyle(.green)
-                        .accessibilityHidden(true)
+                VStack(spacing: 24) {
+                    Spacer(minLength: 40)
 
-                    Text("Daily OK")
-                        .font(.largeTitle.weight(.bold))
-                        .accessibilityAddTraits(.isHeader)
+                    // Logo & Tagline
+                    VStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(DailyOKColor.green300.opacity(0.4))
+                                .frame(width: logoSize * 1.6, height: logoSize * 1.6)
+                                .blur(radius: 24)
+                            Image(systemName: "heart.circle.fill")
+                                .font(.system(size: logoSize))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [DailyOKColor.green400, DailyOKColor.green600],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                                .accessibilityHidden(true)
+                        }
 
-                    Text("One tap. Total peace of mind.")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                }
+                        Text("Daily OK")
+                            .font(.largeTitle.weight(.bold))
+                            .accessibilityAddTraits(.isHeader)
 
-                Spacer()
+                        Text("One tap. Total peace of mind.")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                    }
 
-                if showEmailAuth {
-                    emailAuthSection
-                } else {
-                    phoneAuthSection
-                }
+                    Spacer(minLength: 12)
 
-                // Toggle between phone and email
-                Button {
-                    if reduceMotion {
-                        showEmailAuth.toggle()
-                        authViewModel.errorMessage = nil
-                    } else {
-                        withAnimation {
-                            showEmailAuth.toggle()
-                            authViewModel.errorMessage = nil
+                    VStack(spacing: 16) {
+                        if showEmailAuth {
+                            emailAuthSection
+                        } else {
+                            phoneAuthSection
+                        }
+
+                        Button {
+                            if reduceMotion {
+                                showEmailAuth.toggle()
+                                authViewModel.errorMessage = nil
+                            } else {
+                                withAnimation(DailyOKMotion.smoothSpring) {
+                                    showEmailAuth.toggle()
+                                    authViewModel.errorMessage = nil
+                                }
+                            }
+                        } label: {
+                            Text(showEmailAuth ? "Sign in with phone number instead" : "Sign in with email instead")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        if let error = authViewModel.errorMessage {
+                            Text(error)
+                                .font(.caption)
+                                .foregroundStyle(DailyOKColor.error)
+                                .multilineTextAlignment(.center)
+                                .transition(.opacity)
                         }
                     }
-                } label: {
-                    Text(showEmailAuth ? "Sign in with phone number instead" : "Sign in with email instead")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+                    .padding(24)
+                    .glassCard(style: .regular, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level4)
 
-                if let error = authViewModel.errorMessage {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .multilineTextAlignment(.center)
-                        .transition(.opacity)
-                }
+                    Spacer()
 
-                Spacer()
-
-                // iPad / alternate-device setup via pairing code
-                Button {
-                    joinViaCode = true
-                } label: {
-                    Label("Have a setup code?", systemImage: "number.square")
-                        .font(.footnote)
-                        .foregroundStyle(.green)
+                    // iPad / alternate-device setup via pairing code
+                    Button {
+                        joinViaCode = true
+                    } label: {
+                        Label("Have a setup code?", systemImage: "number.square")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(DailyOKColor.green700)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .glassPill(style: .ultraThin)
+                    }
+                    .padding(.bottom, 16)
                 }
-                .padding(.bottom, 16)
+                .padding(.horizontal, 24)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: authViewModel.errorMessage)
             }
-            .padding(.horizontal, 24)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: authViewModel.errorMessage)
             .onChange(of: authViewModel.authState) { newState in
                 if newState == .authenticated, joinViaCode {
                     appState.showPairingCodeEntry = true

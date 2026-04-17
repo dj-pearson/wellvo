@@ -39,8 +39,6 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -69,7 +67,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.core.app.NotificationManagerCompat
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
@@ -78,8 +75,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.isSystemInDarkTheme
 import net.dailyok.android.R
+import net.dailyok.android.ui.components.AmbientBackground
+import net.dailyok.android.ui.components.AmbientTone
+import net.dailyok.android.ui.components.GlassCard
+import net.dailyok.android.ui.theme.DailyOKElevation
+import net.dailyok.android.ui.theme.DailyOKGlass
+import net.dailyok.android.ui.theme.DailyOKGlassStyle
 import net.dailyok.android.ui.theme.DailyOKSpacing
 import net.dailyok.android.data.models.KidResponseType
 import net.dailyok.android.data.models.LocationLabel
@@ -87,14 +89,6 @@ import net.dailyok.android.data.models.Mood
 import net.dailyok.android.data.models.DailyOKAlert
 import net.dailyok.android.data.models.emoji
 import net.dailyok.android.data.models.displayName
-import net.dailyok.android.ui.theme.StatusGreenBg
-import net.dailyok.android.ui.theme.StatusGreenBgDark
-import net.dailyok.android.ui.theme.StatusYellowBg
-import net.dailyok.android.ui.theme.StatusYellowBgDark
-import net.dailyok.android.ui.theme.StatusRedBg
-import net.dailyok.android.ui.theme.StatusRedBgDark
-import net.dailyok.android.ui.theme.StatusGrayBg
-import net.dailyok.android.ui.theme.StatusGrayBgDark
 import net.dailyok.android.viewmodels.DashboardViewModel
 import net.dailyok.android.viewmodels.ReceiverCheckInStatus
 import net.dailyok.android.viewmodels.ReceiverStatusCard
@@ -120,17 +114,6 @@ private fun ReceiverCheckInStatus.icon(): ImageVector = when (this) {
     ReceiverCheckInStatus.Pending -> Icons.Default.Schedule
     ReceiverCheckInStatus.Missed -> Icons.Default.Cancel
     ReceiverCheckInStatus.NoData -> Icons.Default.RemoveCircle
-}
-
-@Composable
-private fun ReceiverCheckInStatus.cardBackground(): Color {
-    val isDark = isSystemInDarkTheme()
-    return when (this) {
-        ReceiverCheckInStatus.CheckedIn -> if (isDark) StatusGreenBgDark else StatusGreenBg
-        ReceiverCheckInStatus.Pending -> if (isDark) StatusYellowBgDark else StatusYellowBg
-        ReceiverCheckInStatus.Missed -> if (isDark) StatusRedBgDark else StatusRedBg
-        ReceiverCheckInStatus.NoData -> if (isDark) StatusGrayBgDark else StatusGrayBg
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -184,7 +167,10 @@ fun DashboardScreen(
         }
     }
 
+    val hasAlerts = alerts.isNotEmpty() || receiverCards.any { it.status == ReceiverCheckInStatus.Missed }
+
     Box(modifier = modifier.fillMaxSize()) {
+        AmbientBackground(tone = if (hasAlerts) AmbientTone.Alert else AmbientTone.Calm)
         PullToRefreshBox(
             isRefreshing = isLoading,
             onRefresh = { viewModel.loadDashboard(userId) },
@@ -324,11 +310,11 @@ private fun EmptyState() {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WeeklySummaryCard(summary: WeeklySummary) {
-    Card(
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+    GlassCard(
+        style = DailyOKGlassStyle.Thin,
+        shape = RoundedCornerShape(DailyOKGlass.RadiusLarge),
+        elevation = DailyOKElevation.level2,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -447,11 +433,11 @@ private fun TodayTimelineCard(cards: List<ReceiverStatusCard>) {
         )
     }
 
-    Card(
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+    GlassCard(
+        style = DailyOKGlassStyle.Thin,
+        shape = RoundedCornerShape(DailyOKGlass.RadiusLarge),
+        elevation = DailyOKElevation.level2,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -598,14 +584,16 @@ private fun AlertsBanner(alerts: List<DailyOKAlert>, onDismiss: (DailyOKAlert) -
     val haptic = LocalHapticFeedback.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         alerts.forEach { alert ->
-            Card(
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFFF7ED)
-                )
+            GlassCard(
+                style = DailyOKGlassStyle.Thin,
+                shape = RoundedCornerShape(DailyOKGlass.RadiusMedium),
+                elevation = DailyOKElevation.level2,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier
+                        .background(Color(0xFFFFF7ED).copy(alpha = 0.7f))
+                        .padding(12.dp),
                     verticalAlignment = Alignment.Top
                 ) {
                     Icon(
@@ -679,25 +667,25 @@ private fun ReceiverStatusCardView(
         }
     }
 
-    val cardBg = card.status.cardBackground()
+    val statusTint = card.status.color().copy(alpha = 0.12f)
 
-    Card(
-        shape = MaterialTheme.shapes.medium,
+    GlassCard(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = 2.dp,
-                shape = MaterialTheme.shapes.medium,
-                ambientColor = Color.Black.copy(alpha = 0.05f)
-            )
             .semantics {
                 contentDescription = "${card.name}, ${card.status.label}, ${card.streak} day streak"
             },
-        colors = CardDefaults.cardColors(
-            containerColor = cardBg
-        )
+        style = DailyOKGlassStyle.Regular,
+        shape = RoundedCornerShape(DailyOKGlass.RadiusLarge),
+        elevation = DailyOKElevation.level3,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(statusTint)
+                .padding(16.dp)
+        ) {
             // Header: Avatar + Name/Status + Streak
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Avatar with status icon
@@ -965,14 +953,16 @@ private fun NotificationPermissionBanner() {
     }
 
     AnimatedVisibility(visible = !notificationsEnabled.value) {
-        Card(
-            shape = MaterialTheme.shapes.medium,
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFFFF7ED)
-            )
+        GlassCard(
+            style = DailyOKGlassStyle.Thin,
+            shape = RoundedCornerShape(DailyOKGlass.RadiusMedium),
+            elevation = DailyOKElevation.level2,
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
         ) {
             Row(
-                modifier = Modifier.padding(12.dp),
+                modifier = Modifier
+                    .background(Color(0xFFFFF7ED).copy(alpha = 0.7f))
+                    .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(

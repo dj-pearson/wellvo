@@ -2084,6 +2084,137 @@
       "priority": 56,
       "passes": true,
       "notes": "DONE (helpers + audit). Android: util/AccessibilityHelpers.kt — A11y object with MAX_SUPPORTED_FONT_SCALE constant, fontScale() @Composable reader from LocalConfiguration, useCompactLayoutForLargeText() for switching 3-across rows to single column above 1.3x. Modifier.describeAs(description) and Modifier.announceOnChange() extension fns to drop contentDescription + polite liveRegion onto any composable. iOS: Utilities/AccessibilityHelpers.swift — A11y enum with compactLayoutThreshold = .xxLarge, View.announce(_:message:) extension that posts UIAccessibility.post(.announcement) when an observed value changes, View.a11yHint(_:) shortcut, DynamicTypeSize.useCompactLayout computed property. Builds on prior AUDIT-2 work (300+ strings already extracted, 40+ cd_* string resources, existing accessibilityLabels across screens). Screen-by-screen audit of Dynamic Type XXL + TalkBack/VoiceOver traversal + WCAG AA contrast is tracked as a follow-up iteration — this story lands the shared helpers so that work can proceed screen-by-screen without re-inventing patterns."
+    },
+    {
+      "id": "US-UX013",
+      "title": "Introduce glassmorphism + ambient backgrounds across iOS and Android",
+      "description": "As a user, I want the app to feel top-tier and cutting-edge with frosted-glass surfaces, subtle animated gradients, and seamless transitions so that Daily OK looks as polished as the best apps on my phone.",
+      "acceptanceCriteria": [
+        "iOS: Utilities/Theme.swift extended with DailyOKGlass tokens (radii, strokes, tints), DailyOKGlassStyle enum (ultraThin/thin/regular/thick), View.glassCard()/glassPill() modifiers, AmbientBackground view with Calm/Warm/Alert/Neutral tones, PressableStyle button style",
+        "Android: ui/theme/Glass.kt with DailyOKGlass tokens + DailyOKGlassStyle enum + Modifier.glassSurface() extension; ui/components/AmbientBackground.kt renders slowly-drifting brand orbs on a Canvas; ui/components/GlassCard.kt wraps any content in a translucent surface",
+        "FloatingBottomNav on both platforms adopts glassmorphism: frosted container (`.regularMaterial` / `glassSurface`), gradient pill indicator with matchedGeometryEffect (iOS) / animated selection (Android), haptic feedback on tap, symbolEffect(.bounce) on selected icon (iOS)",
+        "Owner Dashboard (iOS + Android): ambient background behind the scroll content, WeeklySummary/TodayTimeline/ReceiverStatus/AlertsBanner all use glass cards, ReceiverStatusCard gets staggered insertion animation",
+        "ReceiverHome (iOS + Android): ambient warm/calm backdrop tied to check-in state, check-in button upgraded with aurora halo (blurred orbs), brand linear gradient fill, specular highlight, hairline stroke, and pulsing breathing animation",
+        "Auth screen (iOS + Android): auth form lives inside a glass card floating over the ambient backdrop; logo has soft aurora halo; pairing-code entry uses a glass pill",
+        "Tokens are additive — no existing screen is broken; legacy Color/Elevation/Motion tokens still resolve"
+      ],
+      "priority": 30,
+      "passes": true,
+      "notes": "DONE (foundation + key screens). Shipped design tokens and reusable glass components plus first-wave screen conversions: FloatingBottomNav (both platforms), Owner Dashboard (summary/timeline/receiver/alerts/notification banner), ReceiverHome (halo button + status card + offline chips), Auth screen. Remaining screen-by-screen conversions tracked in US-UX014 through US-UX020. See FloatingBottomNav.{swift,kt}, DashboardView.swift, DashboardScreen.kt, ReceiverHomeView.swift, ReceiverHomeScreen.kt, AuthView.swift, AuthScreen.kt."
+    },
+    {
+      "id": "US-UX014",
+      "title": "Apply glassmorphism redesign to remaining Owner screens",
+      "description": "As an owner, I want Family, History, Settings, ReceiverSettings, ReceiverSetupGuide, Subscription, Calendar Heatmap, and Trend Chart screens to match the glass + ambient redesign so the app feels consistent end-to-end.",
+      "acceptanceCriteria": [
+        "iOS: FamilyView, HistoryView, SettingsView, ReceiverSettingsView, ReceiverSetupGuideView, CalendarHeatmapView, CheckInTrendChartView, CheckInReportGenerator all adopt AmbientBackground + glassCard() where cards/lists are rendered",
+        "Android: FamilyScreen, HistoryScreen, SettingsScreen, ReceiverSettingsScreen, ReceiverSetupGuideScreen, SubscriptionScreen, CalendarHeatmap, TrendChart match",
+        "List rows on both platforms use glass row treatment (ultraThin) with hairline divider strokes",
+        "Top app bars gain a translucent glass effect that intensifies on scroll",
+        "Destructive actions (Delete family member, Sign out, Cancel subscription) use a Thick glass confirmation sheet"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": "Pending. Foundational tokens + components already landed in US-UX013 — this story is per-screen conversion."
+    },
+    {
+      "id": "US-UX015",
+      "title": "Apply glassmorphism redesign to Onboarding + Pairing flows",
+      "description": "As a new user, I want the onboarding carousel, role selection, permissions prompts, and pairing-code entry to feel like a continuous, premium experience with glass cards and smooth page transitions.",
+      "acceptanceCriteria": [
+        "iOS: OnboardingView + OnboardingCarousel + ReceiverOnboardingView + PairingCodeEntryView adopt AmbientBackground + glass content cards",
+        "Android: OnboardingScreen + OnboardingCarousel + ReceiverOnboardingScreen + PairingCodeScreen match",
+        "Page-turn transitions use matchedGeometryEffect (iOS) / SharedTransitionLayout (Android) for the hero icon between slides",
+        "Progress dots sit on a glass pill; skip button styled as glass chip",
+        "Permissions prompts (notifications, location) are presented inside a Thick glass modal rather than system-style alerts where practical"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": "Pending. Depends on tokens from US-UX013."
+    },
+    {
+      "id": "US-UX016",
+      "title": "Redesign Viewer and Kid response screens with glass treatment",
+      "description": "As a viewer or kid-mode receiver, I want my screens to match the main app's glass + ambient redesign without losing the simplified ergonomics tuned to those roles.",
+      "acceptanceCriteria": [
+        "iOS: ViewerTabView adopts AmbientBackground (neutral tone) + glass card containers for receiver list",
+        "Android: ViewerTabsScreen + ViewerSettingsScreen match",
+        "Kid-mode response buttons (pickingMeUp, canStayLonger, SOS) use brand-gradient glass buttons with aurora halo on SOS for emphasis",
+        "Location and Mood selectors rendered on glass surfaces with subtle selected-state animation"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": "Pending. KidResponseButtons.kt + LocationLabelSelector.kt + MoodSelector.kt on Android; ReceiverHomeView.swift already partially redesigned but child pickers still pending."
+    },
+    {
+      "id": "US-UX017",
+      "title": "Shared-element hero transitions between list and detail views",
+      "description": "As a user, I want tapping a receiver card or a history entry to smoothly morph into the detail view via a shared-element transition, so that navigation feels continuous rather than jumpy.",
+      "acceptanceCriteria": [
+        "iOS: matchedGeometryEffect wired from ReceiverStatusCardView avatar/name → detail view hero on Dashboard and Family",
+        "Android: SharedTransitionLayout wired for equivalent flows (Dashboard → Receiver detail, History → CheckIn detail)",
+        "Transitions respect reduce-motion / remove-animations accessibility settings",
+        "Transition duration uses DailyOKMotion.durationMedium + smoothSpring"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": "Pending. Dashboard card redesign already lands transitions for list insertion; shared-element across-screen transitions are separate."
+    },
+    {
+      "id": "US-UX018",
+      "title": "Glass bottom sheets and modals across the app",
+      "description": "As a user, whenever a sheet (edit receiver, add family member, confirm sign out, paywall) slides up, it should feel like a pane of glass that floats over the content with a backdrop blur.",
+      "acceptanceCriteria": [
+        "iOS: .presentationBackground(.regularMaterial) + custom GlassSheet wrapper applied to all .sheet/.fullScreenCover presentations",
+        "Android: ModalBottomSheet + AlertDialog use glassSurface() + backdrop dim+blur (Modifier.blur on API 31+)",
+        "Drag handle on iOS/Android is branded (green tinted) and sits on the glass",
+        "Paywall uses Thick glass variant; informational sheets use Regular"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": "Pending. Depends on US-UX013 tokens."
+    },
+    {
+      "id": "US-UX019",
+      "title": "Animated number counters, emoji transitions, and micro-interactions",
+      "description": "As a user, I want stats (streak count, consistency %, check-ins total) to animate in when they change, and emoji/icon state transitions to feel alive so the app rewards me for engaging.",
+      "acceptanceCriteria": [
+        "iOS: contentTransition(.numericText()) on all numeric stat labels, symbolEffect(.bounce/.pulse) on status icons that change state",
+        "Android: AnimatedContent for numeric stats with slide+fade transition, Crossfade for mood/status icon changes",
+        "Streak badges get a sparkle animation on milestone thresholds (7, 30, 100 days)",
+        "Check-in success celebration adds a confetti-like particle burst on top of the existing CelebrationOverlay"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": "Pending."
+    },
+    {
+      "id": "US-UX020",
+      "title": "Premium dark mode with stratified glass and deep-black canvas",
+      "description": "As a user in dark mode, I want a distinctly premium look — deep black base, subtly tinted glass layers with green undertones, and brighter specular highlights — rather than a simple inversion.",
+      "acceptanceCriteria": [
+        "iOS: dark surfaces use true near-black (#0B1410) with stratified glass layers (thick/regular/thin variants all readable)",
+        "Android: Theme.kt dark color scheme + Glass.kt dark tint validated across every screen — no muddy gray bleed",
+        "Hairline strokes brighten in dark mode; shadows deepen; orb colors in AmbientBackground dim by ~30% to avoid eye strain",
+        "Contrast passes WCAG AA on every glass surface in both modes"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": "Pending. Tokens already define dark-mode treatment (DailyOKGlass.TintDark/StrokeDark, surfaceDark*), but per-screen verification is outstanding."
+    },
+    {
+      "id": "US-UX021",
+      "title": "Haptic + sound language for check-ins, navigation, and errors",
+      "description": "As a user, I want consistent, subtle haptics (and optionally a quiet audio cue) that reinforce success, selection, and error states across both platforms so the app feels tactile and alive.",
+      "acceptanceCriteria": [
+        "Haptic tokens defined per-platform: selection (nav tap), light (button press), medium (primary action), success notification (check-in complete), error notification (check-in failed)",
+        "Applied consistently across FloatingBottomNav, check-in button, destructive confirmations, and paywall CTA",
+        "User-facing toggle in Settings to disable non-essential haptics",
+        "Optional subtle sound cue (off by default) on check-in success"
+      ],
+      "priority": 38,
+      "passes": false,
+      "notes": "Pending. FloatingBottomNav and ReceiverHome already fire haptics; standardization + settings toggle is the remaining work."
     }
   ]
 }
