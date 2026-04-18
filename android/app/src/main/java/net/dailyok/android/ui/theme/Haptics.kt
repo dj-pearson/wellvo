@@ -4,11 +4,19 @@ import android.os.Build
 import android.view.HapticFeedbackConstants
 import android.view.View
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
+
+/**
+ * CompositionLocal-backed preference for non-essential haptics. The root of
+ * the UI tree should `CompositionLocalProvider(LocalDailyOKHapticsEnabled provides ...)`
+ * with the value read from SecureStorage so every call to [rememberDailyOKHaptics]
+ * respects the user's preference without each screen needing to plumb it manually.
+ */
+val LocalDailyOKHapticsEnabled = compositionLocalOf { true }
 
 /**
  * Daily OK haptic vocabulary mirroring the iOS counterpart.
@@ -71,7 +79,9 @@ class DailyOKHaptics internal constructor(
 }
 
 @Composable
-fun rememberDailyOKHaptics(nonEssentialEnabled: Boolean = true): DailyOKHaptics {
+fun rememberDailyOKHaptics(
+    nonEssentialEnabled: Boolean = LocalDailyOKHapticsEnabled.current
+): DailyOKHaptics {
     val compose = LocalHapticFeedback.current
     val view = LocalView.current
     return DailyOKHaptics(compose, view, nonEssentialEnabled)

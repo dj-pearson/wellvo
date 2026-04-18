@@ -109,6 +109,7 @@ struct FamilyView: View {
             }
             .alert("Transfer Ownership", isPresented: $showTransferAlert) {
                 Button("Transfer", role: .destructive) {
+                    DailyOKHaptics.warning()
                     if let target = transferTarget {
                         Task { await transferOwnership(to: target) }
                     }
@@ -119,6 +120,7 @@ struct FamilyView: View {
             }
             .alert("Remove Member", isPresented: $showRemoveConfirmation) {
                 Button("Remove", role: .destructive) {
+                    DailyOKHaptics.warning()
                     if let member = memberToRemove {
                         Task { await removeMember(member) }
                     }

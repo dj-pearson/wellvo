@@ -106,6 +106,18 @@ struct SettingsView: View {
                     }
                 }
 
+                // Feedback
+                Section {
+                    Toggle(isOn: $appState.hapticsEnabled) {
+                        Label("Haptic Feedback", systemImage: "waveform.path")
+                    }
+                    .tint(DailyOKColor.green500)
+                } header: {
+                    Text("Feedback")
+                } footer: {
+                    Text("Subtle taps on navigation and buttons. Success and error notifications always fire.")
+                }
+
                 // Data & Privacy
                 Section("Data & Privacy") {
                     Button {
@@ -162,6 +174,7 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .alert("Sign Out", isPresented: $showSignOutConfirmation) {
                 Button("Sign Out", role: .destructive) {
+                    DailyOKHaptics.warning()
                     Task { await authViewModel.signOut() }
                 }
                 Button("Cancel", role: .cancel) {}
@@ -170,6 +183,7 @@ struct SettingsView: View {
             }
             .alert("Delete Account", isPresented: $showDeleteConfirmation) {
                 Button("Delete Everything", role: .destructive) {
+                    DailyOKHaptics.warning()
                     Task { await deleteAccount() }
                 }
                 Button("Cancel", role: .cancel) {}
@@ -185,6 +199,7 @@ struct SettingsView: View {
                         Label("Share Exported Data", systemImage: "square.and.arrow.up")
                     }
                     .presentationDetents([.medium])
+                    .dailyokGlassSheet(style: .regular)
                 }
             }
         }

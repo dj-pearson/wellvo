@@ -57,6 +57,14 @@ class SecureStorage @Inject constructor(
         return prefs.getLong(key, default)
     }
 
+    fun saveBoolean(key: String, value: Boolean) {
+        prefs.edit().putBoolean(key, value).apply()
+    }
+
+    fun loadBoolean(key: String, default: Boolean = false): Boolean {
+        return prefs.getBoolean(key, default)
+    }
+
     companion object Keys {
         const val AUTH_TOKEN = "auth_token"
         const val REFRESH_TOKEN = "refresh_token"
@@ -65,5 +73,6 @@ class SecureStorage @Inject constructor(
         const val PUSH_TOKEN = "push_token"
         const val AUTH_FAILED_ATTEMPTS = "auth_failed_attempts"
         const val AUTH_LOCKOUT_UNTIL = "auth_lockout_until"
+        const val HAPTICS_ENABLED = "dailyok.haptics.enabled"
     }
 }

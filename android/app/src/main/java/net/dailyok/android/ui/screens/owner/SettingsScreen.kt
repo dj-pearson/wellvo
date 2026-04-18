@@ -115,14 +115,19 @@ fun SettingsScreen(
         }
     }
 
+    val haptics = net.dailyok.android.ui.theme.rememberDailyOKHaptics()
+
     // Sign out confirmation dialog
     if (showSignOutConfirmation) {
-        AlertDialog(
+        net.dailyok.android.ui.components.GlassAlertDialog(
             onDismissRequest = { viewModel.dismissSignOutConfirmation() },
             title = { Text("Sign Out") },
             text = { Text("Are you sure you want to sign out?") },
             confirmButton = {
-                TextButton(onClick = { viewModel.confirmSignOut() }) {
+                TextButton(onClick = {
+                    haptics.warning()
+                    viewModel.confirmSignOut()
+                }) {
                     Text("Sign Out", color = MaterialTheme.colorScheme.error)
                 }
             },
@@ -136,7 +141,7 @@ fun SettingsScreen(
 
     // Delete account confirmation dialog
     if (showDeleteConfirmation) {
-        AlertDialog(
+        net.dailyok.android.ui.components.GlassAlertDialog(
             onDismissRequest = { viewModel.dismissDeleteConfirmation() },
             title = { Text("Delete Account") },
             text = {
@@ -146,7 +151,10 @@ fun SettingsScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.confirmDeleteAccount() }) {
+                TextButton(onClick = {
+                    haptics.warning()
+                    viewModel.confirmDeleteAccount()
+                }) {
                     Text("Delete Everything", color = MaterialTheme.colorScheme.error)
                 }
             },
@@ -328,6 +336,34 @@ fun SettingsScreen(
                         selectedDays = retentionDays,
                         onDaysSelected = { viewModel.updateRetentionDays(it) }
                     )
+                }
+
+                // Feedback Section (haptics toggle)
+                val hapticsEnabled by viewModel.hapticsEnabled.collectAsState()
+                SettingsSectionCard(title = "Feedback") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Haptic Feedback",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Subtle taps on navigation and buttons. Success and error notifications always fire.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        androidx.compose.material3.Switch(
+                            checked = hapticsEnabled,
+                            onCheckedChange = { viewModel.setHapticsEnabled(it) }
+                        )
+                    }
                 }
 
                 // About Section

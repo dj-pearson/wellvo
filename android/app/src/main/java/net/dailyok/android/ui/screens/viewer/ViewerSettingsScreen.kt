@@ -91,12 +91,16 @@ fun ViewerSettingsScreen(
     }
 
     if (showSignOutConfirmation) {
-        AlertDialog(
+        val dailyokHaptics = net.dailyok.android.ui.theme.rememberDailyOKHaptics()
+        net.dailyok.android.ui.components.GlassAlertDialog(
             onDismissRequest = { viewModel.dismissSignOutConfirmation() },
             title = { Text("Sign Out") },
             text = { Text("Are you sure you want to sign out?") },
             confirmButton = {
-                TextButton(onClick = { viewModel.confirmSignOut() }) {
+                TextButton(onClick = {
+                    dailyokHaptics.warning()
+                    viewModel.confirmSignOut()
+                }) {
                     Text("Sign Out", color = MaterialTheme.colorScheme.error)
                 }
             },

@@ -15,6 +15,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.rotate
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.random.Random
+import net.dailyok.android.ui.theme.DailyOKGold
+import net.dailyok.android.ui.theme.DailyOKGoldLight
+import net.dailyok.android.ui.theme.DailyOKGreen500
+import net.dailyok.android.ui.theme.DailyOKGreen600
+import net.dailyok.android.ui.theme.DailyOKIndigo
+import net.dailyok.android.ui.theme.DailyOKTeal
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
@@ -35,7 +49,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import net.dailyok.android.ui.theme.DailyOKGreen400
-import net.dailyok.android.ui.theme.DailyOKGreen500
 import net.dailyok.android.ui.theme.DailyOKMotion
 
 /**
@@ -63,11 +76,16 @@ fun CelebrationOverlay(
 
     // Particle ring expansion (0f..1f). Only animated when motion is enabled.
     val ringProgress = remember { Animatable(0f) }
+    val confettiProgress = remember { Animatable(0f) }
+    val confetti = remember(visible) {
+        if (visible && !reduceMotion) buildConfetti(count = 36) else emptyList()
+    }
 
     LaunchedEffect(visible) {
         if (visible) {
             if (!reduceMotion) {
                 ringProgress.snapTo(0f)
+                confettiProgress.snapTo(0f)
                 ringProgress.animateTo(
                     targetValue = 1f,
                     animationSpec = tween(
@@ -78,6 +96,18 @@ fun CelebrationOverlay(
             }
             delay(400)
             onComplete()
+        }
+    }
+
+    LaunchedEffect(visible) {
+        if (visible && !reduceMotion) {
+            confettiProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = 1100,
+                    easing = LinearOutSlowInEasing
+                )
+            )
         }
     }
 
@@ -115,13 +145,31 @@ fun CelebrationOverlay(
                             style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4f)
                         )
                     }
+
+                    // Confetti burst layered behind the checkmark
+                    val cProgress = confettiProgress.value
+                    Canvas(modifier = Modifier.size(360.dp)) {
+                        val centerX = size.width / 2f
+                        val centerY = size.height / 2f
+                        confetti.forEach { piece ->
+                            val travelled = piece.distance * cProgress
+                            val gx = centerX + cos(piece.angle) * travelled
+                            val gy = centerY + sin(piece.angle) * travelled + cProgress * cProgress * 60f
+                            val fade = (1f - cProgress * 0.9f).coerceIn(0f, 1f)
+                            rotate(degrees = piece.rotation * cProgress, pivot = Offset(gx, gy)) {
+                                drawConfettiShape(piece, Offset(gx, gy), fade)
+                            }
+                        }
+                    }
                 }
 
                 Box(
                     modifier = Modifier
                         .size(96.dp)
                         .clip(CircleShape)
-                        .background(DailyOKGreen500),
+                        .background(
+                            Brush.verticalGradient(listOf(DailyOKGreen500, DailyOKGreen600))
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -132,6 +180,66 @@ fun CelebrationOverlay(
                     )
                 }
             }
+        }
+    }
+}
+
+private enum class ConfettiShapeKind { RECT, CIRCLE, TRIANGLE }
+
+private data class ConfettiPiece(
+    val angle: Float,
+    val distance: Float,
+    val rotation: Float,
+    val color: Color,
+    val size: Float,
+    val shape: ConfettiShapeKind
+)
+
+private fun buildConfetti(count: Int): List<ConfettiPiece> {
+    val palette = listOf(
+        DailyOKGreen400, DailyOKGreen500, DailyOKTeal, DailyOKGold, DailyOKGoldLight, DailyOKIndigo
+    )
+    val shapes = ConfettiShapeKind.values()
+    return (0 until count).map { i ->
+        val baseAngle = (i.toFloat() / count) * (Math.PI * 2).toFloat()
+        val jitter = Random.nextFloat() * 0.5f - 0.25f
+        ConfettiPiece(
+            angle = baseAngle + jitter,
+            distance = Random.nextFloat() * 90f + 110f,
+            rotation = (Random.nextFloat() * 540f + 180f) * if (Random.nextBoolean()) 1f else -1f,
+            color = palette[i % palette.size],
+            size = Random.nextFloat() * 6f + 6f,
+            shape = shapes[i % shapes.size]
+        )
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawConfettiShape(
+    piece: ConfettiPiece,
+    center: Offset,
+    fade: Float
+) {
+    val color = piece.color.copy(alpha = fade)
+    val half = piece.size / 2f
+    when (piece.shape) {
+        ConfettiShapeKind.RECT -> drawRect(
+            color = color,
+            topLeft = Offset(center.x - half, center.y - half),
+            size = Size(piece.size, piece.size)
+        )
+        ConfettiShapeKind.CIRCLE -> drawCircle(
+            color = color,
+            radius = half,
+            center = center
+        )
+        ConfettiShapeKind.TRIANGLE -> {
+            val path = Path().apply {
+                moveTo(center.x, center.y - half)
+                lineTo(center.x + half, center.y + half)
+                lineTo(center.x - half, center.y + half)
+                close()
+            }
+            drawPath(path = path, color = color)
         }
     }
 }

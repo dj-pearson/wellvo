@@ -152,6 +152,7 @@ struct HistoryView: View {
             .sheet(isPresented: $showPDFShare) {
                 if let data = pdfData {
                     ShareSheet(activityItems: [data])
+                        .dailyokGlassSheet(style: .regular)
                 }
             }
         }

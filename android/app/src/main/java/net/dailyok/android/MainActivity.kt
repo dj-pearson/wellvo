@@ -173,20 +173,27 @@ fun DailyOKApp(
         )
     }
 
-    Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
-        DailyOKNavHost(
-            navController = navController,
-            authState = authState,
-            userRole = userRole,
-            isOnboarding = isNewUser && !hasAutoJoin && deepLinkInviteToken == null,
-            pendingInviteToken = effectiveInviteToken,
-            showPairingCode = false,
-            notificationContext = notificationContext,
-            onNotificationHandled = {
-                onNotificationHandled()
-                onDeepLinkHandled()
-            },
-            modifier = Modifier.padding(innerPadding)
-        )
+    val appPrefs: net.dailyok.android.viewmodels.AppPreferencesViewModel = hiltViewModel()
+    val hapticsEnabled by appPrefs.hapticsEnabled.collectAsState()
+
+    androidx.compose.runtime.CompositionLocalProvider(
+        net.dailyok.android.ui.theme.LocalDailyOKHapticsEnabled provides hapticsEnabled
+    ) {
+        Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
+            DailyOKNavHost(
+                navController = navController,
+                authState = authState,
+                userRole = userRole,
+                isOnboarding = isNewUser && !hasAutoJoin && deepLinkInviteToken == null,
+                pendingInviteToken = effectiveInviteToken,
+                showPairingCode = false,
+                notificationContext = notificationContext,
+                onNotificationHandled = {
+                    onNotificationHandled()
+                    onDeepLinkHandled()
+                },
+                modifier = Modifier.padding(innerPadding)
+            )
+        }
     }
 }

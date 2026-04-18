@@ -12,8 +12,9 @@ import UIKit
 /// - **warning**: something needs attention (missed check-in, offline)
 /// - **error**: user-visible failure (invalid code, network error)
 enum DailyOKHaptics {
-    /// Respect the user's "Reduce haptics" setting stored in `AppState` / defaults.
-    /// When disabled, only success/warning/error still fire (those convey outcomes).
+    /// Respect the user's "Haptic Feedback" setting in Settings. Defaults to on.
+    /// When disabled, only success/warning/error still fire (those convey outcomes
+    /// the user needs to know about regardless of preference).
     static var nonEssentialEnabled: Bool {
         UserDefaults.standard.object(forKey: "dailyok.haptics.enabled") as? Bool ?? true
     }

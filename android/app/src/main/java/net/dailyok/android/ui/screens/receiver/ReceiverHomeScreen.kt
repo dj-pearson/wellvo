@@ -266,12 +266,14 @@ fun ReceiverHomeScreen(
     }
 
     if (showSignOutConfirmation) {
-        AlertDialog(
+        val dailyokHaptics = net.dailyok.android.ui.theme.rememberDailyOKHaptics()
+        net.dailyok.android.ui.components.GlassAlertDialog(
             onDismissRequest = { showSignOutConfirmation = false },
             title = { Text("Sign Out") },
             text = { Text("You'll stop receiving check-in notifications until you sign back in.") },
             confirmButton = {
                 TextButton(onClick = {
+                    dailyokHaptics.warning()
                     showSignOutConfirmation = false
                     authViewModel.signOut()
                 }) { Text("Sign Out") }

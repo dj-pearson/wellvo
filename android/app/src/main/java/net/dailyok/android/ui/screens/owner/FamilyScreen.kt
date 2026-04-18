@@ -202,9 +202,11 @@ fun FamilyScreen(
         }
     }
 
+    val dailyokHaptics = net.dailyok.android.ui.theme.rememberDailyOKHaptics()
+
     // Remove member confirmation dialog
     memberToRemove?.let { member ->
-        AlertDialog(
+        net.dailyok.android.ui.components.GlassAlertDialog(
             onDismissRequest = { memberToRemove = null },
             title = { Text("Remove Member") },
             text = {
@@ -213,7 +215,7 @@ fun FamilyScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        dailyokHaptics.warning()
                         viewModel.removeMember(member.id, member.user?.displayName ?: "Member")
                         memberToRemove = null
                     }
@@ -231,7 +233,7 @@ fun FamilyScreen(
 
     // Transfer ownership confirmation dialog
     memberToTransfer?.let { member ->
-        AlertDialog(
+        net.dailyok.android.ui.components.GlassAlertDialog(
             onDismissRequest = { memberToTransfer = null },
             title = { Text("Transfer Ownership") },
             text = {
@@ -240,6 +242,7 @@ fun FamilyScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        dailyokHaptics.warning()
                         viewModel.transferOwnership(member.id, member.user?.displayName ?: "Member")
                         memberToTransfer = null
                     }

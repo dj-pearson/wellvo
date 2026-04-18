@@ -12,13 +12,17 @@ import net.dailyok.android.network.DailyOKError
 import net.dailyok.android.services.AnalyticsService
 import net.dailyok.android.services.AuthService
 import net.dailyok.android.services.FamilyService
+import net.dailyok.android.util.HapticsPreference
+import net.dailyok.android.util.SecureStorage
 import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val authService: AuthService,
     private val familyService: FamilyService,
-    private val analyticsService: AnalyticsService
+    private val analyticsService: AnalyticsService,
+    private val secureStorage: SecureStorage,
+    private val hapticsPreference: HapticsPreference
 ) : ViewModel() {
 
     private val _user = MutableStateFlow<AppUser?>(null)
@@ -53,6 +57,12 @@ class SettingsViewModel @Inject constructor(
 
     private val _showSignOutConfirmation = MutableStateFlow(false)
     val showSignOutConfirmation: StateFlow<Boolean> = _showSignOutConfirmation.asStateFlow()
+
+    val hapticsEnabled: StateFlow<Boolean> = hapticsPreference.enabled
+
+    fun setHapticsEnabled(enabled: Boolean) {
+        hapticsPreference.setEnabled(enabled)
+    }
 
     private var familyId: String? = null
 
