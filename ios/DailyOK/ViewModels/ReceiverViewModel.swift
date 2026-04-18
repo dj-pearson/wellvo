@@ -45,6 +45,9 @@ final class ReceiverViewModel: ObservableObject {
             familyId: family.id,
             timezone: tzRow?.timezone
         )
+        #if DEBUG
+        print("[ReceiverViewModel] loadStatus: tz=\(tzRow?.timezone ?? "nil") todayCheckIn=\(todayCheckIn?.checkedInAt.description ?? "nil")")
+        #endif
         lastCheckIn = todayCheckIn
         hasCheckedInToday = (todayCheckIn != nil)
 

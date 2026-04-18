@@ -106,6 +106,10 @@ class ReceiverViewModel @Inject constructor(
                     member.familyId,
                     settings?.timezone
                 )
+                android.util.Log.d(
+                    "ReceiverViewModel",
+                    "loadReceiverState: tz=${settings?.timezone} todayCheckIn=${todayCheckIn?.checkedInAt}"
+                )
 
                 val pendingRequest = if (todayCheckIn == null) {
                     checkInService.getTodayPendingRequest(userId, member.familyId)

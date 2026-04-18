@@ -142,7 +142,19 @@ actor CheckInService {
             .execute()
             .value
 
-        return checkIns.first
+        // Defensive client-side verification: even if the server returned a
+        // row, trust it only if its timestamp genuinely falls within today's
+        // local-day window. This catches decoding quirks, stray rows with
+        // wall-clock drift, and stale values the view model might still hold
+        // onto from a previous sign-in.
+        guard let candidate = checkIns.first else { return nil }
+        if candidate.checkedInAt < startOfDay || candidate.checkedInAt >= startOfTomorrow {
+            #if DEBUG
+            print("[CheckInService] Discarding out-of-window check-in: \(candidate.checkedInAt) vs [\(startOfDay), \(startOfTomorrow))")
+            #endif
+            return nil
+        }
+        return candidate
     }
 
     /// Fetch check-in history for a receiver

@@ -120,14 +120,28 @@ class CheckInService @Inject constructor(
             val startOfDay = ZonedDateTime.now(zoneId).toLocalDate().atStartOfDay(zoneId).toInstant()
             val endOfDay = startOfDay.plus(Duration.ofDays(1))
             val iso = DateTimeFormatter.ISO_INSTANT
-            return supabase.postgrest.from("checkins")
+            val candidate = supabase.postgrest.from("checkins")
                 .select {
                     filter { eq("receiver_id", receiverId) }
                     filter { eq("family_id", familyId) }
                     filter { gte("checked_in_at", iso.format(startOfDay)) }
                     filter { lt("checked_in_at", iso.format(endOfDay)) }
                 }
-                .decodeSingleOrNull<CheckIn>()
+                .decodeSingleOrNull<CheckIn>() ?: return null
+
+            // Defensive client-side verification — reject rows whose timestamp
+            // doesn't actually fall within today's local-day window. Protects
+            // against stray rows with server-side clock drift or any filter
+            // quirk that might slip past the gte/lt guards above.
+            if (!isWithinLocalToday(candidate.checkedInAt, timezone)) {
+                android.util.Log.w(
+                    "CheckInService",
+                    "Discarding out-of-window check-in: ${candidate.checkedInAt} " +
+                            "(window ${iso.format(startOfDay)} .. ${iso.format(endOfDay)})"
+                )
+                return null
+            }
+            return candidate
         } catch (e: Exception) {
             throw DailyOKError.Unknown(e.message ?: "Failed to check today's status.")
         }
