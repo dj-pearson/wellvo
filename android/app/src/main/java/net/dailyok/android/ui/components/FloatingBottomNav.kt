@@ -32,9 +32,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.semantics.contentDescription
+import net.dailyok.android.ui.theme.rememberDailyOKHaptics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -65,7 +64,7 @@ fun FloatingBottomNav(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val haptics = LocalHapticFeedback.current
+    val haptics = rememberDailyOKHaptics()
 
     Box(
         modifier = modifier
@@ -90,7 +89,7 @@ fun FloatingBottomNav(
                     item = item,
                     selected = index == selectedIndex,
                     onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        haptics.selection()
                         onSelect(index)
                     },
                 )

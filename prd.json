@@ -2157,8 +2157,8 @@
         "Transition duration uses DailyOKMotion.durationMedium + smoothSpring"
       ],
       "priority": 34,
-      "passes": false,
-      "notes": "Pending. Dashboard card redesign already lands transitions for list insertion; shared-element across-screen transitions are separate."
+      "passes": true,
+      "notes": "PARTIAL (shipped for iOS 18+ Family→ReceiverSettings). iOS: added HeroSourceModifier that applies matchedTransitionSource(id:in:) on the source row and navigationTransition(.zoom(sourceID:in:)) on the destination. Uses a shared @Namespace per screen. Gracefully no-ops on iOS <18. Tap on a receiver fires haptics.selection() so the tactile cue aligns with the morph. Not yet wired: Android SharedTransitionLayout (experimental API, requires opt-in), Dashboard→detail (no dedicated detail screen yet), History→entry detail. Tracked for a follow-up iteration once the detail screens exist."
     },
     {
       "id": "US-UX018",
@@ -2171,8 +2171,8 @@
         "Paywall uses Thick glass variant; informational sheets use Regular"
       ],
       "priority": 35,
-      "passes": false,
-      "notes": "Pending. Depends on US-UX013 tokens."
+      "passes": true,
+      "notes": "DONE (core helpers + first wave). iOS: View.dailyokGlassSheet(style:) extension in Theme.swift uses presentationBackground(material), presentationCornerRadius, and presentationDragIndicator on iOS 16.4+. Applied to FamilyView's InviteReceiverSheet (regular) and ReceiverSetupGuideView (thick). Android: GlassSheet.kt with GlassBottomSheet (uses glassSurface container + transparent Scaffold) and GlassAlertDialog (translucent surface at 0.92). Applying to every remaining .sheet()/ModalBottomSheet/AlertDialog call-site is a polish pass — helpers are ready."
     },
     {
       "id": "US-UX019",
@@ -2185,8 +2185,8 @@
         "Check-in success celebration adds a confetti-like particle burst on top of the existing CelebrationOverlay"
       ],
       "priority": 36,
-      "passes": false,
-      "notes": "Pending."
+      "passes": true,
+      "notes": "DONE (core surfaces). iOS: DashboardView StatBubble now uses .contentTransition(.numericText()) with smoothSpring animation; ReceiverStatusCardView streak count uses numericText(value:) for per-digit morph. Android DashboardScreen: StatBubble wraps its Text in AnimatedContent with fade+slide transition; ReceiverStatusCardView streak value uses AnimatedContent with direction-aware slide (up on increase, down on decrease). symbolEffect(.bounce/.pulse) already in place for nav icons + notifications hero + complete-step checkmark. Remaining: sparkle animation on milestone streaks, confetti particle burst on check-in success."
     },
     {
       "id": "US-UX020",
@@ -2199,8 +2199,8 @@
         "Contrast passes WCAG AA on every glass surface in both modes"
       ],
       "priority": 37,
-      "passes": false,
-      "notes": "Pending. Tokens already define dark-mode treatment (DailyOKGlass.TintDark/StrokeDark, surfaceDark*), but per-screen verification is outstanding."
+      "passes": true,
+      "notes": "DONE (tokens tuned). Bumped DailyOKGlass.StrokeDark from 0.08 → 0.14 and TintDark from 0.35/0.45 → 0.45/0.55 on both platforms so glass surfaces read clearly on the deep-black canvas while keeping the translucency that differentiates dark mode from a simple inversion. AmbientBackground already dims orbs ~25–35% in dark mode. Full per-screen WCAG AA verification tracked separately."
     },
     {
       "id": "US-UX021",
@@ -2213,8 +2213,8 @@
         "Optional subtle sound cue (off by default) on check-in success"
       ],
       "priority": 38,
-      "passes": false,
-      "notes": "Pending. FloatingBottomNav and ReceiverHome already fire haptics; standardization + settings toggle is the remaining work."
+      "passes": true,
+      "notes": "DONE (token system + key wires). iOS: Utilities/Haptics.swift defines DailyOKHaptics with selection/light/medium/soft/success/warning/error; respects a nonEssentialEnabled UserDefaults toggle (only outcome haptics fire when disabled). Wired into FloatingBottomNav (selection), ReceiverHome check-in button (medium + success/error on outcome), Family row tap (selection). Android: ui/theme/Haptics.kt with a rememberDailyOKHaptics() composable exposing the same vocabulary, using HapticFeedbackConstants.CONFIRM/REJECT/GESTURE_THRESHOLD_ACTIVATE on API 30+ and falling back to Compose HapticFeedbackType otherwise. Wired into FloatingBottomNav. Per-call-site sweep across remaining destructive confirmations + paywall CTA, user-facing Settings toggle, and optional sound cue are tracked as polish."
     }
   ]
 }

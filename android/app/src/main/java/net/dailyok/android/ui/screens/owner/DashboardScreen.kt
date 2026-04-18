@@ -397,12 +397,29 @@ private fun StatBubble(
         modifier = modifier.semantics { contentDescription = "$label: $value" },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = color
-        )
+        androidx.compose.animation.AnimatedContent(
+            targetState = value,
+            transitionSpec = {
+                (androidx.compose.animation.fadeIn(
+                    animationSpec = androidx.compose.animation.core.tween(220)
+                ) + androidx.compose.animation.slideInVertically(
+                    animationSpec = androidx.compose.animation.core.tween(260)
+                ) { it / 2 }) togetherWith
+                    (androidx.compose.animation.fadeOut(
+                        animationSpec = androidx.compose.animation.core.tween(180)
+                    ) + androidx.compose.animation.slideOutVertically(
+                        animationSpec = androidx.compose.animation.core.tween(220)
+                    ) { -it / 2 })
+            },
+            label = "statValue"
+        ) { animatedValue ->
+            Text(
+                text = animatedValue,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+        }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
@@ -739,14 +756,36 @@ private fun ReceiverStatusCardView(
                     }
                 }
 
-                // Streak
+                // Streak (animated counter)
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "${card.streak}",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = StatusGreen
-                    )
+                    androidx.compose.animation.AnimatedContent(
+                        targetState = card.streak,
+                        transitionSpec = {
+                            if (targetState > initialState) {
+                                (androidx.compose.animation.slideInVertically(
+                                    animationSpec = androidx.compose.animation.core.tween(260)
+                                ) { it / 2 } + androidx.compose.animation.fadeIn()) togetherWith
+                                    (androidx.compose.animation.slideOutVertically(
+                                        animationSpec = androidx.compose.animation.core.tween(220)
+                                    ) { -it / 2 } + androidx.compose.animation.fadeOut())
+                            } else {
+                                (androidx.compose.animation.slideInVertically(
+                                    animationSpec = androidx.compose.animation.core.tween(260)
+                                ) { -it / 2 } + androidx.compose.animation.fadeIn()) togetherWith
+                                    (androidx.compose.animation.slideOutVertically(
+                                        animationSpec = androidx.compose.animation.core.tween(220)
+                                    ) { it / 2 } + androidx.compose.animation.fadeOut())
+                            }
+                        },
+                        label = "streak"
+                    ) { streak ->
+                        Text(
+                            text = "$streak",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = StatusGreen
+                        )
+                    }
                     Text(
                         text = stringResource(R.string.dashboard_day_streak),
                         style = MaterialTheme.typography.labelSmall,

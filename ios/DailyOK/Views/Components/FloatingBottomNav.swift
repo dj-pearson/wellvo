@@ -31,8 +31,7 @@ struct FloatingBottomNav: View {
                 )
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    let feedback = UIImpactFeedbackGenerator(style: .soft)
-                    feedback.impactOccurred()
+                    DailyOKHaptics.selection()
                     withAnimation(DailyOKMotion.smoothSpring) {
                         selectedIndex = index
                     }

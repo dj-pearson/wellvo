@@ -97,11 +97,11 @@ enum DailyOKGlass {
 
     /// Hairline stroke used to catch ambient light on glass surfaces.
     static let strokeLight = Color.white.opacity(0.45)
-    static let strokeDark = Color.white.opacity(0.08)
+    static let strokeDark = Color.white.opacity(0.14)
 
     /// Subtle tint layered over the blur to keep brand presence.
     static let tintLight = DailyOKColor.green50.opacity(0.35)
-    static let tintDark = DailyOKColor.green900.opacity(0.35)
+    static let tintDark = DailyOKColor.green900.opacity(0.45)
 }
 
 /// Glass depth variants — each maps to a SwiftUI material.
@@ -280,4 +280,28 @@ struct PressableStyle: ButtonStyle {
 
 extension ButtonStyle where Self == PressableStyle {
     static var pressable: PressableStyle { PressableStyle() }
+}
+
+// MARK: - Glass sheet presentation
+
+extension View {
+    /// Apply branded glass presentation to a sheet: translucent material background,
+    /// branded drag handle, consistent rounded corners.
+    ///
+    /// Requires iOS 16.4+ for `.presentationBackground`. On older iOS versions
+    /// falls back to the system default.
+    @ViewBuilder
+    func dailyokGlassSheet(
+        style: DailyOKGlassStyle = .regular,
+        cornerRadius: CGFloat = DailyOKGlass.radiusXL
+    ) -> some View {
+        if #available(iOS 16.4, *) {
+            self
+                .presentationBackground(style.material)
+                .presentationCornerRadius(cornerRadius)
+                .presentationDragIndicator(.visible)
+        } else {
+            self
+        }
+    }
 }

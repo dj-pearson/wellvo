@@ -30,11 +30,11 @@ object DailyOKGlass {
 
     /** Hairline stroke used to catch ambient light on glass edges. */
     val StrokeLight: Color = Color.White.copy(alpha = 0.55f)
-    val StrokeDark: Color = Color.White.copy(alpha = 0.08f)
+    val StrokeDark: Color = Color.White.copy(alpha = 0.14f)
 
     /** Subtle brand tints layered over translucent surfaces. */
     val TintLight: Color = DailyOKGreen50.copy(alpha = 0.55f)
-    val TintDark: Color = DailyOKGreen900.copy(alpha = 0.45f)
+    val TintDark: Color = DailyOKGreen900.copy(alpha = 0.55f)
 }
 
 /** Glass depth variants — mirrors the iOS `DailyOKGlassStyle` enum. */

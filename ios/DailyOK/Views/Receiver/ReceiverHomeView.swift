@@ -15,9 +15,6 @@ struct ReceiverHomeView: View {
     @ScaledMetric(relativeTo: .title) private var tapIconSize: CGFloat = 40
     @ScaledMetric(relativeTo: .title) private var tapTextSize: CGFloat = 28
 
-    private let hapticSuccess = UINotificationFeedbackGenerator()
-    private let hapticImpact = UIImpactFeedbackGenerator(style: .medium)
-
     private var isKidMode: Bool {
         viewModel.receiverMode == .kid
     }
@@ -145,12 +142,14 @@ struct ReceiverHomeView: View {
                 .dynamicTypeSize(...DynamicTypeSize.accessibility3)
 
             Button {
-                hapticImpact.impactOccurred()
+                DailyOKHaptics.medium()
                 Task {
                     await viewModel.performCheckIn()
                     if viewModel.hasCheckedInToday {
-                        hapticSuccess.notificationOccurred(.success)
+                        DailyOKHaptics.success()
                         animateCheckmark()
+                    } else if viewModel.errorMessage != nil {
+                        DailyOKHaptics.error()
                     }
                 }
             } label: {
