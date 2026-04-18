@@ -120,14 +120,28 @@ class CheckInService @Inject constructor(
             val startOfDay = ZonedDateTime.now(zoneId).toLocalDate().atStartOfDay(zoneId).toInstant()
             val endOfDay = startOfDay.plus(Duration.ofDays(1))
             val iso = DateTimeFormatter.ISO_INSTANT
+            val startISO = iso.format(startOfDay)
+            val endISO = iso.format(endOfDay)
+            android.util.Log.i(
+                "CheckInService",
+                "todayCheckInStatus query: receiver=$receiverId tz=${timezone ?: "device"} window=[$startISO, $endISO)"
+            )
+
             val candidate = supabase.postgrest.from("checkins")
                 .select {
                     filter { eq("receiver_id", receiverId) }
                     filter { eq("family_id", familyId) }
-                    filter { gte("checked_in_at", iso.format(startOfDay)) }
-                    filter { lt("checked_in_at", iso.format(endOfDay)) }
+                    filter { gte("checked_in_at", startISO) }
+                    filter { lt("checked_in_at", endISO) }
                 }
-                .decodeSingleOrNull<CheckIn>() ?: return null
+                .decodeSingleOrNull<CheckIn>()
+
+            android.util.Log.i(
+                "CheckInService",
+                "todayCheckInStatus returned: ${candidate?.checkedInAt ?: "null"}"
+            )
+
+            if (candidate == null) return null
 
             // Defensive client-side verification — reject rows whose timestamp
             // doesn't actually fall within today's local-day window. Protects
@@ -136,8 +150,7 @@ class CheckInService @Inject constructor(
             if (!isWithinLocalToday(candidate.checkedInAt, timezone)) {
                 android.util.Log.w(
                     "CheckInService",
-                    "Discarding out-of-window check-in: ${candidate.checkedInAt} " +
-                            "(window ${iso.format(startOfDay)} .. ${iso.format(endOfDay)})"
+                    "Discarding out-of-window check-in: ${candidate.checkedInAt} (window $startISO .. $endISO)"
                 )
                 return null
             }
