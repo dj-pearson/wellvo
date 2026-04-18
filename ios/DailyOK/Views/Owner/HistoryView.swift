@@ -39,11 +39,18 @@ struct HistoryView: View {
                                             .padding(.horizontal, 16)
                                             .padding(.vertical, 8)
                                             .background(
-                                                selectedReceiver?.id == member.id ? Color.green : Color(.tertiarySystemFill)
+                                                Group {
+                                                    if selectedReceiver?.id == member.id {
+                                                        Capsule()
+                                                            .fill(LinearGradient(colors: [DailyOKColor.green500, DailyOKColor.green600], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                                    } else {
+                                                        Capsule().fill(.thinMaterial)
+                                                    }
+                                                }
                                             )
                                             .foregroundStyle(selectedReceiver?.id == member.id ? .white : .primary)
-                                            .cornerRadius(20)
                                     }
+                                    .buttonStyle(.pressable)
                                     .accessibilityLabel("View history for \(member.user?.displayName ?? "Unknown")")
                                     .accessibilityAddTraits(selectedReceiver?.id == member.id ? .isSelected : [])
                                 }
@@ -79,20 +86,19 @@ struct HistoryView: View {
                         )
                         .padding(.horizontal)
 
-                        // Check-in list
+                        // Check-in list on a glass card
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Check-In Log")
                                 .font(.headline)
-                                .padding(.horizontal)
 
                             ForEach(checkIns) { checkIn in
                                 HStack {
                                     ZStack {
                                         Circle()
-                                            .fill(Color.green)
-                                            .frame(width: 10, height: 10)
+                                            .fill(LinearGradient(colors: [DailyOKColor.green400, DailyOKColor.green600], startPoint: .top, endPoint: .bottom))
+                                            .frame(width: 12, height: 12)
                                         Image(systemName: "checkmark")
-                                            .font(.system(size: 6, weight: .bold))
+                                            .font(.system(size: 7, weight: .bold))
                                             .foregroundStyle(.white)
                                     }
                                     .accessibilityHidden(true)
@@ -114,16 +120,20 @@ struct HistoryView: View {
 
                                     Spacer()
                                 }
-                                .padding(.horizontal)
                                 .padding(.vertical, 6)
                                 .accessibilityElement(children: .ignore)
                                 .accessibilityLabel("Check-in on \(checkIn.checkedInAt.formatted(date: .abbreviated, time: .shortened)), via \(checkIn.source.rawValue)\(checkIn.mood != nil ? ", mood: \(checkIn.mood!.rawValue)" : "")")
                             }
                         }
+                        .padding()
+                        .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level2)
+                        .padding(.horizontal)
                     }
                 }
                 .padding(.bottom)
             }
+            .scrollContentBackground(.hidden)
+            .background(AmbientBackground(tone: .neutral))
             .navigationTitle("History")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -142,6 +152,7 @@ struct HistoryView: View {
             .sheet(isPresented: $showPDFShare) {
                 if let data = pdfData {
                     ShareSheet(activityItems: [data])
+                        .dailyokGlassSheet(style: .regular)
                 }
             }
         }

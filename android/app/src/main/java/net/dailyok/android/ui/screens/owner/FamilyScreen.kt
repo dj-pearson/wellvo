@@ -132,14 +132,21 @@ fun FamilyScreen(
                 Icon(Icons.Default.PersonAdd, contentDescription = "Invite Receiver")
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = androidx.compose.ui.graphics.Color.Transparent
     ) { innerPadding ->
-        PullToRefreshBox(
-            isRefreshing = isLoading,
-            onRefresh = { viewModel.loadFamily(userId) },
+        Box(
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+        ) {
+        net.dailyok.android.ui.components.AmbientBackground(
+            tone = net.dailyok.android.ui.components.AmbientTone.Neutral
+        )
+        PullToRefreshBox(
+            isRefreshing = isLoading,
+            onRefresh = { viewModel.loadFamily(userId) },
+            modifier = Modifier.fillMaxSize()
         ) {
             when {
                 isLoading && members.isEmpty() && family == null -> {
@@ -192,11 +199,14 @@ fun FamilyScreen(
                 }
             }
         }
+        }
     }
+
+    val dailyokHaptics = net.dailyok.android.ui.theme.rememberDailyOKHaptics()
 
     // Remove member confirmation dialog
     memberToRemove?.let { member ->
-        AlertDialog(
+        net.dailyok.android.ui.components.GlassAlertDialog(
             onDismissRequest = { memberToRemove = null },
             title = { Text("Remove Member") },
             text = {
@@ -205,7 +215,7 @@ fun FamilyScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        dailyokHaptics.warning()
                         viewModel.removeMember(member.id, member.user?.displayName ?: "Member")
                         memberToRemove = null
                     }
@@ -223,7 +233,7 @@ fun FamilyScreen(
 
     // Transfer ownership confirmation dialog
     memberToTransfer?.let { member ->
-        AlertDialog(
+        net.dailyok.android.ui.components.GlassAlertDialog(
             onDismissRequest = { memberToTransfer = null },
             title = { Text("Transfer Ownership") },
             text = {
@@ -232,6 +242,7 @@ fun FamilyScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        dailyokHaptics.warning()
                         viewModel.transferOwnership(member.id, member.user?.displayName ?: "Member")
                         memberToTransfer = null
                     }

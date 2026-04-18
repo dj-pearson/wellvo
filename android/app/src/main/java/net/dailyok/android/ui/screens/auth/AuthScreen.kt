@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -52,6 +54,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import net.dailyok.android.R
+import net.dailyok.android.ui.components.AmbientBackground
+import net.dailyok.android.ui.components.AmbientTone
+import net.dailyok.android.ui.components.GlassCard
+import net.dailyok.android.ui.theme.DailyOKElevation
+import net.dailyok.android.ui.theme.DailyOKGlass
+import net.dailyok.android.ui.theme.DailyOKGlassStyle
 import net.dailyok.android.viewmodels.AuthUiState
 import net.dailyok.android.viewmodels.AuthViewModel
 
@@ -98,87 +106,101 @@ fun AuthScreen(
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.height(64.dp))
+    Box(modifier = Modifier.fillMaxSize()) {
+        AmbientBackground(tone = AmbientTone.Calm)
 
-        // Logo and tagline
-        Text(
-            text = stringResource(R.string.app_name),
-            style = MaterialTheme.typography.displayLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.tagline),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(40.dp))
-
-        // Rate limiting lockout message
-        state.authLockoutMessage?.let { lockoutMsg ->
-            Text(
-                text = lockoutMsg,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-            )
-        }
-
-        // Phone OTP — primary, prominent
-        PhoneAuthSection(
-            state = state,
-            viewModel = viewModel,
-            onDismissKeyboard = { keyboardController?.hide() }
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Divider
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            HorizontalDivider(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(72.dp))
+
+            // Logo and tagline
             Text(
-                text = stringResource(R.string.auth_or_divider),
-                modifier = Modifier.padding(horizontal = 16.dp),
-                style = MaterialTheme.typography.bodyMedium,
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.displayLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.tagline),
+                style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            HorizontalDivider(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(32.dp))
+
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                style = DailyOKGlassStyle.Regular,
+                shape = RoundedCornerShape(DailyOKGlass.RadiusLarge),
+                elevation = DailyOKElevation.level4,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // Rate limiting lockout message
+                    state.authLockoutMessage?.let { lockoutMsg ->
+                        Text(
+                            text = lockoutMsg,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                        )
+                    }
+
+                    // Phone OTP — primary, prominent
+                    PhoneAuthSection(
+                        state = state,
+                        viewModel = viewModel,
+                        onDismissKeyboard = { keyboardController?.hide() }
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Divider
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HorizontalDivider(modifier = Modifier.weight(1f))
+                        Text(
+                            text = stringResource(R.string.auth_or_divider),
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        HorizontalDivider(modifier = Modifier.weight(1f))
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Google Sign-In
+                    GoogleSignInButton(
+                        isLoading = state.isGoogleLoading,
+                        enabled = !state.isLoading && !state.isGoogleLoading,
+                        onClick = { viewModel.signInWithGoogle(context) }
+                    )
+
+                    if (state.isGoogleLoading && state.errorMessage != null) {
+                        ErrorText(state.errorMessage)
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Email/Password — expandable section
+                    EmailExpandableSection(
+                        state = state,
+                        viewModel = viewModel,
+                        onDismissKeyboard = { keyboardController?.hide() }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
         }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Google Sign-In
-        GoogleSignInButton(
-            isLoading = state.isGoogleLoading,
-            enabled = !state.isLoading && !state.isGoogleLoading,
-            onClick = { viewModel.signInWithGoogle(context) }
-        )
-
-        if (state.isGoogleLoading && state.errorMessage != null) {
-            ErrorText(state.errorMessage)
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Email/Password — expandable section
-        EmailExpandableSection(
-            state = state,
-            viewModel = viewModel,
-            onDismissKeyboard = { keyboardController?.hide() }
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 

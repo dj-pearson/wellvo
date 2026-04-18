@@ -84,9 +84,12 @@ struct ViewerSettingsView: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(AmbientBackground(tone: .neutral))
             .navigationTitle("Settings")
             .alert("Sign Out", isPresented: $showSignOutConfirmation) {
                 Button("Sign Out", role: .destructive) {
+                    DailyOKHaptics.warning()
                     Task { await authViewModel.signOut() }
                 }
                 Button("Cancel", role: .cancel) {}

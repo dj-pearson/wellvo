@@ -12,6 +12,7 @@ struct FamilyView: View {
     @State private var errorMessage: String?
     @State private var memberToRemove: FamilyMember?
     @State private var showRemoveConfirmation = false
+    @Namespace private var heroNamespace
 
     private var isOwner: Bool { appState.currentUserRole == .owner }
 
@@ -39,10 +40,17 @@ struct FamilyView: View {
                         NavigationLink {
                             if member.role == .receiver && isOwner {
                                 ReceiverSettingsView(member: member)
+                                    .modifier(HeroSourceModifier(id: member.id, namespace: heroNamespace, isDetail: true))
                             }
                         } label: {
                             MemberRow(member: member)
+                                .modifier(HeroSourceModifier(id: member.id, namespace: heroNamespace, isDetail: false))
                         }
+                        .simultaneousGesture(TapGesture().onEnded {
+                            if member.role == .receiver && isOwner {
+                                DailyOKHaptics.selection()
+                            }
+                        })
                         .disabled(!(member.role == .receiver && isOwner))
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             if isOwner && member.role != .owner {
@@ -90,14 +98,18 @@ struct FamilyView: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(AmbientBackground(tone: .neutral))
             .navigationTitle("Family")
             .refreshable { await loadData() }
             .task { await loadData() }
             .sheet(isPresented: $showInviteSheet) {
                 InviteReceiverSheet { await loadData() }
+                    .dailyokGlassSheet(style: .regular)
             }
             .alert("Transfer Ownership", isPresented: $showTransferAlert) {
                 Button("Transfer", role: .destructive) {
+                    DailyOKHaptics.warning()
                     if let target = transferTarget {
                         Task { await transferOwnership(to: target) }
                     }
@@ -108,6 +120,7 @@ struct FamilyView: View {
             }
             .alert("Remove Member", isPresented: $showRemoveConfirmation) {
                 Button("Remove", role: .destructive) {
+                    DailyOKHaptics.warning()
                     if let member = memberToRemove {
                         Task { await removeMember(member) }
                     }
@@ -175,6 +188,26 @@ struct FamilyView: View {
             await loadData()
         } catch {
             errorMessage = DailyOKError.network(error).localizedDescription
+        }
+    }
+}
+
+/// Attaches a matchedTransitionSource on iOS 18+ and a standard zoom navigation
+/// transition on the destination. Falls back to no-op on older iOS.
+private struct HeroSourceModifier: ViewModifier {
+    let id: UUID
+    let namespace: Namespace.ID
+    let isDetail: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            if isDetail {
+                content.navigationTransition(.zoom(sourceID: id, in: namespace))
+            } else {
+                content.matchedTransitionSource(id: id, in: namespace)
+            }
+        } else {
+            content
         }
     }
 }
@@ -370,6 +403,8 @@ struct InviteReceiverSheet: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(AmbientBackground(tone: .calm))
             .navigationTitle(inviteSent ? "Invite Sent" : "Invite Receiver")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -387,6 +422,7 @@ struct InviteReceiverSheet: View {
             }
             .sheet(isPresented: $showSetupGuide) {
                 ReceiverSetupGuideView(receiverName: name)
+                    .dailyokGlassSheet(style: .thick)
             }
         }
     }

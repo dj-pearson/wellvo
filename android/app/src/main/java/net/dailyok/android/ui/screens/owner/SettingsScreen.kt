@@ -115,14 +115,19 @@ fun SettingsScreen(
         }
     }
 
+    val haptics = net.dailyok.android.ui.theme.rememberDailyOKHaptics()
+
     // Sign out confirmation dialog
     if (showSignOutConfirmation) {
-        AlertDialog(
+        net.dailyok.android.ui.components.GlassAlertDialog(
             onDismissRequest = { viewModel.dismissSignOutConfirmation() },
             title = { Text("Sign Out") },
             text = { Text("Are you sure you want to sign out?") },
             confirmButton = {
-                TextButton(onClick = { viewModel.confirmSignOut() }) {
+                TextButton(onClick = {
+                    haptics.warning()
+                    viewModel.confirmSignOut()
+                }) {
                     Text("Sign Out", color = MaterialTheme.colorScheme.error)
                 }
             },
@@ -136,7 +141,7 @@ fun SettingsScreen(
 
     // Delete account confirmation dialog
     if (showDeleteConfirmation) {
-        AlertDialog(
+        net.dailyok.android.ui.components.GlassAlertDialog(
             onDismissRequest = { viewModel.dismissDeleteConfirmation() },
             title = { Text("Delete Account") },
             text = {
@@ -146,7 +151,10 @@ fun SettingsScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.confirmDeleteAccount() }) {
+                TextButton(onClick = {
+                    haptics.warning()
+                    viewModel.confirmDeleteAccount()
+                }) {
                     Text("Delete Everything", color = MaterialTheme.colorScheme.error)
                 }
             },
@@ -161,15 +169,24 @@ fun SettingsScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(title = { Text("Settings") })
+            TopAppBar(
+                title = { Text("Settings") },
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent
+                )
+            )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = androidx.compose.ui.graphics.Color.Transparent
     ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+        net.dailyok.android.ui.components.AmbientBackground(
+            tone = net.dailyok.android.ui.components.AmbientTone.Neutral
+        )
         if (isLoading && user == null) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
+                    .fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
@@ -178,7 +195,6 @@ fun SettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -322,6 +338,34 @@ fun SettingsScreen(
                     )
                 }
 
+                // Feedback Section (haptics toggle)
+                val hapticsEnabled by viewModel.hapticsEnabled.collectAsState()
+                SettingsSectionCard(title = "Feedback") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Haptic Feedback",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Subtle taps on navigation and buttons. Success and error notifications always fire.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        androidx.compose.material3.Switch(
+                            checked = hapticsEnabled,
+                            onCheckedChange = { viewModel.setHapticsEnabled(it) }
+                        )
+                    }
+                }
+
                 // About Section
                 SettingsSectionCard(title = "About") {
                     Row(
@@ -400,6 +444,7 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
             }
+        }
         }
     }
 }

@@ -60,8 +60,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.hilt.navigation.compose.hiltViewModel
 import net.dailyok.android.R
+import net.dailyok.android.ui.components.AmbientBackground
+import net.dailyok.android.ui.components.AmbientTone
+import net.dailyok.android.ui.components.GlassCard
+import net.dailyok.android.ui.theme.DailyOKElevation
+import net.dailyok.android.ui.theme.DailyOKGlass
+import net.dailyok.android.ui.theme.DailyOKGlassStyle
 import net.dailyok.android.viewmodels.OnboardingStep
 import net.dailyok.android.viewmodels.OnboardingViewModel
 import net.dailyok.android.viewmodels.UserTypeSelection
@@ -78,6 +85,14 @@ fun OnboardingScreen(
         return
     }
 
+    val tone = when (state.currentStep) {
+        OnboardingStep.Welcome, OnboardingStep.Complete -> AmbientTone.Calm
+        OnboardingStep.ChoosePlan -> AmbientTone.Warm
+        else -> AmbientTone.Neutral
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+    AmbientBackground(tone = tone)
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -93,7 +108,7 @@ fun OnboardingScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp)
+                .padding(horizontal = 20.dp, vertical = 16.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -135,6 +150,7 @@ fun OnboardingScreen(
                 OnboardingStep.Complete -> CompleteStep(onGoToDashboard = onComplete)
             }
         }
+    }
     }
 }
 
@@ -182,37 +198,47 @@ private fun OnboardingHeader(
 private fun WelcomeStep(onGetStarted: () -> Unit) {
     Spacer(modifier = Modifier.height(48.dp))
 
-    Icon(
-        imageVector = Icons.Default.Favorite,
-        contentDescription = null,
-        modifier = Modifier.size(80.dp),
-        tint = MaterialTheme.colorScheme.primary
-    )
-
-    Spacer(modifier = Modifier.height(24.dp))
-
-    Text(
-        text = stringResource(R.string.onboarding_welcome_title),
-        style = MaterialTheme.typography.headlineLarge,
-        textAlign = TextAlign.Center
-    )
-
-    Spacer(modifier = Modifier.height(16.dp))
-
-    Text(
-        text = stringResource(R.string.onboarding_welcome_body),
-        style = MaterialTheme.typography.bodyLarge,
-        textAlign = TextAlign.Center,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-
-    Spacer(modifier = Modifier.height(48.dp))
-
-    Button(
-        onClick = onGetStarted,
-        modifier = Modifier.fillMaxWidth()
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        style = DailyOKGlassStyle.Thin,
+        shape = RoundedCornerShape(DailyOKGlass.RadiusLarge),
+        elevation = DailyOKElevation.level3,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(24.dp)
     ) {
-        Text("Get Started")
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = Icons.Default.Favorite,
+                contentDescription = null,
+                modifier = Modifier.size(80.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = stringResource(R.string.onboarding_welcome_title),
+                style = MaterialTheme.typography.headlineLarge,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = stringResource(R.string.onboarding_welcome_body),
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Button(
+                onClick = onGetStarted,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Get Started")
+            }
+        }
     }
 }
 
@@ -633,36 +659,46 @@ private fun NotificationsStep(
 private fun CompleteStep(onGoToDashboard: () -> Unit) {
     Spacer(modifier = Modifier.height(48.dp))
 
-    Icon(
-        imageVector = Icons.Default.CheckCircle,
-        contentDescription = null,
-        modifier = Modifier.size(80.dp),
-        tint = MaterialTheme.colorScheme.primary
-    )
-
-    Spacer(modifier = Modifier.height(24.dp))
-
-    Text(
-        text = stringResource(R.string.onboarding_complete_title),
-        style = MaterialTheme.typography.headlineLarge,
-        textAlign = TextAlign.Center
-    )
-
-    Spacer(modifier = Modifier.height(16.dp))
-
-    Text(
-        text = stringResource(R.string.onboarding_complete_body),
-        style = MaterialTheme.typography.bodyLarge,
-        textAlign = TextAlign.Center,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-
-    Spacer(modifier = Modifier.height(48.dp))
-
-    Button(
-        onClick = onGoToDashboard,
-        modifier = Modifier.fillMaxWidth()
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        style = DailyOKGlassStyle.Thin,
+        shape = RoundedCornerShape(DailyOKGlass.RadiusLarge),
+        elevation = DailyOKElevation.level3,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(24.dp)
     ) {
-        Text("Go to Dashboard")
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = Icons.Default.CheckCircle,
+                contentDescription = null,
+                modifier = Modifier.size(80.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = stringResource(R.string.onboarding_complete_title),
+                style = MaterialTheme.typography.headlineLarge,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = stringResource(R.string.onboarding_complete_body),
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Button(
+                onClick = onGoToDashboard,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Go to Dashboard")
+            }
+        }
     }
 }

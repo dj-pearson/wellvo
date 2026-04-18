@@ -5,7 +5,14 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.ui.res.stringResource
 import net.dailyok.android.R
+import net.dailyok.android.ui.components.AmbientBackground
+import net.dailyok.android.ui.components.AmbientTone
+import net.dailyok.android.ui.components.GlassCard
+import net.dailyok.android.ui.theme.DailyOKElevation
+import net.dailyok.android.ui.theme.DailyOKGlass
+import net.dailyok.android.ui.theme.DailyOKGlassStyle
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -44,37 +52,57 @@ fun PairingCodeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        AnimatedVisibility(
-            visible = !uiState.success,
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
-            PairingCodeEntry(
-                code = uiState.code,
-                isLoading = uiState.isLoading,
-                errorMessage = uiState.errorMessage,
-                onCodeChange = viewModel::updateCode,
-                onSubmit = viewModel::redeemPairingCode
-            )
-        }
+    Box(modifier = Modifier.fillMaxSize()) {
+        AmbientBackground(tone = if (uiState.success) AmbientTone.Calm else AmbientTone.Neutral)
 
-        AnimatedVisibility(
-            visible = uiState.success,
-            enter = fadeIn(),
-            exit = fadeOut()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            PairingCodeSuccess(
-                familyName = uiState.familyName,
-                checkinTime = uiState.checkinTime,
-                onContinue = onComplete
-            )
+            AnimatedVisibility(
+                visible = !uiState.success,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    style = DailyOKGlassStyle.Regular,
+                    shape = RoundedCornerShape(DailyOKGlass.RadiusLarge),
+                    elevation = DailyOKElevation.level3,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(24.dp)
+                ) {
+                    PairingCodeEntry(
+                        code = uiState.code,
+                        isLoading = uiState.isLoading,
+                        errorMessage = uiState.errorMessage,
+                        onCodeChange = viewModel::updateCode,
+                        onSubmit = viewModel::redeemPairingCode
+                    )
+                }
+            }
+
+            AnimatedVisibility(
+                visible = uiState.success,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    style = DailyOKGlassStyle.Regular,
+                    shape = RoundedCornerShape(DailyOKGlass.RadiusLarge),
+                    elevation = DailyOKElevation.level3,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(24.dp)
+                ) {
+                    PairingCodeSuccess(
+                        familyName = uiState.familyName,
+                        checkinTime = uiState.checkinTime,
+                        onContinue = onComplete
+                    )
+                }
+            }
         }
     }
 }

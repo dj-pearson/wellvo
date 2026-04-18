@@ -213,6 +213,8 @@ struct ReceiverSettingsView: View {
                 Text("After checking in, \(member.user?.displayName ?? "they") can optionally share how they're feeling.")
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(AmbientBackground(tone: .neutral))
         .navigationTitle(member.user?.displayName ?? "Settings")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

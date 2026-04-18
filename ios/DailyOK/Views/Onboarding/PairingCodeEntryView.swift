@@ -15,32 +15,40 @@ struct PairingCodeEntryView: View {
     @State private var lockoutEndTime: Date?
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Back button
-            HStack {
-                Button {
-                    appState.showPairingCodeEntry = false
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
-                        Text("Back")
+        ZStack {
+            AmbientBackground(tone: joinedSuccessfully ? .calm : .neutral)
+
+            VStack(spacing: 0) {
+                // Back button on glass pill
+                HStack {
+                    Button {
+                        appState.showPairingCodeEntry = false
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                            Text("Back")
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(DailyOKColor.green700)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .glassPill(style: .ultraThin)
                     }
-                    .foregroundStyle(.green)
+                    Spacer()
                 }
+                .padding(.horizontal, 24)
+                .padding(.top, 12)
+
+                Spacer()
+
+                if joinedSuccessfully {
+                    successView
+                } else {
+                    codeEntryView
+                }
+
                 Spacer()
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 12)
-
-            Spacer()
-
-            if joinedSuccessfully {
-                successView
-            } else {
-                codeEntryView
-            }
-
-            Spacer()
         }
     }
 
@@ -48,9 +56,18 @@ struct PairingCodeEntryView: View {
 
     private var codeEntryView: some View {
         VStack(spacing: 24) {
-            Image(systemName: "ipad.and.iphone")
-                .font(.system(size: 60))
-                .foregroundStyle(.green)
+            ZStack {
+                Circle()
+                    .fill(DailyOKColor.teal.opacity(0.4))
+                    .frame(width: 120, height: 120)
+                    .blur(radius: 28)
+                Image(systemName: "ipad.and.iphone")
+                    .font(.system(size: 60))
+                    .foregroundStyle(
+                        LinearGradient(colors: [DailyOKColor.green500, DailyOKColor.teal],
+                                       startPoint: .topLeading, endPoint: .bottomTrailing)
+                    )
+            }
 
             Text("Set Up This Device")
                 .font(.largeTitle)
@@ -101,20 +118,34 @@ struct PairingCodeEntryView: View {
                 }
             }
             .buttonStyle(.borderedProminent)
-            .tint(.green)
+            .tint(DailyOKColor.green500)
             .controlSize(.large)
             .disabled(code.count != 6 || isSubmitting)
             .padding(.horizontal, 32)
         }
+        .padding(.vertical, 24)
+        .padding(.horizontal, 12)
+        .glassCard(style: .regular, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
+        .padding(.horizontal, 24)
     }
 
     // MARK: - Success
 
     private var successView: some View {
         VStack(spacing: 24) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundStyle(.green)
+            ZStack {
+                Circle()
+                    .fill(DailyOKColor.green300.opacity(0.5))
+                    .frame(width: 150, height: 150)
+                    .blur(radius: 30)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundStyle(
+                        LinearGradient(colors: [DailyOKColor.green400, DailyOKColor.green600],
+                                       startPoint: .top, endPoint: .bottom)
+                    )
+                    .symbolEffect(.bounce, value: joinedSuccessfully)
+            }
 
             Text("You're All Set!")
                 .font(.largeTitle)
@@ -134,9 +165,13 @@ struct PairingCodeEntryView: View {
                 appState.currentUserRole = .receiver
             }
             .buttonStyle(.borderedProminent)
-            .tint(.green)
+            .tint(DailyOKColor.green500)
             .controlSize(.large)
         }
+        .padding(.vertical, 24)
+        .padding(.horizontal, 12)
+        .glassCard(style: .regular, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
+        .padding(.horizontal, 24)
     }
 
     // MARK: - Submit

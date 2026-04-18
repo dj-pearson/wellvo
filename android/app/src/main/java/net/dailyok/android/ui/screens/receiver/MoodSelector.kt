@@ -25,10 +25,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontWeight
 import net.dailyok.android.R
 import net.dailyok.android.data.models.Mood
 import net.dailyok.android.data.models.displayName
 import net.dailyok.android.data.models.emoji
+import net.dailyok.android.ui.components.GlassCard
+import net.dailyok.android.ui.theme.DailyOKElevation
+import net.dailyok.android.ui.theme.DailyOKGlass
+import net.dailyok.android.ui.theme.DailyOKGlassStyle
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -42,13 +48,21 @@ fun MoodSelector(
     val moods = if (isKidMode) Mood.entries else Mood.entries.take(3)
     val haptic = LocalHapticFeedback.current
 
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        style = DailyOKGlassStyle.Thin,
+        shape = RoundedCornerShape(DailyOKGlass.RadiusLarge),
+        elevation = DailyOKElevation.level2,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)
+    ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = stringResource(R.string.mood_how_feeling),
-            style = MaterialTheme.typography.titleMedium
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
         )
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -84,6 +98,7 @@ fun MoodSelector(
         TextButton(onClick = onSkip) {
             Text("Skip")
         }
+    }
     }
 }
 

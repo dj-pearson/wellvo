@@ -15,17 +15,13 @@ struct ReceiverHomeView: View {
     @ScaledMetric(relativeTo: .title) private var tapIconSize: CGFloat = 40
     @ScaledMetric(relativeTo: .title) private var tapTextSize: CGFloat = 28
 
-    private let hapticSuccess = UINotificationFeedbackGenerator()
-    private let hapticImpact = UIImpactFeedbackGenerator(style: .medium)
-
     private var isKidMode: Bool {
         viewModel.receiverMode == .kid
     }
 
     var body: some View {
         ZStack {
-            Color(.systemBackground)
-                .ignoresSafeArea()
+            AmbientBackground(tone: viewModel.hasCheckedInToday ? .calm : .warm)
 
             ScrollView {
                 VStack(spacing: 24) {
@@ -39,11 +35,11 @@ struct ReceiverHomeView: View {
                                  ? "Offline — \(viewModel.pendingOfflineCount) check-in(s) will sync when reconnected"
                                  : "You're offline")
                         }
-                        .font(.caption)
-                        .foregroundStyle(.white)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(DailyOKColor.warning)
                         .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.orange, in: Capsule())
+                        .padding(.vertical, 10)
+                        .glassPill(style: .thin)
                         .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                         .accessibilityLabel(viewModel.pendingOfflineCount > 0
                             ? "Offline. \(viewModel.pendingOfflineCount) check-ins pending sync."
@@ -130,6 +126,7 @@ struct ReceiverHomeView: View {
         }
         .alert("Sign Out", isPresented: $showSignOutConfirmation) {
             Button("Sign Out", role: .destructive) {
+                DailyOKHaptics.warning()
                 Task { await authViewModel.signOut() }
             }
             Button("Cancel", role: .cancel) {}
@@ -146,35 +143,59 @@ struct ReceiverHomeView: View {
                 .dynamicTypeSize(...DynamicTypeSize.accessibility3)
 
             Button {
-                hapticImpact.impactOccurred()
+                DailyOKHaptics.medium()
                 Task {
                     await viewModel.performCheckIn()
                     if viewModel.hasCheckedInToday {
-                        hapticSuccess.notificationOccurred(.success)
+                        DailyOKHaptics.success()
                         animateCheckmark()
+                    } else if viewModel.errorMessage != nil {
+                        DailyOKHaptics.error()
                     }
                 }
             } label: {
                 ZStack {
-                    if isKidMode {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.green, .teal],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
+                    // Aurora halo — two soft orbs behind the button for premium depth
+                    Circle()
+                        .fill(DailyOKColor.green300.opacity(0.5))
+                        .frame(width: buttonDiameter * 1.4, height: buttonDiameter * 1.4)
+                        .blur(radius: 40)
+                        .scaleEffect(isPulsing ? 1.05 : 1.0)
+                    Circle()
+                        .fill(DailyOKColor.teal.opacity(0.4))
+                        .frame(width: buttonDiameter * 1.2, height: buttonDiameter * 1.2)
+                        .blur(radius: 30)
+                        .offset(x: 20, y: 20)
+                        .scaleEffect(isPulsing ? 1.08 : 1.0)
+
+                    // Main button — brand gradient with a glass highlight on top
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: isKidMode
+                                    ? [DailyOKColor.green400, DailyOKColor.teal]
+                                    : [DailyOKColor.green400, DailyOKColor.green600],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
                             )
-                            .frame(width: buttonDiameter, height: buttonDiameter)
-                            .shadow(color: .teal.opacity(0.4), radius: isPulsing ? 20 : 10)
-                            .scaleEffect(buttonScale)
-                    } else {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: buttonDiameter, height: buttonDiameter)
-                            .shadow(color: .green.opacity(0.4), radius: isPulsing ? 20 : 10)
-                            .scaleEffect(buttonScale)
-                    }
+                        )
+                        .frame(width: buttonDiameter, height: buttonDiameter)
+                        .overlay(
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.35), Color.white.opacity(0.0)],
+                                        startPoint: .top,
+                                        endPoint: .center
+                                    )
+                                )
+                        )
+                        .overlay(
+                            Circle()
+                                .strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
+                        )
+                        .shadow(color: DailyOKColor.green600.opacity(0.45), radius: isPulsing ? 28 : 18, y: 8)
+                        .scaleEffect(buttonScale)
 
                     if showCheckmark {
                         Image(systemName: "checkmark")
@@ -195,6 +216,7 @@ struct ReceiverHomeView: View {
                     }
                 }
             }
+            .buttonStyle(.pressable)
             .disabled(viewModel.isCheckingIn)
             .accessibilityLabel("Tap to check in and let your family know you're okay")
             .onAppear {
@@ -254,13 +276,10 @@ struct ReceiverHomeView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.green.opacity(0.1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.green.opacity(0.3), lineWidth: 1)
-                )
+        .glassCard(style: .regular, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
+        .overlay(
+            RoundedRectangle(cornerRadius: DailyOKGlass.radiusLarge, style: .continuous)
+                .strokeBorder(DailyOKColor.green300.opacity(0.4), lineWidth: 1)
         )
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Checked in successfully. Your family has been notified.")
