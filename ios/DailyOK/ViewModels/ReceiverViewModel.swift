@@ -31,18 +31,25 @@ final class ReceiverViewModel: ObservableObject {
             .execute()
             .value
 
-        if let todayCheckIn = try? await CheckInService.shared.todayCheckInStatus(
+        // Sync any queued offline check-ins first so the subsequent status
+        // query reflects them. Without this, a synced check-in would only
+        // appear after the next manual refresh.
+        await offlineService.syncPendingCheckIns()
+
+        // Reset state BEFORE the query so a stale `true` from yesterday
+        // doesn't bleed into today if the query returns nil. The `@StateObject`
+        // persists across scene phases, so without this reset the receiver
+        // sees "you're all set" indefinitely once they check in once.
+        let todayCheckIn = try? await CheckInService.shared.todayCheckInStatus(
             receiverId: session.user.id,
             familyId: family.id,
             timezone: tzRow?.timezone
-        ) {
-            lastCheckIn = todayCheckIn
-            hasCheckedInToday = true
-        }
+        )
+        lastCheckIn = todayCheckIn
+        hasCheckedInToday = (todayCheckIn != nil)
 
         await loadReceiverSettings(userId: session.user.id, familyId: family.id)
 
-        await offlineService.syncPendingCheckIns()
         isOffline = !offlineService.isOnline
         pendingOfflineCount = offlineService.pendingCount
     }
@@ -111,12 +118,17 @@ final class ReceiverViewModel: ObservableObject {
             hasCheckedInToday = true
             Task { await AnalyticsService.shared.track(.checkIn) }
         } catch let error as NetworkError {
+            // Offline path: the check-in is queued locally and will sync when
+            // connectivity returns. Show the success state optimistically.
             hasCheckedInToday = true
             isOffline = true
             Task { await AnalyticsService.shared.track(.checkInOffline) }
             pendingOfflineCount = offlineService.pendingCount
             errorMessage = error.localizedDescription
         } catch {
+            // Real failure (auth, server 5xx, etc): do NOT flip the UI to
+            // "checked in" — otherwise the receiver sees "you're all set"
+            // for a check-in that was never recorded.
             errorMessage = error.localizedDescription
         }
 

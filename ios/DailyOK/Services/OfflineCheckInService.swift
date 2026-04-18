@@ -93,6 +93,8 @@ final class OfflineCheckInService: ObservableObject {
 
         guard let pending = try? context.fetch(descriptor), !pending.isEmpty else { return }
 
+        var syncedAny = false
+
         for offlineCheckIn in pending {
             do {
                 let payload = OfflineCheckInInsert(
@@ -126,6 +128,7 @@ final class OfflineCheckInService: ObservableObject {
 
                 offlineCheckIn.synced = true
                 try context.save()
+                syncedAny = true
             } catch {
                 print("[OfflineCheckInService] Sync failed for \(offlineCheckIn.id): \(error.localizedDescription)")
                 break // Stop on first failure, retry later
@@ -133,7 +136,16 @@ final class OfflineCheckInService: ObservableObject {
         }
 
         updatePendingCount()
+
+        // Let any view model observing sync completion (e.g. ReceiverHomeView,
+        // DashboardView) re-query status so the UI reflects the synced rows
+        // without waiting for the next scene-phase change.
+        if syncedAny {
+            NotificationCenter.default.post(name: OfflineCheckInService.didSyncCheckIns, object: nil)
+        }
     }
+
+    static let didSyncCheckIns = Notification.Name("OfflineCheckInService.didSyncCheckIns")
 
     // MARK: - Private
 

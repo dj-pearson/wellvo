@@ -93,7 +93,7 @@ class CheckInServiceTest {
 
     // Mirrors CheckInService.checkIn logic
     private suspend fun checkInHelper(
-        familyId: String, receiverId: String, requestId: String,
+        familyId: String, receiverId: String, requestId: String?,
         mood: String?, source: String,
         latitude: Double? = null, longitude: Double? = null,
         locationAccuracy: Double? = null, kidResponseType: String? = null
@@ -101,7 +101,10 @@ class CheckInServiceTest {
         try {
             return apiService.processCheckinResponse(
                 CheckInResponseRequest(
-                    requestId = requestId, mood = mood, source = source,
+                    requestId = requestId,
+                    receiverId = receiverId,
+                    familyId = familyId,
+                    mood = mood, source = source,
                     latitude = latitude, longitude = longitude,
                     locationAccuracyMeters = locationAccuracy,
                     kidResponseType = kidResponseType

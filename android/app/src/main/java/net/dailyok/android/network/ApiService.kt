@@ -15,7 +15,9 @@ import javax.inject.Singleton
 
 @Serializable
 data class CheckInResponseRequest(
-    val requestId: String,
+    val requestId: String? = null,
+    val receiverId: String? = null,
+    val familyId: String? = null,
     val mood: String? = null,
     val source: String = "app",
     val latitude: Double? = null,
@@ -128,8 +130,13 @@ class ApiService @Inject constructor(
     }
 
     suspend fun processCheckinResponse(request: CheckInResponseRequest): String {
+        // The edge function accepts either `checkin_request_id` (notification
+        // response path) or `receiver_id` + `family_id` (manual check-in
+        // without a pending request). Send whichever the caller provided.
         return invokeFunction("process-checkin-response", buildJsonObject {
-            put("request_id", request.requestId)
+            request.requestId?.let { put("checkin_request_id", it) }
+            request.receiverId?.let { put("receiver_id", it) }
+            request.familyId?.let { put("family_id", it) }
             request.mood?.let { put("mood", it) }
             put("source", request.source)
             request.latitude?.let { put("latitude", it) }
@@ -148,7 +155,7 @@ class ApiService @Inject constructor(
 
     suspend fun confirmDelivery(request: ConfirmDeliveryRequest): String {
         return invokeFunction("confirm-delivery", buildJsonObject {
-            put("request_id", request.requestId)
+            put("checkin_request_id", request.requestId)
         })
     }
 
