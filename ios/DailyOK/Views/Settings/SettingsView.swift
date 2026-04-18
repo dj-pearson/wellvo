@@ -157,6 +157,8 @@ struct SettingsView: View {
                     Text("Permanently deletes your account, family, and all associated data. This cannot be undone.")
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(AmbientBackground(tone: .neutral))
             .navigationTitle("Settings")
             .alert("Sign Out", isPresented: $showSignOutConfirmation) {
                 Button("Sign Out", role: .destructive) {
@@ -258,6 +260,8 @@ struct DataRetentionView: View {
                 .disabled(isLoading)
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(AmbientBackground(tone: .neutral))
         .navigationTitle("Data Retention")
         .overlay {
             if showSaved {
@@ -356,6 +360,8 @@ struct SubscriptionView: View {
                 .padding(.vertical, 4)
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(AmbientBackground(tone: .warm))
         .navigationTitle("Subscription")
         .task { await subscriptionService.loadProducts() }
     }

@@ -132,14 +132,21 @@ fun FamilyScreen(
                 Icon(Icons.Default.PersonAdd, contentDescription = "Invite Receiver")
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = androidx.compose.ui.graphics.Color.Transparent
     ) { innerPadding ->
-        PullToRefreshBox(
-            isRefreshing = isLoading,
-            onRefresh = { viewModel.loadFamily(userId) },
+        Box(
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+        ) {
+        net.dailyok.android.ui.components.AmbientBackground(
+            tone = net.dailyok.android.ui.components.AmbientTone.Neutral
+        )
+        PullToRefreshBox(
+            isRefreshing = isLoading,
+            onRefresh = { viewModel.loadFamily(userId) },
+            modifier = Modifier.fillMaxSize()
         ) {
             when {
                 isLoading && members.isEmpty() && family == null -> {
@@ -191,6 +198,7 @@ fun FamilyScreen(
                     }
                 }
             }
+        }
         }
     }
 

@@ -113,6 +113,9 @@ fun ReceiverSettingsScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
+        net.dailyok.android.ui.components.AmbientBackground(
+            tone = net.dailyok.android.ui.components.AmbientTone.Neutral
+        )
         if (isLoading && settings == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()

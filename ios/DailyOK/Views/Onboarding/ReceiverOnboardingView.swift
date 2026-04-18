@@ -17,48 +17,68 @@ struct ReceiverOnboardingView: View {
     let inviteToken: String?
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Progress dots
-            HStack(spacing: 8) {
-                ForEach(0..<3, id: \.self) { step in
-                    Circle()
-                        .fill(step <= currentStep ? Color.green : Color(.systemGray4))
-                        .frame(width: 8, height: 8)
+        ZStack {
+            AmbientBackground(tone: currentStep == 2 ? .calm : .neutral)
+
+            VStack(spacing: 0) {
+                // Progress dots
+                HStack(spacing: 10) {
+                    ForEach(0..<3, id: \.self) { step in
+                        Capsule()
+                            .fill(step <= currentStep ? DailyOKColor.green500 : Color.secondary.opacity(0.3))
+                            .frame(width: step == currentStep ? 24 : 8, height: 8)
+                            .animation(DailyOKMotion.smoothSpring, value: currentStep)
+                    }
                 }
-            }
-            .padding(.top, 20)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Step \(currentStep + 1) of 3")
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .glassPill(style: .ultraThin)
+                .padding(.top, 20)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Step \(currentStep + 1) of 3")
 
-            Spacer()
+                Spacer()
 
-            Group {
-                switch currentStep {
-                case 0:
-                    welcomeStep
-                case 1:
-                    notificationStep
-                default:
-                    doneStep
+                Group {
+                    switch currentStep {
+                    case 0:
+                        welcomeStep
+                    case 1:
+                        notificationStep
+                    default:
+                        doneStep
+                    }
                 }
-            }
-            .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
-            .transaction { t in if reduceMotion { t.animation = nil } }
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: currentStep)
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .move(edge: .trailing)),
+                    removal: .opacity.combined(with: .move(edge: .leading))
+                ))
+                .transaction { t in if reduceMotion { t.animation = nil } }
+                .animation(reduceMotion ? nil : DailyOKMotion.smoothSpring, value: currentStep)
 
-            Spacer()
+                Spacer()
+            }
+            .padding(.horizontal, 32)
+            .task { await processJoin() }
         }
-        .padding(.horizontal, 32)
-        .task { await processJoin() }
     }
 
     // MARK: - Step 1: Welcome
 
     private var welcomeStep: some View {
         VStack(spacing: 24) {
-            Image(systemName: "heart.circle.fill")
-                .font(.system(size: 80))
-                .foregroundStyle(.green)
+            ZStack {
+                Circle()
+                    .fill(DailyOKColor.green300.opacity(0.45))
+                    .frame(width: 150, height: 150)
+                    .blur(radius: 30)
+                Image(systemName: "heart.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundStyle(
+                        LinearGradient(colors: [DailyOKColor.green400, DailyOKColor.green600],
+                                       startPoint: .top, endPoint: .bottom)
+                    )
+            }
 
             Text("Welcome to Daily OK")
                 .font(.largeTitle)
@@ -87,23 +107,35 @@ struct ReceiverOnboardingView: View {
                 if reduceMotion {
                     currentStep = 1
                 } else {
-                    withAnimation { currentStep = 1 }
+                    withAnimation(DailyOKMotion.smoothSpring) { currentStep = 1 }
                 }
             }
             .buttonStyle(.borderedProminent)
-            .tint(.green)
+            .tint(DailyOKColor.green500)
             .controlSize(.large)
             .disabled(isProcessing)
         }
+        .padding(24)
+        .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
     }
 
     // MARK: - Step 2: Notifications
 
     private var notificationStep: some View {
         VStack(spacing: 24) {
-            Image(systemName: "bell.badge.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(.green)
+            ZStack {
+                Circle()
+                    .fill(DailyOKColor.teal.opacity(0.4))
+                    .frame(width: 120, height: 120)
+                    .blur(radius: 26)
+                Image(systemName: "bell.badge.fill")
+                    .font(.system(size: 60))
+                    .foregroundStyle(
+                        LinearGradient(colors: [DailyOKColor.green500, DailyOKColor.teal],
+                                       startPoint: .topLeading, endPoint: .bottomTrailing)
+                    )
+                    .symbolEffect(.pulse)
+            }
 
             Text("One Last Thing")
                 .font(.title)
@@ -122,23 +154,35 @@ struct ReceiverOnboardingView: View {
                     if reduceMotion {
                         currentStep = 2
                     } else {
-                        withAnimation { currentStep = 2 }
+                        withAnimation(DailyOKMotion.smoothSpring) { currentStep = 2 }
                     }
                 }
             }
             .buttonStyle(.borderedProminent)
-            .tint(.green)
+            .tint(DailyOKColor.green500)
             .controlSize(.large)
         }
+        .padding(24)
+        .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
     }
 
     // MARK: - Step 3: Done
 
     private var doneStep: some View {
         VStack(spacing: 24) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundStyle(.green)
+            ZStack {
+                Circle()
+                    .fill(DailyOKColor.green300.opacity(0.55))
+                    .frame(width: 150, height: 150)
+                    .blur(radius: 32)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundStyle(
+                        LinearGradient(colors: [DailyOKColor.green400, DailyOKColor.green600],
+                                       startPoint: .top, endPoint: .bottom)
+                    )
+                    .symbolEffect(.bounce, value: currentStep)
+            }
 
             Text("You're All Set!")
                 .font(.largeTitle)
@@ -158,9 +202,11 @@ struct ReceiverOnboardingView: View {
                 appState.currentUserRole = .receiver
             }
             .buttonStyle(.borderedProminent)
-            .tint(.green)
+            .tint(DailyOKColor.green500)
             .controlSize(.large)
         }
+        .padding(24)
+        .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
     }
 
     // MARK: - Join Logic

@@ -4,7 +4,9 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -140,14 +142,23 @@ fun SubscriptionScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(title = { Text("Choose Your Plan") })
+            TopAppBar(
+                title = { Text("Choose Your Plan") },
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                )
+            )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = Color.Transparent
     ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+        net.dailyok.android.ui.components.AmbientBackground(
+            tone = net.dailyok.android.ui.components.AmbientTone.Warm
+        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -181,14 +192,25 @@ fun SubscriptionScreen(
                     SubscriptionTier.FamilyPlus -> Color(0xFFF97316)
                 }
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    border = if (isCurrent) BorderStroke(2.dp, accentColor) else null,
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isCurrent)
-                            accentColor.copy(alpha = 0.05f)
-                        else MaterialTheme.colorScheme.surfaceContainerLow
-                    )
+                net.dailyok.android.ui.components.GlassCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (isCurrent) Modifier.border(
+                                BorderStroke(2.dp, accentColor),
+                                androidx.compose.foundation.shape.RoundedCornerShape(
+                                    net.dailyok.android.ui.theme.DailyOKGlass.RadiusLarge
+                                )
+                            ) else Modifier
+                        ),
+                    style = if (isCurrent) net.dailyok.android.ui.theme.DailyOKGlassStyle.Regular
+                            else net.dailyok.android.ui.theme.DailyOKGlassStyle.Thin,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(
+                        net.dailyok.android.ui.theme.DailyOKGlass.RadiusLarge
+                    ),
+                    elevation = if (isCurrent) net.dailyok.android.ui.theme.DailyOKElevation.level3
+                                else net.dailyok.android.ui.theme.DailyOKElevation.level2,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
@@ -356,6 +378,7 @@ fun SubscriptionScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+        }
         }
     }
 }

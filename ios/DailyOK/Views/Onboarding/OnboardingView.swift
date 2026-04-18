@@ -9,39 +9,59 @@ struct OnboardingView: View {
 
     var body: some View {
         NavigationStack {
-            VStack {
-                // Progress indicator
-                ProgressView(value: Double(viewModel.currentStep.rawValue), total: Double(OnboardingStep.allCases.count - 1))
-                    .tint(.green)
-                    .padding(.horizontal)
-                    .accessibilityLabel("Onboarding progress: step \(viewModel.currentStep.rawValue + 1) of \(OnboardingStep.allCases.count)")
+            ZStack {
+                AmbientBackground(tone: ambientTone(for: viewModel.currentStep))
 
-                Spacer()
+                VStack {
+                    // Progress indicator on a glass pill
+                    ProgressView(value: Double(viewModel.currentStep.rawValue), total: Double(OnboardingStep.allCases.count - 1))
+                        .tint(DailyOKColor.green500)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 8)
+                        .glassPill(style: .ultraThin)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .accessibilityLabel("Onboarding progress: step \(viewModel.currentStep.rawValue + 1) of \(OnboardingStep.allCases.count)")
 
-                Group {
-                    switch viewModel.currentStep {
-                    case .welcome:
-                        welcomeStep
-                    case .userType:
-                        userTypeStep
-                    case .createFamily:
-                        createFamilyStep
-                    case .choosePlan:
-                        choosePlanStep
-                    case .addReceiver:
-                        addReceiverStep
-                    case .notifications:
-                        notificationsStep
-                    case .complete:
-                        completeStep
+                    Spacer()
+
+                    Group {
+                        switch viewModel.currentStep {
+                        case .welcome:
+                            welcomeStep
+                        case .userType:
+                            userTypeStep
+                        case .createFamily:
+                            createFamilyStep
+                        case .choosePlan:
+                            choosePlanStep
+                        case .addReceiver:
+                            addReceiverStep
+                        case .notifications:
+                            notificationsStep
+                        case .complete:
+                            completeStep
+                        }
                     }
-                }
-                .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
-                .transaction { t in if reduceMotion { t.animation = nil } }
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .trailing)),
+                        removal: .opacity.combined(with: .move(edge: .leading))
+                    ))
+                    .transaction { t in if reduceMotion { t.animation = nil } }
 
-                Spacer()
+                    Spacer()
+                }
+                .animation(reduceMotion ? nil : DailyOKMotion.smoothSpring, value: viewModel.currentStep)
             }
-            .animation(reduceMotion ? nil : .easeInOut, value: viewModel.currentStep)
+        }
+    }
+
+    private func ambientTone(for step: OnboardingStep) -> AmbientBackground.Tone {
+        switch step {
+        case .welcome, .complete: return .calm
+        case .choosePlan: return .warm
+        default: return .neutral
         }
     }
 
@@ -49,10 +69,19 @@ struct OnboardingView: View {
 
     private var welcomeStep: some View {
         VStack(spacing: 24) {
-            Image(systemName: "heart.circle.fill")
-                .font(.system(size: largeIconSize))
-                .foregroundStyle(.green)
-                .accessibilityHidden(true)
+            ZStack {
+                Circle()
+                    .fill(DailyOKColor.green300.opacity(0.45))
+                    .frame(width: largeIconSize * 1.8, height: largeIconSize * 1.8)
+                    .blur(radius: 28)
+                Image(systemName: "heart.circle.fill")
+                    .font(.system(size: largeIconSize))
+                    .foregroundStyle(
+                        LinearGradient(colors: [DailyOKColor.green400, DailyOKColor.green600],
+                                       startPoint: .top, endPoint: .bottom)
+                    )
+                    .accessibilityHidden(true)
+            }
 
             Text("Welcome to Daily OK")
                 .font(.largeTitle)
@@ -65,9 +94,11 @@ struct OnboardingView: View {
 
             Button("Get Started") { viewModel.advance() }
                 .buttonStyle(.borderedProminent)
-                .tint(.green)
+                .tint(DailyOKColor.green500)
                 .controlSize(.large)
         }
+        .padding(24)
+        .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
         .padding()
     }
 
@@ -126,10 +157,9 @@ struct OnboardingView: View {
                     .foregroundStyle(.secondary)
             }
             .padding()
-            .background(Color(.secondarySystemGroupedBackground))
-            .cornerRadius(12)
+            .glassCard(style: .thin, radius: DailyOKGlass.radiusMedium, elevation: DailyOKElevation.level2)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .accessibilityLabel("\(title): \(subtitle)")
         .accessibilityHint("Double tap to select \(title)")
     }
@@ -159,10 +189,12 @@ struct OnboardingView: View {
                 }
             }
             .buttonStyle(.borderedProminent)
-            .tint(.green)
+            .tint(DailyOKColor.green500)
             .controlSize(.large)
             .disabled(viewModel.familyName.isEmpty || viewModel.isLoading)
         }
+        .padding(24)
+        .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
         .padding()
     }
 
@@ -208,15 +240,27 @@ struct OnboardingView: View {
             Button("Skip for now") { viewModel.advance() }
                 .foregroundStyle(.secondary)
         }
+        .padding(24)
+        .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
         .padding()
     }
 
     private var notificationsStep: some View {
         VStack(spacing: 24) {
-            Image(systemName: "bell.badge.fill")
-                .font(.system(size: mediumIconSize))
-                .foregroundStyle(.green)
-                .accessibilityHidden(true)
+            ZStack {
+                Circle()
+                    .fill(DailyOKColor.goldLight.opacity(0.5))
+                    .frame(width: mediumIconSize * 2, height: mediumIconSize * 2)
+                    .blur(radius: 24)
+                Image(systemName: "bell.badge.fill")
+                    .font(.system(size: mediumIconSize))
+                    .foregroundStyle(
+                        LinearGradient(colors: [DailyOKColor.green500, DailyOKColor.teal],
+                                       startPoint: .topLeading, endPoint: .bottomTrailing)
+                    )
+                    .symbolEffect(.pulse)
+                    .accessibilityHidden(true)
+            }
 
             Text("Enable Notifications")
                 .font(.title)
@@ -231,9 +275,11 @@ struct OnboardingView: View {
                 Task { await viewModel.requestNotificationPermission() }
             }
             .buttonStyle(.borderedProminent)
-            .tint(.green)
+            .tint(DailyOKColor.green500)
             .controlSize(.large)
         }
+        .padding(24)
+        .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
         .padding()
     }
 
@@ -308,23 +354,53 @@ struct OnboardingView: View {
                 }
             }
             .padding()
-            .background(isHighlighted ? Color.green : Color(.secondarySystemGroupedBackground))
-            .foregroundStyle(isHighlighted ? .white : .primary)
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isHighlighted ? Color.green : Color.clear, lineWidth: 2)
+            .background(
+                Group {
+                    if isHighlighted {
+                        RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
+                            .fill(
+                                LinearGradient(colors: [DailyOKColor.green500, DailyOKColor.green600],
+                                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
+                                    .strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
+                            )
+                    } else {
+                        RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
+                            .fill(.thinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
+                                    .strokeBorder(DailyOKGlass.strokeLight, lineWidth: 0.75)
+                            )
+                    }
+                }
             )
+            .foregroundStyle(isHighlighted ? .white : .primary)
+            .clipShape(RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous))
+            .shadow(color: .black.opacity(isHighlighted ? 0.18 : 0.08),
+                    radius: isHighlighted ? DailyOKElevation.level3 : DailyOKElevation.level2,
+                    y: isHighlighted ? 6 : 3)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 
     private var completeStep: some View {
         VStack(spacing: 24) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: largeIconSize))
-                .foregroundStyle(.green)
-                .accessibilityHidden(true)
+            ZStack {
+                Circle()
+                    .fill(DailyOKColor.green300.opacity(0.5))
+                    .frame(width: largeIconSize * 1.8, height: largeIconSize * 1.8)
+                    .blur(radius: 30)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: largeIconSize))
+                    .foregroundStyle(
+                        LinearGradient(colors: [DailyOKColor.green400, DailyOKColor.green600],
+                                       startPoint: .top, endPoint: .bottom)
+                    )
+                    .symbolEffect(.bounce, value: viewModel.currentStep)
+                    .accessibilityHidden(true)
+            }
 
             Text("You're All Set!")
                 .font(.largeTitle)
@@ -339,9 +415,11 @@ struct OnboardingView: View {
                 appState.isOnboarding = false
             }
             .buttonStyle(.borderedProminent)
-            .tint(.green)
+            .tint(DailyOKColor.green500)
             .controlSize(.large)
         }
+        .padding(24)
+        .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
         .padding()
     }
 }

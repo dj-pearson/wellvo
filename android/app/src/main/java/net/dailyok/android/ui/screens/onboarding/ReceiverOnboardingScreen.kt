@@ -19,6 +19,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import net.dailyok.android.ui.components.AmbientBackground
+import net.dailyok.android.ui.components.AmbientTone
+import net.dailyok.android.ui.components.GlassCard
+import net.dailyok.android.ui.theme.DailyOKElevation
+import net.dailyok.android.ui.theme.DailyOKGlass
+import net.dailyok.android.ui.theme.DailyOKGlassStyle
+import net.dailyok.android.ui.theme.glassSurface
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Favorite
@@ -62,43 +70,67 @@ fun ReceiverOnboardingScreen(
         return
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.weight(1f))
+    Box(modifier = Modifier.fillMaxSize()) {
+        AmbientBackground(tone = if (state.currentStep == 2) AmbientTone.Calm else AmbientTone.Neutral)
 
-        when (state.currentStep) {
-            0 -> WelcomeStep(
-                receiverName = state.receiverName,
-                checkinTime = state.checkinTime,
-                isLoading = state.isLoading,
-                errorMessage = state.errorMessage,
-                onContinue = viewModel::advance
-            )
-            1 -> NotificationsStep(
-                onPermissionResult = viewModel::onNotificationPermissionResult
-            )
-            2 -> CompleteStep(
-                notificationDenied = state.notificationDenied,
-                onStart = {
-                    viewModel.markComplete()
-                    onComplete()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.weight(1f))
+
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                style = DailyOKGlassStyle.Thin,
+                shape = RoundedCornerShape(DailyOKGlass.RadiusLarge),
+                elevation = DailyOKElevation.level3,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(24.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    when (state.currentStep) {
+                        0 -> WelcomeStep(
+                            receiverName = state.receiverName,
+                            checkinTime = state.checkinTime,
+                            isLoading = state.isLoading,
+                            errorMessage = state.errorMessage,
+                            onContinue = viewModel::advance
+                        )
+                        1 -> NotificationsStep(
+                            onPermissionResult = viewModel::onNotificationPermissionResult
+                        )
+                        2 -> CompleteStep(
+                            notificationDenied = state.notificationDenied,
+                            onStart = {
+                                viewModel.markComplete()
+                                onComplete()
+                            }
+                        )
+                    }
                 }
-            )
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Progress dots on a glass pill
+            Row(
+                modifier = Modifier
+                    .glassSurface(
+                        style = DailyOKGlassStyle.UltraThin,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
+                        elevation = DailyOKElevation.level1
+                    )
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                ProgressDots(
+                    currentStep = state.currentStep,
+                    totalSteps = 3
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
         }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Progress dots
-        ProgressDots(
-            currentStep = state.currentStep,
-            totalSteps = 3
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 

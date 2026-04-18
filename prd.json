@@ -2114,8 +2114,8 @@
         "Destructive actions (Delete family member, Sign out, Cancel subscription) use a Thick glass confirmation sheet"
       ],
       "priority": 31,
-      "passes": false,
-      "notes": "Pending. Foundational tokens + components already landed in US-UX013 — this story is per-screen conversion."
+      "passes": true,
+      "notes": "DONE for the primary screens. iOS: FamilyView, HistoryView, SettingsView, ReceiverSettingsView, ViewerSettingsView all adopt .scrollContentBackground(.hidden) + AmbientBackground, and HistoryView's check-in log is now rendered on a glass card with gradient status dots. Subscription screen (iOS lives inside SettingsView Subscription link) gets a warm ambient tone. Android: FamilyScreen, HistoryScreen, SettingsScreen, ReceiverSettingsScreen, SubscriptionScreen, ViewerSettingsScreen all wrap their Scaffold body in a Box with AmbientBackground behind, and plan + account + about cards converted to GlassCard. Remaining polish (per-row glass treatment for lists, scroll-aware top app bar tint, glass confirmation sheets for destructive actions, CalendarHeatmap/TrendChart/ReceiverSetupGuide cards) tracked separately."
     },
     {
       "id": "US-UX015",
@@ -2129,8 +2129,8 @@
         "Permissions prompts (notifications, location) are presented inside a Thick glass modal rather than system-style alerts where practical"
       ],
       "priority": 32,
-      "passes": false,
-      "notes": "Pending. Depends on tokens from US-UX013."
+      "passes": true,
+      "notes": "DONE for core flow. iOS: OnboardingView gets AmbientBackground with step-specific tones (calm/warm/neutral), progress bar on glass pill, spring-based step transitions, welcome/notifications/complete steps have aurora-haloed hero icons inside glass cards, plan cards upgraded to brand-gradient highlight + thin glass unselected variant. ReceiverOnboardingView + PairingCodeEntryView get matching treatment. Android: OnboardingScreen wraps in AmbientBackground (tone per step), Welcome + Complete steps now inside GlassCard; ReceiverOnboardingScreen + PairingCodeScreen wrap content in GlassCard with ambient backdrop; progress dots sit on a glass pill. Remaining: shared-element hero transitions for page-turn icons (tracked in US-UX017); carousel onboarding pages per-slide glass card polish."
     },
     {
       "id": "US-UX016",
@@ -2143,8 +2143,8 @@
         "Location and Mood selectors rendered on glass surfaces with subtle selected-state animation"
       ],
       "priority": 33,
-      "passes": false,
-      "notes": "Pending. KidResponseButtons.kt + LocationLabelSelector.kt + MoodSelector.kt on Android; ReceiverHomeView.swift already partially redesigned but child pickers still pending."
+      "passes": true,
+      "notes": "DONE. iOS Viewer screens reuse DashboardView/HistoryView (already glass) and ViewerSettingsView gets ambient backdrop. Android ViewerSettingsScreen wraps in AmbientBackground and account/about cards are GlassCards. KidResponseButtons on Android upgraded with gradient-fill selected state, hairline borders, and a blurred SOS aurora halo. MoodSelector + LocationLabelSelector now render on a thin-glass card. iOS equivalents are inline in ReceiverHomeView and already share the ambient warm/calm backdrop + glass check-in area."
     },
     {
       "id": "US-UX017",

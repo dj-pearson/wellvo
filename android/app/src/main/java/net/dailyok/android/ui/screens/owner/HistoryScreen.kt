@@ -97,6 +97,9 @@ fun HistoryScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
+        net.dailyok.android.ui.components.AmbientBackground(
+            tone = net.dailyok.android.ui.components.AmbientTone.Neutral
+        )
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()

@@ -111,15 +111,23 @@ fun ViewerSettingsScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(title = { Text("Settings") })
+            TopAppBar(
+                title = { Text("Settings") },
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                )
+            )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = Color.Transparent
     ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+        net.dailyok.android.ui.components.AmbientBackground(
+            tone = net.dailyok.android.ui.components.AmbientTone.Neutral
+        )
         if (isLoading && user == null) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
@@ -128,17 +136,17 @@ fun ViewerSettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Account Section
-                Card(
+                net.dailyok.android.ui.components.GlassCard(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                    )
+                    style = net.dailyok.android.ui.theme.DailyOKGlassStyle.Thin,
+                    shape = RoundedCornerShape(net.dailyok.android.ui.theme.DailyOKGlass.RadiusLarge),
+                    elevation = net.dailyok.android.ui.theme.DailyOKElevation.level2,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
@@ -211,11 +219,12 @@ fun ViewerSettingsScreen(
                 }
 
                 // About Section
-                Card(
+                net.dailyok.android.ui.components.GlassCard(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                    )
+                    style = net.dailyok.android.ui.theme.DailyOKGlassStyle.Thin,
+                    shape = RoundedCornerShape(net.dailyok.android.ui.theme.DailyOKGlass.RadiusLarge),
+                    elevation = net.dailyok.android.ui.theme.DailyOKElevation.level2,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
@@ -276,6 +285,7 @@ fun ViewerSettingsScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
             }
+        }
         }
     }
 }

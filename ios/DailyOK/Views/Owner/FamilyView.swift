@@ -90,6 +90,8 @@ struct FamilyView: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(AmbientBackground(tone: .neutral))
             .navigationTitle("Family")
             .refreshable { await loadData() }
             .task { await loadData() }
@@ -370,6 +372,8 @@ struct InviteReceiverSheet: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(AmbientBackground(tone: .calm))
             .navigationTitle(inviteSent ? "Invite Sent" : "Invite Receiver")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

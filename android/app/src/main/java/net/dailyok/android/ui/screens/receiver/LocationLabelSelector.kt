@@ -23,8 +23,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.dailyok.android.ui.components.GlassCard
+import net.dailyok.android.ui.theme.DailyOKElevation
+import net.dailyok.android.ui.theme.DailyOKGlass
+import net.dailyok.android.ui.theme.DailyOKGlassStyle
 
 data class LocationOption(
     val id: String,
@@ -51,13 +57,21 @@ fun LocationLabelSelector(
 ) {
     val haptic = LocalHapticFeedback.current
 
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        style = DailyOKGlassStyle.Thin,
+        shape = RoundedCornerShape(DailyOKGlass.RadiusLarge),
+        elevation = DailyOKElevation.level2,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)
+    ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = stringResource(R.string.location_where),
-            style = MaterialTheme.typography.titleMedium
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
         )
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -114,5 +128,6 @@ fun LocationLabelSelector(
         TextButton(onClick = onSkip) {
             Text("Skip")
         }
+    }
     }
 }
