@@ -129,18 +129,27 @@ actor CheckInService {
         // checked in.
         let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? startOfDay.addingTimeInterval(86_400)
         let formatter = ISO8601DateFormatter()
+        let startISO = formatter.string(from: startOfDay)
+        let endISO = formatter.string(from: startOfTomorrow)
+
+        // Logged in release too — the bug we're chasing ("already checked in"
+        // when no row exists) has been surviving multiple rebuild cycles, so
+        // NSLog goes to os_log and is visible even without a DEBUG build.
+        NSLog("[CheckInService] todayCheckInStatus query: receiver=\(receiverId.uuidString) tz=\(timezone ?? "nil"/* -> device */) window=[\(startISO), \(endISO))")
 
         let checkIns: [CheckIn] = try await supabase
             .from("checkins")
             .select()
             .eq("receiver_id", value: receiverId.uuidString)
             .eq("family_id", value: familyId.uuidString)
-            .gte("checked_in_at", value: formatter.string(from: startOfDay))
-            .lt("checked_in_at", value: formatter.string(from: startOfTomorrow))
+            .gte("checked_in_at", value: startISO)
+            .lt("checked_in_at", value: endISO)
             .order("checked_in_at", ascending: false)
             .limit(1)
             .execute()
             .value
+
+        NSLog("[CheckInService] todayCheckInStatus returned \(checkIns.count) row(s): \(checkIns.first?.checkedInAt.description ?? "nil")")
 
         // Defensive client-side verification: even if the server returned a
         // row, trust it only if its timestamp genuinely falls within today's
@@ -149,9 +158,7 @@ actor CheckInService {
         // onto from a previous sign-in.
         guard let candidate = checkIns.first else { return nil }
         if candidate.checkedInAt < startOfDay || candidate.checkedInAt >= startOfTomorrow {
-            #if DEBUG
-            print("[CheckInService] Discarding out-of-window check-in: \(candidate.checkedInAt) vs [\(startOfDay), \(startOfTomorrow))")
-            #endif
+            NSLog("[CheckInService] Discarding out-of-window check-in: \(candidate.checkedInAt) vs [\(startOfDay), \(startOfTomorrow))")
             return nil
         }
         return candidate
