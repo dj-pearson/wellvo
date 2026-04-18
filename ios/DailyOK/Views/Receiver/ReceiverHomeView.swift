@@ -124,6 +124,12 @@ struct ReceiverHomeView: View {
                 Task { await viewModel.loadStatus() }
             }
         }
+        // When queued offline check-ins sync to the server, reload so the
+        // "you're all set" card reflects the now-persisted check-in (or
+        // vice-versa if the server rejected it).
+        .onReceive(NotificationCenter.default.publisher(for: OfflineCheckInService.didSyncCheckIns)) { _ in
+            Task { await viewModel.loadStatus() }
+        }
         .alert("Sign Out", isPresented: $showSignOutConfirmation) {
             Button("Sign Out", role: .destructive) {
                 DailyOKHaptics.warning()

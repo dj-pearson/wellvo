@@ -149,8 +149,16 @@ class DashboardViewModel @Inject constructor(
                     checkNotificationStatusBatch(receivers.map { it.userId })
                 } catch (_: Exception) { emptySet() }
 
-                // Group results by receiver for in-memory mapping
-                val todayByReceiver = todayCheckIns.groupBy { it.receiverId }
+                // Group results by receiver, then narrow "today" down to each
+                // receiver's local calendar day — the batched query uses a
+                // wide 48h window to cover all timezones, so we still need to
+                // filter per-receiver here.
+                val todayByReceiver = todayCheckIns
+                    .groupBy { it.receiverId }
+                    .mapValues { (receiverId, checkIns) ->
+                        val tz = receivers.firstOrNull { it.userId == receiverId }?.user?.timezone
+                        checkIns.filter { checkInService.isWithinLocalToday(it.checkedInAt, tz) }
+                    }
                 val historyByReceiver = allHistory.groupBy { it.receiverId }
                 val sevenDaysAgo = LocalDate.now().minusDays(7)
                     .format(DateTimeFormatter.ISO_LOCAL_DATE)

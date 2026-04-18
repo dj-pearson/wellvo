@@ -97,7 +97,15 @@ class ReceiverViewModel @Inject constructor(
                     }
                     .decodeSingleOrNull<ReceiverSettings>()
 
-                val todayCheckIn = checkInService.todayCheckInStatus(userId, member.familyId)
+                // "Today" is the receiver's local day, not the device's, so a
+                // user who travelled to a different timezone (or mistakenly
+                // has a device TZ that disagrees with their profile) still
+                // sees the correct state.
+                val todayCheckIn = checkInService.todayCheckInStatus(
+                    userId,
+                    member.familyId,
+                    settings?.timezone
+                )
 
                 val pendingRequest = if (todayCheckIn == null) {
                     checkInService.getTodayPendingRequest(userId, member.familyId)
@@ -127,12 +135,10 @@ class ReceiverViewModel @Inject constructor(
         val state = _uiState.value
         val familyId = state.familyId ?: return
         val receiverId = state.receiverId ?: return
+        // `requestId` is optional — when the user taps "I'm OK" outside of a
+        // scheduled/on-demand notification there's no pending request row, so
+        // the edge function records the check-in via receiver_id+family_id.
         val requestId = state.pendingRequestId
-
-        if (requestId == null) {
-            _uiState.value = state.copy(errorMessage = "No pending check-in request.")
-            return
-        }
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isCheckingIn = true, errorMessage = null)
@@ -152,6 +158,7 @@ class ReceiverViewModel @Inject constructor(
                     isCheckingIn = false,
                     hasCheckedInToday = true,
                     lastCheckIn = updatedCheckIn,
+                    pendingRequestId = null,
                     showMoodSelector = true
                 )
             } catch (e: DailyOKError) {

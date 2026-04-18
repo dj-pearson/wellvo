@@ -74,7 +74,7 @@ class OfflineCheckInService @Inject constructor(
     suspend fun performCheckIn(
         familyId: String,
         receiverId: String,
-        requestId: String,
+        requestId: String? = null,
         mood: String? = null,
         source: String = "app"
     ): Boolean {
@@ -119,10 +119,14 @@ class OfflineCheckInService @Inject constructor(
         val unsynced = offlineCheckInDao.getUnsynced()
         for (checkIn in unsynced) {
             try {
+                // Intentionally pass requestId=null — the local row's UUID
+                // doesn't match any checkin_requests row on the server, so
+                // letting the edge function look up (or skip) via
+                // receiver_id + family_id is the correct path.
                 checkInService.checkIn(
                     familyId = checkIn.familyId,
                     receiverId = checkIn.receiverId,
-                    requestId = checkIn.id,
+                    requestId = null,
                     mood = checkIn.mood,
                     source = checkIn.source
                 )

@@ -107,6 +107,12 @@ struct DashboardView: View {
                     Task { await viewModel.loadDashboard() }
                 }
             }
+            // Reload when a queued offline check-in syncs (e.g. the owner is
+            // also a receiver on the same device) so the card flips from
+            // Pending to Checked In without waiting for the next foreground.
+            .onReceive(NotificationCenter.default.publisher(for: OfflineCheckInService.didSyncCheckIns)) { _ in
+                Task { await viewModel.loadDashboard() }
+            }
         }
     }
 

@@ -122,6 +122,12 @@ actor CheckInService {
             calendar.timeZone = tz
         }
         let startOfDay = calendar.startOfDay(for: Date())
+        // Upper bound = start of tomorrow in the same timezone. Without this,
+        // a row with a future `checked_in_at` (e.g. server-side clock skew, or
+        // a legacy seed row) would satisfy the `gte` filter and be returned
+        // as "today's check-in" even when the receiver hasn't actually
+        // checked in.
+        let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? startOfDay.addingTimeInterval(86_400)
         let formatter = ISO8601DateFormatter()
 
         let checkIns: [CheckIn] = try await supabase
@@ -130,6 +136,7 @@ actor CheckInService {
             .eq("receiver_id", value: receiverId.uuidString)
             .eq("family_id", value: familyId.uuidString)
             .gte("checked_in_at", value: formatter.string(from: startOfDay))
+            .lt("checked_in_at", value: formatter.string(from: startOfTomorrow))
             .order("checked_in_at", ascending: false)
             .limit(1)
             .execute()

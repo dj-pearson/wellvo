@@ -28,7 +28,7 @@ class CheckInService @Inject constructor(
     suspend fun checkIn(
         familyId: String,
         receiverId: String,
-        requestId: String,
+        requestId: String?,
         mood: String? = null,
         source: String = "app",
         latitude: Double? = null,
@@ -37,9 +37,15 @@ class CheckInService @Inject constructor(
         kidResponseType: String? = null
     ): String {
         try {
+            // Pass both the request id (if responding to a scheduled/on-demand
+            // notification) and the receiver/family ids (so the edge function
+            // can still record the check-in when there's no pending request,
+            // e.g. user tapped "I'm OK" manually outside a notification).
             return apiService.processCheckinResponse(
                 CheckInResponseRequest(
                     requestId = requestId,
+                    receiverId = receiverId,
+                    familyId = familyId,
                     mood = mood,
                     source = source,
                     latitude = latitude,
@@ -183,18 +189,55 @@ class CheckInService @Inject constructor(
         }
     }
 
+    /// Fetches check-ins for a family that fall within today's window. The
+    /// window must be wide enough to cover every receiver's local "today",
+    /// because receivers in different timezones have different day boundaries.
+    /// We query a 48-hour window (starting 24h before the owner's local
+    /// midnight) and let callers filter per-receiver using each receiver's
+    /// own timezone.
     suspend fun todayCheckInsForFamily(familyId: String): List<CheckIn> {
         try {
-            val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+            // Timezone offsets span roughly UTC-12 to UTC+14, so a receiver's
+            // "today" can start up to 14h before and end up to 12h after the
+            // owner's. A ±24h window around now is plenty to cover every
+            // family member's local day regardless of zone.
+            val now = java.time.Instant.now()
+            val windowStart = now.minus(Duration.ofHours(24))
+            val windowEnd = now.plus(Duration.ofHours(24))
+            val iso = DateTimeFormatter.ISO_INSTANT
             return supabase.postgrest.from("checkins")
                 .select {
                     filter { eq("family_id", familyId) }
-                    filter { gte("checked_in_at", "${today}T00:00:00") }
-                    filter { lt("checked_in_at", "${today}T23:59:59.999") }
+                    filter { gte("checked_in_at", iso.format(windowStart)) }
+                    filter { lt("checked_in_at", iso.format(windowEnd)) }
                 }
                 .decodeList<CheckIn>()
         } catch (e: Exception) {
             throw DailyOKError.Unknown(e.message ?: "Failed to fetch today's check-ins.")
+        }
+    }
+
+    /// True if `checkedInAtIso` falls within "today" in the given IANA
+    /// timezone. Used to filter the wide family-level query down to each
+    /// receiver's local day.
+    fun isWithinLocalToday(checkedInAtIso: String, timezone: String?): Boolean {
+        return try {
+            val zone = try {
+                timezone?.let { ZoneId.of(it) } ?: ZoneId.systemDefault()
+            } catch (_: Exception) { ZoneId.systemDefault() }
+            val instant = try {
+                java.time.OffsetDateTime.parse(checkedInAtIso).toInstant()
+            } catch (_: Exception) {
+                // Fall back to treating a bare local timestamp as UTC, which
+                // matches how Postgres timestamptz values are typically sent
+                // when the trailing offset is omitted.
+                java.time.Instant.parse("${checkedInAtIso.trimEnd('Z')}Z")
+            }
+            val localDate = instant.atZone(zone).toLocalDate()
+            val today = ZonedDateTime.now(zone).toLocalDate()
+            localDate == today
+        } catch (_: Exception) {
+            false
         }
     }
 
