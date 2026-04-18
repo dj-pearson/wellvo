@@ -82,6 +82,7 @@
 		B1D00005 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00005; };
 		B1D00006 /* AccessibilityHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00006; };
 		B1D00007 /* Streaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00007; };
+		B1D00008 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00008; };
 		/* Views/Components (added) */
 		B1F00014 /* BrandedProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00014; };
 		B1F00015 /* CelebrationOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00015; };
@@ -159,6 +160,7 @@
 		F1D00005 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		F1D00006 /* AccessibilityHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityHelpers.swift; sourceTree = "<group>"; };
 		F1D00007 /* Streaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Streaks.swift; sourceTree = "<group>"; };
+		F1D00008 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		/* Views/Components (added) */
 		F1F00014 /* BrandedProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandedProgressView.swift; sourceTree = "<group>"; };
 		F1F00015 /* CelebrationOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CelebrationOverlay.swift; sourceTree = "<group>"; };
@@ -313,6 +315,7 @@
 				F1D00006 /* AccessibilityHelpers.swift */,
 				F1D00004 /* Colors.swift */,
 				F1D00001 /* Configuration.swift */,
+				F1D00008 /* Haptics.swift */,
 				F1D00002 /* KeychainService.swift */,
 				F1D00003 /* NetworkRetry.swift */,
 				F1D00007 /* Streaks.swift */,
@@ -564,6 +567,7 @@
 				B1D00005 /* Theme.swift in Sources */,
 				B1D00006 /* AccessibilityHelpers.swift in Sources */,
 				B1D00007 /* Streaks.swift in Sources */,
+				B1D00008 /* Haptics.swift in Sources */,
 				B1F00014 /* BrandedProgressView.swift in Sources */,
 				B1F00015 /* CelebrationOverlay.swift in Sources */,
 				B1F00016 /* EmptyStateView.swift in Sources */,

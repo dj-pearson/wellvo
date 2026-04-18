@@ -270,7 +270,7 @@ struct PressableStyle: ButtonStyle {
     var scale: CGFloat = 0.97
     var dim: Double = 0.85
 
-    func makeBody(configuration: Configuration) -> some View {
+    func makeBody(configuration: ButtonStyleConfiguration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? scale : 1.0)
             .opacity(configuration.isPressed ? dim : 1.0)
