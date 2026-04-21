@@ -63,6 +63,8 @@ export default function Footer() {
           <p className="footer-note">
             Available on the{' '}
             <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">App Store</a> for iPhone.
+            {' · '}
+            <Link to="/admin" className="footer-admin-link">Admin</Link>
           </p>
         </div>
       </div>

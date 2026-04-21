@@ -86,26 +86,40 @@ retry.
 
 ---
 
-## Environment variables (Coolify Team Shared Variables)
+## Environment variables
 
-Already present from the existing blog AI flow — no new provider config needed:
+Coolify resolves env vars in this precedence order (highest wins): per-service
+container env → per-project env → Team Shared Variables. Keep cross-project
+config in Team Shared; keep per-project secrets on the service itself so each
+project (Daily OK, future apps) gets its own value.
 
-| Variable                         | Purpose                                     |
-| -------------------------------- | ------------------------------------------- |
-| `AI_DEFAULT_PROVIDER`            | `anthropic` (preferred) or `openai`         |
-| `ANTHROPIC_API_KEY`              | Anthropic key                               |
-| `OPENAI_GLOBAL_API`              | OpenAI key (fallback)                       |
-| `DEFAULT_AI_MODEL`               | e.g. `claude-sonnet-4-6`                    |
-| `AI_ENABLE_CACHING`              | `true` to enable Anthropic system-prompt caching (recommended) |
-| `AI_TIMEOUT_MS`                  | Default 60000 — bump to 120000 for long articles |
+### Team Shared Variables (shared across projects — already present)
 
-**New for this feature** — add these to Coolify:
+These are consumed by `edge-functions/shared/ai.ts` and are safe to share:
 
-| Variable                           | Required | Purpose                                                     |
-| ---------------------------------- | -------- | ----------------------------------------------------------- |
-| `BLOG_GENERATION_WEBHOOK_SECRET`   | yes      | Random 32+ char secret. Make.com sends it in `X-Webhook-Secret`. |
-| `BLOG_GENERATION_AUTHOR_ID`        | no       | UUID of a `users` row to attribute posts to. Leave unset to store `author_id = NULL`. |
-| `SITE_ORIGIN`                      | no       | Public site origin for the `url` in the response. Defaults to `https://dailyok.net`. |
+| Variable               | Purpose                                                        |
+| ---------------------- | -------------------------------------------------------------- |
+| `AI_DEFAULT_PROVIDER`  | `anthropic` (preferred) or `openai`                            |
+| `ANTHROPIC_API_KEY`    | Anthropic key                                                  |
+| `OPENAI_GLOBAL_API`    | OpenAI key (fallback)                                          |
+| `DEFAULT_AI_MODEL`     | e.g. `claude-sonnet-4-6`                                       |
+| `AI_ENABLE_CACHING`    | `true` to enable Anthropic system-prompt caching (recommended) |
+| `AI_TIMEOUT_MS`        | Default 60000 — bump to 120000 for long articles               |
+
+### Daily OK edge-functions container env (new — add here, NOT in Team Shared)
+
+These are per-project and must live on the Daily OK edge-functions service in
+Coolify (or its Environment Variables panel) so a future project gets its own
+secret:
+
+| Variable                         | Required | Purpose                                                     |
+| -------------------------------- | -------- | ----------------------------------------------------------- |
+| `BLOG_GENERATION_WEBHOOK_SECRET` | yes      | Random 32+ char secret. Make.com sends it in `X-Webhook-Secret`. Each project gets its own value. |
+| `BLOG_GENERATION_AUTHOR_ID`      | no       | UUID of a `users` row to attribute posts to. Project-specific. Leave unset to store `author_id = NULL`. |
+| `SITE_ORIGIN`                    | no       | Public site origin for the `url` in the response. Project-specific. Defaults to `https://dailyok.net`. |
+
+No code change is needed to honor this split — `Deno.env.get(...)` reads from
+whichever scope sets the variable.
 
 ---
 

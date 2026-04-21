@@ -8,13 +8,35 @@ interface State {
   hasError: boolean
 }
 
+function isStaleChunkError(error: Error): boolean {
+  const msg = error?.message || ''
+  return (
+    /Failed to fetch dynamically imported module/i.test(msg) ||
+    /Loading chunk [\w-]+ failed/i.test(msg) ||
+    /error loading dynamically imported module/i.test(msg) ||
+    /Importing a module script failed/i.test(msg)
+  )
+}
+
 export default class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props)
     this.state = { hasError: false }
   }
 
-  static getDerivedStateFromError(): State {
+  static getDerivedStateFromError(error: Error): State {
+    // Stale chunk after a new deploy: the current HTML references a chunk hash
+    // that no longer exists on the CDN, so the SPA fallback serves index.html
+    // and the browser reports "MIME type text/html" for the .js module.
+    // Reload once to pull the fresh index.html + new chunk hashes.
+    if (isStaleChunkError(error)) {
+      const key = 'chunk-reload-guard'
+      const last = Number(sessionStorage.getItem(key) || '0')
+      if (Date.now() - last > 30_000) {
+        sessionStorage.setItem(key, String(Date.now()))
+        window.location.reload()
+      }
+    }
     return { hasError: true }
   }
 
