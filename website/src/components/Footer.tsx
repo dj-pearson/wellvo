@@ -36,6 +36,7 @@ export default function Footer() {
 
           <div className="footer-col">
             <h4>Support</h4>
+            <Link to="/blog">Blog</Link>
             <Link to="/support">Help Center</Link>
             <a href="mailto:support@dailyok.net">Contact Us</a>
           </div>

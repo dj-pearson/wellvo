@@ -1,0 +1,266 @@
+/**
+ * Unified AI client for Anthropic (preferred) and OpenAI (fallback).
+ * Config comes from Coolify Team Shared Variables:
+ *   AI_DEFAULT_PROVIDER      anthropic | openai
+ *   ANTHROPIC_API_KEY | CLAUDE_API_KEY
+ *   OPENAI_GLOBAL_API
+ *   DEFAULT_AI_MODEL         main model id
+ *   LIGHTWEIGHT_AI_MODEL     small-task model id
+ *   AI_TEMPERATURE           default temperature (float)
+ *   AI_MAX_RETRIES           integer, default 2
+ *   AI_TIMEOUT_MS            integer, default 60000
+ *   AI_ENABLE_CACHING        "true" to enable Anthropic prompt caching
+ */
+
+type Provider = "anthropic" | "openai";
+
+export type AiModelSize = "default" | "lightweight";
+
+export interface AiMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AiGenerateOptions {
+  system?: string;
+  messages: AiMessage[];
+  maxTokens?: number;
+  temperature?: number;
+  modelSize?: AiModelSize;  // default => DEFAULT_AI_MODEL, lightweight => LIGHTWEIGHT_AI_MODEL
+  /** Cache the system prompt (Anthropic only). Useful for pSEO batches. */
+  cacheSystem?: boolean;
+  /** JSON response mode — tells the model to return parseable JSON. */
+  json?: boolean;
+}
+
+export interface AiGenerateResult {
+  text: string;
+  provider: Provider;
+  model: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheCreationTokens?: number;
+  cacheReadTokens?: number;
+}
+
+export class AiError extends Error {
+  constructor(message: string, public status?: number) {
+    super(message);
+    this.name = "AiError";
+  }
+}
+
+function env(name: string): string | undefined {
+  const v = Deno.env.get(name);
+  return v && v.trim() !== "" ? v : undefined;
+}
+
+function resolveProvider(): Provider {
+  const pref = (env("AI_DEFAULT_PROVIDER") || "anthropic").toLowerCase();
+  const hasAnthropic = !!(env("ANTHROPIC_API_KEY") || env("CLAUDE_API_KEY"));
+  const hasOpenAI = !!env("OPENAI_GLOBAL_API");
+
+  if (pref === "openai" && hasOpenAI) return "openai";
+  if (pref === "anthropic" && hasAnthropic) return "anthropic";
+  if (hasAnthropic) return "anthropic";
+  if (hasOpenAI) return "openai";
+  throw new AiError("No AI provider is configured (set ANTHROPIC_API_KEY or OPENAI_GLOBAL_API)");
+}
+
+function resolveModel(size: AiModelSize, provider: Provider): string {
+  if (size === "lightweight") {
+    const lw = env("LIGHTWEIGHT_AI_MODEL");
+    if (lw) return lw;
+  }
+  const defaultModel = env("DEFAULT_AI_MODEL");
+  if (defaultModel) return defaultModel;
+  // Sensible fallbacks
+  return provider === "anthropic" ? "claude-sonnet-4-6" : "gpt-4o-mini";
+}
+
+function resolveTemperature(opt?: number): number {
+  if (typeof opt === "number") return opt;
+  const raw = env("AI_TEMPERATURE");
+  if (raw) {
+    const n = parseFloat(raw);
+    if (!Number.isNaN(n)) return n;
+  }
+  return 0.7;
+}
+
+function resolveMaxRetries(): number {
+  const raw = env("AI_MAX_RETRIES");
+  if (raw) {
+    const n = parseInt(raw, 10);
+    if (!Number.isNaN(n) && n >= 0) return n;
+  }
+  return 2;
+}
+
+function resolveTimeoutMs(): number {
+  const raw = env("AI_TIMEOUT_MS");
+  if (raw) {
+    const n = parseInt(raw, 10);
+    if (!Number.isNaN(n) && n > 0) return n;
+  }
+  return 60_000;
+}
+
+function cachingEnabled(): boolean {
+  return (env("AI_ENABLE_CACHING") || "false").toLowerCase() === "true";
+}
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  maxRetries: number,
+  timeoutMs: number,
+): Promise<Response> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...init, signal: ctrl.signal });
+      clearTimeout(timer);
+      if (res.status === 429 || res.status >= 500) {
+        if (attempt < maxRetries) {
+          const backoff = Math.min(2000 * (attempt + 1), 8000);
+          await new Promise((r) => setTimeout(r, backoff));
+          continue;
+        }
+      }
+      return res;
+    } catch (err) {
+      clearTimeout(timer);
+      lastErr = err;
+      if (attempt < maxRetries) {
+        const backoff = Math.min(2000 * (attempt + 1), 8000);
+        await new Promise((r) => setTimeout(r, backoff));
+        continue;
+      }
+    }
+  }
+  throw new AiError(`AI request failed: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
+}
+
+async function callAnthropic(opts: AiGenerateOptions): Promise<AiGenerateResult> {
+  const apiKey = env("ANTHROPIC_API_KEY") || env("CLAUDE_API_KEY")!;
+  const model = resolveModel(opts.modelSize ?? "default", "anthropic");
+  const shouldCache = opts.cacheSystem !== false && cachingEnabled() && !!opts.system;
+
+  const systemBlocks = opts.system
+    ? [
+        shouldCache
+          ? { type: "text", text: opts.system, cache_control: { type: "ephemeral" } }
+          : { type: "text", text: opts.system },
+      ]
+    : undefined;
+
+  const body: Record<string, unknown> = {
+    model,
+    max_tokens: opts.maxTokens ?? 4096,
+    temperature: resolveTemperature(opts.temperature),
+    messages: opts.messages.map((m) => ({ role: m.role, content: m.content })),
+  };
+  if (systemBlocks) body.system = systemBlocks;
+
+  const res = await fetchWithRetry(
+    "https://api.anthropic.com/v1/messages",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(body),
+    },
+    resolveMaxRetries(),
+    resolveTimeoutMs(),
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new AiError(`Anthropic ${res.status}: ${text.slice(0, 500)}`, res.status);
+  }
+
+  const data = await res.json();
+  const textContent = Array.isArray(data.content)
+    ? data.content.filter((c: { type: string }) => c.type === "text").map((c: { text: string }) => c.text).join("")
+    : "";
+
+  return {
+    text: textContent,
+    provider: "anthropic",
+    model,
+    inputTokens: data.usage?.input_tokens,
+    outputTokens: data.usage?.output_tokens,
+    cacheCreationTokens: data.usage?.cache_creation_input_tokens,
+    cacheReadTokens: data.usage?.cache_read_input_tokens,
+  };
+}
+
+async function callOpenAI(opts: AiGenerateOptions): Promise<AiGenerateResult> {
+  const apiKey = env("OPENAI_GLOBAL_API")!;
+  const model = resolveModel(opts.modelSize ?? "default", "openai");
+
+  const messages: Array<{ role: string; content: string }> = [];
+  if (opts.system) messages.push({ role: "system", content: opts.system });
+  for (const m of opts.messages) messages.push({ role: m.role, content: m.content });
+
+  const body: Record<string, unknown> = {
+    model,
+    messages,
+    max_tokens: opts.maxTokens ?? 4096,
+    temperature: resolveTemperature(opts.temperature),
+  };
+  if (opts.json) body.response_format = { type: "json_object" };
+
+  const res = await fetchWithRetry(
+    "https://api.openai.com/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    },
+    resolveMaxRetries(),
+    resolveTimeoutMs(),
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new AiError(`OpenAI ${res.status}: ${text.slice(0, 500)}`, res.status);
+  }
+
+  const data = await res.json();
+  const textContent = data.choices?.[0]?.message?.content ?? "";
+
+  return {
+    text: textContent,
+    provider: "openai",
+    model,
+    inputTokens: data.usage?.prompt_tokens,
+    outputTokens: data.usage?.completion_tokens,
+  };
+}
+
+export async function aiGenerate(opts: AiGenerateOptions): Promise<AiGenerateResult> {
+  const provider = resolveProvider();
+  return provider === "anthropic" ? callAnthropic(opts) : callOpenAI(opts);
+}
+
+/** Substitute {{variable}} placeholders in a template string. */
+export function renderTemplate(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, name) => vars[name] ?? "");
+}
+
+/** Extract the first ```json ... ``` block or parse a raw JSON response. */
+export function extractJson<T = unknown>(text: string): T {
+  const fence = text.match(/```json\s*([\s\S]*?)```/i) ?? text.match(/```\s*([\s\S]*?)```/);
+  const candidate = fence ? fence[1] : text;
+  return JSON.parse(candidate.trim()) as T;
+}

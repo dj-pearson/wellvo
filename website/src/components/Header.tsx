@@ -45,6 +45,14 @@ export default function Header() {
             Pricing
           </Link>
           <Link
+            to="/blog"
+            className={`nav-link ${location.pathname.startsWith('/blog') ? 'active' : ''}`}
+            aria-current={location.pathname.startsWith('/blog') ? 'page' : undefined}
+            onClick={() => setMenuOpen(false)}
+          >
+            Blog
+          </Link>
+          <Link
             to="/support"
             className={`nav-link ${isActive('/support') ? 'active' : ''}`}
             aria-current={isActive('/support') ? 'page' : undefined}

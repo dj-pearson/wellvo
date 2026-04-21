@@ -37,7 +37,9 @@
       "Bash(tasklist)",
       "Bash(tasklist:*)",
       "Bash(powershell -Command \"Get-Process -Id 82580 -ErrorAction SilentlyContinue | Select-Object Id,Name,StartTime\")",
-      "Bash(powershell -Command \"Get-CimInstance Win32_Process | Where-Object { \\\\$_.ParentProcessId -eq 82580 } | Select-Object ProcessId,Name,CommandLine | Format-List\")"
+      "Bash(powershell -Command \"Get-CimInstance Win32_Process | Where-Object { \\\\$_.ParentProcessId -eq 82580 } | Select-Object ProcessId,Name,CommandLine | Format-List\")",
+      "Bash(npm uninstall *)",
+      "Bash(npm test *)"
     ]
   }
 }

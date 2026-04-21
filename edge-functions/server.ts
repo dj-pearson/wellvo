@@ -39,6 +39,11 @@ import { handleHeartbeat } from "./functions/heartbeat/index.ts";
 import { handleAutoJoin } from "./functions/auto-join/index.ts";
 import { handleRedeemCode } from "./functions/redeem-code/index.ts";
 import { handleLinkAppleId } from "./functions/link-apple-id/index.ts";
+import { handleAdminMetrics } from "./functions/admin-metrics/index.ts";
+import { handleAdminUsers } from "./functions/admin-users/index.ts";
+import { handleAdminBlog } from "./functions/admin-blog/index.ts";
+import { handleAdminBlogAi } from "./functions/admin-blog-ai/index.ts";
+import { handleAdminSocial } from "./functions/admin-social/index.ts";
 
 type FunctionHandler = (req: Request, auth: AuthResult) => Promise<Response>;
 
@@ -63,6 +68,11 @@ const routes: Record<string, FunctionHandler> = {
   "/auto-join": handleAutoJoin,
   "/redeem-code": handleRedeemCode,
   "/link-apple-id": handleLinkAppleId,
+  "/admin-metrics": handleAdminMetrics,
+  "/admin-users": handleAdminUsers,
+  "/admin-blog": handleAdminBlog,
+  "/admin-blog-ai": handleAdminBlogAi,
+  "/admin-social": handleAdminSocial,
 };
 
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://dailyok.net";

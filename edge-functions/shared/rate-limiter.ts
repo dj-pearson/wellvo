@@ -25,6 +25,10 @@ const ENDPOINT_LIMITS: Record<string, number> = {
   "/invite-receiver": 5,
   "/on-demand-checkin": 10,
   "/redeem-code": 5, // Stricter limit: 6-digit code = 1M combinations
+  // Admin AI generation is expensive; cap per-admin per minute
+  "/admin-blog-ai": 10,
+  // Social webhook fires external Make scenarios — moderate limit
+  "/admin-social": 30,
 };
 
 const DEFAULT_LIMIT = 30; // requests per minute
