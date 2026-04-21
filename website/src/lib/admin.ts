@@ -149,6 +149,34 @@ export function listUsers(opts: { search?: string; limit?: number; offset?: numb
   )
 }
 
+export interface FamilyTreeMember {
+  member_id: string
+  role: string
+  status: string
+  joined_at: string | null
+  user: AdminUser
+}
+
+export interface FamilyTreeNode {
+  id: string
+  name: string
+  subscription_tier: string
+  subscription_status: string
+  max_receivers: number
+  created_at: string
+  owner: AdminUser | null
+  members: FamilyTreeMember[]
+}
+
+export function listFamilyTree(opts: { search?: string } = {}) {
+  return callEdge<{
+    families: FamilyTreeNode[]
+    orphans: AdminUser[]
+    total_families: number
+    total_orphans: number
+  }>('/admin-users', { action: 'list_family_tree', ...opts })
+}
+
 export function getUser(user_id: string) {
   return callEdge<{
     user: AdminUser & { is_system_admin: boolean }

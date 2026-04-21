@@ -10,7 +10,7 @@ function json(body: unknown, status = 200): Response {
 }
 
 interface Body {
-  action: "list" | "get" | "set_admin";
+  action: "list" | "list_family_tree" | "get" | "set_admin";
   user_id?: string;
   search?: string;
   limit?: number;
@@ -28,6 +28,8 @@ export async function handleAdminUsers(req: Request, auth: AuthResult): Promise<
   switch (action) {
     case "list":
       return listUsers(body);
+    case "list_family_tree":
+      return listFamilyTree(body);
     case "get":
       return getUser(body);
     case "set_admin":
@@ -35,6 +37,134 @@ export async function handleAdminUsers(req: Request, auth: AuthResult): Promise<
     default:
       return json({ error: "Unknown action" }, 400);
   }
+}
+
+interface FamilyNode {
+  id: string;
+  name: string;
+  subscription_tier: string;
+  subscription_status: string;
+  max_receivers: number;
+  created_at: string;
+  owner: UserSummary | null;
+  members: MemberNode[];
+}
+
+interface UserSummary {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  display_name: string;
+  role: string;
+  is_system_admin: boolean;
+  timezone: string;
+  created_at: string;
+}
+
+interface MemberNode {
+  member_id: string;
+  role: string;
+  status: string;
+  joined_at: string | null;
+  user: UserSummary;
+}
+
+async function listFamilyTree(body: Body): Promise<Response> {
+  const search = (body.search || "").trim().toLowerCase();
+
+  const [familiesRes, usersRes, membersRes] = await Promise.all([
+    supabaseAdmin
+      .from("families")
+      .select("id, name, owner_id, subscription_tier, subscription_status, max_receivers, created_at")
+      .order("created_at", { ascending: false }),
+    supabaseAdmin
+      .from("users")
+      .select("id, email, phone, display_name, role, is_system_admin, timezone, created_at"),
+    supabaseAdmin
+      .from("family_members")
+      .select("id, family_id, user_id, role, status, joined_at")
+      .in("status", ["active", "invited"]),
+  ]);
+
+  if (familiesRes.error) return json({ error: familiesRes.error.message }, 500);
+  if (usersRes.error) return json({ error: usersRes.error.message }, 500);
+  if (membersRes.error) return json({ error: membersRes.error.message }, 500);
+
+  const userById = new Map<string, UserSummary>();
+  for (const u of usersRes.data ?? []) userById.set(u.id, u as UserSummary);
+
+  const membersByFamily = new Map<string, MemberNode[]>();
+  for (const m of membersRes.data ?? []) {
+    const user = userById.get(m.user_id);
+    if (!user) continue;
+    const node: MemberNode = {
+      member_id: m.id,
+      role: m.role,
+      status: m.status,
+      joined_at: m.joined_at,
+      user,
+    };
+    if (!membersByFamily.has(m.family_id)) membersByFamily.set(m.family_id, []);
+    membersByFamily.get(m.family_id)!.push(node);
+  }
+
+  const families: FamilyNode[] = (familiesRes.data ?? []).map((f) => {
+    const members = membersByFamily.get(f.id) ?? [];
+    // Sort: receivers first by joined_at, then viewers
+    members.sort((a, b) => {
+      if (a.role !== b.role) return a.role === "receiver" ? -1 : 1;
+      return (a.joined_at ?? "").localeCompare(b.joined_at ?? "");
+    });
+    return {
+      id: f.id,
+      name: f.name,
+      subscription_tier: f.subscription_tier,
+      subscription_status: f.subscription_status,
+      max_receivers: f.max_receivers,
+      created_at: f.created_at,
+      owner: userById.get(f.owner_id) ?? null,
+      members,
+    };
+  });
+
+  // Orphans: users not in any family and not an owner of any family
+  const affiliated = new Set<string>();
+  for (const f of families) {
+    if (f.owner?.id) affiliated.add(f.owner.id);
+    for (const m of f.members) affiliated.add(m.user.id);
+  }
+  const orphans = (usersRes.data ?? []).filter((u) => !affiliated.has(u.id)) as UserSummary[];
+
+  // Filter by search
+  let filtered = families;
+  if (search) {
+    filtered = families.filter((f) => {
+      if (f.name.toLowerCase().includes(search)) return true;
+      if (matchesUser(f.owner, search)) return true;
+      if (f.members.some((m) => matchesUser(m.user, search))) return true;
+      return false;
+    });
+  }
+  const filteredOrphans = search
+    ? orphans.filter((u) => matchesUser(u, search))
+    : orphans;
+
+  return json({
+    families: filtered,
+    orphans: filteredOrphans,
+    total_families: families.length,
+    total_orphans: orphans.length,
+  });
+}
+
+function matchesUser(u: UserSummary | null, search: string): boolean {
+  if (!u) return false;
+  return (
+    (u.email ?? "").toLowerCase().includes(search) ||
+    (u.phone ?? "").toLowerCase().includes(search) ||
+    u.display_name.toLowerCase().includes(search) ||
+    u.id.toLowerCase().includes(search)
+  );
 }
 
 async function listUsers(body: Body): Promise<Response> {
