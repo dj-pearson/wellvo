@@ -5,7 +5,7 @@ import { useAdminAuth } from './AdminAuthProvider'
 import './admin.css'
 
 export default function AdminLogin() {
-  const { session, loading, isAdmin, adminCheckDone } = useAdminAuth()
+  const { session, loading, isAdmin, adminCheckDone, signOut } = useAdminAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -92,9 +92,19 @@ export default function AdminLogin() {
 
         {error && <div className="admin-error">{error}</div>}
         {info && <div className="admin-success">{info}</div>}
-        {notAdmin && (
-          <div className="admin-error">
-            Signed in, but this account does not have admin access.
+        {notAdmin && session && (
+          <div className="admin-error" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div>
+              Signed in as <strong>{session.user.email || session.user.id}</strong>, but this account does not have admin access.
+            </div>
+            <button
+              type="button"
+              className="admin-btn admin-btn-secondary admin-btn-sm"
+              onClick={() => void signOut()}
+              style={{ alignSelf: 'flex-start' }}
+            >
+              Sign out and try a different account
+            </button>
           </div>
         )}
 
@@ -107,7 +117,7 @@ export default function AdminLogin() {
               className="admin-input"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
+              autoComplete="username"
               required
             />
           </div>
