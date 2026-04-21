@@ -565,8 +565,8 @@ Configure in **App Store Connect → App → App Information → App Store Serve
 
 | Field          | Value                                          |
 | -------------- | ---------------------------------------------- |
-| Production URL | `https://edge.dailyok.net/subscription-webhook` |
-| Sandbox URL    | `https://edge.dailyok.net/subscription-webhook` |
+| Production URL | `https://functions.dailyok.net/subscription-webhook` |
+| Sandbox URL    | `https://functions.dailyok.net/subscription-webhook` |
 | Version        | Version 2                                      |
 
 **Notification types to handle:**
@@ -859,7 +859,7 @@ PORT=9000
 docker compose up -d
 
 # Verify health
-curl https://edge.dailyok.net/health
+curl https://functions.dailyok.net/health
 # Should return: {"status":"ok"}
 ```
 
@@ -903,7 +903,7 @@ curl https://edge.dailyok.net/health
 Ensure Coolify's Traefik/Caddy is configured to route:
 
 - `api.dailyok.net` → Supabase Kong container (port 8000)
-- `edge.dailyok.net` → Edge Functions container (port 9000)
+- `functions.dailyok.net` → Edge Functions container (port 9000)
 - `dailyok.net` → Landing page (if hosted on same VPS)
 
 ---
@@ -930,7 +930,7 @@ Set all of these in **GitHub → Repository → Settings → Secrets and Variabl
 | `SUPABASE_DB_URL`             | PostgreSQL connection string  | `postgresql://postgres:<pw>@<host>:5432/postgres`         |
 | `COOLIFY_WEBHOOK_URL`         | Coolify deploy webhook        | Coolify → Resource → Webhooks                             |
 | `COOLIFY_API_TOKEN`           | Coolify API token             | Coolify → Settings → API Tokens                           |
-| `EDGE_FUNCTIONS_HEALTH_URL`   | `https://edge.dailyok.net`     | Your edge functions URL                                   |
+| `EDGE_FUNCTIONS_HEALTH_URL`   | `https://functions.dailyok.net`     | Your edge functions URL                                   |
 
 ### 7.2 iOS Build Configuration
 
@@ -999,7 +999,7 @@ PRODUCT_BUNDLE_IDENTIFIER = net.dailyok.app
 - [ ] Enable Cloudflare proxy on all records
 - [ ] Set SSL/TLS to Full (Strict)
 - [ ] Verify `api.dailyok.net` routes to Supabase Kong
-- [ ] Verify `edge.dailyok.net` routes to Edge Functions
+- [ ] Verify `functions.dailyok.net` routes to Edge Functions
 - [ ] Test HTTPS on all subdomains
 
 ### Phase 6: CI/CD

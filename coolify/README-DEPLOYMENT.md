@@ -34,7 +34,7 @@
 │  ┌──────────────────────────────────────────┐   │
 │  │             Cloudflare DNS               │   │
 │  │  api.dailyok.net → Supabase Kong          │   │
-│  │  edge.dailyok.net → Edge Functions        │   │
+│  │  functions.dailyok.net → Edge Functions        │   │
 │  └──────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────┘
 ```
@@ -112,7 +112,7 @@ In your GitHub repository **Settings → Secrets and Variables → Actions**, ad
 | `SUPABASE_DB_URL`            | PostgreSQL connection string             |
 | `COOLIFY_WEBHOOK_URL`        | Coolify deployment webhook URL           |
 | `COOLIFY_API_TOKEN`          | Coolify API token                        |
-| `EDGE_FUNCTIONS_HEALTH_URL`  | `https://edge.dailyok.net`                |
+| `EDGE_FUNCTIONS_HEALTH_URL`  | `https://functions.dailyok.net`                |
 
 ### 6. Database Backup Setup
 
