@@ -44,6 +44,7 @@ import { handleAdminUsers } from "./functions/admin-users/index.ts";
 import { handleAdminBlog } from "./functions/admin-blog/index.ts";
 import { handleAdminBlogAi } from "./functions/admin-blog-ai/index.ts";
 import { handleAdminSocial } from "./functions/admin-social/index.ts";
+import { handleGenerateNextArticle } from "./functions/generate-next-article/index.ts";
 
 type FunctionHandler = (req: Request, auth: AuthResult) => Promise<Response>;
 
@@ -52,6 +53,13 @@ const serviceRoleOnlyRoutes = new Set([
   "/send-checkin-notification",
   "/escalation-tick",
 ]);
+
+// Routes authenticated by a shared webhook secret instead of a Supabase JWT.
+// Map: route path -> env var name holding the secret. Bypasses verifyRequest;
+// the secret is checked before rate limiting and routing.
+const webhookSecretRoutes: Record<string, string> = {
+  "/generate-next-article": "BLOG_GENERATION_WEBHOOK_SECRET",
+};
 
 // All routes
 const routes: Record<string, FunctionHandler> = {
@@ -73,6 +81,7 @@ const routes: Record<string, FunctionHandler> = {
   "/admin-blog": handleAdminBlog,
   "/admin-blog-ai": handleAdminBlogAi,
   "/admin-social": handleAdminSocial,
+  "/generate-next-article": handleGenerateNextArticle,
 };
 
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://dailyok.net";
@@ -128,13 +137,37 @@ async function handler(req: Request): Promise<Response> {
     return new Response(null, { headers: corsHeaders(req) });
   }
 
-  // Verify authentication (JWT or service role key)
-  const auth = await verifyRequest(req);
-  if (!auth.authenticated) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+  // Webhook-secret routes: bypass JWT verification and authenticate via
+  // X-Webhook-Secret header. Used by Make.com scenarios that don't hold a
+  // Supabase JWT. Each route declares which env var holds its expected secret.
+  let auth: AuthResult;
+  const secretEnvVar = webhookSecretRoutes[path];
+  if (secretEnvVar) {
+    const expected = Deno.env.get(secretEnvVar);
+    if (!expected || expected.trim() === "") {
+      logError(`${path} misconfigured: ${secretEnvVar} not set`, new Error("missing secret env"), { path });
+      return new Response(JSON.stringify({ error: "Service misconfigured" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    const provided = req.headers.get("X-Webhook-Secret") || "";
+    if (provided !== expected) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    auth = { authenticated: true, isServiceRole: true };
+  } else {
+    // Verify authentication (JWT or service role key)
+    auth = await verifyRequest(req);
+    if (!auth.authenticated) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
   }
 
   // Rate limiting
