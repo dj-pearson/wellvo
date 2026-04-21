@@ -1,6 +1,7 @@
 import { requireSystemAdmin, logAdminAction } from "../../shared/admin-auth.ts";
 import { aiGenerate, renderTemplate, extractJson, AiError } from "../../shared/ai.ts";
 import { supabaseAdmin } from "../../shared/supabase.ts";
+import { generateAndPublishNext, getBankStatus } from "../../shared/blog-generator.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 
 function json(body: unknown, status = 200): Response {
@@ -44,7 +45,14 @@ const SEO_META_SYSTEM_PROMPT = `You generate SEO metadata for a blog post. Respo
 }`;
 
 interface Body {
-  action: "generate_article" | "generate_from_template" | "batch_generate" | "improve_text" | "generate_seo_meta";
+  action:
+    | "generate_article"
+    | "generate_from_template"
+    | "batch_generate"
+    | "improve_text"
+    | "generate_seo_meta"
+    | "generate_next_from_bank"
+    | "bank_status";
 
   // generate_article
   prompt?: string;
@@ -60,6 +68,10 @@ interface Body {
   text?: string;
   instruction?: string;
   title?: string;
+
+  // generate_next_from_bank
+  topic?: string;
+  skip_bank?: boolean;
 }
 
 export async function handleAdminBlogAi(req: Request, auth: AuthResult): Promise<Response> {
@@ -80,6 +92,10 @@ export async function handleAdminBlogAi(req: Request, auth: AuthResult): Promise
         return await improveText(body);
       case "generate_seo_meta":
         return await generateSeoMeta(body);
+      case "generate_next_from_bank":
+        return await generateNextFromBank(body, admin.userId, req);
+      case "bank_status":
+        return await bankStatus();
       default:
         return json({ error: "Unknown action" }, 400);
     }
@@ -330,6 +346,34 @@ async function improveText(body: Body): Promise<Response> {
     provider: result.provider,
     model: result.model,
   });
+}
+
+async function generateNextFromBank(body: Body, adminId: string, req: Request): Promise<Response> {
+  const result = await generateAndPublishNext({
+    authorId: adminId,
+    explicitTopic: body.topic,
+    skipBank: body.skip_bank === true,
+  });
+
+  await logAdminAction(adminId, "blog.generate_next_from_bank", {
+    resourceType: "blog_post",
+    resourceId: result.post_id,
+    metadata: {
+      source: result.source,
+      slug: result.slug,
+      remaining_pending: result.remaining_pending,
+      ai_provider: (result.ai_meta as Record<string, unknown>).provider,
+      ai_model: (result.ai_meta as Record<string, unknown>).model,
+    },
+    req,
+  });
+
+  return json(result);
+}
+
+async function bankStatus(): Promise<Response> {
+  const status = await getBankStatus();
+  return json(status);
 }
 
 async function generateSeoMeta(body: Body): Promise<Response> {

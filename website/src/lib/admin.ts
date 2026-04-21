@@ -129,6 +129,28 @@ export interface AiArticle {
   content_html: string
 }
 
+export interface BlogBankStatus {
+  pending: number
+  generating: number
+  published: number
+  failed: number
+  skipped: number
+  total: number
+}
+
+export interface BlogGenerationResult {
+  source: 'blog_title_bank' | 'fallback'
+  post_id: string
+  slug: string
+  title: string
+  excerpt: string | null
+  url: string
+  content_html: string
+  topic_rationale: string | null
+  remaining_pending: number
+  ai_meta: Record<string, unknown>
+}
+
 // =============================================================================
 // Metrics
 // =============================================================================
@@ -280,6 +302,17 @@ export function generateSeoMeta(params: { title?: string; text?: string }) {
     '/admin-blog-ai',
     { action: 'generate_seo_meta', ...params },
   )
+}
+
+export function getBlogBankStatus() {
+  return callEdge<BlogBankStatus>('/admin-blog-ai', { action: 'bank_status' })
+}
+
+export function generateNextFromBank(params: { topic?: string; skip_bank?: boolean } = {}) {
+  return callEdge<BlogGenerationResult>('/admin-blog-ai', {
+    action: 'generate_next_from_bank',
+    ...params,
+  })
 }
 
 // =============================================================================
