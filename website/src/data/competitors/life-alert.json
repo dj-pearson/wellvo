@@ -1,0 +1,99 @@
+{
+  "slug": "life-alert",
+  "name": "Life Alert",
+  "tagline": "Wearable medical alert pendant with 24/7 call-center monitoring",
+  "company_url": "https://www.lifealert.com",
+  "last_verified": "2026-04-22",
+  "daily_ok_verdict": "Daily OK and Life Alert solve different problems. Life Alert is a wearable personal emergency response system (PERS) built for an urgent moment — your parent falls, presses the pendant, and a 24/7 call center dispatches help. Daily OK is a lightweight check-in app built for the much larger stretch of days when nothing is wrong and you just want to know your parent is up and moving. For a high fall-risk parent who will consistently wear a pendant, Life Alert is the right answer. For an independent parent who owns a smartphone and would leave a pendant in a drawer, Daily OK is the quieter, cheaper, dignity-first fit. Many families run both.",
+  "best_for_daily_ok": [
+    "Parents 70–84 still managing their own daily routine who own and use a smartphone",
+    "Households where a pendant would be rejected on principle or left unworn",
+    "Caregivers who want family-first alerts instead of a call center or automatic 911 dispatch",
+    "Budget-conscious families — Daily OK is $3.99 to $9.99 per month with no hardware or contract",
+    "Long-distance caregivers who primarily want the quiet daily confirmation that everything is normal"
+  ],
+  "best_for_competitor": [
+    "Parents with documented high fall risk (recent fall, balance issues, mobility aids)",
+    "Parents who do not use a smartphone and are unwilling to start",
+    "Households that want 24/7 professional monitoring with ambulance dispatch built in",
+    "Situations where fall detection is a must-have (Life Alert offers fall-detection enabled models)"
+  ],
+  "snapshot": {
+    "starting_price": "$49.95/month (per Life Alert public materials, April 2026)",
+    "starting_price_note": "Plus an installation fee and multi-year contract per Life Alert's published terms",
+    "contract": "Multi-year agreement typical",
+    "platform": "Hardware pendant + base station",
+    "fall_detection": "Yes (on fall-detection-enabled models)",
+    "gps_tracking": "On mobile-unit tier",
+    "who_gets_alerts_first": "Life Alert 24/7 call center",
+    "daily_check_in": "No (reactive only — fires when pendant button is pressed)"
+  },
+  "feature_matrix": [
+    { "feature": "Starting monthly price", "daily_ok": "$3.99 (Caregiver tier)", "competitor": "$49.95", "winner": "daily_ok" },
+    { "feature": "Hardware required", "daily_ok": "None — uses existing smartphone", "competitor": "Pendant + base station", "winner": "daily_ok" },
+    { "feature": "Installation fee", "daily_ok": "None", "competitor": "Yes (per Life Alert terms)", "winner": "daily_ok" },
+    { "feature": "Contract length", "daily_ok": "Monthly, cancel anytime", "competitor": "Multi-year", "winner": "daily_ok" },
+    { "feature": "Fall detection", "daily_ok": "No — not a medical device", "competitor": "Yes (on enabled models)", "winner": "competitor" },
+    { "feature": "24/7 professional monitoring", "daily_ok": "No", "competitor": "Yes", "winner": "competitor" },
+    { "feature": "Who gets alerted first", "daily_ok": "Family members you designate", "competitor": "Life Alert call center → 911", "winner": "different" },
+    { "feature": "Daily proactive check-in", "daily_ok": "Yes — one tap each morning", "competitor": "No — reactive only", "winner": "daily_ok" },
+    { "feature": "Parent-side effort", "daily_ok": "One tap on existing phone", "competitor": "Must wear / carry pendant", "winner": "daily_ok" },
+    { "feature": "Works if pendant is unworn", "daily_ok": "N/A", "competitor": "No", "winner": "daily_ok" },
+    { "feature": "GPS / location tracking", "daily_ok": "None by design", "competitor": "Yes on mobile unit", "winner": "different" },
+    { "feature": "Cameras / in-home monitoring", "daily_ok": "None", "competitor": "None", "winner": "tie" },
+    { "feature": "Multi-family-member dashboard", "daily_ok": "Yes on Family and Family+ tiers", "competitor": "Varies by tier", "winner": "different" },
+    { "feature": "Works on iOS and Android", "daily_ok": "Yes", "competitor": "N/A — hardware-based", "winner": "different" },
+    { "feature": "Time to set up", "daily_ok": "Designed to take under two minutes on the caregiver's phone", "competitor": "Technician visit or hardware install", "winner": "daily_ok" }
+  ],
+  "pricing_breakdown": {
+    "monthly": "Daily OK: $3.99 (Caregiver, one receiver) / $6.99 (Family, three receivers) / $9.99 (Family+, six receivers). Life Alert: starting around $49.95/month per their published materials.",
+    "one_year_tco": "Daily OK: roughly $48–$120 over twelve months, cancelable anytime. Life Alert: significantly higher when installation and mandatory contract are included — verify current totals on Life Alert's site.",
+    "three_year_tco": "Daily OK: roughly $144–$360, canceling at any month. Life Alert: multi-year contract pricing applies — verify current totals."
+  },
+  "migration_guide": [
+    "Decide first whether fall detection is a must-have. If yes, keep Life Alert and add Daily OK as a daily-check-in layer — they serve different purposes.",
+    "If the pendant is rarely worn, estimate your parent's actual compliance. The monthly fee is only valuable when the device is on them.",
+    "Install Daily OK on your own phone; invite your parent via SMS link. Setup is designed to take under two minutes.",
+    "Pick a morning check-in time that maps to your parent's existing routine (first coffee, morning news, dog walk).",
+    "Agree in advance what a missed check-in means — likely a call from you, not an ambulance.",
+    "When you are ready to cancel Life Alert, contact them directly. Review your specific contract terms for early-cancellation language before you call."
+  ],
+  "faqs": [
+    {
+      "q": "Is Daily OK a replacement for Life Alert?",
+      "a": "Not for a parent who needs fall detection or 24/7 professional dispatch. Life Alert is a medical alert system; Daily OK is a lightweight check-in app. For an independent parent who owns a smartphone and would reject a pendant, Daily OK is often the right daily tool. For a high fall-risk parent, Life Alert remains appropriate."
+    },
+    {
+      "q": "Why is Life Alert so much more expensive?",
+      "a": "Life Alert bundles hardware, professional 24/7 call-center monitoring, and in many cases emergency dispatch. Daily OK provides none of those — it is a software-only daily check-in with family-first alerts. Different services at different price points."
+    },
+    {
+      "q": "What if my parent refuses to wear a pendant?",
+      "a": "This is one of the most common reasons families look at Daily OK. It uses the smartphone they already carry, requires only a single daily tap, and has no visible disability marker. If the pendant sits in a drawer, it is not protecting anyone."
+    },
+    {
+      "q": "Can I keep Life Alert and add Daily OK?",
+      "a": "Yes — many families do. Life Alert handles the urgent emergency moment; Daily OK handles the much larger stretch of days when everything is normal and you just want to confirm it."
+    },
+    {
+      "q": "Does Daily OK detect falls?",
+      "a": "No. Daily OK is not a medical device and does not detect falls, vital signs, or medication adherence. It only knows whether your parent tapped the daily check-in."
+    },
+    {
+      "q": "How do I cancel Life Alert?",
+      "a": "Cancellation is by phone per Life Alert's published terms, and a multi-year contract may include specific cancellation conditions. Review your own agreement before calling so you know what to expect."
+    }
+  ],
+  "sources": [
+    {
+      "title": "Life Alert plans and pricing",
+      "url": "https://www.lifealert.com/pricing/",
+      "accessed": "2026-04-22"
+    },
+    {
+      "title": "Daily OK pricing",
+      "url": "https://dailyok.net/pricing",
+      "accessed": "2026-04-22"
+    }
+  ]
+}

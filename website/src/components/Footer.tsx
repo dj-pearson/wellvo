@@ -25,6 +25,7 @@ export default function Footer() {
             <Link to="/pricing">Pricing</Link>
             <Link to="/#features">Features</Link>
             <Link to="/#how-it-works">How It Works</Link>
+            <Link to="/compare">Compare</Link>
             <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">Download App</a>
           </div>
 

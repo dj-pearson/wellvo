@@ -25,6 +25,36 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://dailyok.net/compare</loc>
+    <lastmod>2026-04-22</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://dailyok.net/compare/daily-ok-vs-life-alert</loc>
+    <lastmod>2026-04-22</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://dailyok.net/compare/daily-ok-vs-life360</loc>
+    <lastmod>2026-04-22</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://dailyok.net/compare/daily-ok-vs-snug-safety</loc>
+    <lastmod>2026-04-22</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://dailyok.net/blog</loc>
+    <lastmod>2026-04-22</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://dailyok.net/support</loc>
     <lastmod>2026-04-06</lastmod>
     <changefreq>monthly</changefreq>

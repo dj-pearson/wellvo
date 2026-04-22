@@ -1,0 +1,93 @@
+{
+  "slug": "life360",
+  "name": "Life360",
+  "tagline": "Family location-sharing app focused on teen-driving and whereabouts",
+  "company_url": "https://www.life360.com",
+  "last_verified": "2026-04-22",
+  "daily_ok_verdict": "Life360 and Daily OK sit in different philosophical camps. Life360 is built around continuous GPS location-sharing — useful for teen drivers and commute visibility, but widely described as intrusive when pointed at an aging parent. Daily OK is consent-based and location-free: one gentle morning tap, no GPS, no location history, no in-home cameras. If you already use Life360 for your teens and want a separate, privacy-respecting tool for an aging parent, Daily OK is purpose-built for that job. If you want location tracking, Life360 is the right choice — and Daily OK does not and will not offer it.",
+  "best_for_daily_ok": [
+    "Families who want to check on an aging parent without GPS tracking",
+    "Parents who would feel surveilled by continuous location-sharing",
+    "Households drawn to the 'presence without surveillance' positioning",
+    "Teens whose families want a consent-based check-in without location data",
+    "Long-distance caregivers who care about daily wellness, not whereabouts"
+  ],
+  "best_for_competitor": [
+    "Families actively using Life360 for teen-driver visibility",
+    "Households that genuinely want real-time location sharing across members",
+    "Commute-coordination use cases where location is the point",
+    "Families already paying for Life360 and wanting one less app"
+  ],
+  "snapshot": {
+    "starting_price": "Free tier available; paid tiers reported from ~$7.99/month (verify on Life360 site)",
+    "starting_price_note": "Paid tiers unlock driving reports, crash detection, extended history",
+    "contract": "Monthly or annual",
+    "platform": "iOS and Android app",
+    "fall_detection": "Not a primary feature for elderly parents",
+    "gps_tracking": "Yes — core product feature",
+    "who_gets_alerts_first": "Circle members per app settings",
+    "daily_check_in": "No structured daily check-in prompt"
+  },
+  "feature_matrix": [
+    { "feature": "Core philosophy", "daily_ok": "Consent-based daily check-in", "competitor": "Continuous location-sharing", "winner": "different" },
+    { "feature": "GPS / real-time location", "daily_ok": "None by design", "competitor": "Yes — core feature", "winner": "different" },
+    { "feature": "Location history log", "daily_ok": "None", "competitor": "Yes on paid tiers", "winner": "different" },
+    { "feature": "Daily 'I am OK' confirmation", "daily_ok": "Yes — one tap each morning", "competitor": "No structured equivalent", "winner": "daily_ok" },
+    { "feature": "Designed for aging parents", "daily_ok": "Yes — primary audience", "competitor": "Primarily teen-driving / family whereabouts", "winner": "daily_ok" },
+    { "feature": "Privacy posture", "daily_ok": "No GPS, no cameras, no location history", "competitor": "Location-sharing by design", "winner": "different" },
+    { "feature": "Starting paid price", "daily_ok": "$3.99/month (Caregiver)", "competitor": "Varies — verify on their site", "winner": "different" },
+    { "feature": "Free tier", "daily_ok": "No", "competitor": "Yes (limited features)", "winner": "competitor" },
+    { "feature": "Works on iOS and Android", "daily_ok": "Yes", "competitor": "Yes", "winner": "tie" },
+    { "feature": "Escalation when a parent misses check-in", "daily_ok": "Family-first alert chain", "competitor": "Not the core use case", "winner": "daily_ok" },
+    { "feature": "Teen-driving reports", "daily_ok": "No", "competitor": "Yes on paid tiers", "winner": "competitor" },
+    { "feature": "Crash detection", "daily_ok": "No", "competitor": "Yes on paid tiers", "winner": "competitor" },
+    { "feature": "Setup effort for an aging parent", "daily_ok": "One tap each morning on their existing phone", "competitor": "Parent must install app, share location, keep it enabled", "winner": "daily_ok" },
+    { "feature": "Reputation with older adults", "daily_ok": "Built around dignity and consent", "competitor": "Sometimes described as intrusive by older adults", "winner": "different" }
+  ],
+  "pricing_breakdown": {
+    "monthly": "Daily OK: $3.99 (Caregiver) / $6.99 (Family) / $9.99 (Family+). Life360: free tier available; paid tiers per Life360's current pricing page.",
+    "one_year_tco": "Daily OK: $48–$120 cancelable anytime. Life360: free through paid — verify current tiers.",
+    "three_year_tco": "Daily OK: $144–$360 cancelable. Life360: tier-dependent."
+  },
+  "migration_guide": [
+    "Separate the use cases. Life360 for teens, Daily OK for an aging parent, is a legitimate configuration many families use.",
+    "If Life360 is causing tension with an aging parent who feels surveilled, move the parent-facing contact to Daily OK and leave Life360 to the teen-driving flows where it was designed to sit.",
+    "Install Daily OK; invite your parent via SMS. The app is on your phone — they only receive the daily prompt.",
+    "Tell your parent the truth plainly: 'No GPS, no location sharing, no tracking. One tap each morning.' The framing matters.",
+    "If you are leaving Life360 entirely, export any saved data you want to keep before canceling."
+  ],
+  "faqs": [
+    {
+      "q": "Can I use both Life360 and Daily OK?",
+      "a": "Yes — they serve different jobs. Life360 for location-sharing with teens or a commuter; Daily OK for a consent-based daily check-in with an aging parent. Many households run both."
+    },
+    {
+      "q": "Is Daily OK a privacy-focused Life360 alternative?",
+      "a": "It's not a like-for-like alternative. Daily OK does not offer GPS, location history, or real-time whereabouts at all — that's a deliberate product choice. If you want those features, Life360 is the right tool. If you explicitly don't want them, Daily OK is."
+    },
+    {
+      "q": "Why would an aging parent prefer Daily OK over Life360?",
+      "a": "Older adults often describe continuous location-sharing as surveillance. Daily OK asks one question: did your parent tap 'I'm OK' this morning? That framing — presence without surveillance — feels very different from 'your location has been shared with your family circle.'"
+    },
+    {
+      "q": "Does Daily OK track where my parent is?",
+      "a": "No. Daily OK has no GPS, no location history, and no in-home cameras. The app only knows whether the daily check-in was tapped."
+    },
+    {
+      "q": "Is Life360 bad for elderly parents?",
+      "a": "Not bad — just not designed for them. Life360's product decisions (continuous tracking, driving reports, location history) serve teen-driving families well. For an aging parent who wants dignity and independence, a consent-based check-in fits better."
+    }
+  ],
+  "sources": [
+    {
+      "title": "Life360 pricing and plans",
+      "url": "https://www.life360.com/plans/",
+      "accessed": "2026-04-22"
+    },
+    {
+      "title": "Daily OK pricing",
+      "url": "https://dailyok.net/pricing",
+      "accessed": "2026-04-22"
+    }
+  ]
+}

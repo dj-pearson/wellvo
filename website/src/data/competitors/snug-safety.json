@@ -1,0 +1,92 @@
+{
+  "slug": "snug-safety",
+  "name": "Snug Safety",
+  "tagline": "Daily check-in app with a free tier and a shared app store category",
+  "company_url": "https://www.snugsafe.com",
+  "last_verified": "2026-04-22",
+  "daily_ok_verdict": "Snug Safety is Daily OK's closest direct competitor — same basic category (a daily check-in app for independent older adults) with a different audience focus. Snug is built around the senior checking on themselves; Daily OK is built around the adult child getting a quiet confirmation. Snug offers a free tier that Daily OK does not, which is a real advantage for a single senior with no paying family member. Daily OK invests more heavily in family-side features: sibling coordination, SMS fallback, and a family-first escalation chain. If you are one senior living alone, try Snug's free tier. If you are an adult child coordinating with siblings and want the check-in routed to you first, Daily OK is the better fit.",
+  "best_for_daily_ok": [
+    "Adult children coordinating across multiple siblings on the same parent",
+    "Caregivers who want alerts routed to family first (not the senior's own contacts)",
+    "Families who need SMS fallback when the parent's internet is flaky",
+    "Households where the caregiver, not the senior, is the primary account holder"
+  ],
+  "best_for_competitor": [
+    "Independent seniors who set up the app themselves and do not have a paying caregiver",
+    "Budget-first users who want a free daily check-in and accept a simpler feature set",
+    "Households where the senior is the subscription owner and configures their own alerts",
+    "Caregivers who prefer Snug's specific alert flow or support experience"
+  ],
+  "snapshot": {
+    "starting_price": "Free tier available; paid tiers on Snug's current plan page",
+    "starting_price_note": "Feature depth differs between free and paid tiers — verify on Snug's site",
+    "contract": "Monthly or annual (paid tiers)",
+    "platform": "iOS and Android app",
+    "fall_detection": "No — same category as Daily OK",
+    "gps_tracking": "No — same category as Daily OK",
+    "who_gets_alerts_first": "Per Snug's configured contact list",
+    "daily_check_in": "Yes — core product feature"
+  },
+  "feature_matrix": [
+    { "feature": "Daily 'I am OK' check-in", "daily_ok": "Yes", "competitor": "Yes", "winner": "tie" },
+    { "feature": "Free tier", "daily_ok": "No", "competitor": "Yes", "winner": "competitor" },
+    { "feature": "Starting paid price", "daily_ok": "$3.99/month (Caregiver)", "competitor": "Verify on Snug's pricing page", "winner": "different" },
+    { "feature": "Fall detection", "daily_ok": "No", "competitor": "No", "winner": "tie" },
+    { "feature": "GPS / location tracking", "daily_ok": "No", "competitor": "No", "winner": "tie" },
+    { "feature": "Family-first alert chain", "daily_ok": "Alerts caregiver first, escalates through family", "competitor": "Configurable contacts", "winner": "different" },
+    { "feature": "Sibling coordination view", "daily_ok": "Yes — Family and Family+ tiers include shared status", "competitor": "Available depending on tier", "winner": "different" },
+    { "feature": "SMS fallback when internet is down", "daily_ok": "On higher tiers", "competitor": "Verify tier availability on Snug's site", "winner": "different" },
+    { "feature": "Primary audience framing", "daily_ok": "Adult child / long-distance caregiver", "competitor": "Senior-first (the person checking in on themselves)", "winner": "different" },
+    { "feature": "Works on iOS and Android", "daily_ok": "Yes", "competitor": "Yes", "winner": "tie" },
+    { "feature": "Hardware required", "daily_ok": "None", "competitor": "None", "winner": "tie" },
+    { "feature": "Privacy posture", "daily_ok": "No GPS, no cameras, no location", "competitor": "Similar category posture", "winner": "tie" },
+    { "feature": "Setup time", "daily_ok": "Designed to take under two minutes", "competitor": "Also quick on their published materials", "winner": "tie" }
+  ],
+  "pricing_breakdown": {
+    "monthly": "Daily OK: $3.99 (Caregiver) / $6.99 (Family) / $9.99 (Family+). Snug Safety: free tier available plus paid tiers — see their current pricing page for exact dollar amounts.",
+    "one_year_tco": "Daily OK: $48–$120. Snug: $0–$(verify) depending on tier.",
+    "three_year_tco": "Daily OK: $144–$360 cancelable. Snug: tier-dependent."
+  },
+  "migration_guide": [
+    "If you are already on Snug's free tier and it meets your needs, there is no pressure to switch — we mean that.",
+    "If you are coordinating across siblings and Snug's free tier doesn't include the family view you want, compare paid tiers on both apps before deciding.",
+    "Install Daily OK on the adult child's phone. Invite your parent and any siblings via SMS link.",
+    "Pick a morning check-in time that maps to your parent's existing routine.",
+    "Confirm with your parent what a missed check-in means — a call from family, not a 911 dispatch.",
+    "If you do migrate, export any data or settings you want to keep from Snug first."
+  ],
+  "faqs": [
+    {
+      "q": "Is Daily OK better than Snug Safety?",
+      "a": "Neither is universally better. Snug is stronger for a single senior who sets up the app themselves and wants a free option. Daily OK is stronger for an adult child coordinating with siblings who wants alerts routed to family first. Pick the one whose primary audience matches your situation."
+    },
+    {
+      "q": "Does Snug Safety have a free tier?",
+      "a": "Yes. That is a real advantage over Daily OK for single users who do not need paid features. For a no-cost starting point, Snug's free tier is worth trying."
+    },
+    {
+      "q": "Why would I pay for Daily OK when Snug has a free option?",
+      "a": "The honest answer is: if Snug's free tier meets your needs, you shouldn't. Daily OK earns its price when you need family-side coordination — sibling visibility, SMS fallback, and alerts that go to a caregiver first rather than to the senior's own configured contacts."
+    },
+    {
+      "q": "Can Snug and Daily OK run side by side?",
+      "a": "Technically yes, but there is usually no reason to. Both apps ask your parent to tap a daily button; stacking them doubles the cognitive load. Pick one."
+    },
+    {
+      "q": "Does Daily OK detect falls?",
+      "a": "No — and neither does Snug. Both are daily-check-in apps, not fall-detection devices. For fall detection, a wearable medical alert system like Life Alert or Medical Guardian is the appropriate category."
+    }
+  ],
+  "sources": [
+    {
+      "title": "Snug Safety pricing",
+      "url": "https://www.snugsafe.com/pricing",
+      "accessed": "2026-04-22"
+    },
+    {
+      "title": "Daily OK pricing",
+      "url": "https://dailyok.net/pricing",
+      "accessed": "2026-04-22"
+    }
+  ]
+}

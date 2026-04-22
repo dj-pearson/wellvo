@@ -16,6 +16,8 @@ const DMCA = lazy(() => import('./pages/DMCA'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 const Blog = lazy(() => import('./pages/Blog'))
 const BlogPost = lazy(() => import('./pages/BlogPost'))
+const Compare = lazy(() => import('./pages/Compare'))
+const ComparePost = lazy(() => import('./pages/ComparePost'))
 
 const AdminLogin = lazy(() => import('./admin/AdminLogin'))
 const AdminLayout = lazy(() => import('./admin/AdminLayout'))
@@ -61,6 +63,8 @@ function App() {
             <Route path="/dmca" element={<DMCA />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/blog/:slug" element={<BlogPost />} />
+            <Route path="/compare" element={<Compare />} />
+            <Route path="/compare/:fullSlug" element={<ComparePost />} />
             <Route path="*" element={<NotFound />} />
           </Route>
 
