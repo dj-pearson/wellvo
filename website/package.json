@@ -25,7 +25,9 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-helmet-async": "^3.0.0",
-    "react-router-dom": "^7.13.1"
+    "react-router-dom": "^7.13.1",
+    "vike": "^0.4.258",
+    "vike-react": "^0.6.21"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
