@@ -382,8 +382,29 @@ function buildSystemPrompt(config: Record<string, unknown>, fallback: boolean): 
   if (Array.isArray(linking.rules)) parts.push(`Linking rules: ${(linking.rules as string[]).join(" | ")}`);
 
   if (eeat.default_byline) parts.push(`Default byline: ${eeat.default_byline}.`);
-  if (eeat.reviewer_line_when_ymyl) parts.push(`When YMYL, add to the end: ${eeat.reviewer_line_when_ymyl}`);
   if (eeat.no_fabrication) parts.push(`Integrity: ${eeat.no_fabrication}`);
+
+  // Only emit a reviewer line when a real, verified reviewer has been
+  // contracted and their details populated in config. Until then, no line.
+  const reviewer = (eeat.verified_reviewer ?? null) as {
+    name?: string;
+    credential?: string;
+    reviewed_at?: string;
+  } | null;
+  if (reviewer && reviewer.name && reviewer.credential) {
+    const dateStr = reviewer.reviewed_at ? ` on ${reviewer.reviewed_at}` : "";
+    parts.push(
+      `Verified reviewer: if the article is YMYL, append this line at the very end:\n<p><em>Medically reviewed by ${reviewer.name}, ${reviewer.credential}${dateStr}.</em></p>`,
+    );
+  }
+
+  // Integrity rules are rendered as a dedicated block so the model reads
+  // them as hard constraints rather than stylistic suggestions.
+  if (Array.isArray(eeat.integrity_rules) && (eeat.integrity_rules as unknown[]).length > 0) {
+    parts.push(
+      `INTEGRITY RULES (absolute — violations will be caught by the editor and rejected):\n- ${(eeat.integrity_rules as string[]).join("\n- ")}`,
+    );
+  }
 
   parts.push(
     `SEO constraints: title ≤ ${seo.title_max_chars ?? 70} chars, seo_title ≤ ${seo.seo_title_max_chars ?? 60}, excerpt ${seo.excerpt_chars ?? "140–180"}, seo_description ${seo.seo_description_chars ?? "140–160"}, slug kebab-case, ${seo.tags_count ?? "3–6"} tags, category ∈ {${Array.isArray(seo.category_enum) ? (seo.category_enum as string[]).join(", ") : ""}}.`,
