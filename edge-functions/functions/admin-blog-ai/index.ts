@@ -2,6 +2,7 @@ import { requireSystemAdmin, logAdminAction } from "../../shared/admin-auth.ts";
 import { aiGenerate, renderTemplate, extractJson, AiError } from "../../shared/ai.ts";
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import { generateAndPublishNext, getBankStatus } from "../../shared/blog-generator.ts";
+import { logError } from "../../shared/logger.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 
 function json(body: unknown, status = 200): Response {
@@ -101,8 +102,10 @@ export async function handleAdminBlogAi(req: Request, auth: AuthResult): Promise
     }
   } catch (err) {
     if (err instanceof AiError) {
-      return json({ error: err.message }, err.status && err.status >= 400 && err.status < 600 ? err.status : 502);
+      logError(`admin-blog-ai AiError (${body.action}): ${err.message}`, err);
+      return json({ error: err.message, source: "ai_error" }, err.status && err.status >= 400 && err.status < 600 ? err.status : 502);
     }
+    logError(`admin-blog-ai unhandled error (${body.action})`, err);
     return json({ error: "AI request failed", details: err instanceof Error ? err.message : String(err) }, 500);
   }
 }
