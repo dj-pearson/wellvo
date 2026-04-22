@@ -31,6 +31,14 @@ export interface AiGenerateOptions {
   cacheSystem?: boolean;
   /** JSON response mode — tells the model to return parseable JSON. */
   json?: boolean;
+  /**
+   * Assistant prefill string. Anthropic only — injected as an assistant
+   * message so the model continues from there. The returned text will have
+   * this prefix re-prepended so callers see the complete response.
+   * Useful to force JSON-only output: set prefill to "{" and the model
+   * cannot emit preamble, code fences, or prose before the object.
+   */
+  prefill?: string;
 }
 
 export interface AiGenerateResult {
@@ -157,11 +165,15 @@ async function callAnthropic(opts: AiGenerateOptions): Promise<AiGenerateResult>
       ]
     : undefined;
 
+  const messages = opts.messages.map((m) => ({ role: m.role, content: m.content }));
+  if (opts.prefill) {
+    messages.push({ role: "assistant", content: opts.prefill });
+  }
   const body: Record<string, unknown> = {
     model,
     max_tokens: opts.maxTokens ?? 4096,
     temperature: resolveTemperature(opts.temperature),
-    messages: opts.messages.map((m) => ({ role: m.role, content: m.content })),
+    messages,
   };
   if (systemBlocks) body.system = systemBlocks;
 
@@ -186,9 +198,12 @@ async function callAnthropic(opts: AiGenerateOptions): Promise<AiGenerateResult>
   }
 
   const data = await res.json();
-  const textContent = Array.isArray(data.content)
+  let textContent = Array.isArray(data.content)
     ? data.content.filter((c: { type: string }) => c.type === "text").map((c: { text: string }) => c.text).join("")
     : "";
+  if (opts.prefill) {
+    textContent = opts.prefill + textContent;
+  }
 
   return {
     text: textContent,
@@ -258,9 +273,81 @@ export function renderTemplate(template: string, vars: Record<string, string>): 
   return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, name) => vars[name] ?? "");
 }
 
-/** Extract the first ```json ... ``` block or parse a raw JSON response. */
+/**
+ * Extract the first ```json ... ``` block (if any) or parse the full text as
+ * JSON. If strict parsing fails, run a repair pass for the common mistakes
+ * large language models make when emitting JSON that contains long string
+ * values (HTML bodies in particular):
+ *   1. Trailing commas before `}` or `]`.
+ *   2. Raw newlines/tabs/carriage-returns embedded inside string values
+ *      (must be escaped as \n \t \r in JSON).
+ *   3. Invalid `\X` escape sequences where X is not one of " \ / b f n r t u
+ *      (e.g. `\<`, `\'`, `\s`) — replaced with just X.
+ * If repair still fails, the original SyntaxError is re-thrown so callers
+ * can inspect the position.
+ */
 export function extractJson<T = unknown>(text: string): T {
   const fence = text.match(/```json\s*([\s\S]*?)```/i) ?? text.match(/```\s*([\s\S]*?)```/);
-  const candidate = fence ? fence[1] : text;
-  return JSON.parse(candidate.trim()) as T;
+  const candidate = (fence ? fence[1] : text).trim();
+
+  try {
+    return JSON.parse(candidate) as T;
+  } catch (err) {
+    try {
+      const repaired = repairLlmJson(candidate);
+      return JSON.parse(repaired) as T;
+    } catch {
+      throw err; // surface the original error — more informative
+    }
+  }
+}
+
+/** Repair the common JSON emission mistakes from LLMs. Preserves meaning. */
+function repairLlmJson(input: string): string {
+  // Walk the string while tracking string-literal context so we only escape
+  // raw control characters that appear INSIDE string values.
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+
+    if (escaped) {
+      // Previous char was `\` — keep the escape sequence unless it's invalid.
+      const validJsonEscape = /[\"\\/bfnrtu]/.test(ch);
+      if (validJsonEscape) {
+        out += ch;
+      } else {
+        // Drop the backslash; emit the literal character.
+        out = out.slice(0, -1) + ch;
+      }
+      escaped = false;
+      continue;
+    }
+
+    if (ch === "\\") {
+      out += ch;
+      escaped = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = !inString;
+      out += ch;
+      continue;
+    }
+
+    if (inString) {
+      // Re-escape raw control chars that are illegal in JSON string literals.
+      if (ch === "\n") { out += "\\n"; continue; }
+      if (ch === "\r") { out += "\\r"; continue; }
+      if (ch === "\t") { out += "\\t"; continue; }
+    }
+
+    out += ch;
+  }
+
+  // Strip trailing commas before `}` or `]`.
+  out = out.replace(/,(\s*[}\]])/g, "$1");
+  return out;
 }
