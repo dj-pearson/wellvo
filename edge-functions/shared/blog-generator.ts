@@ -194,7 +194,6 @@ async function generateFromBankRow(
       messages: [{ role: "user", content: userPrompt }],
       maxTokens: 8000,
       cacheSystem: true,
-      prefill: "{",
     });
 
     const article = extractJson<GeneratedArticle>(result.text);
