@@ -21,6 +21,13 @@ export interface AiMessage {
   content: string;
 }
 
+export interface AiTool {
+  name: string;
+  description: string;
+  /** JSON schema for the tool's input. */
+  input_schema: Record<string, unknown>;
+}
+
 export interface AiGenerateOptions {
   system?: string;
   messages: AiMessage[];
@@ -51,6 +58,19 @@ export interface AiGenerateOptions {
    * on top of each other.
    */
   maxRetries?: number;
+  /**
+   * Tools the model can call. Anthropic only in this implementation.
+   * When combined with toolChoice, forces the model to return structured
+   * output (eliminates JSON-parse failures on long HTML payloads).
+   */
+  tools?: AiTool[];
+  /**
+   * Force a specific tool call. Anthropic only.
+   *   { type: "tool", name: "publish_blog_post" } — must call that tool
+   *   { type: "any" }                              — must call some tool
+   *   { type: "auto" }                             — may call a tool (default)
+   */
+  toolChoice?: { type: "tool"; name: string } | { type: "any" } | { type: "auto" };
 }
 
 export interface AiGenerateResult {
@@ -188,6 +208,12 @@ async function callAnthropic(opts: AiGenerateOptions): Promise<AiGenerateResult>
     messages,
   };
   if (systemBlocks) body.system = systemBlocks;
+  if (opts.tools && opts.tools.length > 0) {
+    body.tools = opts.tools;
+  }
+  if (opts.toolChoice) {
+    body.tool_choice = opts.toolChoice;
+  }
 
   const res = await fetchWithRetry(
     "https://api.anthropic.com/v1/messages",
@@ -210,10 +236,25 @@ async function callAnthropic(opts: AiGenerateOptions): Promise<AiGenerateResult>
   }
 
   const data = await res.json();
-  let textContent = Array.isArray(data.content)
-    ? data.content.filter((c: { type: string }) => c.type === "text").map((c: { text: string }) => c.text).join("")
-    : "";
-  if (opts.prefill) {
+
+  // Prefer tool_use output when tools were specified — Anthropic returns the
+  // arguments as an already-parsed object, so serializing it with JSON.stringify
+  // yields valid JSON with no risk of escape errors from long HTML bodies.
+  let textContent = "";
+  if (Array.isArray(data.content)) {
+    const toolUse = data.content.find(
+      (c: { type: string; input?: unknown }) => c.type === "tool_use" && c.input !== undefined,
+    );
+    if (toolUse && opts.tools && opts.tools.length > 0) {
+      textContent = JSON.stringify(toolUse.input);
+    } else {
+      textContent = data.content
+        .filter((c: { type: string }) => c.type === "text")
+        .map((c: { text: string }) => c.text)
+        .join("");
+    }
+  }
+  if (opts.prefill && !opts.tools) {
     textContent = opts.prefill + textContent;
   }
 

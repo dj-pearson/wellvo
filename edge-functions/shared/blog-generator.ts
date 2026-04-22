@@ -18,8 +18,49 @@
  */
 
 import { supabaseAdmin } from "./supabase.ts";
-import { aiGenerate, extractJson } from "./ai.ts";
+import { aiGenerate, extractJson, type AiTool } from "./ai.ts";
 import { logInfo, logError } from "./logger.ts";
+
+/**
+ * Tool schema for structured article output. Anthropic returns the tool's
+ * `input` as an already-parsed object, which we serialize with JSON.stringify —
+ * guaranteeing valid JSON on the way back through extractJson. This eliminates
+ * the "unescaped quote inside content_html" class of parse failures that occur
+ * when the model emits JSON as free text.
+ */
+const PUBLISH_BLOG_POST_TOOL: AiTool = {
+  name: "publish_blog_post",
+  description: "Submit a complete, publish-ready blog post for Daily OK. Call this exactly once with every field filled in according to the system-prompt guidance.",
+  input_schema: {
+    type: "object",
+    properties: {
+      title: { type: "string", description: "Compelling, specific title under 70 characters." },
+      slug: { type: "string", description: "Kebab-case slug under 80 characters; keyword-forward." },
+      excerpt: { type: "string", description: "140–180 characters, written to earn the click." },
+      seo_title: { type: "string", description: "Under 60 characters; keyword-forward." },
+      seo_description: { type: "string", description: "140–160 characters; answers the search intent in active voice." },
+      tags: { type: "array", items: { type: "string" }, description: "3–6 lowercase tags." },
+      category: {
+        type: "string",
+        enum: ["caregiving", "elderly-care", "child-safety", "product", "how-to", "guides"],
+        description: "Exactly one of the allowed categories.",
+      },
+      content_html: {
+        type: "string",
+        description: "Full article body as raw HTML using only these tags: h2, h3, p, ul, ol, li, strong, em, a, blockquote. No markdown, no code fences, no h1, no script/iframe/style. Opens with a 40–60 word TL;DR in a <blockquote>. Subheads every 150–250 words. Ends with a practical checklist or one-step CTA.",
+      },
+      primary_keyword: {
+        type: "string",
+        description: "Only set in fallback mode: the keyword you chose from the cluster bank.",
+      },
+      topic_rationale: {
+        type: "string",
+        description: "Only set in fallback mode: one sentence naming the cluster and why this title doesn't duplicate anything already published.",
+      },
+    },
+    required: ["title", "slug", "excerpt", "seo_title", "seo_description", "tags", "category", "content_html"],
+  },
+};
 
 export interface GenerationResult {
   source: "blog_title_bank" | "fallback";
@@ -196,6 +237,8 @@ async function generateFromBankRow(
       cacheSystem: true,
       timeoutMs: 180_000,  // 3 min — blog generations can take 60–120s
       maxRetries: 0,       // don't stack long timeouts; fail fast for user retry
+      tools: [PUBLISH_BLOG_POST_TOOL],
+      toolChoice: { type: "tool", name: "publish_blog_post" },
     });
 
     const article = extractJson<GeneratedArticle>(result.text);
