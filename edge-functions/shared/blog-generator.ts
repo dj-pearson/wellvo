@@ -41,6 +41,7 @@ export interface BankStatus {
   failed: number;
   skipped: number;
   total: number;
+  in_progress: Array<{ id: string; title: string; claimed_at: string | null }>;
 }
 
 export interface GenerateOptions {
@@ -52,7 +53,12 @@ export interface GenerateOptions {
   skipBank?: boolean;
 }
 
-interface TitleBankRow {
+export interface ClaimResult {
+  config: Record<string, unknown>;
+  row: TitleBankRow | null;  // null = fallback path
+}
+
+export interface TitleBankRow {
   id: string;
   title: string;
   primary_keyword: string;
@@ -85,11 +91,15 @@ interface GeneratedArticle {
 // Public entry points
 // =============================================================================
 
-export async function generateAndPublishNext(opts: GenerateOptions = {}): Promise<GenerationResult> {
+/**
+ * Fast phase — load config and claim the next row (or resolve to fallback).
+ * Safe to run in the HTTP request/response path; completes in ~50–150 ms.
+ */
+export async function claimNext(opts: GenerateOptions = {}): Promise<ClaimResult> {
   const config = await loadConfig();
 
   if (opts.skipBank) {
-    return generateFromFallback(config, opts);
+    return { config, row: null };
   }
 
   const { data: claimedRaw, error: claimErr } = await supabaseAdmin.rpc("claim_next_blog_title");
@@ -98,29 +108,59 @@ export async function generateAndPublishNext(opts: GenerateOptions = {}): Promis
     throw new Error(`Failed to claim next title: ${claimErr.message}`);
   }
 
-  const claimed = claimedRaw as TitleBankRow | null;
-
-  if (!claimed || !claimed.id) {
-    logInfo("blog_title_bank empty — falling back to cluster-bank generation");
-    return generateFromFallback(config, opts);
+  const row = (claimedRaw as TitleBankRow | null) ?? null;
+  if (!row || !row.id) {
+    logInfo("blog_title_bank empty — will use cluster-bank fallback on finish");
+    return { config, row: null };
   }
+  return { config, row };
+}
 
-  return generateFromBankRow(claimed, config, opts);
+/**
+ * Slow phase — calls the AI and publishes the article. Safe to run as a
+ * fire-and-forget background task after claimNext() has returned; bank row
+ * state is updated to 'published' on success or 'failed' on error.
+ */
+export async function finishGeneration(claim: ClaimResult, opts: GenerateOptions = {}): Promise<GenerationResult> {
+  return claim.row
+    ? generateFromBankRow(claim.row, claim.config, opts)
+    : generateFromFallback(claim.config, opts);
+}
+
+/**
+ * Sync end-to-end generator — used by the Make.com webhook where a single
+ * response carries the full result. Not used by the admin UI, which uses
+ * claimNext + finishGeneration to return fast and poll for completion.
+ */
+export async function generateAndPublishNext(opts: GenerateOptions = {}): Promise<GenerationResult> {
+  const claim = await claimNext(opts);
+  return finishGeneration(claim, opts);
 }
 
 export async function getBankStatus(): Promise<BankStatus> {
   const { data, error } = await supabaseAdmin
     .from("blog_title_bank")
-    .select("status");
+    .select("id, title, status, claimed_at");
   if (error) {
     throw new Error(error.message);
   }
-  const counts: BankStatus = { pending: 0, generating: 0, published: 0, failed: 0, skipped: 0, total: 0 };
+  const counts: BankStatus = {
+    pending: 0, generating: 0, published: 0, failed: 0, skipped: 0, total: 0,
+    in_progress: [],
+  };
   for (const row of data ?? []) {
-    const s = (row as { status: string }).status as keyof BankStatus;
-    if (s in counts) (counts[s] as number)++;
+    const r = row as { id: string; title: string; status: string; claimed_at: string | null };
+    const s = r.status as keyof BankStatus;
+    if (s === "pending" || s === "generating" || s === "published" || s === "failed" || s === "skipped") {
+      (counts[s] as number)++;
+    }
     counts.total++;
+    if (r.status === "generating") {
+      counts.in_progress.push({ id: r.id, title: r.title, claimed_at: r.claimed_at });
+    }
   }
+  // Newest claim first
+  counts.in_progress.sort((a, b) => (b.claimed_at ?? "").localeCompare(a.claimed_at ?? ""));
   return counts;
 }
 

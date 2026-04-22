@@ -129,6 +129,12 @@ export interface AiArticle {
   content_html: string
 }
 
+export interface BlogBankInProgress {
+  id: string
+  title: string
+  claimed_at: string | null
+}
+
 export interface BlogBankStatus {
   pending: number
   generating: number
@@ -136,6 +142,15 @@ export interface BlogBankStatus {
   failed: number
   skipped: number
   total: number
+  in_progress: BlogBankInProgress[]
+}
+
+export interface BlogGenerationStarted {
+  started: true
+  source: 'blog_title_bank' | 'fallback'
+  title_bank_id: string | null
+  title: string | null
+  message: string
 }
 
 export interface BlogGenerationResult {
@@ -309,7 +324,7 @@ export function getBlogBankStatus() {
 }
 
 export function generateNextFromBank(params: { topic?: string; skip_bank?: boolean } = {}) {
-  return callEdge<BlogGenerationResult>('/admin-blog-ai', {
+  return callEdge<BlogGenerationStarted>('/admin-blog-ai', {
     action: 'generate_next_from_bank',
     ...params,
   })

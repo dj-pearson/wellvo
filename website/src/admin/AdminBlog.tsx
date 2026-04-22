@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Trash2, Edit3, Sparkles, Wand2, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import {
@@ -8,9 +8,16 @@ import {
   generateNextFromBank,
   type BlogPostListItem,
   type BlogBankStatus,
-  type BlogGenerationResult,
 } from '../lib/admin'
 import './admin.css'
+
+interface GenerationOutcome {
+  title: string
+  slug: string
+  post_id: string
+  source: 'blog_title_bank' | 'fallback'
+  url: string
+}
 
 type StatusFilter = 'all' | 'draft' | 'published' | 'archived'
 
@@ -23,11 +30,15 @@ export default function AdminBlog() {
   const [bank, setBank] = useState<BlogBankStatus | null>(null)
   const [bankLoading, setBankLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [generatingTitle, setGeneratingTitle] = useState<string | null>(null)
+  const [generatingSource, setGeneratingSource] = useState<'blog_title_bank' | 'fallback' | null>(null)
   const [genError, setGenError] = useState<string | null>(null)
-  const [lastGenerated, setLastGenerated] = useState<BlogGenerationResult | null>(null)
+  const [lastGenerated, setLastGenerated] = useState<GenerationOutcome | null>(null)
   const [topicHint, setTopicHint] = useState('')
   const [showTopicHint, setShowTopicHint] = useState(false)
   const navigate = useNavigate()
+  // Snapshots taken at generation start, used to detect success vs failure on poll
+  const startSnapshotRef = useRef<{ published: number; failed: number } | null>(null)
 
   const fetchPosts = async () => {
     setLoading(true)
@@ -58,19 +69,29 @@ export default function AdminBlog() {
     setGenerating(true)
     setGenError(null)
     setLastGenerated(null)
+    setGeneratingTitle(null)
+    setGeneratingSource(null)
     try {
+      // Snapshot counts so the poll loop can detect whether a row was
+      // published vs marked failed during this run.
+      const snapshot = await getBlogBankStatus()
+      startSnapshotRef.current = { published: snapshot.published, failed: snapshot.failed }
+      setBank(snapshot)
+
       const params: { topic?: string } = {}
       const topic = topicHint.trim()
       if (topic) params.topic = topic
-      const result = await generateNextFromBank(params)
-      setLastGenerated(result)
+      const started = await generateNextFromBank(params)
+      setGeneratingTitle(started.title)
+      setGeneratingSource(started.source)
       setTopicHint('')
       setShowTopicHint(false)
-      await Promise.all([fetchPosts(), fetchBank()])
+      // Polling kicks in via the useEffect watching `generating`.
     } catch (err) {
       setGenError(err instanceof Error ? err.message : 'Generation failed')
-    } finally {
       setGenerating(false)
+      setGeneratingTitle(null)
+      setGeneratingSource(null)
     }
   }
 
@@ -82,6 +103,71 @@ export default function AdminBlog() {
   useEffect(() => {
     void fetchBank()
   }, [])
+
+  // Poll bank status while a generation is in flight. Background work on the
+  // edge function updates the claimed row to 'published' or 'failed' — when
+  // no rows are in progress, we compare count snapshots to decide success.
+  useEffect(() => {
+    if (!generating) return
+    let cancelled = false
+    const SITE_ORIGIN = 'https://dailyok.net'
+
+    const tick = async () => {
+      if (cancelled) return
+      try {
+        const latest = await getBlogBankStatus()
+        if (cancelled) return
+        setBank(latest)
+
+        if (latest.generating > 0) return  // still working
+
+        const snap = startSnapshotRef.current
+        const publishedDelta = snap ? latest.published - snap.published : 0
+        const failedDelta = snap ? latest.failed - snap.failed : 0
+
+        if (publishedDelta > 0) {
+          const postsRes = await listPosts({ status: 'all', limit: 50 })
+          if (cancelled) return
+          setPosts(postsRes.posts)
+          setTotal(postsRes.total)
+          const newest = postsRes.posts.find((p) => p.ai_generated)
+          if (newest) {
+            setLastGenerated({
+              post_id: newest.id,
+              slug: newest.slug,
+              title: newest.title,
+              source: generatingSource ?? 'blog_title_bank',
+              url: `${SITE_ORIGIN}/blog/${newest.slug}`,
+            })
+          }
+        } else if (failedDelta > 0) {
+          setGenError(
+            'Generation failed server-side. The bank row is now marked `failed` — check the edge-function logs for the AiError, then flip the row back to `pending` in the SQL editor to retry.',
+          )
+        } else {
+          setGenError('Generation finished without producing a post. Check the edge-function logs.')
+        }
+
+        setGenerating(false)
+        setGeneratingTitle(null)
+        setGeneratingSource(null)
+        startSnapshotRef.current = null
+      } catch {
+        // transient poll error — keep trying
+      }
+    }
+
+    // First tick after 5s (generations almost never finish faster), then every 5s.
+    const firstTick = window.setTimeout(() => { void tick() }, 5000)
+    const interval = window.setInterval(() => { void tick() }, 5000)
+
+    return () => {
+      cancelled = true
+      clearTimeout(firstTick)
+      clearInterval(interval)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generating])
 
   const handleDelete = async (id: string, title: string) => {
     if (!confirm(`Delete "${title}"? This cannot be undone.`)) return
@@ -172,6 +258,20 @@ export default function AdminBlog() {
           </div>
         </div>
 
+        {generating && (
+          <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 8, color: 'var(--gray-700)', fontSize: 13, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <Loader2 size={16} className="admin-spin" style={{ flexShrink: 0, marginTop: 1, color: 'var(--green-600)' }} />
+            <div>
+              <div style={{ fontWeight: 600, color: 'var(--gray-900)' }}>
+                {generatingTitle ? `Generating: ${generatingTitle}` : 'Generating a fresh topic from the cluster bank…'}
+              </div>
+              <div style={{ marginTop: 2, fontSize: 12 }}>
+                This usually takes 30–90 seconds. You can leave this page open — the post will appear in the list automatically.
+              </div>
+            </div>
+          </div>
+        )}
+
         {genError && (
           <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--red-50)', border: '1px solid var(--red-200)', borderRadius: 8, color: 'var(--red-700)', fontSize: 13, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
@@ -179,7 +279,7 @@ export default function AdminBlog() {
           </div>
         )}
 
-        {lastGenerated && (
+        {lastGenerated && !generating && (
           <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--green-50)', border: '1px solid var(--green-200)', borderRadius: 8, color: 'var(--gray-800)', fontSize: 13 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
               <CheckCircle2 size={16} style={{ flexShrink: 0, marginTop: 1, color: 'var(--green-600)' }} />
@@ -187,7 +287,6 @@ export default function AdminBlog() {
                 <div style={{ fontWeight: 600 }}>Published: {lastGenerated.title}</div>
                 <div style={{ fontSize: 12, color: 'var(--gray-600)', marginTop: 2 }}>
                   Source: {lastGenerated.source === 'blog_title_bank' ? 'curated bank' : 'fallback cluster'}
-                  {lastGenerated.topic_rationale && <> · {lastGenerated.topic_rationale}</>}
                 </div>
                 <div style={{ marginTop: 6, display: 'flex', gap: 12 }}>
                   <a href={lastGenerated.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--green-700)', fontWeight: 500 }}>

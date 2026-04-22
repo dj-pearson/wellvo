@@ -1,8 +1,8 @@
 import { requireSystemAdmin, logAdminAction } from "../../shared/admin-auth.ts";
 import { aiGenerate, renderTemplate, extractJson, AiError } from "../../shared/ai.ts";
 import { supabaseAdmin } from "../../shared/supabase.ts";
-import { generateAndPublishNext, getBankStatus } from "../../shared/blog-generator.ts";
-import { logError } from "../../shared/logger.ts";
+import { claimNext, finishGeneration, getBankStatus } from "../../shared/blog-generator.ts";
+import { logError, logInfo } from "../../shared/logger.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 
 function json(body: unknown, status = 200): Response {
@@ -351,27 +351,61 @@ async function improveText(body: Body): Promise<Response> {
   });
 }
 
+/**
+ * Claim a row synchronously, kick off generation as a background task, and
+ * return 202 immediately so the HTTP response completes well before
+ * Cloudflare's 100s origin timeout. The admin UI polls /admin-blog-ai
+ * action=bank_status to detect when generation completes.
+ */
 async function generateNextFromBank(body: Body, adminId: string, req: Request): Promise<Response> {
-  const result = await generateAndPublishNext({
+  const claim = await claimNext({
     authorId: adminId,
     explicitTopic: body.topic,
     skipBank: body.skip_bank === true,
   });
 
-  await logAdminAction(adminId, "blog.generate_next_from_bank", {
-    resourceType: "blog_post",
-    resourceId: result.post_id,
-    metadata: {
-      source: result.source,
-      slug: result.slug,
-      remaining_pending: result.remaining_pending,
-      ai_provider: (result.ai_meta as Record<string, unknown>).provider,
-      ai_model: (result.ai_meta as Record<string, unknown>).model,
-    },
-    req,
-  });
+  const source: "blog_title_bank" | "fallback" = claim.row ? "blog_title_bank" : "fallback";
+  const titleBankId = claim.row?.id ?? null;
+  const title = claim.row?.title ?? null;
 
-  return json(result);
+  // Fire-and-forget — the generator updates the bank row state on completion.
+  (async () => {
+    try {
+      const result = await finishGeneration(claim, {
+        authorId: adminId,
+        explicitTopic: body.topic,
+      });
+      logInfo("background generation complete", {
+        // deno-lint-ignore no-explicit-any
+        ...({ source: result.source, post_id: result.post_id, slug: result.slug } as any),
+      });
+      await logAdminAction(adminId, "blog.generate_next_from_bank", {
+        resourceType: "blog_post",
+        resourceId: result.post_id,
+        metadata: {
+          source: result.source,
+          slug: result.slug,
+          remaining_pending: result.remaining_pending,
+          ai_provider: (result.ai_meta as Record<string, unknown>).provider,
+          ai_model: (result.ai_meta as Record<string, unknown>).model,
+        },
+        req,
+      });
+    } catch (err) {
+      // finishGeneration already marks the bank row 'failed' on its own path.
+      logError("background generation failed", err);
+    }
+  })();
+
+  return json({
+    started: true,
+    source,
+    title_bank_id: titleBankId,
+    title,
+    message: title
+      ? `Generating: ${title}`
+      : "Generating a fresh topic from the cluster bank…",
+  }, 202);
 }
 
 async function bankStatus(): Promise<Response> {
