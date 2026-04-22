@@ -25,8 +25,12 @@ const ENDPOINT_LIMITS: Record<string, number> = {
   "/invite-receiver": 5,
   "/on-demand-checkin": 10,
   "/redeem-code": 5, // Stricter limit: 6-digit code = 1M combinations
-  // Admin AI generation is expensive; cap per-admin per minute
-  "/admin-blog-ai": 10,
+  // Admin blog: blog_status + list_posts poll at 5s intervals during a
+  // generation, which can run 60–120s. Raised from 10 → 90 so the poll
+  // never trips the limiter. Actual AI calls are expensive but infrequent
+  // (user-initiated, returns 202 almost immediately).
+  "/admin-blog-ai": 90,
+  "/admin-blog": 60,
   // Social webhook fires external Make scenarios — moderate limit
   "/admin-social": 30,
 };
