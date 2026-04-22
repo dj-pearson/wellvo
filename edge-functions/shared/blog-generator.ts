@@ -269,6 +269,7 @@ function buildSystemPrompt(config: Record<string, unknown>, fallback: boolean): 
   const eeat = (config.e_e_a_t ?? {}) as Record<string, unknown>;
   const seo = (config.seo ?? {}) as Record<string, unknown>;
   const output = (config.output_contract ?? {}) as Record<string, unknown>;
+  const conversion = (config.conversion ?? {}) as Record<string, unknown>;
 
   const parts: string[] = [];
 
@@ -302,6 +303,57 @@ function buildSystemPrompt(config: Record<string, unknown>, fallback: boolean): 
   parts.push(
     `SEO constraints: title ≤ ${seo.title_max_chars ?? 70} chars, seo_title ≤ ${seo.seo_title_max_chars ?? 60}, excerpt ${seo.excerpt_chars ?? "140–180"}, seo_description ${seo.seo_description_chars ?? "140–160"}, slug kebab-case, ${seo.tags_count ?? "3–6"} tags, category ∈ {${Array.isArray(seo.category_enum) ? (seo.category_enum as string[]).join(", ") : ""}}.`,
   );
+
+  // Conversion guidance — drives the reader toward app download without sacrificing help
+  if (conversion && Object.keys(conversion).length > 0) {
+    const convParts: string[] = ["CONVERSION GUIDANCE:"];
+    if (conversion.goal) convParts.push(`Goal: ${conversion.goal}`);
+
+    const links = (conversion.download_links ?? {}) as Record<string, string>;
+    if (Object.keys(links).length) {
+      const linksLine = Object.entries(links).map(([k, v]) => `${k}=${v}`).join(" | ");
+      convParts.push(`Available links: ${linksLine}. Use /pricing for commercial context; App Store / Play Store URLs only in the closing CTA when the reader is ready to install.`);
+    }
+
+    const placement = (conversion.cta_placement ?? {}) as Record<string, unknown>;
+    if (placement.opening_rule) convParts.push(`Opening rule: ${placement.opening_rule}`);
+    if (Array.isArray(placement.rules)) {
+      convParts.push(`CTA placement rules:\n- ${(placement.rules as string[]).join("\n- ")}`);
+    }
+    if (Array.isArray(placement.closing_template_examples)) {
+      convParts.push(`Closing CTA templates (use as inspiration, do not copy verbatim):\n${(placement.closing_template_examples as string[]).map((s, i) => `[${i + 1}] ${s}`).join("\n")}`);
+    }
+
+    const props = (conversion.value_props_by_audience ?? {}) as Record<string, string[]>;
+    if (Object.keys(props).length) {
+      const propsLines = Object.entries(props).map(([aud, list]) => `  ${aud}: ${list.join(" • ")}`).join("\n");
+      convParts.push(`Value props (match the closest audience to this article):\n${propsLines}`);
+    }
+
+    const objections = (conversion.objection_handlers ?? {}) as Record<string, string>;
+    if (Object.keys(objections).length) {
+      const objLines = Object.entries(objections).map(([k, v]) => `  ${k}: ${v}`).join("\n");
+      convParts.push(`Objection handlers (weave in only when the article raises the objection):\n${objLines}`);
+    }
+
+    const proof = (conversion.social_proof_rules ?? {}) as Record<string, unknown>;
+    if (proof.honest_only) convParts.push(`Social proof — honesty rule: ${proof.honest_only}`);
+    if (Array.isArray(proof.forbidden)) convParts.push(`Social proof — forbidden: ${(proof.forbidden as string[]).join(" | ")}`);
+
+    if (Array.isArray(conversion.never_claim)) {
+      convParts.push(`Never claim: ${(conversion.never_claim as string[]).join(" | ")}`);
+    }
+
+    if (Array.isArray(conversion.download_readiness_signals)) {
+      convParts.push(`Strong moments to place a CTA near: ${(conversion.download_readiness_signals as string[]).join(" | ")}`);
+    }
+
+    if (Array.isArray(conversion.dont_do)) {
+      convParts.push(`DO NOT:\n- ${(conversion.dont_do as string[]).join("\n- ")}`);
+    }
+
+    parts.push(convParts.join("\n\n"));
+  }
 
   const shape = (output.shape ?? {}) as Record<string, string>;
   const shapeLines = Object.entries(shape).map(([k, v]) => `  "${k}": ${JSON.stringify(v)}`).join(",\n");
