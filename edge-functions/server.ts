@@ -118,13 +118,27 @@ function jsonWithCors(body: unknown, status: number, req: Request, extraHeaders:
   });
 }
 
-/** Re-wrap a handler response so CORS is guaranteed on the outbound response. */
-function withCors(response: Response, req: Request): Response {
+/**
+ * Re-wrap a handler response so CORS is guaranteed on the outbound response.
+ * Reads the body as text (rather than transferring the ReadableStream) because
+ * re-constructing a Response from `response.body` has been observed to drop
+ * added headers on non-2xx responses under some runtimes.
+ */
+async function withCors(response: Response, req: Request): Promise<Response> {
+  const body = response.body ? await response.text() : null;
   const headers = new Headers(response.headers);
   for (const [key, value] of Object.entries(corsHeaders(req))) {
     headers.set(key, value);
   }
-  return new Response(response.body, {
+  const origin = req.headers.get("Origin") || "";
+  if (origin && origin !== ALLOWED_ORIGIN) {
+    // Help operators diagnose ALLOWED_ORIGIN misconfiguration.
+    logError(`CORS origin mismatch on ${new URL(req.url).pathname}`, null, {
+      // deno-lint-ignore no-explicit-any
+      ...( { originReceived: origin, originAllowed: ALLOWED_ORIGIN } as any),
+    });
+  }
+  return new Response(body, {
     status: response.status,
     headers,
   });
@@ -208,7 +222,7 @@ async function handler(req: Request): Promise<Response> {
     return withRequestLogging(path, auth.userId, async () => {
       try {
         const response = await functionHandler(req, auth);
-        return withCors(response, req);
+        return await withCors(response, req);
       } catch (error) {
         logError(`Unhandled error in ${path}`, error, { path, userId: auth.userId });
         const message = error instanceof Error ? error.message : String(error);
