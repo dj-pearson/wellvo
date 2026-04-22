@@ -194,6 +194,8 @@ async function generateFromBankRow(
       messages: [{ role: "user", content: userPrompt }],
       maxTokens: 8000,
       cacheSystem: true,
+      timeoutMs: 180_000,  // 3 min — blog generations can take 60–120s
+      maxRetries: 0,       // don't stack long timeouts; fail fast for user retry
     });
 
     const article = extractJson<GeneratedArticle>(result.text);

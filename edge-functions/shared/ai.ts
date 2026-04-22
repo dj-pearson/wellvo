@@ -39,6 +39,18 @@ export interface AiGenerateOptions {
    * cannot emit preamble, code fences, or prose before the object.
    */
   prefill?: string;
+  /**
+   * Per-call timeout override in ms. Defaults to AI_TIMEOUT_MS env var (60s).
+   * Long generations (full blog articles) should set this explicitly to
+   * avoid depending on env configuration.
+   */
+  timeoutMs?: number;
+  /**
+   * Per-call retry override. Defaults to AI_MAX_RETRIES env var (2). Set to
+   * 0 for long-running generations to avoid stacking multiple long timeouts
+   * on top of each other.
+   */
+  maxRetries?: number;
 }
 
 export interface AiGenerateResult {
@@ -188,8 +200,8 @@ async function callAnthropic(opts: AiGenerateOptions): Promise<AiGenerateResult>
       },
       body: JSON.stringify(body),
     },
-    resolveMaxRetries(),
-    resolveTimeoutMs(),
+    opts.maxRetries ?? resolveMaxRetries(),
+    opts.timeoutMs ?? resolveTimeoutMs(),
   );
 
   if (!res.ok) {
@@ -242,8 +254,8 @@ async function callOpenAI(opts: AiGenerateOptions): Promise<AiGenerateResult> {
       },
       body: JSON.stringify(body),
     },
-    resolveMaxRetries(),
-    resolveTimeoutMs(),
+    opts.maxRetries ?? resolveMaxRetries(),
+    opts.timeoutMs ?? resolveTimeoutMs(),
   );
 
   if (!res.ok) {
