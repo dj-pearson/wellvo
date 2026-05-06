@@ -39,7 +39,15 @@
       "Bash(powershell -Command \"Get-Process -Id 82580 -ErrorAction SilentlyContinue | Select-Object Id,Name,StartTime\")",
       "Bash(powershell -Command \"Get-CimInstance Win32_Process | Where-Object { \\\\$_.ParentProcessId -eq 82580 } | Select-Object ProcessId,Name,CommandLine | Format-List\")",
       "Bash(npm uninstall *)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Bash(curl -sI https://dailyok.net/assets/static/src_pages_Home-05fe0321.6WsA3Am_.css)",
+      "Bash(curl -sI https://dailyok.net/blog/index.html)",
+      "Bash(curl -sI https://dailyok.net/pricing/index.html)",
+      "Bash(curl -sI https://dailyok.net/pricing/)",
+      "Bash(curl -sI https://dailyok.net/icon-192.png)",
+      "Bash(curl -sI https://dailyok.net/manifest.json)",
+      "Bash(curl -sI https://dailyok.net/sitemap.xml)",
+      "Bash(curl -sI https://dailyok.net/index.pageContext.json)"
     ]
   }
 }

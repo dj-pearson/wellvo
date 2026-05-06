@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
   if (!env.VITE_EDGE_FUNCTIONS_URL) console.log('[vite] WARNING: VITE_EDGE_FUNCTIONS_URL is missing — admin API calls will fail at runtime')
 
   return {
-  plugins: [react(), vike({ prerender: true })],
+  plugins: [react(), vike()],
   build: {
     rollupOptions: {
       output: {
