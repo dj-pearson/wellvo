@@ -3,8 +3,11 @@ import SwiftUI
 struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
     @State private var notificationBanner = NotificationPermissionBanner()
+    @State private var showFirstReceiverWalkthrough = false
     @EnvironmentObject var appState: AppState
     @Environment(\.scenePhase) private var scenePhase
+
+    private static let walkthroughAutoShownKey = "dailyok.firstReceiverWalkthrough.autoShown"
 
     var body: some View {
         NavigationStack {
@@ -113,6 +116,25 @@ struct DashboardView: View {
             .onReceive(NotificationCenter.default.publisher(for: OfflineCheckInService.didSyncCheckIns)) { _ in
                 Task { await viewModel.loadDashboard() }
             }
+            // Auto-present the first-receiver walkthrough once when the owner
+            // lands on an empty Dashboard for the first time. The CTA on the
+            // empty state stays available for re-opens.
+            .onChange(of: viewModel.isLoading) { _, loading in
+                guard !loading,
+                      viewModel.errorMessage == nil,
+                      viewModel.receiverCards.isEmpty,
+                      appState.currentUserRole == .owner,
+                      !UserDefaults.standard.bool(forKey: Self.walkthroughAutoShownKey)
+                else { return }
+                UserDefaults.standard.set(true, forKey: Self.walkthroughAutoShownKey)
+                showFirstReceiverWalkthrough = true
+            }
+            .sheet(isPresented: $showFirstReceiverWalkthrough) {
+                FirstReceiverWalkthroughView {
+                    await viewModel.loadDashboard()
+                }
+                .dailyokGlassSheet(style: .regular)
+            }
         }
     }
 
@@ -121,21 +143,44 @@ struct DashboardView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "person.badge.plus")
-                .font(.system(size: 60))
-                .foregroundStyle(.secondary)
+        VStack(spacing: 24) {
+            ZStack {
+                Circle()
+                    .fill(DailyOKColor.green100)
+                    .frame(width: 140, height: 140)
+                Image(systemName: "person.badge.plus")
+                    .font(.system(size: 60, weight: .semibold))
+                    .foregroundStyle(DailyOKColor.green700)
+            }
+            .accessibilityHidden(true)
 
-            Text("No Receivers Yet")
-                .font(.title2)
-                .fontWeight(.semibold)
+            VStack(spacing: 10) {
+                Text("Add Your First Family Member")
+                    .font(.title2.weight(.bold))
+                    .multilineTextAlignment(.center)
 
-            Text("Add a family member to start receiving daily check-ins.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                Text("We'll walk you through it — takes about a minute.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            if appState.currentUserRole == .owner {
+                Button {
+                    DailyOKHaptics.selection()
+                    showFirstReceiverWalkthrough = true
+                } label: {
+                    Text("Get Started")
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: 260)
+                        .frame(height: 52)
+                        .background(Capsule().fill(DailyOKColor.brand))
+                }
+                .padding(.top, 4)
+            }
         }
-        .padding()
+        .padding(.horizontal, 32)
         .padding(.top, 60)
     }
 }
