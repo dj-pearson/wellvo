@@ -19,6 +19,8 @@ export default async function onBeforePrerenderStart() {
     '/cookies',
     '/dmca',
     '/compare',
+    '/blog',
+    '/admin/login',
   ]
 
   const comparePaths = competitors.map((c) => `/compare/daily-ok-vs-${c.slug}`)
