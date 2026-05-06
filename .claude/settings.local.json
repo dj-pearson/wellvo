@@ -47,7 +47,8 @@
       "Bash(curl -sI https://dailyok.net/icon-192.png)",
       "Bash(curl -sI https://dailyok.net/manifest.json)",
       "Bash(curl -sI https://dailyok.net/sitemap.xml)",
-      "Bash(curl -sI https://dailyok.net/index.pageContext.json)"
+      "Bash(curl -sI https://dailyok.net/index.pageContext.json)",
+      "Bash(npx vike *)"
     ]
   }
 }
