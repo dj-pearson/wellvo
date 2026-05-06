@@ -33,6 +33,7 @@ services:
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
       - TWILIO_FROM_NUMBER=${TWILIO_FROM_NUMBER}
+      - TWILIO_MESSAGING_SERVICE_SID=${TWILIO_MESSAGING_SERVICE_SID}
       # Admin dashboard — AI content generation (Coolify Team Shared Variables)
       - AI_DEFAULT_PROVIDER=${AI_DEFAULT_PROVIDER:-anthropic}
       - AI_ENABLE_CACHING=${AI_ENABLE_CACHING:-true}

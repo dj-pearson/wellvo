@@ -7,14 +7,18 @@
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID") || "";
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN") || "";
 const TWILIO_FROM_NUMBER = Deno.env.get("TWILIO_FROM_NUMBER") || "";
+// Preferred sender for A2P 10DLC: routes through the approved campaign's sender pool.
+// When set, takes precedence over TWILIO_FROM_NUMBER.
+const TWILIO_MESSAGING_SERVICE_SID = Deno.env.get("TWILIO_MESSAGING_SERVICE_SID") || "";
 
-// Log startup warning if Twilio is not configured
-if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) {
+const hasSender = !!(TWILIO_MESSAGING_SERVICE_SID || TWILIO_FROM_NUMBER);
+
+if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !hasSender) {
   console.warn(
     JSON.stringify({
       timestamp: new Date().toISOString(),
       level: "warn",
-      message: "Twilio SMS credentials not configured. SMS escalation will be disabled. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER.",
+      message: "Twilio SMS credentials not configured. SMS escalation will be disabled. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and either TWILIO_MESSAGING_SERVICE_SID (preferred) or TWILIO_FROM_NUMBER.",
     })
   );
 }
@@ -26,7 +30,7 @@ export interface SMSResult {
 }
 
 export async function sendSMS(to: string, body: string): Promise<SMSResult> {
-  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) {
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !hasSender) {
     console.warn("SMS: Twilio credentials not configured, skipping SMS");
     return { success: false, error: "Twilio not configured" };
   }
@@ -42,7 +46,11 @@ export async function sendSMS(to: string, body: string): Promise<SMSResult> {
 
   const formData = new URLSearchParams();
   formData.append("To", normalizedTo);
-  formData.append("From", TWILIO_FROM_NUMBER);
+  if (TWILIO_MESSAGING_SERVICE_SID) {
+    formData.append("MessagingServiceSid", TWILIO_MESSAGING_SERVICE_SID);
+  } else {
+    formData.append("From", TWILIO_FROM_NUMBER);
+  }
   formData.append("Body", body);
 
   try {
@@ -114,7 +122,7 @@ export function buildEscalationSMS(
   type: "owner_alert" | "viewer_alert"
 ): string {
   if (type === "owner_alert") {
-    return `Daily OK Alert: ${receiverName} has missed their daily check-in. They've been reminded twice with no response. Open the Daily OK app for details.`;
+    return `Daily OK Alert: ${receiverName} has missed their daily check-in. They've been reminded twice with no response. Open the Daily OK app for details. Reply STOP to opt out.`;
   }
-  return `Daily OK Family Alert: ${receiverName} has missed their daily check-in today. Please check on them.`;
+  return `Daily OK Family Alert: ${receiverName} has missed their daily check-in today. Please check on them. Reply STOP to opt out.`;
 }

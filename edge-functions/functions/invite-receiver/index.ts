@@ -148,10 +148,11 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   // The pairing code is included so they can set up on an iPad or other device.
   const safeName = sanitizeDisplayName(name);
   const smsBody =
-    `${safeName}, your family wants to check in with you daily using DailyOK. ` +
+    `${safeName}, your family wants to check in with you daily using Daily OK. ` +
     `Download the app and sign in with this phone number to get started: ` +
-    `https://apps.apple.com/app/alive-daily-checkin/id6742044109\n\n` +
-    `Setting up on an iPad? Use this code: ${pairingCode}`;
+    `https://apps.apple.com/app/daily-ok/id6742044109\n\n` +
+    `Setting up on an iPad? Use this code: ${pairingCode}\n\n` +
+    `Reply STOP to opt out. Msg&data rates may apply.`;
   const smsResult = await sendSMS(phone, smsBody);
 
   return new Response(

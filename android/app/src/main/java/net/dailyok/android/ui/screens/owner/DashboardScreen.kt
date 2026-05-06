@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -57,6 +58,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -76,13 +78,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import net.dailyok.android.R
+import androidx.hilt.navigation.compose.hiltViewModel
 import net.dailyok.android.ui.components.AmbientBackground
 import net.dailyok.android.ui.components.AmbientTone
 import net.dailyok.android.ui.components.GlassCard
+import net.dailyok.android.ui.screens.onboarding.FirstReceiverWalkthroughSheet
 import net.dailyok.android.ui.theme.DailyOKElevation
 import net.dailyok.android.ui.theme.DailyOKGlass
 import net.dailyok.android.ui.theme.DailyOKGlassStyle
+import net.dailyok.android.ui.theme.DailyOKGreen100
+import net.dailyok.android.ui.theme.DailyOKGreen700
 import net.dailyok.android.ui.theme.DailyOKSpacing
+import net.dailyok.android.viewmodels.FamilyViewModel
 import net.dailyok.android.data.models.KidResponseType
 import net.dailyok.android.data.models.LocationLabel
 import net.dailyok.android.data.models.Mood
@@ -133,6 +140,13 @@ fun DashboardScreen(
     val sendingCheckInFor by viewModel.sendingCheckInFor.collectAsState()
     val cooldownUntil by viewModel.cooldownUntil.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+
+    // Walkthrough state — auto-launches once on first empty Dashboard load,
+    // and is re-openable via the empty state's "Get Started" CTA.
+    var showWalkthrough by remember { mutableStateOf(false) }
+    val familyViewModel: FamilyViewModel = hiltViewModel()
+    LaunchedEffect(userId) { familyViewModel.loadFamily(userId) }
 
     LaunchedEffect(userId) {
         viewModel.loadDashboard(userId)
@@ -217,7 +231,26 @@ fun DashboardScreen(
                 }
 
                 receiverCards.isEmpty && !isLoading -> {
-                    EmptyState()
+                    // Auto-present the walkthrough once when the owner lands on
+                    // an empty Dashboard for the first time. The CTA below stays
+                    // available for re-opens after dismissal.
+                    LaunchedEffect(Unit) {
+                        if (!isViewer) {
+                            val prefs = context.getSharedPreferences(
+                                "dailyok_prefs",
+                                android.content.Context.MODE_PRIVATE
+                            )
+                            val key = "firstReceiverWalkthrough.autoShown"
+                            if (!prefs.getBoolean(key, false)) {
+                                prefs.edit().putBoolean(key, true).apply()
+                                showWalkthrough = true
+                            }
+                        }
+                    }
+                    EmptyState(
+                        showCta = !isViewer,
+                        onGetStarted = { showWalkthrough = true }
+                    )
                 }
 
                 else -> {
@@ -272,36 +305,72 @@ fun DashboardScreen(
             modifier = Modifier.align(Alignment.BottomCenter)
         )
     }
+
+    if (showWalkthrough) {
+        FirstReceiverWalkthroughSheet(
+            viewModel = familyViewModel,
+            onDismiss = { showWalkthrough = false },
+            onInviteSent = { viewModel.loadDashboard(userId) }
+        )
+    }
 }
 
 @Composable
-private fun EmptyState() {
+private fun EmptyState(
+    showCta: Boolean,
+    onGetStarted: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(48.dp),
+            .padding(horizontal = 32.dp, vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.PersonAdd,
-            contentDescription = stringResource(R.string.cd_no_receivers_icon),
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(20.dp))
+        Box(
+            modifier = Modifier
+                .size(140.dp)
+                .clip(CircleShape)
+                .background(DailyOKGreen100),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.PersonAdd,
+                contentDescription = stringResource(R.string.cd_no_receivers_icon),
+                modifier = Modifier.size(60.dp),
+                tint = DailyOKGreen700
+            )
+        }
+        Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = stringResource(R.string.dashboard_no_receivers),
+            text = "Add Your First Family Member",
             style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
         Text(
-            text = stringResource(R.string.dashboard_no_receivers_body),
+            text = "We'll walk you through it — takes about a minute.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
+        if (showCta) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = onGetStarted,
+                shape = MaterialTheme.shapes.large,
+                modifier = Modifier
+                    .widthIn(min = 220.dp)
+                    .height(52.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.onboarding_get_started),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
     }
 }
 

@@ -122,6 +122,54 @@ export default function Privacy() {
             </ul>
           </section>
 
+          <section id="sms">
+            <h2>SMS Messaging (A2P 10DLC)</h2>
+            <p>
+              Daily OK uses SMS for two purposes only. We do not use phone numbers
+              for marketing, and we do not share or sell phone numbers or opt-in
+              information with third parties for promotional purposes.
+            </p>
+            <h3>Message types and consent</h3>
+            <ul>
+              <li>
+                <strong>Invitation message (one-time):</strong> When a family Owner
+                adds a family member as a Receiver inside the Daily OK app, the
+                Owner provides that person's phone number and confirms they have
+                permission to invite them. The Receiver then receives a single SMS
+                with a link to download the app. By providing the phone number and
+                accepting the invitation, the Receiver consents to receive this
+                one-time message.
+              </li>
+              <li>
+                <strong>Escalation alerts:</strong> SMS escalation is OFF by
+                default. After joining a family group, a user must explicitly
+                enable SMS escalation in the app's <em>Receiver Settings</em>
+                before any alert messages are sent to family Owners or Viewers.
+                Alerts are only sent when a Receiver misses their scheduled daily
+                check-in after two push notification reminders go unanswered.
+              </li>
+            </ul>
+            <h3>Message frequency</h3>
+            <p>
+              Invitation messages are sent once per invited Receiver. Escalation
+              alert frequency depends on missed check-ins; under normal conditions
+              users receive zero SMS messages on most days.
+            </p>
+            <h3>Opt-out and help</h3>
+            <p>
+              You may opt out at any time by replying <strong>STOP</strong> to any
+              message, or by disabling SMS escalation in the app's settings.
+              Reply <strong>HELP</strong> for assistance, or contact{' '}
+              <a href="mailto:support@dailyok.net">support@dailyok.net</a>.
+            </p>
+            <h3>Carrier and rates</h3>
+            <p>
+              Message and data rates may apply. Carriers are not liable for
+              delayed or undelivered messages. Supported carriers include all
+              major U.S. carriers.
+            </p>
+          </section>
+
           <section>
             <h2>Legal Bases for Processing (EEA, UK, Switzerland)</h2>
             <p>If you are located in the EEA, the United Kingdom, or Switzerland, we rely on the following legal bases:</p>
