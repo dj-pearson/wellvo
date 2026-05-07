@@ -993,3 +993,31 @@ Patterns: Decision documented in-source on all four tab files explaining the rat
 
 == ALL 137 STORIES COMPLETE ==
 [ ] Screen-by-screen accessibility audit (Dynamic Type XXL verification, VoiceOver/TalkBack traversal order, WCAG AA contrast check on status colors)
+
+--- Triage TR01: Loose-files sweep (2026-05-07) ---
+Inspected: /Untitled, /crash/testflight_feedback.zip, /crash/testflight_feedback (1).zip, /pSEO.md
+New stories appended to prd.json (passes=false, awaiting Ralph loop):
+
+US-CRASH001 — iOS cold-launch crash inside SupabaseClient.init on iOS 26.4 (TestFlight builds 27 + 28). EXC_BREAKPOINT / Swift runtime nil-unwrap at SupabaseClient.swift:168 reached via SupabaseService.shared one-time init → AuthViewModel.checkSession() within ms of launch. Same crash both builds, same device (iPhone 18,1 / iOS 26.4 23E5234a). Root cause likely Supabase Swift SDK incompat with iOS 26 or empty config; preconditionFailure guards in SupabaseService.swift:13-23 must be replaced with non-fatal error states. P0.
+
+US-CRASH002 — Wellvo→DailyOK rebrand consistency. Build 27 = com.wellvo.ios / Wellvo; build 28 = com.dailyok.ios / DailyOK. SupabaseService.swift:31,42 still references App Group 'group.com.wellvo.ios'. Possible compounding factor in CRASH001 if entitlements drifted. P0.
+
+US-WEB001 — Update website/public/robots.txt to explicitly allow GPTBot, ClaudeBot, PerplexityBot, Google-Extended (current robots.txt is wildcard-only). pSEO.md §5 has the draft. Tiny.
+
+US-WEB002 — Ship llms.txt + llms-full.txt at site root with structured page list (TL;DR + Core/Guides/Comparisons/Research). Tiny.
+
+US-WEB003 — Build 3 cornerstone landing pages: /check-in-app-for-elderly, /daily-check-in-app-for-seniors, /peace-of-mind-app-for-elderly-parents. Combined target traffic ~1,500/mo. Vike SSG already in place (vike + vike-react in package.json, `vike prerender` in build script).
+
+US-WEB004 — Expand competitor comparisons from 3 → 10+ (current: Life Alert, Life360, Snug Safety; target additions: Aloe Care, Lively, Medical Guardian, Bay Alarm Medical, Apple Watch fall detection, MobileHelp, AssureOkay). pSEO Template #1.
+
+US-WEB005 — Build pSEO Template #3: 12 'doesn't answer the phone' question pages under /what-to-do/. YMYL caveat — needs LCSW reviewer placeholder until one is contracted (separate ops task in pSEO.md §7).
+
+US-WEB006 — Sitewide JSON-LD audit (Organization + WebSite on every page; SoftwareApplication on home/pricing; BreadcrumbList on nested). Today JSON-LD lives in SEO.tsx + a subset of pages.
+
+US-WEB007 — Automate sitemap.xml generation via Vike onPrerenderEnd hook so new pages don't have to be hand-added. Current sitemap.xml has 13 URLs and is hand-maintained.
+
+US-OPS001 — Move root-level /Untitled (Ruby SIWA client_secret JWT-generation snippet, 6-month expiry) into docs/auth/sign-in-with-apple-rotation.md with full rotation runbook + optional GitHub Action expiry reminder. Don't automate the JWT signing itself (requires .p8 key which should not live in CI).
+
+Notes: pSEO.md is partially superseded — its 'critical' Vike migration recommendation is already done (vike + vike-react are dependencies, build runs `vike prerender`, 16 HTML docs are emitted). The remaining backlog is the content + schema + AI-bot-allowlist work captured in US-WEB001..007. Out-of-codebase items from pSEO.md §7 (Wikidata registration, paid Otterly AI subscription, Caregiver Pulse 2026 survey, LCSW hire, Search Console verification, entity-authority profile claims on G2/Capterra/Crunchbase/Trustpilot/etc) were intentionally NOT filed as Ralph stories — they require human / commercial action and don't belong in the loop. Filed for the human as marketing follow-ups.
+
+Files inspected: Untitled (442 bytes; Ruby SIWA JWT snippet), crash/testflight_feedback/feedback.json + crashlog.crash (build 28, 2026-03-19), crash/testflight_feedback (1).zip extracted (build 27, 2026-03-19), pSEO.md (871 lines), website/package.json, website/vite.config.ts, website/public/robots.txt, website/public/sitemap.xml, ios/DailyOK/Services/SupabaseService.swift, ios/DailyOK/Utilities/Configuration.swift.

@@ -2319,6 +2319,169 @@
       "priority": 45,
       "passes": true,
       "notes": "DONE \u2014 keep-platform-bar decision documented across both platforms. Reasons enumerated: (1) iOS TabView and Android Material3 NavigationBar deliver platform-standard accessibility (VoiceOver tab traits, TalkBack tab announcements, focus order) for free \u2014 replicating this in a custom FloatingBottomNav requires careful traversal/role mapping that is easy to regress. (2) Native users expect the bottom bar's safe-area / home-indicator handling, gesture-edge zones, and Dynamic Type / large-text scaling \u2014 the platform bar gives all of this for free; the custom component would need bespoke insets and font-scale clamps. (3) Existing deep-link routing already binds to AppState.selectedTab on iOS and the equivalent rememberSaveable index on Android; preserving that against a custom nav requires re-binding the source-of-truth which adds risk. (4) FloatingBottomNav stays available for sub-navigation surfaces (paywall sub-tabs, settings sub-screens, future modal flows) so the prior component work is not wasted. Added documentation comments to ios Views/Owner/OwnerTabView.swift, ios Views/Viewer/ViewerTabView.swift, android ui/screens/owner/OwnerTabsScreen.kt, and android ui/screens/viewer/ViewerTabsScreen.kt explaining the decision and pointing readers at this story for the rationale. Tab content/order/icons unchanged on all four files."
+    },
+    {
+      "id": "US-CRASH001",
+      "title": "Fix iOS cold-launch crash inside SupabaseClient.init on iOS 26.4 (TestFlight builds 27 \u2014 28)",
+      "description": "As a TestFlight user on iOS 26.4 beta, I want the app to launch without crashing so I can sign in and use Daily OK. Two TestFlight crash reports (testflight_feedback.zip and testflight_feedback (1).zip in /crash) show the same EXC_BREAKPOINT (Swift runtime nil-unwrap) at SupabaseClient.swift:168 inside the Supabase Swift SDK, called via SupabaseService.shared one-time initialization \u2192 AuthViewModel.checkSession() on Thread 5/7 within a few hundred ms of launch. Build 27 was Wellvo (com.wellvo.ios), build 28 is DailyOK (com.dailyok.ios) \u2014 same crash both builds, same device (iPhone 18,1 / iOS 26.4 23E5234a).",
+      "acceptanceCriteria": [
+        "Reproduce and root-cause the crash: confirm whether the nil-unwrap is in the user's URL/key path or a Supabase Swift SDK incompatibility with iOS 26.4 / Swift 6 concurrency",
+        "If SDK-side: bump Supabase Swift to a version that has fixed the unwrap on iOS 26.4 (or pin to the next-known-good); document the version bump in ios/DailyOK.xcodeproj's Package.resolved",
+        "If config-side: replace the existing preconditionFailure guards in ios/DailyOK/Services/SupabaseService.swift:13-23 with a non-fatal failure path that surfaces a visible 'Configuration error' state to the user instead of crashing the process in Release",
+        "Add a diagnostic boot log (existing Logger or os_log) recording (a) which Info.plist keys were resolved and (b) which fell back to empty so future crash reports can attribute the cause without symbolicating",
+        "Smoke-test cold launch on iOS 26.x simulator (or device if available) in Release configuration \u2014 must reach Welcome / Auth screens without crashing",
+        "Add a regression test (XCTest) for SupabaseService.init that injects empty SUPABASE_URL / SUPABASE_ANON_KEY and asserts the app stays in a recoverable error state rather than terminating",
+        "progress.txt entry summarising root cause and the fix applied"
+      ],
+      "priority": 46,
+      "passes": false,
+      "notes": "Crash artefacts in /crash/testflight_feedback/ (build 28) and /crash/testflight_feedback (1).zip (build 27). Both stack traces terminate at: Wellvo/DailyOK + 0x100d40f18 / 0x1043c0f18 \u2192 SupabaseClient.init(supabaseURL:supabaseKey:options:) + 2592 (SupabaseClient.swift:168) \u2192 SupabaseService.init() + 432 (SupabaseService.swift:25) \u2192 SupabaseService.shared one-time-init \u2192 AuthService.supabase.getter (AuthService.swift:10) \u2192 AuthService.currentSession() (AuthService.swift:177) \u2192 AuthViewModel.checkSession() (AuthViewModel.swift:47) \u2192 closure #1 in AuthViewModel.init() (AuthViewModel.swift:31). Likely caused by a property the Supabase Swift SDK force-unwraps that iOS 26 returns nil for (e.g. preferred locale / user info dict bridging \u2014 see Thread 0 of build 28's trace for the AnyHashable._conditionallyBridgeFromObjectiveC chain through UAUserActivity). The user reporter is pearsonperformance@gmail.com; comments are 'Crash' and 'Crash 3' \u2014 implying multiple instances. Cross-reference US-CRASH002 for the App Group / bundle-ID rebrand which may compound this on the new build."
+    },
+    {
+      "id": "US-CRASH002",
+      "title": "Complete Wellvo \u2192 DailyOK rebrand for App Group, Keychain access group, bundle IDs, and entitlements",
+      "description": "As a user upgrading from build 27 (Wellvo, com.wellvo.ios) to build 28+ (DailyOK, com.dailyok.ios), I want my session, push tokens, and shared state to migrate cleanly so I'm not silently signed out and the Notification Service Extension keeps confirming delivery. SupabaseService.swift:31,42 still references App Group 'group.com.wellvo.ios'. If the new bundle's entitlements no longer include that App Group ID the writes silently fail and the NSE cannot read tokens; if they DO still include it, the App Group identifier no longer matches the marketing brand and creates ongoing drift.",
+      "acceptanceCriteria": [
+        "Audit and report every codebase reference to 'wellvo' (case-insensitive) in ios/, android/, edge-functions/, supabase/, and website/ \u2014 list each file:line in progress.txt",
+        "Decide and document one canonical App Group ID (either keep 'group.com.wellvo.ios' for entitlement stability and rename only the user-facing brand, or migrate to 'group.com.dailyok.ios' with a one-shot copy of supabase_url, edge_functions_url, and KeychainService 'supabase_access_token' from the old group)",
+        "If migrating: implement the copy in SupabaseService.init() guarded by UserDefaults flag 'app_group_migrated_v1' so it runs exactly once per device; update entitlements files for both the main app target and the Notification Service Extension; update Keychain access groups to match",
+        "Update Configuration.appScheme and Configuration.appDomain references if the URL scheme / universal link domain has also changed (currently 'dailyok' / 'dailyok.net' \u2014 confirm Associated Domains entitlement matches)",
+        "Verify Android equivalents: package name net.dailyok.android in AndroidManifest, applicationId in build.gradle.kts, FCM sender, deep-link host \u2014 list each in progress.txt",
+        "Smoke-test: install build 27 \u2192 sign in \u2192 upgrade to new build \u2192 confirm session persists, push notifications still deliver and confirmation pings still register",
+        "progress.txt entry with the full audit and migration outcome"
+      ],
+      "priority": 47,
+      "passes": false,
+      "notes": "Discovered while triaging iOS TestFlight crashes in /crash/. Build 27 process name = Wellvo, bundle = com.wellvo.ios. Build 28 process name = DailyOK, bundle = com.dailyok.ios. Code in ios/DailyOK/Services/SupabaseService.swift still hard-codes group.com.wellvo.ios in two places. CLAUDE.md describes the project as 'Daily OK' with package net.dailyok.android. The mismatch may be benign (App Group IDs don't have to match bundle IDs) but it is now a documentation hazard at minimum and a potential source of silent state-loss. Pair with US-CRASH001 since stale entitlements could be a compounding factor in the launch crash."
+    },
+    {
+      "id": "US-WEB001",
+      "title": "Update robots.txt to explicitly allow AI crawlers (GPTBot, ClaudeBot, PerplexityBot, Google-Extended)",
+      "description": "As Daily OK's marketing owner, I want AI search crawlers to index our content so we appear in ChatGPT / Claude / Perplexity / Google AI Overview answers for caregiver queries. Today website/public/robots.txt only has 'User-agent: * / Allow: /' \u2014 which technically permits AI bots but doesn't make the intent explicit, and several AI crawlers respect named directives differently from the wildcard.",
+      "acceptanceCriteria": [
+        "website/public/robots.txt updated with explicit per-bot Allow blocks for at minimum: GPTBot, ClaudeBot, PerplexityBot, Google-Extended (per pSEO.md \u00a75 draft)",
+        "Disallow stanzas added for /app/, /api/, /account/ since those are admin / auth surfaces and shouldn't be crawled",
+        "Sitemap directive retained pointing at https://dailyok.net/sitemap.xml",
+        "robots.txt validated with at least one curl smoke test against the deployed Cloudflare Pages URL (or local preview) to confirm correct Content-Type and HTTP 200",
+        "progress.txt entry"
+      ],
+      "priority": 48,
+      "passes": false,
+      "notes": "pSEO.md \u00a75 ('Code snippets') has the exact draft. Tiny change (\u224830 lines), zero downside. Pair with US-WEB002 (llms.txt) for a single SEO foundation iteration."
+    },
+    {
+      "id": "US-WEB002",
+      "title": "Ship llms.txt and llms-full.txt for AI search citation",
+      "description": "As an LLM trying to answer a caregiver query about Daily OK, I want a structured llms.txt manifest at the site root so I can reliably find canonical pages (how-it-works, pricing, support, comparisons, what-to-do guides) and quote accurate descriptions. This is the lowest-cost AI-search surface to ship.",
+      "acceptanceCriteria": [
+        "website/public/llms.txt created using the structure from pSEO.md \u00a75 (TL;DR + Core pages + Caregiving guides + Comparisons + Research + Glossary sections)",
+        "75-word product description matches the canonical entity-authority text used elsewhere (Wikidata, Crunchbase, etc) \u2014 if those don't exist yet, define the canonical 75-word string here and add a TODO note for the marketing follow-up",
+        "Each linked URL must resolve to a real prerendered page; if the page doesn't exist yet (e.g. /guides/long-distance-caregiving), either remove that line or stub the page with a 'Coming soon' notice + canonical / noindex \u2014 don't ship dead links",
+        "Optional: website/public/llms-full.txt with concatenated markdown of the same canonical pages for crawlers that want bulk content",
+        "progress.txt entry listing which URLs in llms.txt were resolved vs. stubbed vs. removed"
+      ],
+      "priority": 49,
+      "passes": false,
+      "notes": "Adoption of llms.txt is still aspirational per pSEO.md, but the cost is ~30 minutes of work and the upside is real. Cross-check existing pages in website/src/pages/ before committing the URL list."
+    },
+    {
+      "id": "US-WEB003",
+      "title": "Build the 3 cornerstone landing pages: /check-in-app-for-elderly, /daily-check-in-app-for-seniors, /peace-of-mind-app-for-elderly-parents",
+      "description": "As a caregiver searching 'check in app for elderly' / 'daily check in app for seniors' / 'peace of mind app for elderly parents', I want a Daily OK landing page that answers my query directly so I convert. Per pSEO.md these three keywords have estimated combined volume \u22481,500/mo with KD 15-25 (SERPs dominated by sub-DR-25 competitors \u2014 winnable in 3-6 months).",
+      "acceptanceCriteria": [
+        "Three new Vike pages under website/pages/ at routes: /check-in-app-for-elderly, /daily-check-in-app-for-seniors, /peace-of-mind-app-for-elderly-parents",
+        "Each page \u22651,200 words with: hero (definition-lead sentence + 40-word TL;DR per pSEO.md \u00a74), how-it-works summary, comparison table snippet, FAQ section (\u22655 questions), screenshots, CTA to App Store / Play Store",
+        "Per-page SEO: <title>, <meta description>, canonical, OG image, FAQPage JSON-LD, BreadcrumbList JSON-LD",
+        "Internal linking: each new page links to /pricing, /how-it-works, the relevant /compare/* pages, and at least 2 blog posts",
+        "Added to website/public/sitemap.xml (and to llms.txt from US-WEB002 if shipped)",
+        "Vike prerender successfully emits static HTML for all three routes (verify via vike prerender output and curl -A 'Googlebot')",
+        "progress.txt entry with the 3 published URLs"
+      ],
+      "priority": 50,
+      "passes": false,
+      "notes": "Vike + vike-react are already in package.json and the build script runs `vike prerender` \u2014 SSG infrastructure is in place. Use existing src/pages/ElderlyCare.tsx as a structural template. Three pages are intentionally similar but must avoid being near-duplicates (pSEO.md flags this as the #1 risk). Differentiate by primary intent: 'elderly' \u2192 broad caregiver intent, 'seniors' \u2192 facility/independence framing, 'peace of mind' \u2192 emotional / adult-child framing."
+    },
+    {
+      "id": "US-WEB004",
+      "title": "Expand competitor comparison pages from 3 to 10+ (pSEO Template #1)",
+      "description": "As a comparison-shopping caregiver searching 'Daily OK vs <X>' or 'Life Alert alternative', I want a real Daily OK comparison page for the competitor I'm evaluating. Today only Life Alert, Life360, and Snug Safety pages exist (per sitemap.xml). pSEO.md \u00a73 calls Template #1 the highest-ROI pSEO surface.",
+      "acceptanceCriteria": [
+        "At least 7 new /compare/daily-ok-vs-* pages added, covering: Aloe Care, Lively (formerly GreatCall / Jitterbug), Medical Guardian, Bay Alarm Medical, Apple Watch fall detection, MobileHelp, AssureOkay (or any 7 from pSEO.md \u00a76 competitor list)",
+        "Each page consumes a shared template (existing ComparePost.tsx pattern) driven by website/src/data/competitors.json \u2014 add new entries with: official name, parent company, hardware required, monthly price, escalation chain, location tracking, key differentiator, source URL of pricing data (with retrieved-on date)",
+        "Template emits: feature comparison table, 'When to choose Daily OK / When to choose <X>' honest tradeoff section, FAQPage JSON-LD, Product/SoftwareApplication JSON-LD with no fake aggregateRating",
+        "Each page internally links to /pricing and to 2 sibling /compare pages",
+        "All new URLs added to website/public/sitemap.xml",
+        "progress.txt entry listing all 7+ new comparison slugs"
+      ],
+      "priority": 51,
+      "passes": false,
+      "notes": "Existing 3 pages live at /compare/daily-ok-vs-life-alert, /compare/daily-ok-vs-life360, /compare/daily-ok-vs-snug-safety \u2014 use them as templates. Carefully cite competitor pricing with retrieval dates because prices change and stale data triggers refunds / complaints. Avoid 'aggregateRating' in JSON-LD until Daily OK has 30+ genuine reviews \u2014 false review schema is a Google manual-action trigger (pSEO.md research caveat)."
+    },
+    {
+      "id": "US-WEB005",
+      "title": "Build pSEO Template #3 \u2014 'doesn't answer the phone' question pages (target 12)",
+      "description": "As an adult child panicking that 'mom didn't answer the phone today', I want a calm, structured Daily OK page that walks through the escalation chain and offers Daily OK as the systematic preventative answer. pSEO.md \u00a73 Template #3 targets queries like 'what to do when your mom doesn't answer the phone', 'elderly father not answering phone', etc \u2014 which are literal product-feature matches.",
+      "acceptanceCriteria": [
+        "12 new question-format pages under /what-to-do/ (e.g. /what-to-do/mom-not-answering-phone, /what-to-do/dad-not-answering-phone, /what-to-do/grandma-wont-pick-up, /what-to-do/elderly-parent-living-alone-not-answering, plus 8 more from pSEO.md \u00a73 Template #3 outline)",
+        "Each page \u2265800 words with the standard structure: empathetic intro, 'first 30 minutes' checklist, 'first 24 hours' escalation, 'when to call 911 vs welfare check', 'how to prevent the panic next time' (\u2192 Daily OK CTA)",
+        "FAQPage JSON-LD with 5+ Q&A pairs (target featured-snippet capture)",
+        "Medical-reviewer placeholder byline + 'Last updated YYYY-MM-DD' stamp (per pSEO.md, real LCSW review needed for YMYL but the template should be ready to drop the credential in)",
+        "Shared layout component under website/src/components/ to avoid drift across the 12 pages",
+        "All new URLs added to sitemap.xml",
+        "progress.txt entry with full URL list"
+      ],
+      "priority": 52,
+      "passes": false,
+      "notes": "YMYL caveat: this is health-adjacent content, so until an LCSW reviewer is contracted (separate operational task in pSEO.md \u00a77), the byline must say 'Editorial team' and not impersonate medical credentials. Page bodies should signal the limits of remote reassurance and recommend professional escalation when appropriate."
+    },
+    {
+      "id": "US-WEB006",
+      "title": "Add sitewide JSON-LD: Organization + WebSite on every page; SoftwareApplication on home/pricing; BreadcrumbList on nested",
+      "description": "As a search engine / LLM crawler, I want consistent structured data on every Daily OK page so I can reliably extract entity facts, navigation context, and product details. Today JSON-LD is present on a subset of pages (SEO.tsx, ComparePost, Pricing, Support, ElderlyCare, ChildSafety) but not uniformly applied.",
+      "acceptanceCriteria": [
+        "Audit website/src/pages/*.tsx and website/pages/*.tsx and report which pages currently emit which JSON-LD \u2014 list in progress.txt",
+        "Refactor website/src/components/SEO.tsx (or create a parallel JsonLd.tsx) so Organization + WebSite schema are emitted on every page automatically via the layout/root",
+        "Add SoftwareApplication schema to /home and /pricing (no fake aggregateRating)",
+        "Add BreadcrumbList schema to all nested pages (/blog/*, /compare/*, /what-to-do/*, /guides/*) using the page's URL hierarchy",
+        "Validate every prerendered page with the Schema.org validator (or schema-dts) \u2014 zero errors",
+        "Verify with `curl -A 'Googlebot' <url>` that JSON-LD is present in the static HTML, not injected at runtime",
+        "progress.txt entry"
+      ],
+      "priority": 53,
+      "passes": false,
+      "notes": "react-helmet-async is already a dependency; it can be used for per-page <script type='application/ld+json'> injection that survives Vike prerender. Confirm Helmet content actually appears in dist/client/*.html after build \u2014 some Helmet versions need <Helmet prioritizeSeoTags> to flush correctly during SSR."
+    },
+    {
+      "id": "US-WEB007",
+      "title": "Automate sitemap.xml generation via Vike onPrerenderEnd hook",
+      "description": "As content is added to the site, I want sitemap.xml to update automatically so we never ship a stale or incomplete sitemap. Today website/public/sitemap.xml is hand-maintained and already missing several recently-added pages (e.g. /accessibility, /dmca, /cookies are in /pages but the sitemap shows only 13 URLs).",
+      "acceptanceCriteria": [
+        "Implement a Vike `onPrerenderEnd` (or equivalent) hook that walks the prerendered routes and writes dist/client/sitemap.xml at build time",
+        "Each <url> entry includes <loc>, <lastmod> (from git log of the source file or a frontmatter date), <changefreq>, <priority>",
+        "Routes excluded from indexing (e.g. /admin, /draft) opt out via a +config.ts noindex flag",
+        "Once URL count exceeds 500, automatically split into a sitemap index (sitemap.xml \u2192 references sitemap-core.xml, sitemap-pseo.xml, sitemap-blog.xml)",
+        "Delete the hand-maintained website/public/sitemap.xml; verify deployed sitemap matches the prerendered route list",
+        "progress.txt entry with the new URL count"
+      ],
+      "priority": 54,
+      "passes": false,
+      "notes": "Cloudflare Pages doesn't process a vite-build sitemap any differently from a hand-written one \u2014 the change is purely in the build pipeline. Make sure the hook runs after every Vike route is fully prerendered (not during) to capture the canonical final URL list."
+    },
+    {
+      "id": "US-OPS001",
+      "title": "Move root-level Untitled SIWA snippet into docs/ runbook with client_secret rotation guidance",
+      "description": "As a developer rotating Sign-in-with-Apple credentials, I want a documented runbook in docs/ so I don't have to reverse-engineer the JWT-generation snippet from a stray Untitled file in the repo root. The current /Untitled file at repo root contains an unsigned Ruby snippet for generating the client_secret JWT (Apple Team ID, Key ID, .p8 file, ES256 sign with 6-month expiry) but is otherwise undocumented.",
+      "acceptanceCriteria": [
+        "Move /Untitled content into docs/auth/sign-in-with-apple-rotation.md with full runbook: prerequisites (Team ID, Key ID, .p8 location), exact command to generate the JWT, where to paste it (Supabase Auth provider config), expiry horizon (6 months), and a calendar-reminder template",
+        "Add the rotation cadence to docs/runbooks/README.md (or create one if absent)",
+        "Optionally: add a GitHub Action that opens an issue 30 days before client_secret expiry, using the iat/exp from the last-generated JWT recorded in a tracked file (e.g. docs/auth/last-rotated.txt) \u2014 do not commit the .p8 key or the JWT itself",
+        "Delete /Untitled from the repo root",
+        "Verify .gitignore excludes *.p8 and any AuthKey_*.p8 patterns",
+        "progress.txt entry"
+      ],
+      "priority": 55,
+      "passes": false,
+      "notes": "Discovered while triaging loose files in repo root. Apple Sign-In client_secret JWTs expire in 6 months \u2014 if rotation is missed, all SIWA logins break silently. Low effort, high value to ops. Don't automate the rotation itself (requires the .p8 key which should not live in CI), only the reminder."
     }
   ]
 }
