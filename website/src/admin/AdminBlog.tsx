@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Trash2, Edit3, Sparkles, Wand2, Loader2, CheckCircle2, AlertCircle, Gauge, RefreshCw } from 'lucide-react'
+import { Plus, Trash2, Edit3, Sparkles, Wand2, Loader2, CheckCircle2, AlertCircle, Gauge, RefreshCw, Image as ImageIcon } from 'lucide-react'
 import {
   listPosts,
   deletePost,
   getBlogBankStatus,
   generateNextFromBank,
   rescoreAll,
+  getAiCostSummary,
   type BlogPostListItem,
   type BlogBankStatus,
+  type AiCostSummary,
 } from '../lib/admin'
 import './admin.css'
 
@@ -39,6 +41,7 @@ export default function AdminBlog() {
   const [showTopicHint, setShowTopicHint] = useState(false)
   const [rescoring, setRescoring] = useState(false)
   const [rescoreMsg, setRescoreMsg] = useState<string | null>(null)
+  const [aiCost, setAiCost] = useState<AiCostSummary | null>(null)
   const navigate = useNavigate()
   // Snapshots taken at generation start, used to detect success vs failure on poll
   const startSnapshotRef = useRef<{ published: number; failed: number } | null>(null)
@@ -105,6 +108,7 @@ export default function AdminBlog() {
 
   useEffect(() => {
     void fetchBank()
+    void getAiCostSummary(30).then(setAiCost).catch(() => {/* non-fatal */})
   }, [])
 
   // Poll bank status while a generation is in flight. Background work on the
@@ -216,6 +220,9 @@ export default function AdminBlog() {
           <Link to="/admin/blog/refresh" className="admin-btn admin-btn-secondary">
             <RefreshCw size={14} /> Refresh queue
           </Link>
+          <Link to="/admin/blog/assets" className="admin-btn admin-btn-secondary">
+            <ImageIcon size={14} /> Assets
+          </Link>
           <Link to="/admin/blog/templates" className="admin-btn admin-btn-secondary">
             <Sparkles size={14} /> Templates
           </Link>
@@ -225,6 +232,7 @@ export default function AdminBlog() {
         </div>
       </div>
       {rescoreMsg && <div className="admin-success" style={{ marginTop: 8 }}>{rescoreMsg}</div>}
+      {aiCost && <AiCostTile data={aiCost} />}
 
       <div className="admin-card" style={{ borderColor: bank?.pending === 0 ? 'var(--gray-300)' : 'var(--green-200)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
@@ -419,6 +427,65 @@ function StatusBadge({ status }: { status: BlogPostListItem['status'] }) {
     : status === 'draft' ? 'admin-badge-yellow'
     : 'admin-badge-gray'
   return <span className={`admin-badge ${cls}`}>{status}</span>
+}
+
+// =============================================================================
+// AI cost tile (US-BLOG-078)
+// =============================================================================
+
+const KIND_LABELS: Record<string, string> = {
+  generation: 'Generation',
+  critique: 'Critique loop',
+  refresh_proposal: 'Refresh proposals',
+  syndication: 'Syndication',
+}
+
+function AiCostTile({ data }: { data: AiCostSummary }) {
+  const totals = Object.entries(data.totals_by_kind).sort((a, b) =>
+    (b[1].input + b[1].output) - (a[1].input + a[1].output),
+  )
+  return (
+    <div className="admin-card" style={{ marginTop: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--gray-900)', marginBottom: 4 }}>
+            AI token usage — last {data.days} days
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--gray-600)' }}>
+            <strong>{formatTokens(data.totals.input_tokens)}</strong> input
+            {' · '}
+            <strong>{formatTokens(data.totals.output_tokens)}</strong> output
+            {' · '}
+            <strong>{data.totals.calls}</strong> call{data.totals.calls === 1 ? '' : 's'}
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, flex: 2 }}>
+          {totals.length === 0 && (
+            <div style={{ fontSize: 13, color: 'var(--gray-500)' }}>No AI calls in this window yet.</div>
+          )}
+          {totals.map(([kind, v]) => (
+            <div key={kind} style={{
+              padding: 10, border: '1px solid var(--gray-200)', borderRadius: 6, background: 'var(--gray-50)',
+            }}>
+              <div style={{ fontSize: 12, color: 'var(--gray-600)' }}>{KIND_LABELS[kind] ?? kind}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>
+                {formatTokens(v.input + v.output)}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>
+                {v.calls} call{v.calls === 1 ? '' : 's'}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
+  return String(n)
 }
 
 function SeoScoreBadge({ score }: { score: number | null }) {

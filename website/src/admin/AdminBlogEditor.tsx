@@ -9,11 +9,12 @@ import Typography from '@tiptap/extension-typography'
 import {
   Bold, Italic, Strikethrough, List, ListOrdered, Quote,
   Heading2, Heading3, Undo, Redo, Link as LinkIcon, Image as ImageIcon,
-  Sparkles, Save, History, Gauge, AlertCircle, CheckCircle2, ShieldCheck, Info, MessageSquare, Share2,
+  Sparkles, Save, History, Gauge, AlertCircle, CheckCircle2, ShieldCheck, Info, MessageSquare, Share2, BookOpen, Trash2,
 } from 'lucide-react'
 import {
   createPost, updatePost, getPost, generateArticle, generateSeoMeta, improveText, scorePost, qaPost, qaFromError, syndicatePost,
-  type BlogPost, type SeoScoreResult, type QaResult, type SyndicationPlatform,
+  listCitations, addCitation, deleteCitation,
+  type BlogPost, type SeoScoreResult, type QaResult, type SyndicationPlatform, type BlogCitation,
 } from '../lib/admin'
 import { TagInput } from './TagInput'
 import './admin.css'
@@ -425,6 +426,7 @@ export default function AdminBlogEditor() {
           />
           <SeoScorePanel draft={draft} />
           <CritiqueLogPanel aiMeta={draft.ai_meta} />
+          {mode === 'edit' && postId && <CitationsPanel postId={postId} />}
           {(showQa || qa) && (
             <QaPanel
               qa={qa}
@@ -608,7 +610,23 @@ function AiPanel({
       </button>
 
       <div className="admin-help" style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--gray-100)' }}>
-        <strong>Tip:</strong> select text in the body and click <em>Improve selection</em> to rewrite just that passage.
+        <strong>Tip:</strong> select text in the body, then pick a rewrite below.
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 8 }}>
+        {REWRITE_PRESETS.map((preset) => (
+          <button
+            key={preset.id}
+            type="button"
+            className="admin-btn admin-btn-secondary admin-btn-sm"
+            onClick={() => void applyPreset(preset)}
+            disabled={working}
+            title={preset.instruction}
+            style={{ fontSize: 12 }}
+          >
+            {preset.label}
+          </button>
+        ))}
       </div>
 
       <button
@@ -618,11 +636,53 @@ function AiPanel({
         disabled={working}
         style={{ marginTop: 8, width: '100%' }}
       >
-        Improve selection
+        Improve selection (default)
       </button>
     </div>
   )
+
+  function applyPreset(preset: { id: string; label: string; instruction: string }) {
+    return runImproveWithInstruction(preset.instruction)
+  }
+
+  async function runImproveWithInstruction(instruction: string): Promise<void> {
+    if (!editor) return
+    const { from, to } = editor.state.selection
+    if (from === to) {
+      setErr('Select a passage first.')
+      return
+    }
+    const text = editor.state.doc.textBetween(from, to, ' ')
+    setWorking(true)
+    setErr(null)
+    try {
+      const res = await improveText(text, instruction)
+      onImprove(res.text)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'AI rewrite failed')
+    } finally {
+      setWorking(false)
+    }
+  }
 }
+
+// Preset rewrite instructions — keep brief; the editor picks one and we send
+// it as the `instruction` argument to improveText. Each one preserves meaning
+// but shifts a single dimension of the prose. (US-BLOG-032)
+const REWRITE_PRESETS: Array<{ id: string; label: string; instruction: string }> = [
+  { id: 'shorter',  label: 'Shorter',
+    instruction: 'Tighten this passage to roughly 60% of its current length. Keep meaning and concrete details. Cut filler, throat-clearing, and redundant transitions.' },
+  { id: 'expand',   label: 'Expand',
+    instruction: 'Expand this passage to add one concrete example or one practical detail. Do not pad — every added sentence must add new specific value.' },
+  { id: 'simpler',  label: 'Simpler',
+    instruction: 'Rewrite at a 7th-grade reading level. Replace jargon and abstract phrasing with concrete language. Preserve all the same facts.' },
+  { id: 'direct',   label: 'More direct',
+    instruction: 'Rewrite with active voice and a direct, low-key tone. Cut hedging ("might possibly", "in some cases") unless the hedge is factually required.' },
+  { id: 'warmer',   label: 'Warmer',
+    instruction: 'Rewrite with the same information but in a warmer, more validating tone — speaking to a caregiver who is tired and worried. No sappiness; just human.' },
+  { id: 'less_ai',  label: 'Less AI-ish',
+    instruction: 'Rewrite to remove AI-ish patterns: "delve into", "tapestry of", "in conclusion", "moreover/furthermore", uniform sentence length, three-item lists everywhere. Keep meaning intact.' },
+]
 
 function GenerateSeoButton({
   draft,
@@ -1056,6 +1116,196 @@ function CritiqueLogPanel({ aiMeta }: { aiMeta: unknown }) {
         </details>
       ))}
     </div>
+  )
+}
+
+// =============================================================================
+// Citations panel (US-BLOG-025)
+// =============================================================================
+
+function CitationsPanel({ postId }: { postId: string }) {
+  const [cites, setCites] = useState<BlogCitation[]>([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState<string | null>(null)
+  const [showAdd, setShowAdd] = useState(false)
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  const fetchCites = async () => {
+    setLoading(true)
+    setErr(null)
+    try {
+      const res = await listCitations(postId)
+      setCites(res.citations)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed to load citations')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { void fetchCites() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [postId])
+
+  const remove = async (id: string) => {
+    setBusyId(id)
+    try {
+      await deleteCitation(id)
+      setCites((c) => c.filter((x) => x.id !== id))
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Delete failed')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  return (
+    <div className="admin-ai-panel">
+      <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>
+          <BookOpen size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+          Citations
+          <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--gray-500)', fontWeight: 400 }}>
+            {cites.length}
+          </span>
+        </span>
+        <button
+          type="button"
+          onClick={() => setShowAdd((v) => !v)}
+          style={{
+            background: 'transparent', border: '1px solid var(--gray-200)', borderRadius: 4,
+            padding: '2px 8px', fontSize: 11, cursor: 'pointer', color: 'var(--gray-700)',
+          }}
+        >
+          {showAdd ? 'Cancel' : 'Add'}
+        </button>
+      </h3>
+
+      {err && <div className="admin-error" style={{ marginBottom: 8 }}>{err}</div>}
+
+      {showAdd && (
+        <AddCitationForm
+          postId={postId}
+          onAdded={(c) => { setCites((s) => [c, ...s]); setShowAdd(false) }}
+          onError={setErr}
+        />
+      )}
+
+      {loading && !cites.length && <div className="admin-help">Loading…</div>}
+      {!loading && cites.length === 0 && !showAdd && (
+        <div className="admin-help">No citations yet. Add the sources you used during research.</div>
+      )}
+
+      <div style={{ marginTop: cites.length > 0 ? 6 : 0 }}>
+        {cites.map((c) => (
+          <div
+            key={c.id}
+            style={{
+              padding: '8px 0', borderTop: '1px solid var(--gray-100)', fontSize: 12,
+              display: 'flex', alignItems: 'flex-start', gap: 6,
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <a href={c.source_url} target="_blank" rel="noopener noreferrer"
+                 style={{ fontWeight: 600, color: 'var(--gray-800)' }}>
+                {c.source_title}
+              </a>
+              {c.attributed_to && (
+                <div style={{ color: 'var(--gray-600)' }}>{c.attributed_to}</div>
+              )}
+              {c.excerpt && (
+                <div style={{ color: 'var(--gray-700)', fontStyle: 'italic', marginTop: 2 }}>
+                  "{c.excerpt.slice(0, 140)}{c.excerpt.length > 140 ? '…' : ''}"
+                </div>
+              )}
+              {c.anchor_in_post && (
+                <div style={{ color: 'var(--gray-500)', marginTop: 2 }}>
+                  Supports: {c.anchor_in_post}
+                </div>
+              )}
+              <div style={{ color: 'var(--gray-400)', marginTop: 2, fontSize: 11 }}>
+                Retrieved {new Date(c.retrieved_at).toLocaleDateString()}
+                {c.license && <> · {c.license}</>}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void remove(c.id)}
+              disabled={busyId === c.id}
+              title="Remove"
+              style={{
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                color: 'var(--gray-500)', padding: 4, flexShrink: 0,
+              }}
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function AddCitationForm({
+  postId, onAdded, onError,
+}: {
+  postId: string
+  onAdded: (c: BlogCitation) => void
+  onError: (msg: string) => void
+}) {
+  const [sourceUrl, setSourceUrl] = useState('')
+  const [sourceTitle, setSourceTitle] = useState('')
+  const [attributedTo, setAttributedTo] = useState('')
+  const [excerpt, setExcerpt] = useState('')
+  const [anchor, setAnchor] = useState('')
+  const [license, setLicense] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const res = await addCitation(postId, {
+        source_url: sourceUrl.trim(),
+        source_title: sourceTitle.trim(),
+        attributed_to: attributedTo || null,
+        excerpt: excerpt || null,
+        anchor_in_post: anchor || null,
+        license: license || null,
+      })
+      onAdded(res.citation)
+      setSourceUrl(''); setSourceTitle(''); setAttributedTo('');
+      setExcerpt(''); setAnchor(''); setLicense('')
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Add failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 6,
+        padding: 8, marginBottom: 8, background: 'var(--gray-50)', borderRadius: 4, fontSize: 12,
+      }}
+    >
+      <input className="admin-input" placeholder="Source URL"   type="url"
+             value={sourceUrl}   onChange={(e) => setSourceUrl(e.target.value)} required />
+      <input className="admin-input" placeholder="Title (e.g. AARP — Caregiver Statistics 2024)"
+             value={sourceTitle} onChange={(e) => setSourceTitle(e.target.value)} required />
+      <input className="admin-input" placeholder="Attributed to (optional)"
+             value={attributedTo} onChange={(e) => setAttributedTo(e.target.value)} />
+      <input className="admin-input" placeholder="Excerpt or paraphrase (optional)"
+             value={excerpt} onChange={(e) => setExcerpt(e.target.value)} />
+      <input className="admin-input" placeholder="Where this supports a claim (optional)"
+             value={anchor} onChange={(e) => setAnchor(e.target.value)} />
+      <input className="admin-input" placeholder="License (optional, e.g. fair-use)"
+             value={license} onChange={(e) => setLicense(e.target.value)} />
+      <button type="submit" className="admin-btn admin-btn-primary admin-btn-sm" disabled={saving || !sourceUrl || !sourceTitle}>
+        {saving ? 'Adding…' : 'Add citation'}
+      </button>
+    </form>
   )
 }
 

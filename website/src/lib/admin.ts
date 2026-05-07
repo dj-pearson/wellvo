@@ -515,6 +515,126 @@ export function listPostMetrics(post_id: string, days = 90) {
 }
 
 // =============================================================================
+// Asset library (US-BLOG-010)
+// =============================================================================
+
+export type BlogAssetType = 'image' | 'quote' | 'link' | 'file' | 'data_table' | 'expert_contact'
+
+export interface BlogAsset {
+  id: string
+  type: BlogAssetType
+  title: string
+  description: string | null
+  tags: string[]
+  source: string
+  license: string
+  notes: string | null
+  url: string | null
+  thumb_url: string | null
+  alt_text: string | null
+  width_px: number | null
+  height_px: number | null
+  bytes: number | null
+  mime_type: string | null
+  original_filename: string | null
+  quote_text: string | null
+  attributed_to: string | null
+  retrieved_at: string | null
+  columns: unknown
+  row_count: number | null
+  contact_name: string | null
+  contact_expertise: string[] | null
+  contact_email: string | null
+  response_rate: number | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export function listAssets(opts: { type?: BlogAssetType | 'all'; search?: string; limit?: number; offset?: number } = {}) {
+  return callEdge<{ assets: BlogAsset[]; total: number; limit: number; offset: number }>('/admin-blog', {
+    action: 'list_assets', asset_type: opts.type, search: opts.search, limit: opts.limit, offset: opts.offset,
+  })
+}
+
+export function createAsset(asset: Partial<BlogAsset>) {
+  return callEdge<{ asset: BlogAsset }>('/admin-blog', { action: 'create_asset', asset })
+}
+
+export function updateAsset(asset_id: string, asset: Partial<BlogAsset>) {
+  return callEdge<{ asset: BlogAsset }>('/admin-blog', { action: 'update_asset', asset_id, asset })
+}
+
+export function deleteAsset(asset_id: string) {
+  return callEdge<{ success: true }>('/admin-blog', { action: 'delete_asset', asset_id })
+}
+
+// =============================================================================
+// Citations (US-BLOG-025)
+// =============================================================================
+
+export interface BlogCitation {
+  id: string
+  post_id: string
+  source_url: string
+  source_title: string
+  attributed_to: string | null
+  excerpt: string | null
+  anchor_in_post: string | null
+  license: string | null
+  retrieved_at: string
+  last_verified_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export function listCitations(post_id: string) {
+  return callEdge<{ citations: BlogCitation[] }>('/admin-blog', { action: 'list_citations', id: post_id })
+}
+
+export function addCitation(post_id: string, citation: {
+  source_url: string
+  source_title: string
+  attributed_to?: string | null
+  excerpt?: string | null
+  anchor_in_post?: string | null
+  license?: string | null
+  retrieved_at?: string | null
+}) {
+  return callEdge<{ citation: BlogCitation }>('/admin-blog', { action: 'add_citation', id: post_id, citation })
+}
+
+export function deleteCitation(citation_id: string) {
+  return callEdge<{ success: true }>('/admin-blog', { action: 'delete_citation', citation_id })
+}
+
+// =============================================================================
+// AI cost dashboard (US-BLOG-078)
+// =============================================================================
+
+export interface AiCostRow {
+  day: string
+  kind: 'generation' | 'critique' | 'refresh_proposal' | 'syndication'
+  input_tokens: number
+  output_tokens: number
+  cache_creation_tokens: number
+  cache_read_tokens: number
+  calls: number
+}
+
+export interface AiCostSummary {
+  days: number
+  rows: AiCostRow[]
+  totals_by_kind: Record<string, { input: number; output: number; calls: number }>
+  totals: { input_tokens: number; output_tokens: number; calls: number }
+}
+
+export function getAiCostSummary(days = 30) {
+  return callEdge<AiCostSummary>('/admin-blog', { action: 'ai_cost_summary', cost_days: days })
+}
+
+// =============================================================================
 // AI generation
 // =============================================================================
 

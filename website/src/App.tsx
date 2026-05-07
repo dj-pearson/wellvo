@@ -27,6 +27,7 @@ const AdminBlog = lazy(() => import('./admin/AdminBlog'))
 const AdminBlogEditor = lazy(() => import('./admin/AdminBlogEditor'))
 const AdminBlogHistory = lazy(() => import('./admin/AdminBlogHistory'))
 const AdminBlogRefresh = lazy(() => import('./admin/AdminBlogRefresh'))
+const AdminBlogAssets = lazy(() => import('./admin/AdminBlogAssets'))
 const AdminBlogTemplates = lazy(() => import('./admin/AdminBlogTemplates'))
 const AdminSocial = lazy(() => import('./admin/AdminSocial'))
 const AdminAnalytics = lazy(() => import('./admin/AdminAnalytics'))
@@ -78,6 +79,7 @@ function App() {
             <Route path="blog" element={<AdminBlog />} />
             <Route path="blog/templates" element={<AdminBlogTemplates />} />
             <Route path="blog/refresh" element={<AdminBlogRefresh />} />
+            <Route path="blog/assets" element={<AdminBlogAssets />} />
             <Route path="blog/new" element={<AdminBlogEditor />} />
             <Route path="blog/:id" element={<AdminBlogEditor />} />
             <Route path="blog/:id/history" element={<AdminBlogHistory />} />

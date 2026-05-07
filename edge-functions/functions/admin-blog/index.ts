@@ -29,6 +29,43 @@ function slugify(input: string): string {
     .slice(0, 80);
 }
 
+interface AssetInput {
+  type?: string;
+  title?: string;
+  description?: string | null;
+  tags?: string[];
+  source?: string;
+  license?: string;
+  notes?: string | null;
+  url?: string | null;
+  thumb_url?: string | null;
+  alt_text?: string | null;
+  width_px?: number | null;
+  height_px?: number | null;
+  bytes?: number | null;
+  mime_type?: string | null;
+  original_filename?: string | null;
+  quote_text?: string | null;
+  attributed_to?: string | null;
+  retrieved_at?: string | null;
+  columns?: unknown;
+  row_count?: number | null;
+  contact_name?: string | null;
+  contact_expertise?: string[] | null;
+  contact_email?: string | null;
+  response_rate?: number | null;
+}
+
+interface CitationInput {
+  source_url: string;
+  source_title: string;
+  attributed_to?: string | null;
+  excerpt?: string | null;
+  anchor_in_post?: string | null;
+  license?: string | null;
+  retrieved_at?: string | null;
+}
+
 interface PostInput {
   slug?: string;
   title?: string;
@@ -57,12 +94,22 @@ interface Body {
     | "qa_post"
     | "syndicate_post"
     | "list_refresh_queue" | "action_refresh_queue" | "trigger_refresh_proposal"
-    | "list_post_metrics";
+    | "list_post_metrics"
+    | "list_assets" | "create_asset" | "update_asset" | "delete_asset"
+    | "list_citations" | "add_citation" | "delete_citation"
+    | "ai_cost_summary";
   platforms?: string[];
   refresh_queue_id?: string;
   refresh_action?: "in_progress" | "dismissed" | "done" | "queued";
   refresh_status_filter?: "queued" | "in_progress" | "proposed" | "done" | "dismissed" | "open" | "all";
   metric_days?: number;
+  asset?: AssetInput;
+  asset_id?: string;
+  asset_type?: string;
+  search?: string;
+  citation?: CitationInput;
+  citation_id?: string;
+  cost_days?: number;
   id?: string;
   slug?: string;
   status?: "draft" | "published" | "archived" | "all";
@@ -134,9 +181,268 @@ export async function handleAdminBlog(req: Request, auth: AuthResult): Promise<R
       return triggerRefreshProposal(body, admin.userId, req);
     case "list_post_metrics":
       return listPostMetrics(body);
+    case "list_assets":
+      return listAssets(body);
+    case "create_asset":
+      return createAsset(body, admin.userId, req);
+    case "update_asset":
+      return updateAsset(body, admin.userId, req);
+    case "delete_asset":
+      return deleteAsset(body, admin.userId, req);
+    case "list_citations":
+      return listCitations(body);
+    case "add_citation":
+      return addCitation(body, admin.userId, req);
+    case "delete_citation":
+      return deleteCitation(body, admin.userId, req);
+    case "ai_cost_summary":
+      return aiCostSummary(body);
     default:
       return json({ error: "Unknown action" }, 400);
   }
+}
+
+// =============================================================================
+// Asset library (US-BLOG-010)
+// =============================================================================
+
+const VALID_ASSET_TYPES = new Set(["image", "quote", "link", "file", "data_table", "expert_contact"]);
+
+async function listAssets(body: Body): Promise<Response> {
+  const limit = Math.max(1, Math.min(200, body.limit ?? 100));
+  const offset = Math.max(0, body.offset ?? 0);
+
+  let query = supabaseAdmin
+    .from("blog_assets")
+    .select("*", { count: "exact" })
+    .order("updated_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (body.asset_type && body.asset_type !== "all") {
+    if (!VALID_ASSET_TYPES.has(body.asset_type)) return json({ error: `Invalid asset_type: ${body.asset_type}` }, 400);
+    query = query.eq("type", body.asset_type);
+  }
+  if (body.search && body.search.trim()) {
+    const term = body.search.trim();
+    query = query.or(
+      `title.ilike.%${term}%,description.ilike.%${term}%,quote_text.ilike.%${term}%,attributed_to.ilike.%${term}%`,
+    );
+  }
+
+  const { data, error, count } = await query;
+  if (error) return json({ error: error.message }, 500);
+  return json({ assets: data ?? [], total: count ?? 0, limit, offset });
+}
+
+function validateAssetInput(a: AssetInput): string | null {
+  if (!a.type || !VALID_ASSET_TYPES.has(a.type)) return `type required (one of ${[...VALID_ASSET_TYPES].join(", ")})`;
+  if (!a.title || a.title.trim().length === 0) return "title required";
+  // Type-specific minimums
+  if (a.type === "image" && !a.url) return "image asset: url required";
+  if (a.type === "image" && (!a.alt_text || a.alt_text.trim().length === 0)) return "image asset: alt_text required";
+  if (a.type === "quote" && (!a.quote_text || a.quote_text.trim().length === 0)) return "quote asset: quote_text required";
+  if (a.type === "link" && !a.url) return "link asset: url required";
+  if (a.type === "expert_contact" && !a.contact_name) return "expert_contact asset: contact_name required";
+  return null;
+}
+
+async function createAsset(body: Body, adminId: string, req: Request): Promise<Response> {
+  const a = body.asset;
+  if (!a) return json({ error: "asset body required" }, 400);
+  const err = validateAssetInput(a);
+  if (err) return json({ error: err }, 400);
+
+  const payload = {
+    type: a.type,
+    title: a.title!.trim(),
+    description: a.description ?? null,
+    tags: a.tags ?? [],
+    source: a.source ?? "",
+    license: a.license ?? "",
+    notes: a.notes ?? null,
+    url: a.url ?? null,
+    thumb_url: a.thumb_url ?? null,
+    alt_text: a.alt_text ?? null,
+    width_px: a.width_px ?? null,
+    height_px: a.height_px ?? null,
+    bytes: a.bytes ?? null,
+    mime_type: a.mime_type ?? null,
+    original_filename: a.original_filename ?? null,
+    quote_text: a.quote_text ?? null,
+    attributed_to: a.attributed_to ?? null,
+    retrieved_at: a.retrieved_at ?? null,
+    columns: a.columns ?? null,
+    row_count: a.row_count ?? null,
+    contact_name: a.contact_name ?? null,
+    contact_expertise: a.contact_expertise ?? null,
+    contact_email: a.contact_email ?? null,
+    response_rate: a.response_rate ?? null,
+    created_by: adminId,
+  };
+
+  const { data, error } = await supabaseAdmin.from("blog_assets").insert(payload).select().single();
+  if (error) return json({ error: error.message }, 500);
+
+  await logAdminAction(adminId, "blog.asset_create", {
+    resourceType: "blog_asset",
+    resourceId: data.id,
+    metadata: { type: data.type, title: data.title },
+    req,
+  });
+  return json({ asset: data });
+}
+
+async function updateAsset(body: Body, adminId: string, req: Request): Promise<Response> {
+  if (!body.asset_id) return json({ error: "asset_id required" }, 400);
+  if (!body.asset) return json({ error: "asset body required" }, 400);
+
+  // Allow-listed patch to avoid clients setting created_by / id.
+  const a = body.asset;
+  const patch: Record<string, unknown> = {};
+  const allowed: (keyof AssetInput)[] = [
+    "title", "description", "tags", "source", "license", "notes",
+    "url", "thumb_url", "alt_text", "width_px", "height_px", "bytes",
+    "mime_type", "original_filename", "quote_text", "attributed_to",
+    "retrieved_at", "columns", "row_count", "contact_name",
+    "contact_expertise", "contact_email", "response_rate",
+  ];
+  for (const k of allowed) {
+    if (a[k] !== undefined) patch[k] = a[k];
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("blog_assets")
+    .update(patch)
+    .eq("id", body.asset_id)
+    .select()
+    .single();
+  if (error) return json({ error: error.message }, 500);
+
+  await logAdminAction(adminId, "blog.asset_update", {
+    resourceType: "blog_asset",
+    resourceId: body.asset_id,
+    metadata: { keys: Object.keys(patch) },
+    req,
+  });
+  return json({ asset: data });
+}
+
+async function deleteAsset(body: Body, adminId: string, req: Request): Promise<Response> {
+  if (!body.asset_id) return json({ error: "asset_id required" }, 400);
+  const { error } = await supabaseAdmin.from("blog_assets").delete().eq("id", body.asset_id);
+  if (error) return json({ error: error.message }, 500);
+  await logAdminAction(adminId, "blog.asset_delete", {
+    resourceType: "blog_asset",
+    resourceId: body.asset_id,
+    req,
+  });
+  return json({ success: true });
+}
+
+// =============================================================================
+// Citations (US-BLOG-025)
+// =============================================================================
+
+async function listCitations(body: Body): Promise<Response> {
+  if (!body.id) return json({ error: "id (post id) required" }, 400);
+  const { data, error } = await supabaseAdmin
+    .from("blog_citations")
+    .select("*")
+    .eq("post_id", body.id)
+    .order("created_at", { ascending: false });
+  if (error) return json({ error: error.message }, 500);
+  return json({ citations: data ?? [] });
+}
+
+async function addCitation(body: Body, adminId: string, req: Request): Promise<Response> {
+  if (!body.id) return json({ error: "id (post id) required" }, 400);
+  const c = body.citation;
+  if (!c?.source_url || !c?.source_title) {
+    return json({ error: "source_url and source_title required" }, 400);
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("blog_citations")
+    .insert({
+      post_id: body.id,
+      source_url: c.source_url.trim(),
+      source_title: c.source_title.trim(),
+      attributed_to: c.attributed_to ?? null,
+      excerpt: c.excerpt ?? null,
+      anchor_in_post: c.anchor_in_post ?? null,
+      license: c.license ?? null,
+      retrieved_at: c.retrieved_at ?? new Date().toISOString(),
+      created_by: adminId,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    // Friendly error on duplicate (unique constraint on post_id, source_url).
+    if (error.code === "23505") return json({ error: "Already cited on this post" }, 409);
+    return json({ error: error.message }, 500);
+  }
+
+  await logAdminAction(adminId, "blog.citation_add", {
+    resourceType: "blog_citation",
+    resourceId: data.id,
+    metadata: { post_id: body.id, source_url: data.source_url },
+    req,
+  });
+  return json({ citation: data });
+}
+
+async function deleteCitation(body: Body, adminId: string, req: Request): Promise<Response> {
+  if (!body.citation_id) return json({ error: "citation_id required" }, 400);
+  const { error } = await supabaseAdmin.from("blog_citations").delete().eq("id", body.citation_id);
+  if (error) return json({ error: error.message }, 500);
+  await logAdminAction(adminId, "blog.citation_delete", {
+    resourceType: "blog_citation",
+    resourceId: body.citation_id,
+    req,
+  });
+  return json({ success: true });
+}
+
+// =============================================================================
+// AI cost summary (US-BLOG-078)
+// =============================================================================
+
+async function aiCostSummary(body: Body): Promise<Response> {
+  const days = Math.max(1, Math.min(365, body.cost_days ?? 30));
+  const sinceIso = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+
+  const { data, error } = await supabaseAdmin
+    .from("v_blog_ai_cost")
+    .select("day, kind, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, calls")
+    .gte("day", sinceIso)
+    .order("day", { ascending: true });
+
+  if (error) return json({ error: error.message }, 500);
+
+  // Roll up totals by kind for the dashboard tile.
+  const totalsByKind: Record<string, { input: number; output: number; calls: number }> = {};
+  let totalInput = 0, totalOutput = 0, totalCalls = 0;
+  for (const r of data ?? []) {
+    const kind = r.kind as string;
+    const i = Number(r.input_tokens ?? 0);
+    const o = Number(r.output_tokens ?? 0);
+    const c = Number(r.calls ?? 0);
+    if (!totalsByKind[kind]) totalsByKind[kind] = { input: 0, output: 0, calls: 0 };
+    totalsByKind[kind].input += i;
+    totalsByKind[kind].output += o;
+    totalsByKind[kind].calls += c;
+    totalInput += i;
+    totalOutput += o;
+    totalCalls += c;
+  }
+
+  return json({
+    days,
+    rows: data ?? [],
+    totals_by_kind: totalsByKind,
+    totals: { input_tokens: totalInput, output_tokens: totalOutput, calls: totalCalls },
+  });
 }
 
 // =============================================================================
