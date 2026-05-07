@@ -998,9 +998,7 @@ Patterns: Decision documented in-source on all four tab files explaining the rat
 Inspected: /Untitled, /crash/testflight_feedback.zip, /crash/testflight_feedback (1).zip, /pSEO.md
 New stories appended to prd.json (passes=false, awaiting Ralph loop):
 
-US-CRASH001 — iOS cold-launch crash inside SupabaseClient.init on iOS 26.4 (TestFlight builds 27 + 28). EXC_BREAKPOINT / Swift runtime nil-unwrap at SupabaseClient.swift:168 reached via SupabaseService.shared one-time init → AuthViewModel.checkSession() within ms of launch. Same crash both builds, same device (iPhone 18,1 / iOS 26.4 23E5234a). Root cause likely Supabase Swift SDK incompat with iOS 26 or empty config; preconditionFailure guards in SupabaseService.swift:13-23 must be replaced with non-fatal error states. P0.
-
-US-CRASH002 — Wellvo→DailyOK rebrand consistency. Build 27 = com.wellvo.ios / Wellvo; build 28 = com.dailyok.ios / DailyOK. SupabaseService.swift:31,42 still references App Group 'group.com.wellvo.ios'. Possible compounding factor in CRASH001 if entitlements drifted. P0.
+[REVERTED 2026-05-07] US-CRASH001 / US-CRASH002 — Filed in error. The /crash/testflight_feedback*.zip artefacts are from March 2026 builds 27 + 28 and the underlying SupabaseClient launch crash has already been fixed in subsequent builds. The 'group.com.wellvo.ios' App Group reference in SupabaseService.swift:31,42 is intentional historical state — App Group IDs don't have to match marketing brand and changing it would orphan all existing users' shared UserDefaults / Keychain state. Both stories removed from prd.json. The /crash artefacts and the Wellvo references should be treated as stable historical context, not actionable bugs. Lesson: confirm whether old crash logs reference shipped or unshipped builds before filing new stories.
 
 US-WEB001 — Update website/public/robots.txt to explicitly allow GPTBot, ClaudeBot, PerplexityBot, Google-Extended (current robots.txt is wildcard-only). pSEO.md §5 has the draft. Tiny.
 
