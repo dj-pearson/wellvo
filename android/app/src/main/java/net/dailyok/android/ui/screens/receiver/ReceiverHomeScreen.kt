@@ -69,6 +69,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import net.dailyok.android.R
 import net.dailyok.android.ui.components.AmbientBackground
 import net.dailyok.android.ui.components.AmbientTone
+import net.dailyok.android.ui.components.CelebrationOverlay
 import net.dailyok.android.ui.components.GlassCard
 import net.dailyok.android.ui.theme.DailyOKElevation
 import net.dailyok.android.ui.theme.DailyOKGlass
@@ -98,18 +99,23 @@ fun ReceiverHomeScreen(
     val pendingOfflineCount by viewModel.pendingOfflineCount.collectAsState()
     var menuExpanded by remember { mutableStateOf(false) }
     var showSignOutConfirmation by remember { mutableStateOf(false) }
+    var showCelebration by remember { mutableStateOf(false) }
 
     // Track previous state to detect transitions
     var wasCheckedIn by remember { mutableStateOf(state.hasCheckedInToday) }
     var hadError by remember { mutableStateOf(state.errorMessage != null) }
 
-    // Success haptic — fires when check-in completes
+    // Success haptic + celebration — fires when check-in completes
     LaunchedEffect(state.hasCheckedInToday) {
         if (state.hasCheckedInToday && !wasCheckedIn) {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                 view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
             } else {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+            // Only celebrate on confirmed online success (not offline-queued, no error)
+            if (state.errorMessage == null && !isOffline) {
+                showCelebration = true
             }
         }
         wasCheckedIn = state.hasCheckedInToday
@@ -164,6 +170,25 @@ fun ReceiverHomeScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+
+        // Streak + 7-day consistency header. Both chips self-hide when there
+        // isn't enough history (streak < 2, consistency < 50%), so the row is
+        // empty for first-day receivers.
+        run {
+            val consistencyBadge = net.dailyok.android.util.Streaks.badge(state.consistencyPercent)
+            if (state.streakDays >= 2 || consistencyBadge != net.dailyok.android.util.ConsistencyBadge.None) {
+                androidx.compose.foundation.layout.Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    net.dailyok.android.ui.components.StreakChip(streakDays = state.streakDays)
+                    net.dailyok.android.ui.components.ConsistencyChip(badge = consistencyBadge)
+                }
             }
         }
 
@@ -263,6 +288,11 @@ fun ReceiverHomeScreen(
                 }
             )
         }
+
+        CelebrationOverlay(
+            visible = showCelebration,
+            onComplete = { showCelebration = false }
+        )
     }
 
     if (showSignOutConfirmation) {

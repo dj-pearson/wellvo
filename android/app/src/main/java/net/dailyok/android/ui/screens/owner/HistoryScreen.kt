@@ -315,26 +315,11 @@ private fun CheckInLogEntry(checkIn: CheckIn) {
 
 @Composable
 private fun EmptyHistoryState() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(DailyOKSpacing.xxxl),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(
-            imageVector = Icons.Default.DateRange,
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(DailyOKSpacing.md))
-        Text(
-            text = stringResource(R.string.history_no_checkins),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-    }
+    net.dailyok.android.ui.components.EmptyStateView(
+        icon = Icons.Default.DateRange,
+        title = stringResource(R.string.history_no_checkins),
+        body = "Once your family starts checking in, their history will show up here."
+    )
 }
 
 @Composable

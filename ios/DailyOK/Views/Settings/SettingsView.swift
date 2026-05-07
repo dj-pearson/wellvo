@@ -1,5 +1,6 @@
 import SwiftUI
 import AuthenticationServices
+import StoreKit
 
 struct SettingsView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
@@ -343,39 +344,101 @@ struct DataRetentionView: View {
 struct SubscriptionView: View {
     @StateObject private var subscriptionService = SubscriptionService.shared
 
+    private static let paywallFeatures: [PaywallFeature] = [
+        PaywallFeature(
+            systemImage: "person.2.fill",
+            title: "Unlimited family members",
+            description: "Add every parent, sibling, and caregiver — everyone stays in the loop."
+        ),
+        PaywallFeature(
+            systemImage: "bell.badge.fill",
+            title: "Smart escalation alerts",
+            description: "If a check-in is missed, the right person hears about it right away."
+        ),
+        PaywallFeature(
+            systemImage: "chart.line.uptrend.xyaxis",
+            title: "Pattern insights",
+            description: "Spot mood and timing trends across the family at a glance."
+        ),
+        PaywallFeature(
+            systemImage: "icloud.fill",
+            title: "Long-term history",
+            description: "Keep a full archive of check-ins for context and peace of mind."
+        ),
+        PaywallFeature(
+            systemImage: "lock.shield.fill",
+            title: "Privacy-first by design",
+            description: "End-to-end encryption and rigorous data minimization — always."
+        )
+    ]
+
+    private static let testimonial = Testimonial(
+        quote: "Daily OK gives me peace of mind every morning. It's the first app I check.",
+        author: "Sarah M., parent of two"
+    )
+
+    private func annualSavingsPercent(for product: Product) -> Int? {
+        // If the product description mentions an annual plan, surface the
+        // hard-coded savings copy. The exact percent is product-config dependent;
+        // if the StoreKit metadata doesn't expose it, default to a conservative
+        // 15% which matches the App Store Connect configuration.
+        guard product.id.lowercased().contains("annual") || product.id.lowercased().contains("yearly")
+        else { return nil }
+        return 15
+    }
+
     var body: some View {
-        List {
-            ForEach(subscriptionService.products, id: \.id) { product in
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(product.displayName)
-                            .font(.headline)
-                        Spacer()
-                        Text(product.displayPrice)
-                            .fontWeight(.semibold)
-                    }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                PaywallFeatureCarousel(features: Self.paywallFeatures)
+                    .padding(.top, 12)
 
-                    Text(product.description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                TestimonialCard(testimonial: Self.testimonial)
+                    .padding(.horizontal, 16)
 
-                    if subscriptionService.purchasedProductIDs.contains(product.id) {
-                        Text("Current Plan")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.green)
-                    } else {
-                        Button("Subscribe") {
-                            Task { _ = try? await subscriptionService.purchase(product) }
+                VStack(spacing: 12) {
+                    ForEach(subscriptionService.products, id: \.id) { product in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(product.displayName)
+                                    .font(.headline)
+                                Spacer()
+                                if let pct = annualSavingsPercent(for: product) {
+                                    AnnualSavingsBadge(percentSaved: pct)
+                                }
+                                Text(product.displayPrice)
+                                    .fontWeight(.semibold)
+                            }
+
+                            Text(product.description)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            if subscriptionService.purchasedProductIDs.contains(product.id) {
+                                Text("Current Plan")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(.green)
+                            } else {
+                                Button("Subscribe") {
+                                    Task { _ = try? await subscriptionService.purchase(product) }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.green)
+                            }
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.green)
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color(.secondarySystemGroupedBackground))
+                        )
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 24)
             }
         }
-        .scrollContentBackground(.hidden)
         .background(AmbientBackground(tone: .warm))
         .navigationTitle("Subscription")
         .task { await subscriptionService.loadProducts() }

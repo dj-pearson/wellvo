@@ -1,5 +1,11 @@
 package net.dailyok.android.ui.screens.viewer
 
+// Note: Like OwnerTabsScreen, we intentionally keep the platform-default
+// Material3 NavigationBar for the top-level viewer tabs. The custom
+// FloatingBottomNav component (ui/components/FloatingBottomNav.kt) remains
+// available for sub-navigation surfaces. See US-UX028 for the keep-platform-bar
+// decision rationale.
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut

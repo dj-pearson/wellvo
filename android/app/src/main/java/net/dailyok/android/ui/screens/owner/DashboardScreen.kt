@@ -185,10 +185,19 @@ fun DashboardScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         AmbientBackground(tone = if (hasAlerts) AmbientTone.Alert else AmbientTone.Calm)
+        val pullState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
         PullToRefreshBox(
             isRefreshing = isLoading,
             onRefresh = { viewModel.loadDashboard(userId) },
-            modifier = Modifier.fillMaxSize()
+            state = pullState,
+            modifier = Modifier.fillMaxSize(),
+            indicator = {
+                net.dailyok.android.ui.components.BrandedPullToRefreshIndicator(
+                    state = pullState,
+                    isRefreshing = isLoading,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp)
+                )
+            }
         ) {
             when {
                 isLoading && receiverCards.isEmpty -> {
@@ -320,58 +329,13 @@ private fun EmptyState(
     showCta: Boolean,
     onGetStarted: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 32.dp, vertical = 48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .size(140.dp)
-                .clip(CircleShape)
-                .background(DailyOKGreen100),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.PersonAdd,
-                contentDescription = stringResource(R.string.cd_no_receivers_icon),
-                modifier = Modifier.size(60.dp),
-                tint = DailyOKGreen700
-            )
-        }
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = "Add Your First Family Member",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        Text(
-            text = "We'll walk you through it — takes about a minute.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        if (showCta) {
-            Spacer(modifier = Modifier.height(24.dp))
-            Button(
-                onClick = onGetStarted,
-                shape = MaterialTheme.shapes.large,
-                modifier = Modifier
-                    .widthIn(min = 220.dp)
-                    .height(52.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.onboarding_get_started),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-    }
+    net.dailyok.android.ui.components.EmptyStateView(
+        icon = Icons.Default.PersonAdd,
+        title = "Add Your First Family Member",
+        body = "We'll walk you through it — takes about a minute.",
+        primaryActionLabel = if (showCta) stringResource(R.string.onboarding_get_started) else null,
+        onPrimaryAction = if (showCta) onGetStarted else null
+    )
 }
 
 // -- Weekly Summary Card --
@@ -825,41 +789,55 @@ private fun ReceiverStatusCardView(
                     }
                 }
 
-                // Streak (animated counter)
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    androidx.compose.animation.AnimatedContent(
-                        targetState = card.streak,
-                        transitionSpec = {
-                            if (targetState > initialState) {
-                                (androidx.compose.animation.slideInVertically(
-                                    animationSpec = androidx.compose.animation.core.tween(260)
-                                ) { it / 2 } + androidx.compose.animation.fadeIn()) togetherWith
-                                    (androidx.compose.animation.slideOutVertically(
-                                        animationSpec = androidx.compose.animation.core.tween(220)
-                                    ) { -it / 2 } + androidx.compose.animation.fadeOut())
-                            } else {
-                                (androidx.compose.animation.slideInVertically(
-                                    animationSpec = androidx.compose.animation.core.tween(260)
-                                ) { -it / 2 } + androidx.compose.animation.fadeIn()) togetherWith
-                                    (androidx.compose.animation.slideOutVertically(
-                                        animationSpec = androidx.compose.animation.core.tween(220)
-                                    ) { it / 2 } + androidx.compose.animation.fadeOut())
-                            }
-                        },
-                        label = "streak"
-                    ) { streak ->
+                // Streak + 7-day consistency chips. The chips self-hide when
+                // there isn't enough history (streak < 2, consistency < 50%),
+                // so we fall back to the big day-count for high-streak +
+                // low-consistency users.
+                val consistencyBadge = net.dailyok.android.util.Streaks.badge(card.consistencyPercent)
+                if (card.streak >= 2 || consistencyBadge != net.dailyok.android.util.ConsistencyBadge.None) {
+                    Column(horizontalAlignment = Alignment.End) {
+                        net.dailyok.android.ui.components.StreakChip(streakDays = card.streak)
+                        if (consistencyBadge != net.dailyok.android.util.ConsistencyBadge.None) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            net.dailyok.android.ui.components.ConsistencyChip(badge = consistencyBadge)
+                        }
+                    }
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        androidx.compose.animation.AnimatedContent(
+                            targetState = card.streak,
+                            transitionSpec = {
+                                if (targetState > initialState) {
+                                    (androidx.compose.animation.slideInVertically(
+                                        animationSpec = androidx.compose.animation.core.tween(260)
+                                    ) { it / 2 } + androidx.compose.animation.fadeIn()) togetherWith
+                                        (androidx.compose.animation.slideOutVertically(
+                                            animationSpec = androidx.compose.animation.core.tween(220)
+                                        ) { -it / 2 } + androidx.compose.animation.fadeOut())
+                                } else {
+                                    (androidx.compose.animation.slideInVertically(
+                                        animationSpec = androidx.compose.animation.core.tween(260)
+                                    ) { -it / 2 } + androidx.compose.animation.fadeIn()) togetherWith
+                                        (androidx.compose.animation.slideOutVertically(
+                                            animationSpec = androidx.compose.animation.core.tween(220)
+                                        ) { it / 2 } + androidx.compose.animation.fadeOut())
+                                }
+                            },
+                            label = "streak"
+                        ) { streak ->
+                            Text(
+                                text = "$streak",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = StatusGreen
+                            )
+                        }
                         Text(
-                            text = "$streak",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = StatusGreen
+                            text = stringResource(R.string.dashboard_day_streak),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Text(
-                        text = stringResource(R.string.dashboard_day_streak),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
 

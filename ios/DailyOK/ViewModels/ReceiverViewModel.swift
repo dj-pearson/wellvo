@@ -13,6 +13,8 @@ final class ReceiverViewModel: ObservableObject {
     @Published var receiverMode: ReceiverMode = .standard
     @Published var nextCheckInTime: Date?
     @Published var receiverSettings: ReceiverSettings?
+    @Published var streakDays: Int = 0
+    @Published var consistencyPercent: Int = 0
 
     private let offlineService = OfflineCheckInService.shared
 
@@ -50,6 +52,20 @@ final class ReceiverViewModel: ObservableObject {
         #endif
         lastCheckIn = todayCheckIn
         hasCheckedInToday = (todayCheckIn != nil)
+
+        // Load 30-day history for streak + consistency badges on the home header.
+        // Failures here are non-fatal — the chips just stay hidden.
+        if let history = try? await CheckInService.shared.checkInHistory(
+            receiverId: session.user.id,
+            familyId: family.id,
+            days: 30
+        ) {
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let isoTimestamps = history.map { isoFormatter.string(from: $0.checkedInAt) }
+            streakDays = Streaks.currentStreak(isoTimestamps: isoTimestamps)
+            consistencyPercent = Streaks.consistencyPercent(isoTimestamps: isoTimestamps, windowDays: 7)
+        }
 
         await loadReceiverSettings(userId: session.user.id, familyId: family.id)
 

@@ -7,6 +7,29 @@ struct OnboardingView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var largeIconSize: CGFloat = 80
     @ScaledMetric(relativeTo: .title) private var mediumIconSize: CGFloat = 60
 
+    private static let welcomeCarouselPages: [OnboardingPageData] = [
+        OnboardingPageData(
+            systemImage: "heart.circle.fill",
+            title: "Welcome to Daily OK",
+            body: "One tap. Total peace of mind. Let's set up your family check-ins."
+        ),
+        OnboardingPageData(
+            systemImage: "hand.tap.fill",
+            title: "Daily check-ins",
+            body: "Loved ones tap once a day to say they're OK. No typing, no fuss."
+        ),
+        OnboardingPageData(
+            systemImage: "bell.badge.fill",
+            title: "Smart escalation",
+            body: "If a check-in is missed, the right family member is notified right away."
+        ),
+        OnboardingPageData(
+            systemImage: "lock.shield.fill",
+            title: "Privacy first",
+            body: "Your family's data stays private — encrypted and minimized by design."
+        )
+    ]
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -68,38 +91,12 @@ struct OnboardingView: View {
     // MARK: - Steps
 
     private var welcomeStep: some View {
-        VStack(spacing: 24) {
-            ZStack {
-                Circle()
-                    .fill(DailyOKColor.green300.opacity(0.45))
-                    .frame(width: largeIconSize * 1.8, height: largeIconSize * 1.8)
-                    .blur(radius: 28)
-                Image(systemName: "heart.circle.fill")
-                    .font(.system(size: largeIconSize))
-                    .foregroundStyle(
-                        LinearGradient(colors: [DailyOKColor.green400, DailyOKColor.green600],
-                                       startPoint: .top, endPoint: .bottom)
-                    )
-                    .accessibilityHidden(true)
-            }
-
-            Text("Welcome to Daily OK")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-
-            Text("One tap. Total peace of mind.\nLet's set up your family check-ins.")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-
-            Button("Get Started") { viewModel.advance() }
-                .buttonStyle(.borderedProminent)
-                .tint(DailyOKColor.green500)
-                .controlSize(.large)
-        }
-        .padding(24)
-        .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
-        .padding()
+        OnboardingCarousel(
+            pages: Self.welcomeCarouselPages,
+            onComplete: { viewModel.advance() },
+            onSkip: { viewModel.advance() },
+            primaryCtaLabel: "Get Started"
+        )
     }
 
     private var userTypeStep: some View {

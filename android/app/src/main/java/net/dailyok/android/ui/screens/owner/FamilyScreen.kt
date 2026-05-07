@@ -143,10 +143,19 @@ fun FamilyScreen(
         net.dailyok.android.ui.components.AmbientBackground(
             tone = net.dailyok.android.ui.components.AmbientTone.Neutral
         )
+        val familyPullState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
         PullToRefreshBox(
             isRefreshing = isLoading,
             onRefresh = { viewModel.loadFamily(userId) },
-            modifier = Modifier.fillMaxSize()
+            state = familyPullState,
+            modifier = Modifier.fillMaxSize(),
+            indicator = {
+                net.dailyok.android.ui.components.BrandedPullToRefreshIndicator(
+                    state = familyPullState,
+                    isRefreshing = isLoading,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp)
+                )
+            }
         ) {
             when {
                 isLoading && members.isEmpty() && family == null -> {
@@ -780,36 +789,9 @@ private fun EmptyFamilyState() {
 
 @Composable
 private fun EmptyMembersState() {
-    Card(
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                imageVector = Icons.Default.PersonAdd,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = stringResource(R.string.family_no_receivers),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.family_no_receivers_body),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
+    net.dailyok.android.ui.components.EmptyStateView(
+        icon = Icons.Default.PersonAdd,
+        title = stringResource(R.string.family_no_receivers),
+        body = stringResource(R.string.family_no_receivers_body)
+    )
 }

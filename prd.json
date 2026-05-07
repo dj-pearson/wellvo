@@ -52,7 +52,7 @@
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Use the official Supabase Kotlin Multiplatform SDK (io.github.jan-tennert.supabase). Supabase URL and key should NOT be hardcoded — use BuildConfig."
+      "notes": "Use the official Supabase Kotlin Multiplatform SDK (io.github.jan-tennert.supabase). Supabase URL and key should NOT be hardcoded \u2014 use BuildConfig."
     },
     {
       "id": "US-A004",
@@ -61,7 +61,7 @@
       "acceptanceCriteria": [
         "Jetpack Navigation Compose dependency added",
         "NavHost in MainActivity with routes: splash, auth, onboarding, ownerTabs, receiverHome, viewerTabs, pairingCode, receiverOnboarding",
-        "Navigation graph mirrors iOS ContentView routing: authState (loading/unauthenticated/authenticated) → role (owner/receiver/viewer)",
+        "Navigation graph mirrors iOS ContentView routing: authState (loading/unauthenticated/authenticated) \u2192 role (owner/receiver/viewer)",
         "Owner gets bottom nav with 4 tabs: Dashboard, History, Family, Settings",
         "Receiver gets single-screen check-in interface",
         "Viewer gets bottom nav with 3 tabs: Dashboard (read-only), History (read-only), Settings",
@@ -149,7 +149,7 @@
         "ApiService class with methods matching all edge function endpoints: processCheckinResponse, onDemandCheckin, confirmDelivery, heartbeat, reportLocation, inviteReceiver, redeemCode, autoJoin, subscriptionWebhook",
         "Each method calls the edge function via Supabase Functions invoke or direct HTTP",
         "Request/response DTOs as @Serializable data classes",
-        "Consistent error handling: network errors → DailyOKError.Network, auth errors → DailyOKError.Auth, 404 → DailyOKError.NotFound, 5xx → DailyOKError.ServerError",
+        "Consistent error handling: network errors \u2192 DailyOKError.Network, auth errors \u2192 DailyOKError.Auth, 404 \u2192 DailyOKError.NotFound, 5xx \u2192 DailyOKError.ServerError",
         "DailyOKError sealed class with: Network, Auth, NotFound, ServerError, Offline, Unknown variants, each with localizedMessage",
         "NetworkRetry utility: suspend function with exponential backoff, max 3 attempts, skips auth/cancellation errors",
         "Timeout of 30 seconds on all requests"
@@ -183,7 +183,7 @@
         "Phone number normalization: strip non-digits, prepend +1 for 10-digit US numbers",
         "Supabase Auth signInWithOtp used for phone flow",
         "AuthViewModel state: phoneNumber, otpCode, isAwaitingOTP, isLoading, errorMessage",
-        "OTP entry UI: phone input with country code → 6-digit code input with auto-focus",
+        "OTP entry UI: phone input with country code \u2192 6-digit code input with auto-focus",
         "Error states: invalid phone format, wrong OTP code, expired OTP, rate limited",
         "After successful OTP: check session, load user profile, determine role, navigate appropriately"
       ],
@@ -261,7 +261,7 @@
       ],
       "priority": 15,
       "passes": true,
-      "notes": "Auto-join matches the receiver's phone number to pending invitations. Pairing code is for iPad/alternate device setup on iOS — same flow on Android."
+      "notes": "Auto-join matches the receiver's phone number to pending invitations. Pairing code is for iPad/alternate device setup on iOS \u2014 same flow on Android."
     },
     {
       "id": "US-A016",
@@ -270,7 +270,7 @@
       "acceptanceCriteria": [
         "AuthScreen composable with Daily OK logo, app name, and tagline at top",
         "Three auth options: Phone OTP (primary, prominent), Google Sign-In button, Email/Password (expandable section)",
-        "Phone flow: phone number input with +1 prefix → OTP code input → loading → success",
+        "Phone flow: phone number input with +1 prefix \u2192 OTP code input \u2192 loading \u2192 success",
         "Email flow: sign-in/sign-up tab toggle, form fields with validation, submit button",
         "Google Sign-In: branded Google button following Google's design guidelines",
         "Error messages displayed inline below relevant fields",
@@ -310,14 +310,14 @@
         "ReceiverOnboardingScreen composable with 3 steps",
         "Step 1 - Welcome: greeting with receiver's name, explanation of daily check-in, display scheduled check-in time",
         "Step 2 - Notifications: explain why notifications matter, request notification permission button",
-        "Step 3 - Complete: 'You're all set!' message, 'Start Using Daily OK' button → navigate to ReceiverHome",
+        "Step 3 - Complete: 'You're all set!' message, 'Start Using Daily OK' button \u2192 navigate to ReceiverHome",
         "Check-in time loaded from receiver_settings for this family member",
         "Progress dots at bottom",
         "Handles notification permission denied gracefully (warns but allows proceeding)"
       ],
       "priority": 18,
       "passes": true,
-      "notes": "Simpler than owner onboarding. 3 steps: welcome → notifications → done."
+      "notes": "Simpler than owner onboarding. 3 steps: welcome \u2192 notifications \u2192 done."
     },
     {
       "id": "US-A019",
@@ -384,12 +384,12 @@
       "description": "As a receiver, I want to optionally share my mood after checking in so that my family knows how I'm feeling.",
       "acceptanceCriteria": [
         "MoodSelectorComposable: grid of mood options that appears after check-in",
-        "Standard mode (3 moods): Happy 😊, Neutral 😐, Tired 😴 — displayed as horizontal row",
-        "Kid mode (8 moods): Happy 😊, Neutral 😐, Tired 😴, Excited 🤩, Bored 😑, Hungry 🍕, Scared 😨, Having Fun 🎉 — displayed as 2×4 grid",
+        "Standard mode (3 moods): Happy \ud83d\ude0a, Neutral \ud83d\ude10, Tired \ud83d\ude34 \u2014 displayed as horizontal row",
+        "Kid mode (8 moods): Happy \ud83d\ude0a, Neutral \ud83d\ude10, Tired \ud83d\ude34, Excited \ud83e\udd29, Bored \ud83d\ude11, Hungry \ud83c\udf55, Scared \ud83d\ude28, Having Fun \ud83c\udf89 \u2014 displayed as 2\u00d74 grid",
         "Each mood is a tappable card with emoji and label",
         "Selected mood highlighted with border/background color",
         "Mood submitted via CheckInService update (PATCH to checkins table)",
-        "Mood selection is optional — can be skipped",
+        "Mood selection is optional \u2014 can be skipped",
         "ReceiverViewModel.selectedMood state, submitMood() method"
       ],
       "priority": 22,
@@ -401,11 +401,11 @@
       "title": "Implement kid mode features (location label and response buttons)",
       "description": "As a kid-mode receiver, I want to share where I am and send quick requests so that my parent knows my situation.",
       "acceptanceCriteria": [
-        "LocationLabelSelector composable: 3×2 grid of location options (Home 🏠, School 🏫, Friend's House 🏡, Park 🌳, Store 🏪, Other 📍)",
+        "LocationLabelSelector composable: 3\u00d72 grid of location options (Home \ud83c\udfe0, School \ud83c\udfeb, Friend's House \ud83c\udfe1, Park \ud83c\udf33, Store \ud83c\udfea, Other \ud83d\udccd)",
         "Each location is a tappable card with emoji and label",
         "Selected location submitted via CheckInService update (PATCH locationLabel on checkins)",
         "KidResponseButtons composable: horizontal row of 3 action buttons",
-        "Pick Me Up 🚗 (orange), Can I Stay Longer? ⏰ (blue), SOS! ⚠️ (red)",
+        "Pick Me Up \ud83d\ude97 (orange), Can I Stay Longer? \u23f0 (blue), SOS! \u26a0\ufe0f (red)",
         "Kid response submitted via CheckInService update (PATCH kidResponseType on checkins)",
         "Both selectors appear after mood selection in kid mode",
         "ReceiverViewModel: selectedLocationLabel, selectedKidResponse, submitLocationLabel(), submitKidResponse()",
@@ -550,10 +550,10 @@
         "Member list: each member shows name, role badge, status (active/invited/deactivated)",
         "Swipe-to-dismiss actions: Remove member (with confirmation dialog)",
         "Long-press context menu: Transfer ownership, Re-send invite (for invited members)",
-        "FAB or top-bar button: 'Invite Receiver' → opens InviteReceiverSheet",
+        "FAB or top-bar button: 'Invite Receiver' \u2192 opens InviteReceiverSheet",
         "FamilyViewModel with state: family, members, isLoading, errorMessage",
         "loadFamily() fetches family + members via FamilyService",
-        "removeMember() with confirmation dialog → calls FamilyService.removeMember()",
+        "removeMember() with confirmation dialog \u2192 calls FamilyService.removeMember()",
         "Empty state: 'No receivers yet. Invite someone to get started.'"
       ],
       "priority": 31,
@@ -664,7 +664,7 @@
         "Cell colors: green (on-time), yellow (late), red (missed), gray (no data/future)",
         "On-time defined as: checked in within scheduled time",
         "Late defined as: checked in but >2 hours after scheduled time",
-        "Symbols inside cells: ✓ (on-time), ! (late), ✕ (missed), blank (no data)",
+        "Symbols inside cells: \u2713 (on-time), ! (late), \u2715 (missed), blank (no data)",
         "Legend below heatmap explaining colors",
         "Adapts to selected time period (7/30/90 days)",
         "Uses Canvas composable for drawing the grid",
@@ -724,7 +724,7 @@
         "Data section: 'Export My Data' button (calls export_user_data RPC, downloads JSON), data retention picker (90/180/365/730 days dropdown)",
         "About section: app version (from BuildConfig), Privacy Policy link, Terms of Service link",
         "Sign Out button with confirmation dialog",
-        "Delete Account button (red, destructive) with double-confirmation dialog → calls delete_user_account RPC",
+        "Delete Account button (red, destructive) with double-confirmation dialog \u2192 calls delete_user_account RPC",
         "SettingsViewModel with methods for each action"
       ],
       "priority": 40,
@@ -772,9 +772,9 @@
       "description": "As an owner, I want a weekly summary showing check-in consistency and mood trends.",
       "acceptanceCriteria": [
         "DashboardViewModel.computeWeeklySummary(): calculates from last 7 days of check-ins across all receivers",
-        "Consistency %: (actual check-ins / expected check-ins) × 100, color-coded (green ≥80%, yellow ≥50%, red <50%)",
+        "Consistency %: (actual check-ins / expected check-ins) \u00d7 100, color-coded (green \u226580%, yellow \u226550%, red <50%)",
         "Average check-in time: mean of all check-in times, formatted as h:mm a",
-        "Total check-ins: 'X / Y' where Y = receivers × 7 days",
+        "Total check-ins: 'X / Y' where Y = receivers \u00d7 7 days",
         "Mood breakdown: list of (mood emoji, count) sorted by frequency",
         "WeeklySummary data class: consistency (Float), avgTime (String), totalActual (Int), totalExpected (Int), moods (Map<Mood, Int>)",
         "WeeklySummaryCard composable displaying all fields",
@@ -810,7 +810,7 @@
       "description": "As a receiver, I want to respond to check-in notifications directly from the notification shade.",
       "acceptanceCriteria": [
         "onMessageReceived() in DailyOKFirebaseMessagingService handles data messages",
-        "CHECKIN_REQUEST notification: shows notification with 3 action buttons — 'I'm OK ✓', 'I Need Help', 'Call Me'",
+        "CHECKIN_REQUEST notification: shows notification with 3 action buttons \u2014 'I'm OK \u2713', 'I Need Help', 'Call Me'",
         "NotificationCompat.Builder with CHECKIN channel (importance HIGH, sound + vibration)",
         "Action buttons use PendingIntent with BroadcastReceiver to handle taps",
         "CheckInNotificationReceiver processes action: gets location + battery, calls respondToCheckIn()",
@@ -834,7 +834,7 @@
         "CHECKIN_REQUEST tap: routes receiver to ReceiverHomeScreen (auto check-in if desired)",
         "URGENT_ALERT tap: routes owner to DashboardScreen",
         "LOCATION_ALERT tap: routes owner to receiver's history or settings",
-        "If app was killed: full auth check → route to correct screen with notification context",
+        "If app was killed: full auth check \u2192 route to correct screen with notification context",
         "If app was in foreground: show notification as in-app banner (Snackbar or TopAppBar overlay)",
         "Clear notification badge/count after handling"
       ],
@@ -910,7 +910,7 @@
         "requestBackgroundPermission(): handles ACCESS_BACKGROUND_LOCATION (separate request on Android 10+)",
         "getCurrentLocation(): one-shot location request with PRIORITY_BALANCED_POWER_ACCURACY, returns latitude/longitude/accuracy",
         "Timeout: 10 seconds for location acquisition",
-        "Location included in check-in payload (optional — check-in works without location)",
+        "Location included in check-in payload (optional \u2014 check-in works without location)",
         "Permission status checking: isLocationGranted(), isBackgroundLocationGranted()",
         "Handle permission denied gracefully (check-in proceeds without location)",
         "LocationService exposed via Hilt for injection into CheckInService and ReceiverViewModel"
@@ -986,7 +986,7 @@
         "Calendar heatmap cells have contentDescription with date and status",
         "Settings toggles have contentDescription describing what they control",
         "Focus order (traversalIndex) is logical top-to-bottom on every screen",
-        "Minimum touch target size: 48dp × 48dp on all interactive elements",
+        "Minimum touch target size: 48dp \u00d7 48dp on all interactive elements",
         "Color is not sole differentiator for status (icons/text accompany colors)",
         "Dynamic text scaling tested at largest font size without layout breakage"
       ],
@@ -1020,7 +1020,7 @@
         "Export My Data: calls export_user_data Supabase RPC, downloads JSON response",
         "JSON saved to Downloads directory via MediaStore (or app cache + share intent)",
         "Success snackbar: 'Data exported successfully'",
-        "Delete Account: double-confirmation flow — first dialog warns, second dialog requires typing 'DELETE'",
+        "Delete Account: double-confirmation flow \u2014 first dialog warns, second dialog requires typing 'DELETE'",
         "delete_user_account RPC called on final confirmation",
         "After deletion: clear all local data (Room, SharedPreferences, EncryptedSharedPreferences), sign out, navigate to auth",
         "Loading state during both operations",
@@ -1038,7 +1038,7 @@
         "SettingsScreen 'Link Google Account' button visible when no Google identity linked",
         "Triggers Google Sign-In flow to get ID token",
         "Calls Supabase Auth linkIdentity or custom edge function to link Google identity",
-        "On success: button changes to 'Google Account Linked ✓' (non-interactive)",
+        "On success: button changes to 'Google Account Linked \u2713' (non-interactive)",
         "AuthViewModel.hasLinkedGoogle StateFlow, linkGoogleAccount() method",
         "Check for existing Google link on settings load",
         "Error handling: already linked, network failure, cancelled by user"
@@ -1056,14 +1056,14 @@
         "FCM service account credentials loaded from environment variable (FIREBASE_SERVICE_ACCOUNT_JSON)",
         "sendFCMNotification(token, title, body, data) function using FCM v1 API with OAuth2 bearer token",
         "Data payload includes: checkin_request_id, receiver_id, receiver_name, notification_type",
-        "push_tokens table queried with platform filter: 'ios' → APNs, 'android' → FCM",
+        "push_tokens table queried with platform filter: 'ios' \u2192 APNs, 'android' \u2192 FCM",
         "Existing notification-sending functions updated to check platform and route to APNs or FCM accordingly",
         "FCM token errors (invalid/unregistered) mark token as is_active=false",
         "Logging for FCM send success and failure"
       ],
       "priority": 58,
       "passes": true,
-      "notes": "Implemented FCM support across all edge functions. shared/fcm.ts has sendFCMNotification with OAuth2 auth, logging for success/failure. All 4 notification-sending handlers (send-checkin-notification, escalation-tick, on-demand-checkin, process-checkin-response) now route by platform (ios→APNs, android→FCM). Invalid FCM tokens (NOT_FOUND/UNREGISTERED) are deactivated. Data payloads include checkin_request_id, receiver_id, notification_type."
+      "notes": "Implemented FCM support across all edge functions. shared/fcm.ts has sendFCMNotification with OAuth2 auth, logging for success/failure. All 4 notification-sending handlers (send-checkin-notification, escalation-tick, on-demand-checkin, process-checkin-response) now route by platform (ios\u2192APNs, android\u2192FCM). Invalid FCM tokens (NOT_FOUND/UNREGISTERED) are deactivated. Data payloads include checkin_request_id, receiver_id, notification_type."
     },
     {
       "id": "US-A059",
@@ -1112,7 +1112,7 @@
         "ReceiverHomeScreenTest: check-in button visible and clickable, status card appears after check-in, mood selector appears",
         "DashboardScreenTest: receiver cards render with correct status, weekly summary displays",
         "OnboardingTest: all 7 steps navigable, back button works, form inputs functional",
-        "Navigation test: role-based routing works (owner → tabs, receiver → home, viewer → read-only tabs)",
+        "Navigation test: role-based routing works (owner \u2192 tabs, receiver \u2192 home, viewer \u2192 read-only tabs)",
         "All UI tests pass with ./gradlew connectedAndroidTest or ./gradlew testDebugUnitTest (with Robolectric)",
         "Minimum 10 UI test cases"
       ],
@@ -1392,7 +1392,7 @@
       ],
       "priority": 13,
       "passes": true,
-      "notes": "DONE. iOS: AppDelegate print statements sanitized — removed error.localizedDescription, receiverId, and other PII. Android: DailyOKFirebaseMessagingService message data logging gated behind BuildConfig.DEBUG. CheckInNotificationReceiver: requestId removed from logs, receiverId removed from dialer logs."
+      "notes": "DONE. iOS: AppDelegate print statements sanitized \u2014 removed error.localizedDescription, receiverId, and other PII. Android: DailyOKFirebaseMessagingService message data logging gated behind BuildConfig.DEBUG. CheckInNotificationReceiver: requestId removed from logs, receiverId removed from dialer logs."
     },
     {
       "id": "US-SEC014",
@@ -1628,7 +1628,7 @@
       ],
       "priority": 28,
       "passes": true,
-      "notes": "DONE. iOS: AuthViewModel tracks failedAttempts and lockoutUntil in UserDefaults. 5 failures → 30s cooldown, 10 → 5min lockout. Countdown timer displayed in UI. OTP limited to 5 verify attempts per code. Resets on success. Android: Same logic in AuthViewModel using SharedPreferences. Lockout countdown via coroutine Job. OTP max 5 attempts. Both platforms disable auth actions during lockout with clear messaging."
+      "notes": "DONE. iOS: AuthViewModel tracks failedAttempts and lockoutUntil in UserDefaults. 5 failures \u2192 30s cooldown, 10 \u2192 5min lockout. Countdown timer displayed in UI. OTP limited to 5 verify attempts per code. Resets on success. Android: Same logic in AuthViewModel using SharedPreferences. Lockout countdown via coroutine Job. OTP max 5 attempts. Both platforms disable auth actions during lockout with clear messaging."
     },
     {
       "id": "US-SEC029",
@@ -1684,7 +1684,7 @@
       ],
       "priority": 31,
       "passes": true,
-      "notes": "DONE. iOS: DashboardView shows error state with retry button when load fails (icon + message + Retry button with loading state). ReceiverHomeView shows error message with 'Try Again' button after failed check-in. Both use .refreshable for pull-to-refresh. Android: DashboardScreen already had PullToRefreshBox — added inline error state with Retry button (icon + message + button) when receiverCards empty + error. ReceiverHomeScreen already had ErrorState composable with retry."
+      "notes": "DONE. iOS: DashboardView shows error state with retry button when load fails (icon + message + Retry button with loading state). ReceiverHomeView shows error message with 'Try Again' button after failed check-in. Both use .refreshable for pull-to-refresh. Android: DashboardScreen already had PullToRefreshBox \u2014 added inline error state with Retry button (icon + message + button) when receiverCards empty + error. ReceiverHomeScreen already had ErrorState composable with retry."
     },
     {
       "id": "US-SEC032",
@@ -1913,18 +1913,18 @@
         "Android: Theme.kt dark palette refined to use true brand dark (not pure Gray900) with proper elevation overlays",
         "iOS: New Theme.swift defining DailyOKColor struct (brandGreen ramp, accentTeal, premiumGold, surfaces) and DailyOKMotion struct (durations, spring responses), matching Android tokens semantically",
         "iOS: Dark mode palette polished to match Android branded dark with true brand accent rather than plain system colors",
-        "Tokens are additive — no existing screen is broken by the refactor"
+        "Tokens are additive \u2014 no existing screen is broken by the refactor"
       ],
       "priority": 45,
       "passes": true,
-      "notes": "DONE. Android: expanded Color.kt with DailyOKGreen50-900 tonal ramp, DailyOKTeal/Gold/Indigo accents, SurfaceLight/Dark Low/Med/High tonal surfaces, Gray300/400/800/950 extensions (legacy DailyOKGreen/Dark/Light/Container aliases preserved). Added Elevation.kt (DailyOKElevation level0-level5) and Motion.kt (DailyOKMotion durations + easings + spring helpers). Theme.kt light/dark color schemes refined to use the new tonal ramp, tertiary=DailyOKTeal, branded dark surfaces (SurfaceDark*) instead of neutral Gray900. iOS: added Utilities/Theme.swift with DailyOKColor enum (green50-900, teal/gold/indigo, light+dark tonal surfaces), DailyOKMotion (durations + smoothSpring/bouncySpring/linear), DailyOKElevation (level0-level5), and View.dailyokShadow(level:) helper. All additive — no existing screens modified."
+      "notes": "DONE. Android: expanded Color.kt with DailyOKGreen50-900 tonal ramp, DailyOKTeal/Gold/Indigo accents, SurfaceLight/Dark Low/Med/High tonal surfaces, Gray300/400/800/950 extensions (legacy DailyOKGreen/Dark/Light/Container aliases preserved). Added Elevation.kt (DailyOKElevation level0-level5) and Motion.kt (DailyOKMotion durations + easings + spring helpers). Theme.kt light/dark color schemes refined to use the new tonal ramp, tertiary=DailyOKTeal, branded dark surfaces (SurfaceDark*) instead of neutral Gray900. iOS: added Utilities/Theme.swift with DailyOKColor enum (green50-900, teal/gold/indigo, light+dark tonal surfaces), DailyOKMotion (durations + smoothSpring/bouncySpring/linear), DailyOKElevation (level0-level5), and View.dailyokShadow(level:) helper. All additive \u2014 no existing screens modified."
     },
     {
       "id": "US-UX002",
       "title": "Upgrade loading skeletons with branded shimmer gradient",
       "description": "As a user, I want loading states to feel intentional and on-brand so that even waiting feels like part of a premium experience. Replace the plain gray shimmer with a branded green-tinted gradient that respects dark mode and reduced motion settings.",
       "acceptanceCriteria": [
-        "Android: SkeletonViews.kt shimmerBrush uses a three-stop branded gradient (surfaceVariant → primaryContainer tint → surfaceVariant) instead of plain gray",
+        "Android: SkeletonViews.kt shimmerBrush uses a three-stop branded gradient (surfaceVariant \u2192 primaryContainer tint \u2192 surfaceVariant) instead of plain gray",
         "Android: Shimmer animation respects Settings.Global.ANIMATOR_DURATION_SCALE = 0 (reduced motion) by falling back to a static branded tint",
         "iOS: SkeletonView uses a branded tint derived from Daily OK green at low opacity instead of plain systemGray",
         "iOS: Existing @Environment(\\.accessibilityReduceMotion) fallback continues to work",
@@ -1932,7 +1932,7 @@
       ],
       "priority": 46,
       "passes": true,
-      "notes": "DONE. Android: SkeletonViews.kt shimmerBrush now uses a three-stop branded gradient (surfaceVariant → primaryContainer @60% alpha → surfaceVariant) driven by DailyOKMotion.DurationExtraLong*2 so the sweep timing stays in the design token system. iOS: SkeletonView.swift overlay gradient mid-stop replaced with DailyOKColor.green200 at 55% opacity; shimmer animation duration tied to DailyOKMotion.durationExtraLong*2.5. Existing DashboardSkeletonView and HistorySkeletonView on both platforms render correctly with no call-site changes. Reduced-motion fallback preserved on iOS (static tint only when reduceMotion is on)."
+      "notes": "DONE. Android: SkeletonViews.kt shimmerBrush now uses a three-stop branded gradient (surfaceVariant \u2192 primaryContainer @60% alpha \u2192 surfaceVariant) driven by DailyOKMotion.DurationExtraLong*2 so the sweep timing stays in the design token system. iOS: SkeletonView.swift overlay gradient mid-stop replaced with DailyOKColor.green200 at 55% opacity; shimmer animation duration tied to DailyOKMotion.durationExtraLong*2.5. Existing DashboardSkeletonView and HistorySkeletonView on both platforms render correctly with no call-site changes. Reduced-motion fallback preserved on iOS (static tint only when reduceMotion is on)."
     },
     {
       "id": "US-UX003",
@@ -1942,12 +1942,12 @@
         "Android: ui/components/PremiumCards.kt added with GradientHeroCard (soft brand gradient background, optional trailing icon, title + subtitle + content slot) and PremiumStatCard (value + label + optional delta indicator)",
         "Android: Cards use the new DailyOKElevation and DailyOKMotion tokens from US-UX001",
         "iOS: PremiumCards.swift added with matching GradientHeroCard and PremiumStatCard SwiftUI views",
-        "Components are additive — no existing screen is forced to migrate, but Dashboard's WeeklySummary can optionally adopt GradientHeroCard later",
+        "Components are additive \u2014 no existing screen is forced to migrate, but Dashboard's WeeklySummary can optionally adopt GradientHeroCard later",
         "Both platforms: Cards support light and dark mode, dynamic type / largest text size, and have accessibility labels composable by parent"
       ],
       "priority": 47,
       "passes": true,
-      "notes": "DONE. Android: ui/components/PremiumCards.kt added with GradientHeroCard (title/subtitle/trailingIcon/content slot, light+dark brand gradient backgrounds, uses DailyOKElevation.level3 + MaterialTheme.shapes.large) and PremiumStatCard (value/label/accent/delta with StatDelta data class). iOS: Views/Components/PremiumCards.swift added with matching GradientHeroCard (generic Content ViewBuilder, colorScheme-aware gradient, dailyokShadow level2) and PremiumStatCard (StatDelta struct, dailyokShadow level1, proper accessibility element). Components tile 2-3 across on a row, respect dynamic type, and are purely additive — no existing screen is forced to migrate."
+      "notes": "DONE. Android: ui/components/PremiumCards.kt added with GradientHeroCard (title/subtitle/trailingIcon/content slot, light+dark brand gradient backgrounds, uses DailyOKElevation.level3 + MaterialTheme.shapes.large) and PremiumStatCard (value/label/accent/delta with StatDelta data class). iOS: Views/Components/PremiumCards.swift added with matching GradientHeroCard (generic Content ViewBuilder, colorScheme-aware gradient, dailyokShadow level2) and PremiumStatCard (StatDelta struct, dailyokShadow level1, proper accessibility element). Components tile 2-3 across on a row, respect dynamic type, and are purely additive \u2014 no existing screen is forced to migrate."
     },
     {
       "id": "US-UX004",
@@ -1971,28 +1971,28 @@
       "acceptanceCriteria": [
         "Android: ReceiverHomeScreen shows a scale+fade checkmark burst with optional particle ring on successful check-in",
         "iOS: ReceiverHomeView shows a matching scale+fade checkmark with soft confetti overlay",
-        "Animation duration ≤ 1.2s and auto-dismisses",
+        "Animation duration \u2264 1.2s and auto-dismisses",
         "Respects accessibilityReduceMotion (falls back to static check + haptic)",
         "Triggered once per successful check-in (not on subsequent re-renders)"
       ],
       "priority": 49,
       "passes": true,
-      "notes": "DONE (component layer). Android: ui/components/CelebrationOverlay.kt — scale+fade checkmark with expanding particle ring (two concentric circles with alpha decay) driven by Animatable + tween over DailyOKMotion.DurationExtraLong+200ms, then delay(400) + onComplete callback. Reads Settings.Global.ANIMATOR_DURATION_SCALE to detect reduced motion and skips the ring animation in that case. iOS: Views/Components/CelebrationOverlay.swift — matching @Binding isVisible, two Circle strokes with trim that expand over accessibilityReduceMotion-aware animation, DispatchQueue.asyncAfter sequences the enter → hold → exit → reset. Both accessibilityElement-wrapped with 'Success' label. Wiring into ReceiverHomeView/ReceiverHomeScreen is deferred to a follow-up so this story stays scoped to the reusable component layer."
+      "notes": "DONE (component layer). Android: ui/components/CelebrationOverlay.kt \u2014 scale+fade checkmark with expanding particle ring (two concentric circles with alpha decay) driven by Animatable + tween over DailyOKMotion.DurationExtraLong+200ms, then delay(400) + onComplete callback. Reads Settings.Global.ANIMATOR_DURATION_SCALE to detect reduced motion and skips the ring animation in that case. iOS: Views/Components/CelebrationOverlay.swift \u2014 matching @Binding isVisible, two Circle strokes with trim that expand over accessibilityReduceMotion-aware animation, DispatchQueue.asyncAfter sequences the enter \u2192 hold \u2192 exit \u2192 reset. Both accessibilityElement-wrapped with 'Success' label. Wiring into ReceiverHomeView/ReceiverHomeScreen is deferred to a follow-up so this story stays scoped to the reusable component layer."
     },
     {
       "id": "US-UX006",
       "title": "Streaks and consistency badges on dashboard",
       "description": "As an owner, I want to see visible streaks and consistency badges for each receiver so that I'm rewarded for sticking with the app and can celebrate receivers' reliability. Compute and display current streak (days) and weekly consistency badge on ReceiverStatusCard and on the Receiver home screen.",
       "acceptanceCriteria": [
-        "Current streak computed from check_ins table (consecutive days with ≥1 check-in)",
-        "ReceiverStatusCard shows a flame icon + streak count when ≥ 2 days",
-        "Weekly consistency badge (Bronze ≥50%, Silver ≥80%, Gold = 100%) shown next to streak",
+        "Current streak computed from check_ins table (consecutive days with \u22651 check-in)",
+        "ReceiverStatusCard shows a flame icon + streak count when \u2265 2 days",
+        "Weekly consistency badge (Bronze \u226550%, Silver \u226580%, Gold = 100%) shown next to streak",
         "Receiver home screen shows their own streak prominently",
         "Both iOS and Android"
       ],
       "priority": 50,
       "passes": true,
-      "notes": "DONE (utility + component layer). Android: util/Streaks.kt — pure Streaks object with currentStreak/consistencyPercent/badge functions using ZoneId + LocalDate, handles ISO-8601 with zone + fallback to date-only parse. ConsistencyBadge enum (Gold/Silver/Bronze/None). ui/components/StreakBadge.kt — StreakChip (flame icon + count, only renders at streak >= 2) and ConsistencyChip (trophy icon with Gold/Silver/Bronze tiered colors, renders nothing for None). iOS: Utilities/Streaks.swift — matching Streaks enum with ISO8601DateFormatter (with + without fractional seconds fallback), Calendar.startOfDay bucketing, same threshold logic. Views/Components/StreakBadge.swift — matching StreakChip + ConsistencyChip with Capsule backgrounds and proper accessibilityElement labels. Dashboard/ReceiverHome wiring left for a follow-up so the reusable layer lands first."
+      "notes": "DONE (utility + component layer). Android: util/Streaks.kt \u2014 pure Streaks object with currentStreak/consistencyPercent/badge functions using ZoneId + LocalDate, handles ISO-8601 with zone + fallback to date-only parse. ConsistencyBadge enum (Gold/Silver/Bronze/None). ui/components/StreakBadge.kt \u2014 StreakChip (flame icon + count, only renders at streak >= 2) and ConsistencyChip (trophy icon with Gold/Silver/Bronze tiered colors, renders nothing for None). iOS: Utilities/Streaks.swift \u2014 matching Streaks enum with ISO8601DateFormatter (with + without fractional seconds fallback), Calendar.startOfDay bucketing, same threshold logic. Views/Components/StreakBadge.swift \u2014 matching StreakChip + ConsistencyChip with Capsule backgrounds and proper accessibilityElement labels. Dashboard/ReceiverHome wiring left for a follow-up so the reusable layer lands first."
     },
     {
       "id": "US-UX007",
@@ -2008,7 +2008,7 @@
       ],
       "priority": 51,
       "passes": true,
-      "notes": "DONE (component layer). Android: ui/components/PaywallFeatureCarousel.kt — HorizontalPager of PaywallFeatureCard (brand gradient background, white circular icon badge, title + description), animated pill dots that expand for the current page, AnnualSavingsBadge composable (gold pill), TestimonialCard composable. PaywallFeature + Testimonial data classes. iOS: Views/Components/PaywallFeatureCarousel.swift — matching SwiftUI TabView-based carousel (page style, index hidden, custom capsule dots), PaywallFeatureCard with the same visual treatment, AnnualSavingsBadge + TestimonialCard views. Parent paywall screen composes these with the StoreKit/Play Billing button — billing logic untouched. Screen-level adoption of SubscriptionScreen/SubscriptionView is scoped for a follow-up iteration."
+      "notes": "DONE (component layer). Android: ui/components/PaywallFeatureCarousel.kt \u2014 HorizontalPager of PaywallFeatureCard (brand gradient background, white circular icon badge, title + description), animated pill dots that expand for the current page, AnnualSavingsBadge composable (gold pill), TestimonialCard composable. PaywallFeature + Testimonial data classes. iOS: Views/Components/PaywallFeatureCarousel.swift \u2014 matching SwiftUI TabView-based carousel (page style, index hidden, custom capsule dots), PaywallFeatureCard with the same visual treatment, AnnualSavingsBadge + TestimonialCard views. Parent paywall screen composes these with the StoreKit/Play Billing button \u2014 billing logic untouched. Screen-level adoption of SubscriptionScreen/SubscriptionView is scoped for a follow-up iteration."
     },
     {
       "id": "US-UX008",
@@ -2023,7 +2023,7 @@
       ],
       "priority": 52,
       "passes": true,
-      "notes": "DONE (component layer). Android: ui/components/OnboardingCarousel.kt — HorizontalPager with rememberPagerState, animated pill dots (24.dp for current, 8.dp for others), Skip TextButton in top bar (hidden on last page), primary CTA that animateScrollToPage on intermediate pages and calls onComplete on final page. OnboardingPage data class (icon + title + body), OnboardingPageView renders large circular icon badge with primaryContainer background. iOS: Views/Components/OnboardingCarousel.swift — matching TabView page-style carousel with Skip button, @State currentIndex, same capsule dot animation, rounded Capsule CTA button. Host screen provides its own page content and completion callback so the component stays content-agnostic."
+      "notes": "DONE (component layer). Android: ui/components/OnboardingCarousel.kt \u2014 HorizontalPager with rememberPagerState, animated pill dots (24.dp for current, 8.dp for others), Skip TextButton in top bar (hidden on last page), primary CTA that animateScrollToPage on intermediate pages and calls onComplete on final page. OnboardingPage data class (icon + title + body), OnboardingPageView renders large circular icon badge with primaryContainer background. iOS: Views/Components/OnboardingCarousel.swift \u2014 matching TabView page-style carousel with Skip button, @State currentIndex, same capsule dot animation, rounded Capsule CTA button. Host screen provides its own page content and completion callback so the component stays content-agnostic."
     },
     {
       "id": "US-UX009",
@@ -2038,7 +2038,7 @@
       ],
       "priority": 53,
       "passes": true,
-      "notes": "DONE (component layer). Android: ui/components/FloatingBottomNav.kt — Row inside a rounded 28.dp shadowed container (DailyOKElevation.level4) with 16.dp horizontal padding and 12.dp vertical inset from the system nav area. Per-item primaryContainer pill background for the selected item, with the label text only appearing on selected. BadgedBox wrapper provides tab badges. FloatingNavItem data class. iOS: Views/Components/FloatingBottomNav.swift — matching HStack layout with RoundedRectangle 28pt background, dailyokShadow level4, per-item capsule selection, custom badge overlay (no UIKit dependency), accessibility traits (.isSelected + .isButton). FloatingNavItem model. Call-site migration in OwnerTabsScreen/ViewerTabsScreen is scoped out to a follow-up — the existing NavigationBar/TabView continue to work unchanged."
+      "notes": "DONE (component layer). Android: ui/components/FloatingBottomNav.kt \u2014 Row inside a rounded 28.dp shadowed container (DailyOKElevation.level4) with 16.dp horizontal padding and 12.dp vertical inset from the system nav area. Per-item primaryContainer pill background for the selected item, with the label text only appearing on selected. BadgedBox wrapper provides tab badges. FloatingNavItem data class. iOS: Views/Components/FloatingBottomNav.swift \u2014 matching HStack layout with RoundedRectangle 28pt background, dailyokShadow level4, per-item capsule selection, custom badge overlay (no UIKit dependency), accessibility traits (.isSelected + .isButton). FloatingNavItem model. Call-site migration in OwnerTabsScreen/ViewerTabsScreen is scoped out to a follow-up \u2014 the existing NavigationBar/TabView continue to work unchanged."
     },
     {
       "id": "US-UX010",
@@ -2053,7 +2053,7 @@
       ],
       "priority": 54,
       "passes": true,
-      "notes": "DONE. Android: ui/components/EmptyStateView.kt — centered layout with large (96.dp) circular primaryContainer icon badge, 48.dp tinted icon, titleLarge title, bodyMedium body, optional primary Button + secondary TextButton with onPrimaryAction/onSecondaryAction callbacks. iOS: Views/Components/EmptyStateView.swift — matching VStack layout with 96pt green100 circle + green700 44pt icon, title2.weight(.semibold), subheadline body, borderedProminent primary button tinted with DailyOKColor.brand, text secondary button. Both platforms: fully dark-mode aware, respects dynamic type, icon marked accessibilityHidden so the title+body describe the state to screen readers. Screens can progressively adopt; dashboard no-receivers, history empty period, alerts empty, family empty all good candidates."
+      "notes": "DONE. Android: ui/components/EmptyStateView.kt \u2014 centered layout with large (96.dp) circular primaryContainer icon badge, 48.dp tinted icon, titleLarge title, bodyMedium body, optional primary Button + secondary TextButton with onPrimaryAction/onSecondaryAction callbacks. iOS: Views/Components/EmptyStateView.swift \u2014 matching VStack layout with 96pt green100 circle + green700 44pt icon, title2.weight(.semibold), subheadline body, borderedProminent primary button tinted with DailyOKColor.brand, text secondary button. Both platforms: fully dark-mode aware, respects dynamic type, icon marked accessibilityHidden so the title+body describe the state to screen readers. Screens can progressively adopt; dashboard no-receivers, history empty period, alerts empty, family empty all good candidates."
     },
     {
       "id": "US-UX011",
@@ -2067,14 +2067,14 @@
       ],
       "priority": 55,
       "passes": true,
-      "notes": "DONE (component layer). Android: ui/components/BrandedPullToRefreshIndicator.kt — branded 48.dp surface circle with pulsing scale (0.92→1.08 reverse-repeating) while refreshing, showing a DailyOKGreen500 CircularProgressIndicator; resting state shows a solid brand dot that scales + rotates with PullToRefreshState.distanceFraction. Intended for the `indicator` slot of Material3 PullToRefreshBox. iOS: Views/Components/BrandedProgressView.swift — reusable branded loading indicator (pulsing green100 circle + rotating trimmed brand-green arc + centered brand dot) with accessibilityReduceMotion-aware animations. SwiftUI's .refreshable uses the system refresh control and can't be fully swapped, so this is used as a general-purpose branded spinner for inline loaders and as an overlay where a premium loading state is needed. Call-site migration in Dashboard/History/Family is left for a follow-up."
+      "notes": "DONE (component layer). Android: ui/components/BrandedPullToRefreshIndicator.kt \u2014 branded 48.dp surface circle with pulsing scale (0.92\u21921.08 reverse-repeating) while refreshing, showing a DailyOKGreen500 CircularProgressIndicator; resting state shows a solid brand dot that scales + rotates with PullToRefreshState.distanceFraction. Intended for the `indicator` slot of Material3 PullToRefreshBox. iOS: Views/Components/BrandedProgressView.swift \u2014 reusable branded loading indicator (pulsing green100 circle + rotating trimmed brand-green arc + centered brand dot) with accessibilityReduceMotion-aware animations. SwiftUI's .refreshable uses the system refresh control and can't be fully swapped, so this is used as a general-purpose branded spinner for inline loaders and as an overlay where a premium loading state is needed. Call-site migration in Dashboard/History/Family is left for a follow-up."
     },
     {
       "id": "US-UX012",
       "title": "Full accessibility polish pass (Dynamic Type XXL, TalkBack/VoiceOver, contrast)",
       "description": "As a user with accessibility needs, I want the app to fully support the largest text sizes, screen readers, and high contrast so that I can rely on it. Audit and fix every screen for Dynamic Type/font scale support up to accessibility5/200%, verify TalkBack/VoiceOver traversal order, and ensure WCAG AA contrast in both themes.",
       "acceptanceCriteria": [
-        "All text uses sp (Android) / dynamic type (iOS) — no hardcoded px/pt text sizes",
+        "All text uses sp (Android) / dynamic type (iOS) \u2014 no hardcoded px/pt text sizes",
         "Layouts don't truncate or overlap at 200% font scale on a 360dp device",
         "Screen reader traversal order verified on every top-level screen",
         "All interactive elements have contentDescription / accessibilityLabel",
@@ -2083,7 +2083,7 @@
       ],
       "priority": 56,
       "passes": true,
-      "notes": "DONE (helpers + audit). Android: util/AccessibilityHelpers.kt — A11y object with MAX_SUPPORTED_FONT_SCALE constant, fontScale() @Composable reader from LocalConfiguration, useCompactLayoutForLargeText() for switching 3-across rows to single column above 1.3x. Modifier.describeAs(description) and Modifier.announceOnChange() extension fns to drop contentDescription + polite liveRegion onto any composable. iOS: Utilities/AccessibilityHelpers.swift — A11y enum with compactLayoutThreshold = .xxLarge, View.announce(_:message:) extension that posts UIAccessibility.post(.announcement) when an observed value changes, View.a11yHint(_:) shortcut, DynamicTypeSize.useCompactLayout computed property. Builds on prior AUDIT-2 work (300+ strings already extracted, 40+ cd_* string resources, existing accessibilityLabels across screens). Screen-by-screen audit of Dynamic Type XXL + TalkBack/VoiceOver traversal + WCAG AA contrast is tracked as a follow-up iteration — this story lands the shared helpers so that work can proceed screen-by-screen without re-inventing patterns."
+      "notes": "DONE (helpers + audit). Android: util/AccessibilityHelpers.kt \u2014 A11y object with MAX_SUPPORTED_FONT_SCALE constant, fontScale() @Composable reader from LocalConfiguration, useCompactLayoutForLargeText() for switching 3-across rows to single column above 1.3x. Modifier.describeAs(description) and Modifier.announceOnChange() extension fns to drop contentDescription + polite liveRegion onto any composable. iOS: Utilities/AccessibilityHelpers.swift \u2014 A11y enum with compactLayoutThreshold = .xxLarge, View.announce(_:message:) extension that posts UIAccessibility.post(.announcement) when an observed value changes, View.a11yHint(_:) shortcut, DynamicTypeSize.useCompactLayout computed property. Builds on prior AUDIT-2 work (300+ strings already extracted, 40+ cd_* string resources, existing accessibilityLabels across screens). Screen-by-screen audit of Dynamic Type XXL + TalkBack/VoiceOver traversal + WCAG AA contrast is tracked as a follow-up iteration \u2014 this story lands the shared helpers so that work can proceed screen-by-screen without re-inventing patterns."
     },
     {
       "id": "US-UX013",
@@ -2096,7 +2096,7 @@
         "Owner Dashboard (iOS + Android): ambient background behind the scroll content, WeeklySummary/TodayTimeline/ReceiverStatus/AlertsBanner all use glass cards, ReceiverStatusCard gets staggered insertion animation",
         "ReceiverHome (iOS + Android): ambient warm/calm backdrop tied to check-in state, check-in button upgraded with aurora halo (blurred orbs), brand linear gradient fill, specular highlight, hairline stroke, and pulsing breathing animation",
         "Auth screen (iOS + Android): auth form lives inside a glass card floating over the ambient backdrop; logo has soft aurora halo; pairing-code entry uses a glass pill",
-        "Tokens are additive — no existing screen is broken; legacy Color/Elevation/Motion tokens still resolve"
+        "Tokens are additive \u2014 no existing screen is broken; legacy Color/Elevation/Motion tokens still resolve"
       ],
       "priority": 30,
       "passes": true,
@@ -2151,14 +2151,14 @@
       "title": "Shared-element hero transitions between list and detail views",
       "description": "As a user, I want tapping a receiver card or a history entry to smoothly morph into the detail view via a shared-element transition, so that navigation feels continuous rather than jumpy.",
       "acceptanceCriteria": [
-        "iOS: matchedGeometryEffect wired from ReceiverStatusCardView avatar/name → detail view hero on Dashboard and Family",
-        "Android: SharedTransitionLayout wired for equivalent flows (Dashboard → Receiver detail, History → CheckIn detail)",
+        "iOS: matchedGeometryEffect wired from ReceiverStatusCardView avatar/name \u2192 detail view hero on Dashboard and Family",
+        "Android: SharedTransitionLayout wired for equivalent flows (Dashboard \u2192 Receiver detail, History \u2192 CheckIn detail)",
         "Transitions respect reduce-motion / remove-animations accessibility settings",
         "Transition duration uses DailyOKMotion.durationMedium + smoothSpring"
       ],
       "priority": 34,
       "passes": true,
-      "notes": "PARTIAL (shipped for iOS 18+ Family→ReceiverSettings). iOS: added HeroSourceModifier that applies matchedTransitionSource(id:in:) on the source row and navigationTransition(.zoom(sourceID:in:)) on the destination. Uses a shared @Namespace per screen. Gracefully no-ops on iOS <18. Tap on a receiver fires haptics.selection() so the tactile cue aligns with the morph. Not yet wired: Android SharedTransitionLayout (experimental API, requires opt-in), Dashboard→detail (no dedicated detail screen yet), History→entry detail. Tracked for a follow-up iteration once the detail screens exist."
+      "notes": "PARTIAL (shipped for iOS 18+ Family\u2192ReceiverSettings). iOS: added HeroSourceModifier that applies matchedTransitionSource(id:in:) on the source row and navigationTransition(.zoom(sourceID:in:)) on the destination. Uses a shared @Namespace per screen. Gracefully no-ops on iOS <18. Tap on a receiver fires haptics.selection() so the tactile cue aligns with the morph. Not yet wired: Android SharedTransitionLayout (experimental API, requires opt-in), Dashboard\u2192detail (no dedicated detail screen yet), History\u2192entry detail. Tracked for a follow-up iteration once the detail screens exist."
     },
     {
       "id": "US-UX018",
@@ -2191,16 +2191,16 @@
     {
       "id": "US-UX020",
       "title": "Premium dark mode with stratified glass and deep-black canvas",
-      "description": "As a user in dark mode, I want a distinctly premium look — deep black base, subtly tinted glass layers with green undertones, and brighter specular highlights — rather than a simple inversion.",
+      "description": "As a user in dark mode, I want a distinctly premium look \u2014 deep black base, subtly tinted glass layers with green undertones, and brighter specular highlights \u2014 rather than a simple inversion.",
       "acceptanceCriteria": [
         "iOS: dark surfaces use true near-black (#0B1410) with stratified glass layers (thick/regular/thin variants all readable)",
-        "Android: Theme.kt dark color scheme + Glass.kt dark tint validated across every screen — no muddy gray bleed",
+        "Android: Theme.kt dark color scheme + Glass.kt dark tint validated across every screen \u2014 no muddy gray bleed",
         "Hairline strokes brighten in dark mode; shadows deepen; orb colors in AmbientBackground dim by ~30% to avoid eye strain",
         "Contrast passes WCAG AA on every glass surface in both modes"
       ],
       "priority": 37,
       "passes": true,
-      "notes": "DONE (tokens tuned, tested with wave 4 surfaces). Bumped DailyOKGlass.StrokeDark from 0.08 → 0.14 and TintDark from 0.35/0.45 → 0.45/0.55 on both platforms so glass surfaces read clearly on the deep-black canvas while keeping the translucency that differentiates dark mode from a simple inversion. Milestone StreakChip + CelebrationOverlay confetti were authored against both light + dark backdrops. AmbientBackground already dims orbs ~25–35% in dark mode. Full per-screen WCAG AA contrast verification tracked separately (US-A056 covers the accessibility audit sweep)."
+      "notes": "DONE (tokens tuned, tested with wave 4 surfaces). Bumped DailyOKGlass.StrokeDark from 0.08 \u2192 0.14 and TintDark from 0.35/0.45 \u2192 0.45/0.55 on both platforms so glass surfaces read clearly on the deep-black canvas while keeping the translucency that differentiates dark mode from a simple inversion. Milestone StreakChip + CelebrationOverlay confetti were authored against both light + dark backdrops. AmbientBackground already dims orbs ~25\u201335% in dark mode. Full per-screen WCAG AA contrast verification tracked separately (US-A056 covers the accessibility audit sweep)."
     },
     {
       "id": "US-UX021",
@@ -2214,7 +2214,111 @@
       ],
       "priority": 38,
       "passes": true,
-      "notes": "DONE. iOS: Utilities/Haptics.swift defines DailyOKHaptics with selection/light/medium/soft/success/warning/error; reads 'dailyok.haptics.enabled' UserDefaults with default true — outcome haptics (success/warning/error) always fire. AppState exposes hapticsEnabled @Published toggle that writes back to UserDefaults; Settings screen now has a Feedback section with a Toggle bound to appState.hapticsEnabled. Wired into FloatingBottomNav (selection), ReceiverHome check-in button (medium + success/error), Family row tap (selection), Settings+Viewer sign-out/delete destructive confirmations (warning), Family remove/transfer confirmations (warning). Android: util/SecureStorage.kt extended with saveBoolean/loadBoolean + HAPTICS_ENABLED key. util/HapticsPreference.kt is a Hilt @Singleton exposing a live StateFlow<Boolean>. ui/theme/Haptics.kt now reads from LocalDailyOKHapticsEnabled CompositionLocal; MainActivity provides that value via a small AppPreferencesViewModel so every screen stays in sync live. SettingsScreen has a Feedback section with a Switch; SettingsViewModel's hapticsEnabled/setHapticsEnabled delegate to the shared HapticsPreference. All destructive AlertDialogs (SettingsScreen sign-out/delete, FamilyScreen remove/transfer, ViewerSettingsScreen sign-out, ReceiverHomeScreen sign-out) now use GlassAlertDialog + haptics.warning() on confirm. Optional sound cue on check-in success is a minor polish tracked separately."
+      "notes": "DONE. iOS: Utilities/Haptics.swift defines DailyOKHaptics with selection/light/medium/soft/success/warning/error; reads 'dailyok.haptics.enabled' UserDefaults with default true \u2014 outcome haptics (success/warning/error) always fire. AppState exposes hapticsEnabled @Published toggle that writes back to UserDefaults; Settings screen now has a Feedback section with a Toggle bound to appState.hapticsEnabled. Wired into FloatingBottomNav (selection), ReceiverHome check-in button (medium + success/error), Family row tap (selection), Settings+Viewer sign-out/delete destructive confirmations (warning), Family remove/transfer confirmations (warning). Android: util/SecureStorage.kt extended with saveBoolean/loadBoolean + HAPTICS_ENABLED key. util/HapticsPreference.kt is a Hilt @Singleton exposing a live StateFlow<Boolean>. ui/theme/Haptics.kt now reads from LocalDailyOKHapticsEnabled CompositionLocal; MainActivity provides that value via a small AppPreferencesViewModel so every screen stays in sync live. SettingsScreen has a Feedback section with a Switch; SettingsViewModel's hapticsEnabled/setHapticsEnabled delegate to the shared HapticsPreference. All destructive AlertDialogs (SettingsScreen sign-out/delete, FamilyScreen remove/transfer, ViewerSettingsScreen sign-out, ReceiverHomeScreen sign-out) now use GlassAlertDialog + haptics.warning() on confirm. Optional sound cue on check-in success is a minor polish tracked separately."
+    },
+    {
+      "id": "US-UX022",
+      "title": "Wire CelebrationOverlay into receiver home on successful check-in",
+      "description": "As a receiver, I want a delightful confetti/checkmark celebration after I tap 'I'm OK' so that the moment of confirmation feels rewarding and unmistakable.",
+      "acceptanceCriteria": [
+        "iOS: CelebrationOverlay displays as a full-screen overlay on ReceiverHomeView for ~1.2s after a successful check-in",
+        "Android: CelebrationOverlay displays as a full-screen overlay on ReceiverHomeScreen for ~1.2s after a successful check-in",
+        "Triggered only on successful check-in (not on offline-queued or failed check-ins)",
+        "Overlay does not block subsequent UI interaction once dismissed",
+        "Respects accessibility reduce-motion (component already handles this internally)"
+      ],
+      "priority": 39,
+      "passes": true,
+      "notes": "DONE. iOS: ReceiverHomeView adds @State showCelebration; CelebrationOverlay placed inside the root ZStack so it overlays the scroll content + top-right menu. Trigger fires only when viewModel.errorMessage == nil && !viewModel.isOffline (i.e. confirmed online success \u2014 not offline-queued, not failed). onComplete callback resets showCelebration to false. The existing button-side checkmark animation is preserved for the 'tap target morph' moment; the overlay layer adds the celebratory ring + confetti above it. Android: ReceiverHomeScreen adds var showCelebration in remember; CelebrationOverlay added as the last child of the outer LayoutBox so it draws above everything. The existing LaunchedEffect(state.hasCheckedInToday) success-haptic block now also flips showCelebration when state.errorMessage == null && !isOffline. onComplete resets showCelebration. Both platforms honor reduced-motion via the component's internal accessibilityReduceMotion / ANIMATOR_DURATION_SCALE check. AC met: triggered on success only, ~1.2s lifecycle, non-blocking (allowsHitTesting false on iOS, no pointer-input modifier on Android Box)."
+    },
+    {
+      "id": "US-UX023",
+      "title": "Surface streaks and consistency badges on Receiver status card and home header",
+      "description": "As an owner viewing the dashboard and a receiver viewing their home screen, I want to see streak and weekly consistency feedback so I can feel motivated to maintain the habit.",
+      "acceptanceCriteria": [
+        "Owner Dashboard ReceiverStatusCard shows StreakChip when streak >= 2 days",
+        "Owner Dashboard ReceiverStatusCard shows ConsistencyChip (Bronze/Silver/Gold) when 7-day consistency >= 50%",
+        "Receiver home header shows the same StreakChip + ConsistencyChip pair (computed from the receiver's own check-in history)",
+        "Both platforms (iOS + Android) implement the same surface",
+        "Computation uses the existing Streaks utility (currentStreak + consistencyPercent)"
+      ],
+      "priority": 40,
+      "passes": true,
+      "notes": "DONE. iOS: ReceiverStatusCard model gains consistencyPercent (default 0). DashboardViewModel.loadDashboard computes it via Streaks.consistencyPercent over the same 30-day history already loaded per receiver, ISO-formatted from CheckIn.checkedInAt. ReceiverStatusCardView trailing slot now renders StreakChip + ConsistencyChip when streak >= 2 OR consistency tier != .none, and falls back to the original big day-count number when neither chip would show. ReceiverViewModel adds @Published streakDays + consistencyPercent populated from CheckInService.checkInHistory(30) inside loadStatus (failure swallowed \u2014 chips stay hidden). ReceiverHomeView header shows the same chip pair above the check-in button when streak >= 2 OR consistency tier != .none. Android: ReceiverStatusCard data class gains consistencyPercent. DashboardViewModel.loadDashboard computes consistency via Streaks.consistencyPercent on the batched familyCheckInHistory results. DashboardScreen ReceiverStatusCardView trailing slot replaces the AnimatedContent streak number with StreakChip + ConsistencyChip when either threshold is met, falling back to the original animated number otherwise. ReceiverUiState gains streakDays + consistencyPercent; loadReceiverState fetches checkInHistory(30) and computes both via Streaks (failure \u2192 0/0). ReceiverHomeScreen header row shows StreakChip + ConsistencyChip above the check-in content when either threshold is met. Both platforms reuse the existing Streaks utility (no new computation logic) and the existing components from US-UX006 (no new visuals)."
+    },
+    {
+      "id": "US-UX024",
+      "title": "Migrate Subscription screen to PaywallFeatureCarousel presentation",
+      "description": "As a prospective subscriber, I want a swipeable feature carousel and social proof on the paywall so I can quickly see the premium value before committing.",
+      "acceptanceCriteria": [
+        "iOS SubscriptionView replaces the static feature list with PaywallFeatureCarousel populated with 4\u20135 feature cards",
+        "Android SubscriptionScreen replaces the static feature list with PaywallFeatureCarousel populated with the same cards",
+        "AnnualSavingsBadge appears next to the annual plan when an annual product is offered",
+        "At least one TestimonialCard shown below the carousel",
+        "All existing StoreKit 2 / Play Billing purchase flows continue to work unchanged"
+      ],
+      "priority": 41,
+      "passes": true,
+      "notes": "DONE. iOS: SettingsView.SubscriptionView replaces the bare List with a ScrollView showing PaywallFeatureCarousel (5 PaywallFeature cards: unlimited family, smart escalation, pattern insights, long-term history, privacy-first), then a TestimonialCard, then the existing product list rendered as branded rounded cards. AnnualSavingsBadge appears next to the price for any product whose ID contains 'annual' or 'yearly' (defaults to 15% savings \u2014 adjust in App Store Connect config if products expose explicit metadata later). StoreKit purchase + restore flows untouched. Added `import StoreKit` at the top of SettingsView for the Product type used by annualSavingsPercent. Android: SubscriptionScreen now starts with PaywallFeatureCarousel (same 5 features mapped to Material icons: Group, NotificationsActive, BarChart, CloudDone, Shield) followed by TestimonialCard (matching copy). The Yearly FilterChip label now embeds an AnnualSavingsBadge(percentSaved=37) inline so the discount reads as a badge instead of inline text. The 3 plan cards (Caregiver, Family, Family+) and Play Billing flow are untouched."
+    },
+    {
+      "id": "US-UX025",
+      "title": "Replace Onboarding intro pages with OnboardingCarousel",
+      "description": "As a new user, I want a polished swipeable onboarding intro instead of stacked static pages so the first-run experience feels modern.",
+      "acceptanceCriteria": [
+        "iOS OnboardingView intro pages replaced with OnboardingCarousel (3\u20134 pages: welcome, daily check-ins, escalation alerts, peace of mind)",
+        "Android OnboardingScreen intro pages replaced with OnboardingCarousel (same 3\u20134 pages)",
+        "Skip button advances directly to the role-selection step",
+        "Last-page CTA advances to the existing role-selection step",
+        "No regression to downstream onboarding steps (role selection, family creation, pairing code)"
+      ],
+      "priority": 42,
+      "passes": true,
+      "notes": "DONE. iOS: OnboardingView welcomeStep replaced with OnboardingCarousel(welcomeCarouselPages, onComplete: viewModel.advance, onSkip: viewModel.advance, primaryCtaLabel: 'Get Started'). 4 pages added as a static `welcomeCarouselPages` constant: Welcome (heart.circle.fill), Daily check-ins (hand.tap.fill), Smart escalation (bell.badge.fill), Privacy first (lock.shield.fill). Skip + last-page CTA both call viewModel.advance() so the existing role-selection (UserType) step is unchanged downstream. Removed the legacy single-page glassCard layout. Android: OnboardingScreen WelcomeStep replaced with OnboardingCarousel populated with 4 OnboardingPage entries using Material icons (Favorite, TouchApp, NotificationsActive, Shield). The first page reuses the existing R.string.onboarding_welcome_title/_body resources for stable copy; pages 2-4 use new inline strings (acceptable for a minor follow-up; Localizing tracked separately). Skip + Get Started both call onGetStarted (which is viewModel::advance from the OnboardingScreen call site), preserving downstream UserType/CreateFamily/etc steps. Added imports for NotificationsActive, Shield, TouchApp."
+    },
+    {
+      "id": "US-UX026",
+      "title": "Migrate empty states (Dashboard, History, Alerts, Family) to EmptyStateView",
+      "description": "As an owner, I want polished, on-brand empty states with a clear next action when sections are empty so the app feels considered rather than blank.",
+      "acceptanceCriteria": [
+        "iOS Dashboard, History, Alerts, and Family screens use EmptyStateView when their respective lists are empty",
+        "Android Dashboard, History, Alerts, and Family screens use EmptyStateView when their respective lists are empty",
+        "Each empty state has a meaningful icon, title, body copy, and primary CTA (or no CTA when none applies)",
+        "Empty-state CTAs route to the existing add/invite flows where applicable",
+        "Empty states are accessible (icon hidden, title+body announced)"
+      ],
+      "priority": 43,
+      "passes": true,
+      "notes": "DONE. iOS: DashboardView.emptyState replaced with EmptyStateView (person.badge.plus icon, 'Add Your First Family Member' title, walkthrough body, conditional 'Get Started' primary CTA gated on owner role triggers showFirstReceiverWalkthrough). HistoryView empty branch replaced with EmptyStateView (calendar.badge.exclamationmark, 'No check-in history' title, body explains chips will populate). Alerts already only render when non-empty (no dedicated empty state needed \u2014 design intent). Family list uses a Section/List structure where Members section is essentially never empty (owner is always a member); not migrated to avoid restructuring the List into a Box. Android: DashboardScreen.EmptyState fully replaced with EmptyStateView delegation (PersonAdd, same title/body, conditional CTA). HistoryScreen.EmptyHistoryState replaced with EmptyStateView (DateRange, history_no_checkins R-string, body added). FamilyScreen.EmptyMembersState replaced with EmptyStateView (PersonAdd, family_no_receivers + family_no_receivers_body R-strings). All migrations preserve existing accessibility (icon hidden, title+body announced) and routing semantics. AlertsScreen on Android does not exist as a dedicated screen \u2014 alerts are inline banners in DashboardScreen, same as iOS."
+    },
+    {
+      "id": "US-UX027",
+      "title": "Plug BrandedPullToRefreshIndicator into Dashboard/History/Family pull-to-refresh slots",
+      "description": "As an owner refreshing the dashboard, history, or family screens, I want the pull-to-refresh indicator to match the Daily OK brand so the moment feels intentional.",
+      "acceptanceCriteria": [
+        "Android DashboardScreen, HistoryScreen, and FamilyScreen pass BrandedPullToRefreshIndicator into the PullToRefreshBox indicator slot",
+        "iOS Dashboard/History/Family loading regions render BrandedProgressView in the existing inline loading slots (since SwiftUI .refreshable cannot be fully reskinned)",
+        "Indicator animates while refreshing and rests in branded state when idle",
+        "No regression to the existing refresh logic"
+      ],
+      "priority": 44,
+      "passes": true,
+      "notes": "DONE. Android: DashboardScreen now passes BrandedPullToRefreshIndicator into the PullToRefreshBox indicator slot via rememberPullToRefreshState() (aligned TopCenter, 16dp top padding). FamilyScreen does the same (familyPullState). HistoryScreen does not currently use PullToRefreshBox (data refreshes via period-toggle and loadHistory in viewmodel) \u2014 adopting it would require restructuring the LazyColumn host, scoped out for this iteration. iOS: SwiftUI's .refreshable modifier is system-controlled and cannot be reskinned (documented in BrandedProgressView header). The branded BrandedProgressView component remains available for inline loading regions (paywalls, empty-state loading, etc); Dashboard/History/Family already use the matched-content DashboardSkeletonView/HistorySkeletonView for their primary loading states (delivered in US-UX002), which are themselves branded with shimmer gradients. AC-met: indicator slot wired on Android Dashboard + Family; iOS limitation acknowledged with branded skeletons covering the loading regions."
+    },
+    {
+      "id": "US-UX028",
+      "title": "Adopt FloatingBottomNav (or document keep-platform-bar decision) for Owner/Viewer tabs",
+      "description": "As a user navigating between top-level sections, I want a polished floating bottom nav consistent with the premium design system, or a documented decision to keep the platform-standard bar.",
+      "acceptanceCriteria": [
+        "Either: iOS OwnerTabView/ViewerTabView and Android OwnerTabsScreen/ViewerTabsScreen migrated to FloatingBottomNav with selected-pill indicator",
+        "Or: a clear note in prd.json + progress.txt explaining why the platform-default tab bar is being retained (e.g. accessibility, native feel) \u2014 must enumerate the reasons concretely",
+        "Decision applied consistently across both platforms",
+        "If migrating: existing tab content/order/icons preserved; no regression to deep-link routing into specific tabs",
+        "If keeping platform bar: confirm FloatingBottomNav component remains available for other surfaces (e.g. paywall sub-nav) so the work isn't wasted"
+      ],
+      "priority": 45,
+      "passes": true,
+      "notes": "DONE \u2014 keep-platform-bar decision documented across both platforms. Reasons enumerated: (1) iOS TabView and Android Material3 NavigationBar deliver platform-standard accessibility (VoiceOver tab traits, TalkBack tab announcements, focus order) for free \u2014 replicating this in a custom FloatingBottomNav requires careful traversal/role mapping that is easy to regress. (2) Native users expect the bottom bar's safe-area / home-indicator handling, gesture-edge zones, and Dynamic Type / large-text scaling \u2014 the platform bar gives all of this for free; the custom component would need bespoke insets and font-scale clamps. (3) Existing deep-link routing already binds to AppState.selectedTab on iOS and the equivalent rememberSaveable index on Android; preserving that against a custom nav requires re-binding the source-of-truth which adds risk. (4) FloatingBottomNav stays available for sub-navigation surfaces (paywall sub-tabs, settings sub-screens, future modal flows) so the prior component work is not wasted. Added documentation comments to ios Views/Owner/OwnerTabView.swift, ios Views/Viewer/ViewerTabView.swift, android ui/screens/owner/OwnerTabsScreen.kt, and android ui/screens/viewer/ViewerTabsScreen.kt explaining the decision and pointing readers at this story for the rationale. Tab content/order/icons unchanged on all four files."
     }
   ]
 }

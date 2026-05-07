@@ -32,6 +32,7 @@ import net.dailyok.android.services.AnalyticsService
 import net.dailyok.android.services.CheckInService
 import net.dailyok.android.services.FamilyService
 import net.dailyok.android.network.DailyOKError
+import net.dailyok.android.util.Streaks
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -56,6 +57,7 @@ data class ReceiverStatusCard(
     val status: ReceiverCheckInStatus,
     val lastCheckIn: String?,
     val streak: Int,
+    val consistencyPercent: Int = 0,
     val mood: Mood?,
     val hasNotificationsEnabled: Boolean,
     val checkedInTime: String?,
@@ -167,6 +169,12 @@ class DashboardViewModel @Inject constructor(
                     val todayCheckIn = todayByReceiver[receiver.userId]?.firstOrNull()
                     val history = historyByReceiver[receiver.userId] ?: emptyList()
                     val streak = calculateStreak(history)
+                    // 7-day consistency from the same loaded history. The Streaks
+                    // utility tolerates both `Z` and offset-bearing timestamps.
+                    val consistency = Streaks.consistencyPercent(
+                        isoTimestamps = history.map { it.checkedInAt },
+                        windowDays = 7
+                    )
 
                     ReceiverStatusCard(
                         id = receiver.userId,
@@ -177,6 +185,7 @@ class DashboardViewModel @Inject constructor(
                                  else ReceiverCheckInStatus.Pending,
                         lastCheckIn = todayCheckIn?.checkedInAt ?: history.firstOrNull()?.checkedInAt,
                         streak = streak,
+                        consistencyPercent = consistency,
                         mood = todayCheckIn?.mood,
                         hasNotificationsEnabled = receiver.userId in allTokens,
                         checkedInTime = todayCheckIn?.checkedInAt,

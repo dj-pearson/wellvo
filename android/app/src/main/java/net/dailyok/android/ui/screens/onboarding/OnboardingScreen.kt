@@ -27,8 +27,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -196,50 +199,35 @@ private fun OnboardingHeader(
 
 @Composable
 private fun WelcomeStep(onGetStarted: () -> Unit) {
-    Spacer(modifier = Modifier.height(48.dp))
+    val pages = listOf(
+        net.dailyok.android.ui.components.OnboardingPage(
+            icon = androidx.compose.material.icons.Icons.Default.Favorite,
+            title = stringResource(R.string.onboarding_welcome_title),
+            body = stringResource(R.string.onboarding_welcome_body)
+        ),
+        net.dailyok.android.ui.components.OnboardingPage(
+            icon = androidx.compose.material.icons.Icons.Default.TouchApp,
+            title = "Daily check-ins",
+            body = "Loved ones tap once a day to say they're OK. No typing, no fuss."
+        ),
+        net.dailyok.android.ui.components.OnboardingPage(
+            icon = androidx.compose.material.icons.Icons.Default.NotificationsActive,
+            title = "Smart escalation",
+            body = "If a check-in is missed, the right family member is notified right away."
+        ),
+        net.dailyok.android.ui.components.OnboardingPage(
+            icon = androidx.compose.material.icons.Icons.Default.Shield,
+            title = "Privacy first",
+            body = "Your family's data stays private — encrypted and minimized by design."
+        )
+    )
 
-    GlassCard(
-        modifier = Modifier.fillMaxWidth(),
-        style = DailyOKGlassStyle.Thin,
-        shape = RoundedCornerShape(DailyOKGlass.RadiusLarge),
-        elevation = DailyOKElevation.level3,
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(24.dp)
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector = Icons.Default.Favorite,
-                contentDescription = null,
-                modifier = Modifier.size(80.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = stringResource(R.string.onboarding_welcome_title),
-                style = MaterialTheme.typography.headlineLarge,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = stringResource(R.string.onboarding_welcome_body),
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Button(
-                onClick = onGetStarted,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Get Started")
-            }
-        }
-    }
+    net.dailyok.android.ui.components.OnboardingCarousel(
+        pages = pages,
+        onComplete = onGetStarted,
+        onSkip = onGetStarted,
+        primaryCtaLabel = "Get Started"
+    )
 }
 
 @Composable

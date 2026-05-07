@@ -1,5 +1,13 @@
 package net.dailyok.android.ui.screens.owner
 
+// Note: We intentionally keep the platform-default Material3 NavigationBar for
+// the top-level owner tabs (Dashboard, History, Family, Settings). The custom
+// FloatingBottomNav component (ui/components/FloatingBottomNav.kt) remains
+// available for sub-navigation surfaces — but Material3 NavigationBar gives
+// us free TalkBack tab semantics, system-bar inset handling, predictive-back
+// integration, and Dynamic Type / large-text scaling without bespoke
+// re-implementation. See US-UX028 for the full decision rationale.
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
