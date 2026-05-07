@@ -19,6 +19,9 @@
 
 import { supabaseAdmin } from "./supabase.ts";
 import { aiGenerate, extractJson, type AiTool } from "./ai.ts";
+import { scoreBlogPost } from "./seo-scorer.ts";
+import { runCritiqueLoop, readCritiqueLoopConfig, type CritiqueLoopResult, type DraftArticle } from "./blog-critic.ts";
+import { autoInjectInternalLinks, applyLinkerResult } from "./blog-internal-linker.ts";
 import { logInfo, logError } from "./logger.ts";
 
 /**
@@ -244,6 +247,17 @@ async function generateFromBankRow(
     const article = extractJson<GeneratedArticle>(result.text);
     validateArticle(article);
 
+    // Self-critiquing loop (US-BLOG-039) — refine the draft against the
+    // brand-voice rubric before publish. No-op when disabled in config.
+    const loop = await runCritiqueLoop(article as DraftArticle, {
+      blogConfig: config,
+      primaryKeyword: row.primary_keyword,
+      intentStage: row.intent_stage,
+      requiresMedicalReview: row.requires_medical_review,
+      eEatNotes: row.e_e_a_t_notes,
+    }, readCritiqueLoopConfig(config));
+    validateArticle(loop.finalArticle as GeneratedArticle);
+
     const ai_meta = {
       source: "blog_title_bank",
       title_bank_id: row.id,
@@ -257,9 +271,19 @@ async function generateFromBankRow(
       cache_creation_tokens: result.cacheCreationTokens,
       cache_read_tokens: result.cacheReadTokens,
       generated_at: new Date().toISOString(),
+      critique_log: buildCritiqueLogForAiMeta(loop),
     };
 
-    const post = await publishArticle(article, ai_meta, row.primary_keyword, opts.authorId);
+    const post = await publishArticle(loop.finalArticle as GeneratedArticle, ai_meta, row.primary_keyword, opts.authorId);
+
+    // Capture intermediate critique drafts as revisions so the editorial
+    // history shows the full evolution. Skipped when no revision happened.
+    await recordCritiqueRevisions(post.id, loop, opts.authorId ?? null);
+
+    // Auto-inject internal links from related published posts. Non-fatal —
+    // the article is already live; this is a polish pass that improves
+    // topical authority and reader navigation.
+    await runInternalLinkerForPost(post, loop.finalArticle as GeneratedArticle, row.primary_keyword, row.cluster);
 
     const { error: updErr } = await supabaseAdmin
       .from("blog_title_bank")
@@ -312,6 +336,13 @@ async function generateFromFallback(
   const article = extractJson<GeneratedArticle>(result.text);
   validateArticle(article);
 
+  // Self-critiquing loop (US-BLOG-039) — same gate as the bank-row path.
+  const loop = await runCritiqueLoop(article as DraftArticle, {
+    blogConfig: config,
+    primaryKeyword: article.primary_keyword ?? null,
+  }, readCritiqueLoopConfig(config));
+  validateArticle(loop.finalArticle as GeneratedArticle);
+
   const ai_meta = {
     source: "fallback",
     topic_rationale: article.topic_rationale ?? null,
@@ -322,11 +353,19 @@ async function generateFromFallback(
     cache_creation_tokens: result.cacheCreationTokens,
     cache_read_tokens: result.cacheReadTokens,
     generated_at: new Date().toISOString(),
+    critique_log: buildCritiqueLogForAiMeta(loop),
   };
 
-  const post = await publishArticle(article, ai_meta, article.primary_keyword ?? null, opts.authorId);
+  const finalArticle = loop.finalArticle as GeneratedArticle;
+  const post = await publishArticle(finalArticle, ai_meta, finalArticle.primary_keyword ?? article.primary_keyword ?? null, opts.authorId);
+
+  await recordCritiqueRevisions(post.id, loop, opts.authorId ?? null);
+
+  await runInternalLinkerForPost(post, finalArticle, finalArticle.primary_keyword ?? article.primary_keyword ?? null, null);
+
   logInfo("blog generator: published from fallback", {
     post_id: post.id, slug: post.slug, topic_rationale: article.topic_rationale,
+    critique_iterations: loop.iterations.length,
   });
 
   return {
@@ -542,6 +581,21 @@ async function publishArticle(
   const slug = await uniqueSlug(article.slug || slugify(article.title));
   const authorId = authorIdOverride ?? Deno.env.get("BLOG_GENERATION_AUTHOR_ID") ?? null;
 
+  const aiMetaWithKeyword = { ...ai_meta, primary_keyword: primaryKeyword };
+
+  // Score the AI-generated draft so freshly published posts have an SEO score
+  // immediately — no editor pass required. Same scorer used for manual edits.
+  const scored = scoreBlogPost({
+    title: article.title,
+    slug,
+    excerpt: article.excerpt ?? null,
+    content_html: article.content_html,
+    seo_title: article.seo_title ?? null,
+    seo_description: article.seo_description ?? null,
+    tags: Array.isArray(article.tags) ? article.tags : null,
+    primary_keyword: primaryKeyword,
+  });
+
   const payload = {
     slug,
     title: article.title,
@@ -555,7 +609,14 @@ async function publishArticle(
     tags: Array.isArray(article.tags) ? article.tags : [],
     category: article.category ?? null,
     ai_generated: true,
-    ai_meta: { ...ai_meta, primary_keyword: primaryKeyword },
+    ai_meta: aiMetaWithKeyword,
+    seo_score: scored.score,
+    seo_score_meta: {
+      breakdown: scored.breakdown,
+      hints: scored.hints,
+      scored_at: scored.scored_at,
+      primary_keyword: scored.primary_keyword,
+    },
   };
 
   const { data, error } = await supabaseAdmin
@@ -628,4 +689,119 @@ function validateArticle(a: GeneratedArticle): void {
     throw new Error("content_html contains disallowed tag");
   }
   if (!Array.isArray(a.tags)) a.tags = [];
+}
+
+// =============================================================================
+// Critique log → ai_meta + post_revisions persistence (US-BLOG-039)
+// =============================================================================
+
+function buildCritiqueLogForAiMeta(loop: CritiqueLoopResult): Record<string, unknown> {
+  return {
+    iterations: loop.iterations.map((it) => ({
+      iteration: it.iteration,
+      score: it.critique.score,
+      summary: it.critique.summary,
+      should_continue: it.critique.should_continue,
+      revised: it.revised,
+      issues: it.critique.issues,
+      input_tokens: it.tokens.input,
+      output_tokens: it.tokens.output,
+    })),
+    stopped_reason: loop.stopped_reason,
+    revisions: Math.max(0, loop.drafts.length - 1),
+  };
+}
+
+// =============================================================================
+// Internal-link auto-injection (US-BLOG-055)
+// =============================================================================
+
+async function runInternalLinkerForPost(
+  post: { id: string; slug: string; title: string; content_html: string },
+  article: GeneratedArticle,
+  primaryKeyword: string | null,
+  cluster: string | null,
+): Promise<void> {
+  try {
+    const result = await autoInjectInternalLinks({
+      id: post.id,
+      slug: post.slug,
+      title: post.title,
+      content_html: post.content_html,
+      category: article.category ?? null,
+      tags: Array.isArray(article.tags) ? article.tags : [],
+      primary_keyword: primaryKeyword,
+      cluster,
+    }, supabaseAdmin);
+
+    await applyLinkerResult(post.id, post.content_html, result, supabaseAdmin);
+
+    logInfo("blog generator: internal-link pass complete", {
+      post_id: post.id, slug: post.slug,
+      links_inserted: result.inserted,
+      candidates_considered: result.considered,
+    });
+  } catch (err) {
+    // Don't fail the publish on linker errors. Log + move on.
+    logError("blog generator: internal linker failed", err, { post_id: post.id, slug: post.slug });
+  }
+}
+
+async function recordCritiqueRevisions(
+  postId: string,
+  loop: CritiqueLoopResult,
+  editorId: string | null,
+): Promise<void> {
+  // drafts[0] = original generator output. drafts[N] = the published final
+  // article (already snapshotted as 'initial' by the AFTER-INSERT trigger).
+  // We only persist drafts[0..N-1] — the in-flight versions the critic acted
+  // on. Skip when there were no revisions.
+  if (loop.drafts.length <= 1) return;
+
+  // Pull the post's created_at so we can backdate intermediate revisions
+  // to land before the 'initial' row in chronological order.
+  const { data: postRow, error: postErr } = await supabaseAdmin
+    .from("blog_posts")
+    .select("id, slug, status, created_at")
+    .eq("id", postId)
+    .maybeSingle();
+  if (postErr || !postRow) {
+    logError("recordCritiqueRevisions: cannot read post", postErr ?? new Error("post not found"), { postId });
+    return;
+  }
+
+  const createdAtBase = new Date(postRow.created_at as string).getTime();
+  const intermediateDrafts = loop.drafts.slice(0, -1); // drop the final (already snapshotted)
+
+  const rows = intermediateDrafts.map((d, idx) => {
+    // Stagger timestamps: intermediates land before the post by (count - idx)
+    // milliseconds. Earlier drafts get earlier timestamps.
+    const ts = new Date(createdAtBase - (intermediateDrafts.length - idx) * 1000).toISOString();
+    return {
+      post_id: postId,
+      editor_id: editorId,
+      title: d.title,
+      slug: postRow.slug,
+      excerpt: d.excerpt ?? null,
+      content_html: d.content_html,
+      content_json: null,
+      featured_image_url: null,
+      seo_title: d.seo_title ?? null,
+      seo_description: d.seo_description ?? null,
+      canonical_url: null,
+      og_image_url: null,
+      tags: Array.isArray(d.tags) ? d.tags : [],
+      category: d.category ?? null,
+      status: postRow.status,
+      ai_meta: { critique_iteration: idx + 1 },
+      reason: `ai_critique_iter_${idx + 1}`,
+      parent_revision_id: null,
+      created_at: ts,
+    };
+  });
+
+  const { error: insErr } = await supabaseAdmin.from("blog_post_revisions").insert(rows);
+  if (insErr) {
+    logError("recordCritiqueRevisions: insert failed", insErr, { postId, count: rows.length });
+  }
 }

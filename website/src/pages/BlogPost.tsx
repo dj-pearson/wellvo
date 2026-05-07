@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import DOMPurify from 'dompurify'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
+import { buildPostSchemas } from '../lib/schemaMarkup'
 import './Blog.css'
 
 interface PublicPost {
@@ -19,6 +20,7 @@ interface PublicPost {
   seo_description: string | null
   canonical_url: string | null
   published_at: string
+  updated_at: string | null
 }
 
 export default function BlogPost() {
@@ -37,7 +39,7 @@ export default function BlogPost() {
     const supabase = getSupabase()
     supabase
       .from('blog_posts')
-      .select('id, slug, title, excerpt, content_html, featured_image_url, og_image_url, category, tags, seo_title, seo_description, canonical_url, published_at')
+      .select('id, slug, title, excerpt, content_html, featured_image_url, og_image_url, category, tags, seo_title, seo_description, canonical_url, published_at, updated_at')
       .eq('slug', slug)
       .eq('status', 'published')
       .lte('published_at', new Date().toISOString())
@@ -63,6 +65,28 @@ export default function BlogPost() {
     return DOMPurify.sanitize(post.content_html, {
       ALLOWED_TAGS: ['h1','h2','h3','h4','p','ul','ol','li','strong','em','b','i','a','blockquote','br','hr','img','code','pre','figure','figcaption'],
       ALLOWED_ATTR: ['href','src','alt','title','rel','target'],
+    })
+  }, [post])
+
+  // Article + (conditionally) FAQPage / HowTo JSON-LD. Computed against the
+  // unsanitized content_html so structural detection sees the same DOM the
+  // server originally rendered. Sanitizer runs separately on the visible body.
+  const schemas = useMemo(() => {
+    if (!post) return []
+    return buildPostSchemas({
+      slug: post.slug,
+      title: post.title,
+      excerpt: post.excerpt,
+      content_html: post.content_html,
+      featured_image_url: post.featured_image_url,
+      og_image_url: post.og_image_url,
+      category: post.category,
+      tags: post.tags,
+      seo_title: post.seo_title,
+      seo_description: post.seo_description,
+      canonical_url: post.canonical_url,
+      published_at: post.published_at,
+      updated_at: post.updated_at,
     })
   }, [post])
 
@@ -102,6 +126,14 @@ export default function BlogPost() {
         {ogImage && <meta property="og:image" content={ogImage} />}
         <meta property="og:type" content="article" />
         <meta property="article:published_time" content={post.published_at} />
+        {post.updated_at && (
+          <meta property="article:modified_time" content={post.updated_at} />
+        )}
+        {schemas.map((schema, i) => (
+          <script key={i} type="application/ld+json">
+            {JSON.stringify(schema).replace(/</g, '\\u003c')}
+          </script>
+        ))}
       </Helmet>
 
       <article className="blog-article">

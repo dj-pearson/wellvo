@@ -44,6 +44,48 @@ export interface AdminUser {
   updated_at: string
 }
 
+export interface SeoScoreComponent {
+  key: string
+  label: string
+  earned: number
+  max: number
+  detail: string
+}
+
+export interface SeoScoreResult {
+  score: number
+  breakdown: SeoScoreComponent[]
+  hints: string[]
+  scored_at: string
+  primary_keyword: string | null
+}
+
+export interface SeoScoreMeta {
+  breakdown: SeoScoreComponent[]
+  hints: string[]
+  scored_at: string
+  primary_keyword: string | null
+}
+
+export interface QaCheck {
+  id: string
+  label: string
+  severity: 'error' | 'warning' | 'info'
+  passed: boolean
+  message: string
+  details?: unknown
+}
+
+export interface QaResult {
+  checks: QaCheck[]
+  errorCount: number
+  warningCount: number
+  infoCount: number
+  passedCount: number
+  canPublish: boolean
+  ranAt: string
+}
+
 export interface BlogPost {
   id: string
   slug: string
@@ -64,6 +106,8 @@ export interface BlogPost {
   ai_generated: boolean
   ai_meta: unknown
   view_count: number
+  seo_score: number | null
+  seo_score_meta: SeoScoreMeta | null
   created_at: string
   updated_at: string
 }
@@ -80,6 +124,7 @@ export interface BlogPostListItem {
   category: string | null
   ai_generated: boolean
   view_count: number
+  seo_score: number | null
   author_id: string | null
   created_at: string
   updated_at: string
@@ -100,6 +145,27 @@ export interface BlogTemplate {
   updated_at: string
 }
 
+export interface BlogPostRevisionSummary {
+  id: string
+  post_id: string
+  editor_id: string | null
+  title: string
+  slug: string
+  status: BlogPost['status']
+  reason: string
+  parent_revision_id: string | null
+  created_at: string
+  editor: { display_name: string | null; email: string | null } | null
+}
+
+export interface BlogPostRevision extends BlogPost {
+  // blog_post_revisions adds these on top of the post snapshot
+  post_id: string
+  editor_id: string | null
+  reason: string
+  parent_revision_id: string | null
+}
+
 export interface SocialPost {
   id: string
   content: string
@@ -114,8 +180,18 @@ export interface SocialPost {
   webhook_error: string | null
   post_urls: Record<string, string> | null
   author_id: string | null
+  source_post_id: string | null
+  variant_meta: Record<string, unknown> | null
   created_at: string
   updated_at: string
+}
+
+export type SyndicationPlatform = 'x' | 'linkedin' | 'facebook' | 'pinterest'
+
+export interface SyndicationResult {
+  drafts: SocialPost[]
+  variant_count: number
+  ai_meta: Record<string, unknown>
 }
 
 export interface AiArticle {
@@ -251,12 +327,18 @@ export function getPost(id: string) {
   return callEdge<{ post: BlogPost }>('/admin-blog', { action: 'get', id })
 }
 
-export function createPost(post: Partial<BlogPost>) {
-  return callEdge<{ post: BlogPost }>('/admin-blog', { action: 'create', post })
+export function createPost(post: Partial<BlogPost>, opts: { force?: boolean } = {}) {
+  return callEdge<{ post: BlogPost; qa: QaResult | null }>('/admin-blog', {
+    action: 'create', post,
+    ...(opts.force ? { force: true } : {}),
+  })
 }
 
-export function updatePost(id: string, post: Partial<BlogPost>) {
-  return callEdge<{ post: BlogPost }>('/admin-blog', { action: 'update', id, post })
+export function updatePost(id: string, post: Partial<BlogPost>, opts: { force?: boolean } = {}) {
+  return callEdge<{ post: BlogPost; qa: QaResult | null }>('/admin-blog', {
+    action: 'update', id, post,
+    ...(opts.force ? { force: true } : {}),
+  })
 }
 
 export function deletePost(id: string) {
@@ -274,6 +356,162 @@ export function saveTemplate(template: Partial<BlogTemplate> & { name: string; s
 
 export function deleteTemplate(template_id: string) {
   return callEdge<{ success: true }>('/admin-blog', { action: 'delete_template', template_id })
+}
+
+// =============================================================================
+// Blog post revisions (US-BLOG-009)
+// =============================================================================
+
+export function listRevisions(post_id: string, opts: { limit?: number; offset?: number } = {}) {
+  return callEdge<{
+    revisions: BlogPostRevisionSummary[]
+    total: number
+    limit: number
+    offset: number
+  }>('/admin-blog', { action: 'list_revisions', post_id, ...opts })
+}
+
+export function getRevision(revision_id: string) {
+  return callEdge<{ revision: BlogPostRevision }>('/admin-blog', {
+    action: 'get_revision',
+    revision_id,
+  })
+}
+
+export function restoreRevision(revision_id: string) {
+  return callEdge<{ post: BlogPost; restored_from: string }>('/admin-blog', {
+    action: 'restore_revision',
+    revision_id,
+  })
+}
+
+// =============================================================================
+// SEO score (US-BLOG-033)
+// =============================================================================
+
+/** Preview a score without persisting — pass either an id or a draft post body. */
+export function scorePost(args: { id?: string; post?: Partial<BlogPost> }) {
+  return callEdge<{ result: SeoScoreResult }>('/admin-blog', {
+    action: 'score_post',
+    ...args,
+  })
+}
+
+/** Re-score every post and persist results. Returns counts. */
+export function rescoreAll() {
+  return callEdge<{ updated: number; failed: number; total: number }>('/admin-blog', {
+    action: 'rescore_all',
+  })
+}
+
+// =============================================================================
+// Pre-publish QA (US-BLOG-040)
+// =============================================================================
+
+/** Run the pre-publish checklist without saving. */
+export function qaPost(args: { id?: string; post?: Partial<BlogPost> }) {
+  return callEdge<{ result: QaResult }>('/admin-blog', { action: 'qa_post', ...args })
+}
+
+/** Pull the QaResult out of a 422 ApiError raised by createPost/updatePost. */
+export function qaFromError(err: unknown): QaResult | null {
+  if (
+    err && typeof err === 'object' && 'details' in err &&
+    err.details && typeof err.details === 'object' && 'qa' in err.details &&
+    err.details.qa && typeof err.details.qa === 'object'
+  ) {
+    return (err.details as { qa: QaResult }).qa
+  }
+  return null
+}
+
+// =============================================================================
+// Syndication (US-BLOG-044/045/046/048)
+// =============================================================================
+
+export function syndicatePost(post_id: string, platforms: SyndicationPlatform[]) {
+  return callEdge<SyndicationResult>('/admin-blog', {
+    action: 'syndicate_post',
+    id: post_id,
+    platforms,
+  })
+}
+
+// =============================================================================
+// Refresh queue (US-BLOG-063 / US-BLOG-066)
+// =============================================================================
+
+export type RefreshReason = 'decay' | 'serp_change' | 'stale_facts' | 'manual' | 'periodic'
+export type RefreshStatus = 'queued' | 'in_progress' | 'proposed' | 'done' | 'dismissed'
+
+export interface RefreshQueueItem {
+  id: string
+  post_id: string
+  reason: RefreshReason
+  status: RefreshStatus
+  detection_meta: Record<string, unknown> | null
+  proposal_revision_id: string | null
+  proposal_summary: string | null
+  actioned_by: string | null
+  actioned_at: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  post: { slug: string; title: string; seo_score: number | null } | null
+}
+
+export function listRefreshQueue(opts: { filter?: 'open' | RefreshStatus | 'all'; limit?: number; offset?: number } = {}) {
+  return callEdge<{ items: RefreshQueueItem[]; total: number; limit: number; offset: number; filter: string }>(
+    '/admin-blog',
+    { action: 'list_refresh_queue', refresh_status_filter: opts.filter ?? 'open', limit: opts.limit, offset: opts.offset },
+  )
+}
+
+export function actionRefreshQueue(refresh_queue_id: string, refresh_action: 'in_progress' | 'dismissed' | 'done' | 'queued', reason?: string) {
+  return callEdge<{ item: RefreshQueueItem }>('/admin-blog', {
+    action: 'action_refresh_queue', refresh_queue_id, refresh_action, reason,
+  })
+}
+
+export function triggerRefreshProposal(refresh_queue_id: string) {
+  return callEdge<{
+    revision_id: string
+    change_summary: string
+    queue_id: string
+    history_url: string
+    ai_meta: Record<string, unknown>
+  }>('/admin-blog', { action: 'trigger_refresh_proposal', refresh_queue_id })
+}
+
+// =============================================================================
+// Per-post metrics (US-BLOG-061)
+// =============================================================================
+
+export interface PostMetricRow {
+  metric_date: string
+  source: 'search_console' | 'ga4' | 'internal'
+  impressions: number
+  clicks: number
+  avg_position: number | null
+  ctr: number | null
+  sessions: number
+  engaged_sessions: number
+  conversions: number
+  avg_time_on_page_seconds: number | null
+}
+
+export interface PostMetricsSummary {
+  clicks_28d: number
+  impressions_28d: number
+  sessions_28d: number
+  conversions_28d: number
+  days: number
+}
+
+export function listPostMetrics(post_id: string, days = 90) {
+  return callEdge<{ rows: PostMetricRow[]; summary: PostMetricsSummary }>('/admin-blog', {
+    action: 'list_post_metrics', id: post_id, metric_days: days,
+  })
 }
 
 // =============================================================================

@@ -49,7 +49,10 @@
       "Bash(curl -sI https://dailyok.net/sitemap.xml)",
       "Bash(curl -sI https://dailyok.net/index.pageContext.json)",
       "Bash(npx vike *)",
-      "Bash(./gradlew compileDebugKotlin)"
+      "Bash(./gradlew compileDebugKotlin)",
+      "Bash(echo \"---exit:$?---\")",
+      "Bash(deno check *)",
+      "PowerShell(Get-Command *)"
     ]
   }
 }

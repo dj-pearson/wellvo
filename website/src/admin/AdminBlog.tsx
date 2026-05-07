@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Trash2, Edit3, Sparkles, Wand2, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Plus, Trash2, Edit3, Sparkles, Wand2, Loader2, CheckCircle2, AlertCircle, Gauge, RefreshCw } from 'lucide-react'
 import {
   listPosts,
   deletePost,
   getBlogBankStatus,
   generateNextFromBank,
+  rescoreAll,
   type BlogPostListItem,
   type BlogBankStatus,
 } from '../lib/admin'
@@ -36,6 +37,8 @@ export default function AdminBlog() {
   const [lastGenerated, setLastGenerated] = useState<GenerationOutcome | null>(null)
   const [topicHint, setTopicHint] = useState('')
   const [showTopicHint, setShowTopicHint] = useState(false)
+  const [rescoring, setRescoring] = useState(false)
+  const [rescoreMsg, setRescoreMsg] = useState<string | null>(null)
   const navigate = useNavigate()
   // Snapshots taken at generation start, used to detect success vs failure on poll
   const startSnapshotRef = useRef<{ published: number; failed: number } | null>(null)
@@ -179,6 +182,21 @@ export default function AdminBlog() {
     }
   }
 
+  const handleRescoreAll = async () => {
+    if (!confirm('Re-score every post? This recomputes the SEO score on all blog_posts rows.')) return
+    setRescoring(true)
+    setRescoreMsg(null)
+    try {
+      const res = await rescoreAll()
+      setRescoreMsg(`Re-scored ${res.updated} of ${res.total}${res.failed > 0 ? ` (${res.failed} failed)` : ''}.`)
+      await fetchPosts()
+    } catch (err) {
+      setRescoreMsg(err instanceof Error ? err.message : 'Re-score failed')
+    } finally {
+      setRescoring(false)
+    }
+  }
+
   return (
     <>
       <div className="admin-page-header">
@@ -187,6 +205,17 @@ export default function AdminBlog() {
           <div className="admin-page-subtitle">{total.toLocaleString()} posts</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            className="admin-btn admin-btn-secondary"
+            onClick={() => void handleRescoreAll()}
+            disabled={rescoring}
+            title="Recompute SEO score for every post"
+          >
+            <Gauge size={14} /> {rescoring ? 'Re-scoring…' : 'Re-score all'}
+          </button>
+          <Link to="/admin/blog/refresh" className="admin-btn admin-btn-secondary">
+            <RefreshCw size={14} /> Refresh queue
+          </Link>
           <Link to="/admin/blog/templates" className="admin-btn admin-btn-secondary">
             <Sparkles size={14} /> Templates
           </Link>
@@ -195,6 +224,7 @@ export default function AdminBlog() {
           </button>
         </div>
       </div>
+      {rescoreMsg && <div className="admin-success" style={{ marginTop: 8 }}>{rescoreMsg}</div>}
 
       <div className="admin-card" style={{ borderColor: bank?.pending === 0 ? 'var(--gray-300)' : 'var(--green-200)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
@@ -326,14 +356,15 @@ export default function AdminBlog() {
             <tr>
               <th>Title</th>
               <th>Status</th>
+              <th style={{ width: 70 }}>SEO</th>
               <th>Tags</th>
               <th>Updated</th>
               <th style={{ width: 160 }}></th>
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={5} className="admin-empty">Loading…</td></tr>}
-            {!loading && posts.length === 0 && <tr><td colSpan={5} className="admin-empty">No posts yet. Click "New post" to create one.</td></tr>}
+            {loading && <tr><td colSpan={6} className="admin-empty">Loading…</td></tr>}
+            {!loading && posts.length === 0 && <tr><td colSpan={6} className="admin-empty">No posts yet. Click "New post" to create one.</td></tr>}
             {posts.map((p) => (
               <tr key={p.id}>
                 <td>
@@ -345,6 +376,9 @@ export default function AdminBlog() {
                 </td>
                 <td>
                   <StatusBadge status={p.status} />
+                </td>
+                <td>
+                  <SeoScoreBadge score={p.seo_score} />
                 </td>
                 <td>
                   {p.tags.slice(0, 3).map((t) => (
@@ -385,4 +419,25 @@ function StatusBadge({ status }: { status: BlogPostListItem['status'] }) {
     : status === 'draft' ? 'admin-badge-yellow'
     : 'admin-badge-gray'
   return <span className={`admin-badge ${cls}`}>{status}</span>
+}
+
+function SeoScoreBadge({ score }: { score: number | null }) {
+  if (score === null) {
+    return <span style={{ color: 'var(--gray-400)', fontSize: 13 }} title="Not yet scored — edit the post or click Re-score all">—</span>
+  }
+  const color =
+    score >= 85 ? '#16a34a' :
+    score >= 70 ? '#65a30d' :
+    score >= 55 ? '#ca8a04' :
+    score >= 40 ? '#ea580c' :
+                  '#dc2626'
+  return (
+    <span style={{
+      display: 'inline-block', minWidth: 36, padding: '2px 8px',
+      borderRadius: 10, background: color, color: 'white',
+      fontSize: 12, fontWeight: 600, textAlign: 'center',
+    }}>
+      {score}
+    </span>
+  )
 }

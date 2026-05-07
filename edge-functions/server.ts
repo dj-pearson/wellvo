@@ -45,6 +45,7 @@ import { handleAdminBlog } from "./functions/admin-blog/index.ts";
 import { handleAdminBlogAi } from "./functions/admin-blog-ai/index.ts";
 import { handleAdminSocial } from "./functions/admin-social/index.ts";
 import { handleGenerateNextArticle } from "./functions/generate-next-article/index.ts";
+import { handleIngestMetrics } from "./functions/ingest-metrics/index.ts";
 
 type FunctionHandler = (req: Request, auth: AuthResult) => Promise<Response>;
 
@@ -59,6 +60,7 @@ const serviceRoleOnlyRoutes = new Set([
 // the secret is checked before rate limiting and routing.
 const webhookSecretRoutes: Record<string, string> = {
   "/generate-next-article": "BLOG_GENERATION_WEBHOOK_SECRET",
+  "/ingest-metrics": "INGEST_METRICS_WEBHOOK_SECRET",
 };
 
 // All routes
@@ -82,6 +84,7 @@ const routes: Record<string, FunctionHandler> = {
   "/admin-blog-ai": handleAdminBlogAi,
   "/admin-social": handleAdminSocial,
   "/generate-next-article": handleGenerateNextArticle,
+  "/ingest-metrics": handleIngestMetrics,
 };
 
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://dailyok.net";
@@ -102,6 +105,11 @@ function corsHeaders(req?: Request): Record<string, string> {
 }
 
 const MAX_BODY_SIZE = 102400; // 100 KB
+// Route-specific overrides for endpoints that legitimately receive large
+// payloads (e.g., daily metrics ingest from Make.com — 28 days × N posts).
+const LARGE_BODY_LIMITS: Record<string, number> = {
+  "/ingest-metrics": 5_242_880, // 5 MB
+};
 
 /**
  * JSON response with CORS headers applied. Use this for every non-OPTIONS
@@ -156,7 +164,8 @@ async function handler(req: Request): Promise<Response> {
   // Enforce request body size limit for POST requests
   if (req.method === "POST") {
     const contentLength = req.headers.get("Content-Length");
-    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
+    const limit = LARGE_BODY_LIMITS[path] ?? MAX_BODY_SIZE;
+    if (contentLength && parseInt(contentLength, 10) > limit) {
       return jsonWithCors({ error: "Request body too large" }, 413, req);
     }
   }
