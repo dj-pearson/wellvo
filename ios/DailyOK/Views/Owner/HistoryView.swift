@@ -62,14 +62,12 @@ struct HistoryView: View {
                     if isLoading {
                         HistorySkeletonView()
                     } else if checkIns.isEmpty {
-                        VStack(spacing: 12) {
-                            Image(systemName: "calendar.badge.exclamationmark")
-                                .font(.system(size: 40))
-                                .foregroundStyle(.secondary)
-                            Text("No check-in history")
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.top, 60)
+                        EmptyStateView(
+                            systemImage: "calendar.badge.exclamationmark",
+                            title: "No check-in history",
+                            message: "Once your family starts checking in, their history will show up here."
+                        )
+                        .padding(.top, 20)
                     } else {
                         // Calendar Heatmap
                         CalendarHeatmapView(

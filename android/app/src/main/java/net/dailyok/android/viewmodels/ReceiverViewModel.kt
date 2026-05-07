@@ -48,7 +48,9 @@ data class ReceiverUiState(
     val selectedLocationLabel: String? = null,
     val selectedKidResponse: String? = null,
     val showLocationSelector: Boolean = false,
-    val showKidResponseButtons: Boolean = false
+    val showKidResponseButtons: Boolean = false,
+    val streakDays: Int = 0,
+    val consistencyPercent: Int = 0
 )
 
 @HiltViewModel
@@ -115,6 +117,17 @@ class ReceiverViewModel @Inject constructor(
                     checkInService.getTodayPendingRequest(userId, member.familyId)
                 } else null
 
+                // Streak + 7-day consistency from the receiver's own 30-day
+                // history. Failures are non-fatal — chips just stay hidden.
+                val (streakDays, consistencyPercent) = try {
+                    val history = checkInService.checkInHistory(userId, member.familyId, 30)
+                    val timestamps = history.map { it.checkedInAt }
+                    net.dailyok.android.util.Streaks.currentStreak(timestamps) to
+                        net.dailyok.android.util.Streaks.consistencyPercent(timestamps, windowDays = 7)
+                } catch (_: Exception) {
+                    0 to 0
+                }
+
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     familyId = member.familyId,
@@ -124,7 +137,9 @@ class ReceiverViewModel @Inject constructor(
                     pendingRequestId = pendingRequest?.id,
                     nextCheckInTime = computeNextCheckInTime(settings),
                     receiverName = member.user?.displayName ?: "",
-                    isKidMode = settings?.receiverMode == net.dailyok.android.data.models.ReceiverMode.Kid
+                    isKidMode = settings?.receiverMode == net.dailyok.android.data.models.ReceiverMode.Kid,
+                    streakDays = streakDays,
+                    consistencyPercent = consistencyPercent
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(

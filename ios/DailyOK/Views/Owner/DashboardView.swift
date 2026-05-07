@@ -143,45 +143,16 @@ struct DashboardView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 24) {
-            ZStack {
-                Circle()
-                    .fill(DailyOKColor.green100)
-                    .frame(width: 140, height: 140)
-                Image(systemName: "person.badge.plus")
-                    .font(.system(size: 60, weight: .semibold))
-                    .foregroundStyle(DailyOKColor.green700)
-            }
-            .accessibilityHidden(true)
-
-            VStack(spacing: 10) {
-                Text("Add Your First Family Member")
-                    .font(.title2.weight(.bold))
-                    .multilineTextAlignment(.center)
-
-                Text("We'll walk you through it — takes about a minute.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-
-            if appState.currentUserRole == .owner {
-                Button {
-                    DailyOKHaptics.selection()
-                    showFirstReceiverWalkthrough = true
-                } label: {
-                    Text("Get Started")
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: 260)
-                        .frame(height: 52)
-                        .background(Capsule().fill(DailyOKColor.brand))
-                }
-                .padding(.top, 4)
-            }
-        }
-        .padding(.horizontal, 32)
-        .padding(.top, 60)
+        EmptyStateView(
+            systemImage: "person.badge.plus",
+            title: "Add Your First Family Member",
+            message: "We'll walk you through it — takes about a minute.",
+            primaryActionLabel: appState.currentUserRole == .owner ? "Get Started" : nil,
+            onPrimaryAction: appState.currentUserRole == .owner ? {
+                DailyOKHaptics.selection()
+                showFirstReceiverWalkthrough = true
+            } : nil
+        )
     }
 }
 
@@ -397,17 +368,29 @@ struct ReceiverStatusCardView: View {
 
                 Spacer()
 
-                // Streak
-                VStack(spacing: 2) {
-                    Text("\(card.streak)")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundStyle(DailyOKColor.green500)
-                        .contentTransition(.numericText(value: Double(card.streak)))
-                        .animation(DailyOKMotion.smoothSpring, value: card.streak)
-                    Text("day streak")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                // Streak + 7-day consistency chips. Render only when meaningful
+                // (StreakChip auto-hides below 2 days; ConsistencyChip auto-hides
+                // for the .none tier i.e. <50% consistency). Falls back to the
+                // big day-count when neither chip would show, so high-streak +
+                // low-consistency users still see their headline number.
+                let badge = Streaks.badge(consistencyPercent: card.consistencyPercent)
+                if card.streak >= 2 || badge != .none {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        StreakChip(streakDays: card.streak)
+                        ConsistencyChip(badge: badge)
+                    }
+                } else {
+                    VStack(spacing: 2) {
+                        Text("\(card.streak)")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundStyle(DailyOKColor.green500)
+                            .contentTransition(.numericText(value: Double(card.streak)))
+                            .animation(DailyOKMotion.smoothSpring, value: card.streak)
+                        Text("day streak")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 

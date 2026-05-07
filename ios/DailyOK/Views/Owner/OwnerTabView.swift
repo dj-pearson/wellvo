@@ -1,5 +1,12 @@
 import SwiftUI
 
+// Note: We intentionally keep the platform-default TabView for the top-level
+// owner tabs (Dashboard, History, Family, Settings). The custom
+// FloatingBottomNav component (Views/Components/FloatingBottomNav.swift)
+// remains available for sub-navigation surfaces — but the platform tab bar
+// gives us free VoiceOver tab traits, safe-area + gesture-edge handling,
+// Dynamic Type behavior, and deep-link routing through AppState.selectedTab
+// without bespoke re-implementation. See US-UX028 for the full decision rationale.
 struct OwnerTabView: View {
     @EnvironmentObject var appState: AppState
 

@@ -1,6 +1,10 @@
 import SwiftUI
 
 /// Read-only tab view for Viewers — same dashboard as Owner but no edit controls.
+///
+/// Note: Like OwnerTabView, we intentionally keep the platform-default TabView
+/// rather than the custom FloatingBottomNav component. See US-UX028 for the
+/// keep-platform-bar decision rationale.
 struct ViewerTabView: View {
     @EnvironmentObject var appState: AppState
 

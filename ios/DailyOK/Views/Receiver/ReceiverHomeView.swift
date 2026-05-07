@@ -11,6 +11,7 @@ struct ReceiverHomeView: View {
     @State private var checkmarkScale: CGFloat = 0.0
     @State private var checkmarkOpacity: Double = 0.0
     @State private var showSignOutConfirmation = false
+    @State private var showCelebration = false
     @ScaledMetric(relativeTo: .largeTitle) private var buttonDiameter: CGFloat = 200
     @ScaledMetric(relativeTo: .title) private var tapIconSize: CGFloat = 40
     @ScaledMetric(relativeTo: .title) private var tapTextSize: CGFloat = 28
@@ -47,6 +48,16 @@ struct ReceiverHomeView: View {
                     }
 
                     Spacer().frame(height: 20)
+
+                    // Streak + 7-day consistency header chips. Both chips
+                    // self-hide when there isn't enough history (streak < 2,
+                    // consistency < 50%), so first-day receivers see no header.
+                    if viewModel.streakDays >= 2 || Streaks.badge(consistencyPercent: viewModel.consistencyPercent) != .none {
+                        HStack(spacing: 8) {
+                            StreakChip(streakDays: viewModel.streakDays)
+                            ConsistencyChip(badge: Streaks.badge(consistencyPercent: viewModel.consistencyPercent))
+                        }
+                    }
 
                     if viewModel.hasCheckedInToday {
                         statusCard.padding(.horizontal)
@@ -114,6 +125,10 @@ struct ReceiverHomeView: View {
                 Spacer()
             }
             .padding(.horizontal, 8)
+
+            CelebrationOverlay(isVisible: $showCelebration) {
+                showCelebration = false
+            }
         }
         .task { await viewModel.loadStatus() }
         // If a silent push request arrived while the app was backgrounded, or the
@@ -155,6 +170,9 @@ struct ReceiverHomeView: View {
                     if viewModel.hasCheckedInToday {
                         DailyOKHaptics.success()
                         animateCheckmark()
+                        if viewModel.errorMessage == nil && !viewModel.isOffline {
+                            showCelebration = true
+                        }
                     } else if viewModel.errorMessage != nil {
                         DailyOKHaptics.error()
                     }

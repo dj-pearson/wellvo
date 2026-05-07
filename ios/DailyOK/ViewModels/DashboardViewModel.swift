@@ -9,6 +9,7 @@ struct ReceiverStatusCard: Identifiable {
     var status: ReceiverCheckInStatus
     var lastCheckIn: Date?
     var streak: Int
+    var consistencyPercent: Int = 0
     var mood: Mood?
     var hasNotificationsEnabled: Bool
     var checkedInTime: Date? // Time component only, for timeline
@@ -105,6 +106,14 @@ final class DashboardViewModel: ObservableObject {
 
                 let streak = calculateStreak(from: history, timezone: receiverTz)
 
+                // Consistency over the last 7 days, computed from the ISO timestamps
+                // of the loaded history. Reuses the shared Streaks utility so the
+                // dashboard and receiver-home chips agree.
+                let isoFormatter = ISO8601DateFormatter()
+                isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                let isoTimestamps = history.map { isoFormatter.string(from: $0.checkedInAt) }
+                let consistency = Streaks.consistencyPercent(isoTimestamps: isoTimestamps, windowDays: 7)
+
                 // Check notification status — look for active push tokens
                 let hasNotifications = await checkNotificationStatus(userId: receiver.userId)
 
@@ -120,6 +129,7 @@ final class DashboardViewModel: ObservableObject {
                     status: todayCheckIn != nil ? .checkedIn : .pending,
                     lastCheckIn: todayCheckIn?.checkedInAt ?? history.first?.checkedInAt,
                     streak: streak,
+                    consistencyPercent: consistency,
                     mood: todayCheckIn?.mood,
                     hasNotificationsEnabled: hasNotifications,
                     checkedInTime: todayCheckIn?.checkedInAt,

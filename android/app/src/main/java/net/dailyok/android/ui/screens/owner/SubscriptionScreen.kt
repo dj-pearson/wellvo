@@ -20,9 +20,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -61,6 +68,39 @@ import net.dailyok.android.R
 import net.dailyok.android.services.BillingError
 import net.dailyok.android.services.SubscriptionService
 import net.dailyok.android.services.SubscriptionTier
+
+private val paywallFeatures = listOf(
+    net.dailyok.android.ui.components.PaywallFeature(
+        icon = Icons.Default.Group,
+        title = "Unlimited family members",
+        description = "Add every parent, sibling, and caregiver — everyone stays in the loop."
+    ),
+    net.dailyok.android.ui.components.PaywallFeature(
+        icon = Icons.Default.NotificationsActive,
+        title = "Smart escalation alerts",
+        description = "If a check-in is missed, the right person hears about it right away."
+    ),
+    net.dailyok.android.ui.components.PaywallFeature(
+        icon = Icons.Default.BarChart,
+        title = "Pattern insights",
+        description = "Spot mood and timing trends across the family at a glance."
+    ),
+    net.dailyok.android.ui.components.PaywallFeature(
+        icon = Icons.Default.CloudDone,
+        title = "Long-term history",
+        description = "Keep a full archive of check-ins for context and peace of mind."
+    ),
+    net.dailyok.android.ui.components.PaywallFeature(
+        icon = Icons.Default.Shield,
+        title = "Privacy-first by design",
+        description = "End-to-end encryption and rigorous data minimization — always."
+    )
+)
+
+private val paywallTestimonial = net.dailyok.android.ui.components.Testimonial(
+    quote = "Daily OK gives me peace of mind every morning. It's the first app I check.",
+    author = "Sarah M., parent of two"
+)
 
 private data class PlanInfo(
     val tier: SubscriptionTier,
@@ -163,6 +203,15 @@ fun SubscriptionScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Premium feature carousel + social proof
+            net.dailyok.android.ui.components.PaywallFeatureCarousel(
+                features = paywallFeatures
+            )
+
+            net.dailyok.android.ui.components.TestimonialCard(
+                testimonial = paywallTestimonial
+            )
+
             // Monthly/Yearly toggle
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -178,7 +227,13 @@ fun SubscriptionScreen(
                 FilterChip(
                     selected = isYearly,
                     onClick = { isYearly = true },
-                    label = { Text("Yearly (save up to 37%)") }
+                    label = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Yearly")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            net.dailyok.android.ui.components.AnnualSavingsBadge(percentSaved = 37)
+                        }
+                    }
                 )
             }
 
