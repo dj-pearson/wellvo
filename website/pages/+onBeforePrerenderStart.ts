@@ -1,4 +1,5 @@
 import { competitors } from '../src/data/competitors'
+import { whatToDoPages } from '../src/data/whatToDo'
 
 // URLs Vike prerenders to real HTML at build time. Dynamic data-driven
 // routes (blog posts, admin, blog index) are deliberately omitted — they
@@ -28,5 +29,7 @@ export default async function onBeforePrerenderStart() {
 
   const comparePaths = competitors.map((c) => `/compare/daily-ok-vs-${c.slug}`)
 
-  return [...staticPaths, ...comparePaths]
+  const whatToDoPaths = ['/what-to-do', ...whatToDoPages.map((p) => `/what-to-do/${p.slug}`)]
+
+  return [...staticPaths, ...comparePaths, ...whatToDoPaths]
 }

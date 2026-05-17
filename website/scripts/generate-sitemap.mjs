@@ -44,6 +44,7 @@ const ROUTE_SOURCE = {
   '/daily-check-in-app-for-seniors': 'src/pages/DailyCheckInAppForSeniors.tsx',
   '/peace-of-mind-app-for-elderly-parents': 'src/pages/PeaceOfMindAppForElderlyParents.tsx',
   '/compare': 'src/pages/Compare.tsx',
+  '/what-to-do': 'src/data/whatToDo.ts',
   '/blog': 'src/pages/Blog.tsx',
   '/privacy': 'src/pages/Privacy.tsx',
   '/terms': 'src/pages/Terms.tsx',
@@ -76,6 +77,10 @@ function lastmodFor(route, slug) {
   if (route.startsWith('/compare/daily-ok-vs-') && slug) {
     return gitDate(`src/data/competitors/${slug}.json`) || WEBSITE_FALLBACK_DATE
   }
+  // /what-to-do/* pages are all driven by src/data/whatToDo.ts.
+  if (route.startsWith('/what-to-do/')) {
+    return gitDate('src/data/whatToDo.ts') || WEBSITE_FALLBACK_DATE
+  }
   const src = ROUTE_SOURCE[route]
   if (src) return gitDate(src) || WEBSITE_FALLBACK_DATE
   return WEBSITE_FALLBACK_DATE
@@ -99,7 +104,7 @@ function metaFor(route) {
     route === '/peace-of-mind-app-for-elderly-parents'
   )
     return { changefreq: 'monthly', priority: '0.9', group: 'core' }
-  if (route === '/pricing' || route === '/compare')
+  if (route === '/pricing' || route === '/compare' || route === '/what-to-do')
     return { changefreq: 'monthly', priority: '0.8', group: 'core' }
   if (route === '/support')
     return { changefreq: 'monthly', priority: '0.6', group: 'core' }
