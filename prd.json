@@ -2347,8 +2347,8 @@
         "progress.txt entry listing which URLs in llms.txt were resolved vs. stubbed vs. removed"
       ],
       "priority": 49,
-      "passes": false,
-      "notes": "Adoption of llms.txt is still aspirational per pSEO.md, but the cost is ~30 minutes of work and the upside is real. Cross-check existing pages in website/src/pages/ before committing the URL list."
+      "passes": true,
+      "notes": "Adoption of llms.txt is still aspirational per pSEO.md, but the cost is ~30 minutes of work and the upside is real. Cross-check existing pages in website/src/pages/ before committing the URL list. [DONE 2026-05-17] Created website/public/llms.txt (TL;DR + Core pages + Comparisons + More sections) and website/public/llms-full.txt (bulk concatenated canonical content). Canonical 75-word product description defined inline (word count verified) with a TODO comment for the Wikidata/Crunchbase/G2 marketing follow-up (pSEO.md \u00a77). All 15 linked URLs resolve to real prerendered HTML (verified HTTP 200 against local static server). Dead links from the pSEO.md \u00a75 draft (/how-it-works, /what-to-do/*, /guides/*, /research/*, /glossary) were omitted with an inline comment noting why and when to re-add. The .md URL convention from the draft was dropped (site serves HTML, not markdown variants)."
     },
     {
       "id": "US-WEB003",

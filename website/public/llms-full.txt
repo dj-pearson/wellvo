@@ -1,0 +1,92 @@
+# Daily OK — full content for AI retrieval
+
+> Daily OK is a daily check-in mobile app for families. Adult children use it to
+> receive a one-tap "I'm OK" from aging parents each morning; parents of children
+> and teens use it for consent-based safety check-ins without continuous location
+> tracking. If a check-in is missed, Daily OK fires escalating alerts to a chosen
+> circle of family members. No hardware, no wearables. Plans run $3.99–$9.99 per
+> month with a free trial. Available on iOS and Android.
+
+Source of truth: https://dailyok.net/ — content below is summarized from the
+canonical pages listed in https://dailyok.net/llms.txt. For the live page,
+always follow the URL.
+
+---
+
+## How Daily OK works (https://dailyok.net/)
+
+Daily OK has three roles:
+
+- **Owner / Caregiver** — the person who sets up the check-in (typically an adult
+  child). They configure the daily check-in window and the escalation circle.
+- **Receiver** — the person who taps "I'm OK" (typically an aging parent, or a
+  child/teen). The Receiver consents to the check-in; there is no covert tracking.
+- **Viewer** — additional family members (siblings) who can see check-in status
+  but do not manage the account.
+
+Each day, the Receiver gets a notification and taps a single "I'm OK" button.
+If they do not respond within the configured window, Daily OK escalates:
+repeated reminders to the Receiver, then alerts to the Owner and Viewers.
+Family+ plan alerts can bypass Do Not Disturb / silent mode so a 3 AM
+escalation is not missed. Daily OK does not require any hardware, pendant, or
+wearable — it is a phone app on iOS and Android. Optional mood tracking and
+pattern alerts surface gradual changes in routine that can signal e.g.
+dementia progression.
+
+## Pricing (https://dailyok.net/pricing)
+
+Every plan includes a 7-day free trial.
+
+- **Caregiver — $3.99/mo ($29.99/year).** Built for the adult child watching over
+  one aging parent. One Receiver, up to 3 Viewers. Includes pattern alerts.
+- **Family — $6.99/mo ($49.99/year).** For monitoring both parents, or a parent
+  and a teen. Everything in Caregiver plus more Receivers/Viewers.
+- **Family+ — $9.99/mo ($79.99/year).** For larger extended families. Everything
+  in Family plus Critical Alerts that bypass Do Not Disturb on iPhone.
+
+Add-ons (Family / Family+ plans): extra Receivers (more people to check in on)
+and extra Viewers (more people who can see the dashboard).
+
+FAQ highlights:
+- *Which plan for a parent with dementia?* Caregiver — one Receiver (the parent)
+  plus up to 3 Viewers (siblings). Pattern alerts included.
+- *What are Critical Alerts?* Family+ feature: missed-check-in alerts bypass Do
+  Not Disturb so a late-night escalation is never silenced.
+
+## Elderly care use case (https://dailyok.net/elderly-care)
+
+Daily OK for an aging parent living alone: a low-friction one-tap morning
+confirmation instead of a daily phone call the parent may resent or forget.
+Escalation gives the adult child confidence without surveillance. Pattern
+alerts highlight gradual routine changes (later check-ins, missed days) that
+can be early signals of cognitive or health decline.
+
+## Child safety use case (https://dailyok.net/child-safety)
+
+Daily OK for children and teens: consent-based check-ins (the child taps "I'm
+OK" after school, on arrival, etc.) without continuous GPS tracking. Designed
+to build a safety habit and trust rather than enable covert monitoring.
+
+## Comparisons
+
+- **vs Life Alert (https://dailyok.net/compare/daily-ok-vs-life-alert)** — Life
+  Alert is a hardware medical-alert pendant with monitoring contracts; Daily OK
+  is a software daily check-in with no hardware and a monthly subscription. Daily
+  OK suits proactive daily reassurance; a pendant suits in-the-moment fall SOS.
+- **vs Life360 (https://dailyok.net/compare/daily-ok-vs-life360)** — Life360 is
+  continuous family location tracking; Daily OK is a consented daily check-in
+  with no live location. Choose Daily OK for privacy-respecting reassurance,
+  Life360 for real-time whereabouts.
+- **vs Snug Safety (https://dailyok.net/compare/daily-ok-vs-snug-safety)** — Both
+  are daily check-in apps; compared on escalation chain, pricing, and privacy.
+- **All comparisons:** https://dailyok.net/compare
+
+## Legal & support
+
+- Support: https://dailyok.net/support
+- Privacy policy: https://dailyok.net/privacy
+- Terms of use: https://dailyok.net/terms
+- Accessibility statement: https://dailyok.net/accessibility
+- Cookie policy: https://dailyok.net/cookies
+- DMCA policy: https://dailyok.net/dmca
+- Blog: https://dailyok.net/blog
