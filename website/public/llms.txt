@@ -22,6 +22,9 @@ consistent across the web, then keep this block in sync.
 - [Support](https://dailyok.net/support): Help, contact, and common setup questions.
 - [Elderly care use case](https://dailyok.net/elderly-care): Using Daily OK to check in on an aging parent living alone, including dementia-progression pattern alerts.
 - [Child safety use case](https://dailyok.net/child-safety): Consent-based check-ins for children and teens without continuous location tracking.
+- [Check-in app for elderly](https://dailyok.net/check-in-app-for-elderly): What a daily check-in app for the elderly is and how it compares to pendants, trackers, and phone calls.
+- [Daily check-in app for seniors](https://dailyok.net/daily-check-in-app-for-seniors): How a check-in app supports aging in place and where it fits vs monitored care.
+- [Peace-of-mind app for elderly parents](https://dailyok.net/peace-of-mind-app-for-elderly-parents): The adult-child perspective — reducing caregiver worry without surveillance.
 
 ## Comparisons
 - [Daily OK vs Life Alert](https://dailyok.net/compare/daily-ok-vs-life-alert): Daily check-in app vs medical-alert pendant — cost, hardware, escalation.

@@ -1,0 +1,129 @@
+/* Shared styles for the cornerstone landing pages (US-WEB003):
+   /check-in-app-for-elderly, /daily-check-in-app-for-seniors,
+   /peace-of-mind-app-for-elderly-parents. Layered on top of the global
+   container/section/btn classes and the ec-* classes from ElderlyCare.css. */
+
+.lp-breadcrumb {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-bottom: 1rem;
+}
+.lp-breadcrumb a {
+  color: #6b7280;
+  text-decoration: none;
+}
+.lp-breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.lp-tldr {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 1.1rem 1.4rem;
+  margin: 1.5rem auto 0;
+  max-width: 640px;
+  font-size: 1.02rem;
+  line-height: 1.55;
+  color: #14532d;
+}
+.lp-tldr strong {
+  display: block;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #16a34a;
+  margin-bottom: 0.35rem;
+}
+
+.lp-prose {
+  max-width: 760px;
+  margin: 0 auto;
+}
+.lp-prose p {
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: #374151;
+  margin-bottom: 1.1rem;
+}
+.lp-prose h2 {
+  margin-top: 2.2rem;
+}
+.lp-prose h3 {
+  margin-top: 1.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.lp-compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem auto;
+  max-width: 760px;
+  font-size: 0.97rem;
+}
+.lp-compare-table th,
+.lp-compare-table td {
+  border: 1px solid #e5e7eb;
+  padding: 0.7rem 0.9rem;
+  text-align: left;
+  vertical-align: top;
+}
+.lp-compare-table thead th {
+  background: #f9fafb;
+  font-weight: 600;
+}
+.lp-compare-table td:first-child {
+  font-weight: 500;
+  color: #111827;
+}
+
+.lp-phone {
+  margin: 0 auto;
+  width: 220px;
+  border: 10px solid #111827;
+  border-radius: 36px;
+  background: #ecfdf5;
+  padding: 2.5rem 1rem;
+  text-align: center;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
+}
+.lp-phone-time {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+}
+.lp-phone-prompt {
+  font-size: 1rem;
+  color: #374151;
+  margin-bottom: 1.5rem;
+}
+.lp-phone-btn {
+  background: #2ecc71;
+  color: #fff;
+  border-radius: 999px;
+  padding: 1.1rem 1rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+.lp-phone-caption {
+  text-align: center;
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-top: 0.9rem;
+}
+
+.lp-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.2rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+.lp-links a {
+  color: #16a34a;
+  font-weight: 500;
+  text-decoration: none;
+}
+.lp-links a:hover {
+  text-decoration: underline;
+}
