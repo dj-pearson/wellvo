@@ -2332,8 +2332,8 @@
         "progress.txt entry"
       ],
       "priority": 48,
-      "passes": false,
-      "notes": "pSEO.md \u00a75 ('Code snippets') has the exact draft. Tiny change (\u224830 lines), zero downside. Pair with US-WEB002 (llms.txt) for a single SEO foundation iteration."
+      "passes": true,
+      "notes": "pSEO.md \u00a75 ('Code snippets') has the exact draft. Tiny change (\u224830 lines), zero downside. Pair with US-WEB002 (llms.txt) for a single SEO foundation iteration. [DONE 2026-05-17] website/public/robots.txt rewritten: wildcard + explicit per-bot Allow blocks for GPTBot, ClaudeBot, PerplexityBot, Google-Extended. Disallow stanzas for /app/ /api/ /account/ plus the real /admin surface added to every block (named UAs do not inherit wildcard rules). Sitemap directive retained. Smoke-tested on a local static server: HTTP 200, Content-Type text/plain, 886 bytes."
     },
     {
       "id": "US-WEB002",
