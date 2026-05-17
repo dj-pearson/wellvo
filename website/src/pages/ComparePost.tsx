@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { competitors, getCompetitor, type FeatureRow } from '../data/competitors'
+import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import './Compare.css'
 
 const SLUG_PREFIX = 'daily-ok-vs-'
@@ -57,25 +58,16 @@ export default function ComparePost() {
     mainEntityOfPage: canonical,
   }
 
-  // SoftwareApplication for Daily OK itself. No aggregateRating — Daily OK
-  // does not yet have 30+ genuine reviews and fake review schema is a Google
-  // manual-action trigger (per pSEO.md research caveat).
-  const softwareJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'SoftwareApplication',
-    name: 'Daily OK',
-    applicationCategory: 'HealthApplication',
-    applicationSubCategory: 'Caregiving',
-    operatingSystem: 'iOS, Android',
-    description:
-      'Daily OK is a daily check-in app for families. An aging parent (or child) taps "I\'m OK" once a day; if it\'s missed, the app escalates to family. No hardware, no location tracking.',
-    url: 'https://dailyok.net',
-    offers: [
-      { '@type': 'Offer', price: '3.99', priceCurrency: 'USD', name: 'Caregiver monthly' },
-      { '@type': 'Offer', price: '6.99', priceCurrency: 'USD', name: 'Family monthly' },
-      { '@type': 'Offer', price: '9.99', priceCurrency: 'USD', name: 'Family+ monthly' },
-    ],
-  }
+  // BreadcrumbList for this nested page. SoftwareApplication / Organization /
+  // WebSite are emitted site-wide from +onRenderHtml.tsx STATIC_HEAD, so we
+  // deliberately do NOT repeat SoftwareApplication here (a second,
+  // differently-categorized SoftwareApplication on the same page would be
+  // inconsistent — see US-WEB006).
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: 'Home', path: '/' },
+    { name: 'Compare', path: '/compare' },
+    { name: `Daily OK vs. ${competitor.name}`, path: `/compare/daily-ok-vs-${competitor.slug}` },
+  ])
 
   const siblings = competitors.filter((c) => c.slug !== competitor.slug).slice(0, 3)
 
@@ -91,7 +83,7 @@ export default function ComparePost() {
         <meta property="og:url" content={canonical} />
         <script type="application/ld+json">{JSON.stringify(faqJsonLd)}</script>
         <script type="application/ld+json">{JSON.stringify(articleJsonLd)}</script>
-        <script type="application/ld+json">{JSON.stringify(softwareJsonLd)}</script>
+        <script type="application/ld+json">{JSON.stringify(breadcrumbJsonLd)}</script>
       </Helmet>
 
       <article className="compare-article">
