@@ -1,0 +1,72 @@
+{
+  "slug": "lively",
+  "name": "Lively",
+  "tagline": "Best Buy Health's Jitterbug phones and Lively Mobile urgent-response devices",
+  "company_url": "https://www.lively.com",
+  "last_verified": "2026-05-17",
+  "daily_ok_verdict": "Lively (formerly GreatCall / Jitterbug, now Best Buy Health) is hardware-gated urgent response: a Jitterbug phone or Lively Mobile Plus device with an Urgent Response button connecting to live agents, plus optional Care Advocate and nurse services. Daily OK is the inverse — a proactive once-a-day check-in on the smartphone your parent already owns, with family-first alerts and no call center. If your parent needs a simplified phone and reactive emergency response, Lively's ecosystem is purpose-built. If they own a normal smartphone and you mainly want the daily reassurance that they're up and OK, Daily OK is far cheaper and adds the proactive layer Lively doesn't.",
+  "best_for_daily_ok": [
+    "Parents who already own and use a standard smartphone confidently",
+    "Families who want a proactive daily check-in, not only reactive SOS",
+    "Caregivers who prefer family-first alerts over a monitoring agent",
+    "Budget-conscious households — $3.99–$9.99/mo, no device to buy",
+    "Sibling groups who want one shared status dashboard"
+  ],
+  "best_for_competitor": [
+    "Parents who need a simplified phone with large buttons (Jitterbug)",
+    "Households that want a button-press connection to live urgent-response agents",
+    "Parents who will carry a dedicated device but won't use a check-in app",
+    "Families who value bundled nurse / care-advocate phone services"
+  ],
+  "snapshot": {
+    "starting_price": "Around $24.99/month per Lively's published materials (accessed May 2026)",
+    "starting_price_note": "Plus device purchase (Jitterbug phone or Lively Mobile Plus); higher health/safety tiers cost more — verify current pricing on lively.com",
+    "contract": "Monthly service plan + device purchase",
+    "platform": "Jitterbug phone / Lively Mobile Plus device",
+    "fall_detection": "Yes (on Lively Mobile Plus, plan-dependent)",
+    "gps_tracking": "Device location for urgent response",
+    "who_gets_alerts_first": "Lively Urgent Response agents",
+    "daily_check_in": "No (reactive urgent response, not a daily tap)"
+  },
+  "feature_matrix": [
+    { "feature": "Starting monthly price", "daily_ok": "$3.99 (Caregiver tier)", "competitor": "~$24.99 per published materials", "winner": "daily_ok" },
+    { "feature": "Hardware required", "daily_ok": "None — uses existing smartphone", "competitor": "Jitterbug / Lively device", "winner": "daily_ok" },
+    { "feature": "Device purchase cost", "daily_ok": "None", "competitor": "Yes — one-time", "winner": "daily_ok" },
+    { "feature": "Contract", "daily_ok": "Monthly, cancel anytime", "competitor": "Monthly plan + device", "winner": "daily_ok" },
+    { "feature": "Fall detection", "daily_ok": "No — not a medical device", "competitor": "Yes (Lively Mobile Plus)", "winner": "competitor" },
+    { "feature": "Live urgent-response agents", "daily_ok": "No", "competitor": "Yes", "winner": "competitor" },
+    { "feature": "Daily proactive check-in", "daily_ok": "Yes — one tap each morning", "competitor": "No", "winner": "daily_ok" },
+    { "feature": "Who gets alerted first", "daily_ok": "Family you designate", "competitor": "Lively agents", "winner": "different" },
+    { "feature": "Simplified phone option", "daily_ok": "No — runs on any smartphone", "competitor": "Yes (Jitterbug)", "winner": "different" },
+    { "feature": "GPS / location", "daily_ok": "None by design", "competitor": "Yes for response", "winner": "different" },
+    { "feature": "Cameras / mic in home", "daily_ok": "None", "competitor": "None", "winner": "tie" },
+    { "feature": "Caregiver dashboard", "daily_ok": "Yes (Family / Family+)", "competitor": "Lively Link app", "winner": "tie" },
+    { "feature": "Parent-side effort", "daily_ok": "One tap on existing phone", "competitor": "Carry the device", "winner": "daily_ok" },
+    { "feature": "Works on iOS and Android", "daily_ok": "Yes", "competitor": "Companion app yes; core is device", "winner": "different" },
+    { "feature": "Time to set up", "daily_ok": "Under two minutes on caregiver's phone", "competitor": "Device activation + setup", "winner": "daily_ok" }
+  ],
+  "pricing_breakdown": {
+    "monthly": "Daily OK: $3.99 / $6.99 / $9.99. Lively: health & safety plans starting around $24.99/month plus a device purchase per their published materials — verify current pricing on lively.com.",
+    "one_year_tco": "Daily OK: roughly $48–$120 for the year, cancel anytime. Lively: twelve months of plan plus the one-time device cost — confirm current totals.",
+    "three_year_tco": "Daily OK: roughly $144–$360, cancel any month. Lively: three years of plan on top of the device — verify current totals."
+  },
+  "migration_guide": [
+    "Decide whether a simplified phone or live urgent-response agents are must-haves. If yes, Lively serves a need Daily OK doesn't.",
+    "If your parent already uses a normal smartphone well, a dedicated device may be unnecessary overhead.",
+    "Install Daily OK on your own phone; invite your parent by SMS link (under two minutes).",
+    "Pick a morning check-in time tied to an existing routine.",
+    "Agree what a missed check-in means in advance.",
+    "If cancelling a Lively plan, review their current cancellation and device terms first."
+  ],
+  "faqs": [
+    { "q": "Is Daily OK a replacement for Lively?", "a": "Not if your parent needs a simplified Jitterbug phone or live urgent-response agents. Daily OK is a daily check-in app for a parent who already uses a smartphone. They solve different problems and can coexist." },
+    { "q": "Why is Lively more expensive?", "a": "Lively bundles a device, urgent-response agents, and optional nurse/care services. Daily OK is software only with family-first alerts, so it starts at $3.99/month." },
+    { "q": "Does Daily OK track location?", "a": "No. Daily OK has no location, camera, or microphone access. It only records whether the daily check-in was tapped." },
+    { "q": "Can I use both?", "a": "Yes — keep Lively for urgent response and add Daily OK for the proactive daily confirmation Lively doesn't provide." },
+    { "q": "Is Lively's price current here?", "a": "We show an approximate starting figure from Lively's published materials with the date we checked. Always confirm current pricing on lively.com before deciding." }
+  ],
+  "sources": [
+    { "title": "Lively plans and devices", "url": "https://www.lively.com", "accessed": "2026-05-17" },
+    { "title": "Daily OK pricing", "url": "https://dailyok.net/pricing", "accessed": "2026-05-17" }
+  ]
+}

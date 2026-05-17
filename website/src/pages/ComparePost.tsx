@@ -57,6 +57,26 @@ export default function ComparePost() {
     mainEntityOfPage: canonical,
   }
 
+  // SoftwareApplication for Daily OK itself. No aggregateRating — Daily OK
+  // does not yet have 30+ genuine reviews and fake review schema is a Google
+  // manual-action trigger (per pSEO.md research caveat).
+  const softwareJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Daily OK',
+    applicationCategory: 'HealthApplication',
+    applicationSubCategory: 'Caregiving',
+    operatingSystem: 'iOS, Android',
+    description:
+      'Daily OK is a daily check-in app for families. An aging parent (or child) taps "I\'m OK" once a day; if it\'s missed, the app escalates to family. No hardware, no location tracking.',
+    url: 'https://dailyok.net',
+    offers: [
+      { '@type': 'Offer', price: '3.99', priceCurrency: 'USD', name: 'Caregiver monthly' },
+      { '@type': 'Offer', price: '6.99', priceCurrency: 'USD', name: 'Family monthly' },
+      { '@type': 'Offer', price: '9.99', priceCurrency: 'USD', name: 'Family+ monthly' },
+    ],
+  }
+
   const siblings = competitors.filter((c) => c.slug !== competitor.slug).slice(0, 3)
 
   return (
@@ -71,6 +91,7 @@ export default function ComparePost() {
         <meta property="og:url" content={canonical} />
         <script type="application/ld+json">{JSON.stringify(faqJsonLd)}</script>
         <script type="application/ld+json">{JSON.stringify(articleJsonLd)}</script>
+        <script type="application/ld+json">{JSON.stringify(softwareJsonLd)}</script>
       </Helmet>
 
       <article className="compare-article">

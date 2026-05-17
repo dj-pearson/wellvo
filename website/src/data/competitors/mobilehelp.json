@@ -1,0 +1,72 @@
+{
+  "slug": "mobilehelp",
+  "name": "MobileHelp",
+  "tagline": "Medical alert systems with nationwide cellular monitoring",
+  "company_url": "https://www.mobilehelp.com",
+  "last_verified": "2026-05-17",
+  "daily_ok_verdict": "MobileHelp is a cellular-based personal emergency response provider — in-home and mobile units with 24/7 monitoring and optional fall detection, no landline required. Like other PERS brands it is reactive hardware: it does something when a button is pressed or a fall is detected. Daily OK is the opposite shape — a proactive once-a-day check-in on a phone your parent already owns, escalating to family rather than a call center. For a parent with fall risk who will wear the pendant, MobileHelp covers the urgent moment. For an independent parent who would leave it unworn and just needs a daily 'I'm OK', Daily OK is cheaper and proactive. The two layer well together.",
+  "best_for_daily_ok": [
+    "Independent parents with a smartphone who won't wear a pendant",
+    "Families who want a proactive daily check-in plus early pattern signals",
+    "Caregivers who want family-first alerts instead of a monitoring center",
+    "Budget-conscious households — $3.99–$9.99/mo, no hardware",
+    "Sibling groups who want one shared status dashboard"
+  ],
+  "best_for_competitor": [
+    "Parents with fall risk who will wear the device consistently",
+    "Households that want 24/7 professional monitoring and dispatch",
+    "Situations where fall detection is required",
+    "Parents who don't use a smartphone but will carry a PERS unit"
+  ],
+  "snapshot": {
+    "starting_price": "Around $19.95/month per MobileHelp's published materials (accessed May 2026)",
+    "starting_price_note": "Entry in-home tier; mobile/GPS and fall detection cost more — verify current pricing on mobilehelp.com",
+    "contract": "Monthly; annual options advertised",
+    "platform": "PERS hardware (in-home / mobile)",
+    "fall_detection": "Yes (optional add-on)",
+    "gps_tracking": "On mobile / GPS units",
+    "who_gets_alerts_first": "MobileHelp 24/7 monitoring center",
+    "daily_check_in": "No (reactive button-press, not a daily tap)"
+  },
+  "feature_matrix": [
+    { "feature": "Starting monthly price", "daily_ok": "$3.99 (Caregiver tier)", "competitor": "~$19.95 per published materials", "winner": "daily_ok" },
+    { "feature": "Hardware required", "daily_ok": "None — uses existing smartphone", "competitor": "PERS device", "winner": "daily_ok" },
+    { "feature": "Equipment fee", "daily_ok": "None", "competitor": "Device-dependent", "winner": "daily_ok" },
+    { "feature": "Contract", "daily_ok": "Monthly, cancel anytime", "competitor": "Monthly / annual options", "winner": "different" },
+    { "feature": "Fall detection", "daily_ok": "No — not a medical device", "competitor": "Yes (add-on)", "winner": "competitor" },
+    { "feature": "24/7 professional monitoring", "daily_ok": "No", "competitor": "Yes", "winner": "competitor" },
+    { "feature": "Daily proactive check-in", "daily_ok": "Yes — one tap each morning", "competitor": "No — reactive only", "winner": "daily_ok" },
+    { "feature": "Who gets alerted first", "daily_ok": "Family you designate", "competitor": "Monitoring center → 911", "winner": "different" },
+    { "feature": "Works if device unworn", "daily_ok": "N/A", "competitor": "No", "winner": "daily_ok" },
+    { "feature": "GPS / location", "daily_ok": "None by design", "competitor": "Yes on mobile units", "winner": "different" },
+    { "feature": "Cameras / mic in home", "daily_ok": "None", "competitor": "None", "winner": "tie" },
+    { "feature": "Caregiver dashboard", "daily_ok": "Yes (Family / Family+)", "competitor": "MobileHelp Connect (varies)", "winner": "different" },
+    { "feature": "Parent-side effort", "daily_ok": "One tap on existing phone", "competitor": "Wear / carry device", "winner": "daily_ok" },
+    { "feature": "Pattern / trend signals", "daily_ok": "Yes — consistency & mood trends", "competitor": "No", "winner": "daily_ok" },
+    { "feature": "Time to set up", "daily_ok": "Under two minutes on caregiver's phone", "competitor": "Device shipping + setup", "winner": "daily_ok" }
+  ],
+  "pricing_breakdown": {
+    "monthly": "Daily OK: $3.99 / $6.99 / $9.99. MobileHelp: entry in-home starting around $19.95/month, mobile and fall detection higher, per their published materials — verify current pricing on mobilehelp.com.",
+    "one_year_tco": "Daily OK: roughly $48–$120 for the year, cancel anytime. MobileHelp: twelve months of monitoring plus any device/add-on costs — confirm current totals.",
+    "three_year_tco": "Daily OK: roughly $144–$360, cancel any month. MobileHelp: three years of monitoring plus add-ons — verify current totals."
+  },
+  "migration_guide": [
+    "Decide whether fall detection and 24/7 dispatch are must-haves; if so, keep MobileHelp and add Daily OK as the daily layer.",
+    "If the device is rarely worn, weigh real compliance against the monthly fee.",
+    "Install Daily OK on your phone and invite your parent by SMS link (under two minutes).",
+    "Pick a morning check-in time tied to an existing routine.",
+    "Agree what a missed check-in means in advance.",
+    "If cancelling MobileHelp, review your current plan's cancellation and equipment terms first."
+  ],
+  "faqs": [
+    { "q": "Is Daily OK a replacement for MobileHelp?", "a": "Not for a parent who needs fall detection or 24/7 dispatch. MobileHelp is a PERS; Daily OK is a daily check-in app. For an independent, smartphone-using parent who won't wear a device, Daily OK is often the right daily tool." },
+    { "q": "Why consider Daily OK if MobileHelp is inexpensive?", "a": "Daily OK is cheaper still and proactive — it confirms your parent is OK every day rather than only reacting to a button press. Different needs; they can coexist." },
+    { "q": "What if my parent won't wear the device?", "a": "Then the PERS protects no one. Daily OK uses the phone they already carry and needs only one daily tap." },
+    { "q": "Can I use both?", "a": "Yes — MobileHelp for the urgent fall moment, Daily OK for the daily confirmation it doesn't provide." },
+    { "q": "Is the price on this page current?", "a": "We show an approximate starting figure from MobileHelp's published materials with the date checked. Confirm current pricing on mobilehelp.com before deciding." }
+  ],
+  "sources": [
+    { "title": "MobileHelp plans and pricing", "url": "https://www.mobilehelp.com", "accessed": "2026-05-17" },
+    { "title": "Daily OK pricing", "url": "https://dailyok.net/pricing", "accessed": "2026-05-17" }
+  ]
+}
