@@ -1,0 +1,22 @@
+# Sign in with Apple — client_secret rotation log
+#
+# This file contains NO secret. It records only the iat/exp epoch timestamps
+# of the most recently generated SIWA client_secret JWT so the expiry-reminder
+# GitHub Action can warn 30 days before it lapses.
+#
+# Format (one active record; keep history below it as comments):
+#   iat=<epoch seconds>
+#   exp=<epoch seconds>
+#   rotated_on=<YYYY-MM-DD>
+#   rotated_by=<name/handle>
+#
+# Update this (and commit it) every time you complete
+# docs/auth/sign-in-with-apple-rotation.md.
+
+iat=0
+exp=0
+rotated_on=never
+rotated_by=unset
+
+# --- history ---
+# (none yet — first rotation under this runbook has not been recorded)

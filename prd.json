@@ -2446,8 +2446,8 @@
         "progress.txt entry"
       ],
       "priority": 55,
-      "passes": false,
-      "notes": "Discovered while triaging loose files in repo root. Apple Sign-In client_secret JWTs expire in 6 months \u2014 if rotation is missed, all SIWA logins break silently. Low effort, high value to ops. Don't automate the rotation itself (requires the .p8 key which should not live in CI), only the reminder."
+      "passes": true,
+      "notes": "Discovered while triaging loose files in repo root. Apple Sign-In client_secret JWTs expire in 6 months \u2014 if rotation is missed, all SIWA logins break silently. Low effort, high value to ops. Don't automate the rotation itself (requires the .p8 key which should not live in CI), only the reminder. [DONE 2026-05-17] /Untitled deleted (git rm). Content moved into docs/auth/sign-in-with-apple-rotation.md as a full runbook (prerequisites table, Ruby JWT-gen command, Supabase paste location, 6-month expiry / 5-month cadence, calendar-reminder template, failure-mode table, explicit \"not automated: signing requires the .p8 which must never live in CI\"). docs/runbooks/README.md created as the runbook index with cadence. docs/auth/last-rotated.txt added as a secret-free iat/exp tracker. .github/workflows/siwa-secret-expiry-reminder.yml added: weekly cron reads last-rotated.txt exp and opens/refreshes a labeled GitHub issue 30 days before expiry (reads only, never signs). .gitignore already had *.p8 (matches AuthKey_*.p8); added an explicit AuthKey_*.p8 line for defense-in-depth."
     }
   ]
 }

@@ -50,6 +50,7 @@ e2e-tests/node_modules/
 
 # Secrets
 *.p8
+AuthKey_*.p8
 *.p12
 *.mobileprovision
 *.cer
