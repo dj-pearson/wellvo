@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet-async'
 import DOMPurify from 'dompurify'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
 import { buildPostSchemas } from '../lib/schemaMarkup'
+import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import './Blog.css'
 
 interface PublicPost {
@@ -134,6 +135,15 @@ export default function BlogPost() {
             {JSON.stringify(schema).replace(/</g, '\\u003c')}
           </script>
         ))}
+        <script type="application/ld+json">
+          {JSON.stringify(
+            buildBreadcrumbJsonLd([
+              { name: 'Home', path: '/' },
+              { name: 'Blog', path: '/blog' },
+              { name: post.title, path: `/blog/${post.slug}` },
+            ]),
+          ).replace(/</g, '\\u003c')}
+        </script>
       </Helmet>
 
       <article className="blog-article">

@@ -11,6 +11,11 @@ const Pricing = lazy(() => import('./pages/Pricing'))
 const Accessibility = lazy(() => import('./pages/Accessibility'))
 const ElderlyCare = lazy(() => import('./pages/ElderlyCare'))
 const ChildSafety = lazy(() => import('./pages/ChildSafety'))
+const CheckInAppForElderly = lazy(() => import('./pages/CheckInAppForElderly'))
+const DailyCheckInAppForSeniors = lazy(() => import('./pages/DailyCheckInAppForSeniors'))
+const PeaceOfMindAppForElderlyParents = lazy(() => import('./pages/PeaceOfMindAppForElderlyParents'))
+const WhatToDo = lazy(() => import('./pages/WhatToDo'))
+const WhatToDoIndex = lazy(() => import('./pages/WhatToDoIndex'))
 const Cookies = lazy(() => import('./pages/Cookies'))
 const DMCA = lazy(() => import('./pages/DMCA'))
 const NotFound = lazy(() => import('./pages/NotFound'))
@@ -62,6 +67,11 @@ function App() {
             <Route path="/accessibility" element={<Accessibility />} />
             <Route path="/elderly-care" element={<ElderlyCare />} />
             <Route path="/child-safety" element={<ChildSafety />} />
+            <Route path="/check-in-app-for-elderly" element={<CheckInAppForElderly />} />
+            <Route path="/daily-check-in-app-for-seniors" element={<DailyCheckInAppForSeniors />} />
+            <Route path="/peace-of-mind-app-for-elderly-parents" element={<PeaceOfMindAppForElderlyParents />} />
+            <Route path="/what-to-do" element={<WhatToDoIndex />} />
+            <Route path="/what-to-do/:slug" element={<WhatToDo />} />
             <Route path="/cookies" element={<Cookies />} />
             <Route path="/dmca" element={<DMCA />} />
             <Route path="/blog" element={<Blog />} />

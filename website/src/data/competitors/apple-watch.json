@@ -1,0 +1,62 @@
+{
+  "slug": "apple-watch",
+  "name": "Apple Watch fall detection",
+  "tagline": "Built-in Fall Detection and Emergency SOS on Apple Watch",
+  "company_url": "https://www.apple.com/watch",
+  "last_verified": "2026-05-17",
+  "daily_ok_verdict": "Apple Watch isn't a subscription service — it's a device whose built-in Fall Detection and Emergency SOS can call emergency services and notify contacts after a hard fall. That makes it genuinely useful for fall risk, but it only helps if your parent owns one, wears it daily, and keeps it charged — and it does nothing on an ordinary quiet day when nothing went wrong but you still want to know they're up. Daily OK fills that proactive gap: a once-a-day 'I'm OK' tap on any smartphone, with family-first escalation if it's missed. The two are complementary — an Apple Watch for the fall moment, Daily OK for the daily reassurance the watch was never designed to give.",
+  "best_for_daily_ok": [
+    "Parents who don't own or won't consistently wear/charge an Apple Watch",
+    "Families who want proactive daily confirmation, not only fall reaction",
+    "Households on Android or basic smartphones",
+    "Caregivers who want a simple shared status, not just an SOS call",
+    "Anyone who wants early pattern signals over weeks, not just incident alerts"
+  ],
+  "best_for_competitor": [
+    "Parents who already wear an Apple Watch every day and keep it charged",
+    "Situations where hard-fall detection and Emergency SOS are the priority",
+    "Households already in the Apple ecosystem and comfortable with the watch",
+    "Those who want an on-wrist heart-rate / health sensor suite too"
+  ],
+  "snapshot": {
+    "starting_price": "No subscription — one-time Apple Watch purchase (device cost varies by model; verify on apple.com)",
+    "starting_price_note": "Optional cellular plan adds monthly carrier cost; Fall Detection / Emergency SOS themselves have no fee",
+    "contract": "None (hardware purchase; optional carrier plan)",
+    "platform": "Apple Watch (requires iPhone)",
+    "fall_detection": "Yes — built-in hard-fall detection",
+    "gps_tracking": "Yes — device location for Emergency SOS",
+    "who_gets_alerts_first": "Emergency services + emergency contacts (after a detected hard fall)",
+    "daily_check_in": "No (incident-driven, not a proactive daily tap)"
+  },
+  "feature_matrix": [
+    { "feature": "Pricing model", "daily_ok": "$3.99–$9.99/month subscription", "competitor": "One-time device purchase (no feature fee)", "winner": "different" },
+    { "feature": "Hardware required", "daily_ok": "None — uses existing smartphone", "competitor": "Apple Watch + iPhone", "winner": "daily_ok" },
+    { "feature": "Works on Android", "daily_ok": "Yes", "competitor": "No — Apple ecosystem only", "winner": "daily_ok" },
+    { "feature": "Fall detection", "daily_ok": "No — not a medical device", "competitor": "Yes — hard-fall detection", "winner": "competitor" },
+    { "feature": "Emergency SOS to 911", "daily_ok": "No", "competitor": "Yes", "winner": "competitor" },
+    { "feature": "Daily proactive check-in", "daily_ok": "Yes — one tap each morning", "competitor": "No", "winner": "daily_ok" },
+    { "feature": "Works if not worn / dead battery", "daily_ok": "Runs on the phone they carry anyway", "competitor": "No — must be worn & charged", "winner": "daily_ok" },
+    { "feature": "Who gets alerted first", "daily_ok": "Family you designate", "competitor": "911 + emergency contacts", "winner": "different" },
+    { "feature": "Caregiver dashboard", "daily_ok": "Yes (Family / Family+)", "competitor": "No dedicated caregiver dashboard", "winner": "daily_ok" },
+    { "feature": "Pattern / trend signals", "daily_ok": "Yes — consistency & mood trends", "competitor": "Health metrics, not check-in trends", "winner": "different" },
+    { "feature": "Location privacy", "daily_ok": "No location by design", "competitor": "Location used for SOS", "winner": "different" },
+    { "feature": "Parent-side effort", "daily_ok": "One tap on existing phone", "competitor": "Wear & charge watch daily", "winner": "daily_ok" },
+    { "feature": "Setup", "daily_ok": "Under two minutes on caregiver's phone", "competitor": "Watch pairing + config", "winner": "daily_ok" }
+  ],
+  "pricing_breakdown": {
+    "monthly": "Daily OK: $3.99 / $6.99 / $9.99 per month. Apple Watch: no monthly fee for Fall Detection / Emergency SOS — only the one-time device cost (and an optional cellular plan). Verify current device pricing on apple.com.",
+    "one_year_tco": "Daily OK: roughly $48–$120 for the year. Apple Watch: the device purchase amortized, plus any optional cellular plan — confirm current device pricing on apple.com.",
+    "three_year_tco": "Daily OK: roughly $144–$360. Apple Watch: device cost spread over its lifetime plus optional cellular — verify current pricing."
+  },
+  "faqs": [
+    { "q": "Is Daily OK a replacement for Apple Watch fall detection?", "a": "No — they do different jobs. Apple Watch reacts to a detected hard fall; Daily OK proactively confirms your parent is OK each day and escalates to family if not. Many families use both." },
+    { "q": "My parent has an Apple Watch — do I still need Daily OK?", "a": "Fall detection only fires on a detected fall, only if the watch is worn and charged. It tells you nothing on a normal day when you simply want to know they're up. Daily OK covers that gap." },
+    { "q": "Does Daily OK detect falls?", "a": "No. Daily OK is not a medical device and does not detect falls. It only records the daily check-in tap and escalates if it's missed." },
+    { "q": "What if my parent uses Android?", "a": "Apple Watch requires an iPhone. Daily OK works on both iOS and Android, so it's the option that doesn't depend on the Apple ecosystem." },
+    { "q": "Is the device price shown here?", "a": "Apple Watch pricing varies by model and changes over time, so we don't quote a fixed figure — confirm current pricing on apple.com." }
+  ],
+  "sources": [
+    { "title": "Apple Watch — Fall Detection and Emergency SOS", "url": "https://www.apple.com/watch", "accessed": "2026-05-17" },
+    { "title": "Daily OK pricing", "url": "https://dailyok.net/pricing", "accessed": "2026-05-17" }
+  ]
+}

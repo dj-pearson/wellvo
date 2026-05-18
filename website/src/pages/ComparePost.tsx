@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { competitors, getCompetitor, type FeatureRow } from '../data/competitors'
+import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import './Compare.css'
 
 const SLUG_PREFIX = 'daily-ok-vs-'
@@ -57,6 +58,17 @@ export default function ComparePost() {
     mainEntityOfPage: canonical,
   }
 
+  // BreadcrumbList for this nested page. SoftwareApplication / Organization /
+  // WebSite are emitted site-wide from +onRenderHtml.tsx STATIC_HEAD, so we
+  // deliberately do NOT repeat SoftwareApplication here (a second,
+  // differently-categorized SoftwareApplication on the same page would be
+  // inconsistent — see US-WEB006).
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: 'Home', path: '/' },
+    { name: 'Compare', path: '/compare' },
+    { name: `Daily OK vs. ${competitor.name}`, path: `/compare/daily-ok-vs-${competitor.slug}` },
+  ])
+
   const siblings = competitors.filter((c) => c.slug !== competitor.slug).slice(0, 3)
 
   return (
@@ -71,6 +83,7 @@ export default function ComparePost() {
         <meta property="og:url" content={canonical} />
         <script type="application/ld+json">{JSON.stringify(faqJsonLd)}</script>
         <script type="application/ld+json">{JSON.stringify(articleJsonLd)}</script>
+        <script type="application/ld+json">{JSON.stringify(breadcrumbJsonLd)}</script>
       </Helmet>
 
       <article className="compare-article">

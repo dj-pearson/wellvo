@@ -44,11 +44,17 @@ const STATIC_HEAD = `
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
         "name": "Daily OK",
-        "applicationCategory": "LifestyleApplication",
-        "operatingSystem": "iOS 16+",
+        "applicationCategory": "HealthApplication",
+        "applicationSubCategory": "Caregiving",
+        "operatingSystem": "iOS, Android",
         "description": "Daily check-in app for families caring for elderly parents with dementia, children, and long-distance loved ones. One tap to confirm safety. Escalating alerts if no response.",
         "url": "https://dailyok.net",
-        "downloadUrl": "https://apps.apple.com/us/app/dailyok-daily-check-in/id6760836697"
+        "downloadUrl": "https://apps.apple.com/us/app/dailyok-daily-check-in/id6760836697",
+        "offers": [
+          { "@type": "Offer", "price": "3.99", "priceCurrency": "USD", "name": "Caregiver monthly" },
+          { "@type": "Offer", "price": "6.99", "priceCurrency": "USD", "name": "Family monthly" },
+          { "@type": "Offer", "price": "9.99", "priceCurrency": "USD", "name": "Family+ monthly" }
+        ]
       },
       {
         "@context": "https://schema.org",

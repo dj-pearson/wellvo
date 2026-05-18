@@ -1,6 +1,13 @@
 import lifeAlert from './life-alert.json'
 import life360 from './life360.json'
 import snugSafety from './snug-safety.json'
+import aloeCare from './aloe-care.json'
+import lively from './lively.json'
+import medicalGuardian from './medical-guardian.json'
+import bayAlarmMedical from './bay-alarm-medical.json'
+import appleWatch from './apple-watch.json'
+import mobileHelp from './mobilehelp.json'
+import checkinBee from './checkin-bee.json'
 
 export interface FeatureRow {
   feature: string
@@ -68,6 +75,13 @@ export const competitors: CompetitorData[] = [
   lifeAlert as CompetitorData,
   life360 as CompetitorData,
   snugSafety as CompetitorData,
+  aloeCare as CompetitorData,
+  lively as CompetitorData,
+  medicalGuardian as CompetitorData,
+  bayAlarmMedical as CompetitorData,
+  appleWatch as CompetitorData,
+  mobileHelp as CompetitorData,
+  checkinBee as CompetitorData,
 ]
 
 export function getCompetitor(slug: string): CompetitorData | undefined {

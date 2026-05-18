@@ -1,0 +1,73 @@
+{
+  "slug": "medical-guardian",
+  "name": "Medical Guardian",
+  "tagline": "Personal emergency response systems with 24/7 monitoring",
+  "company_url": "https://www.medicalguardian.com",
+  "last_verified": "2026-05-17",
+  "daily_ok_verdict": "Medical Guardian sells a range of personal emergency response systems — in-home base units, mobile GPS devices, and wearables with optional fall detection — all backed by a 24/7 monitoring center. Daily OK is not a PERS and never claims to be: it's a proactive daily check-in app that alerts your family, not a call center, when a tap is missed. For a parent with genuine fall risk who will reliably wear a device, Medical Guardian addresses the urgent moment Daily OK explicitly doesn't. For an independent parent who would leave a pendant in a drawer and just needs a daily 'I'm OK', Daily OK is the dignity-first, no-hardware option — and many families run a Medical Guardian device alongside Daily OK's daily layer.",
+  "best_for_daily_ok": [
+    "Independent parents who own a smartphone and reject wearable pendants",
+    "Families who want a proactive daily check-in plus early pattern signals",
+    "Caregivers who want family-first alerts instead of a monitoring center",
+    "Budget-conscious households — $3.99–$9.99/mo, no hardware or contract",
+    "Sibling groups who want one shared dashboard"
+  ],
+  "best_for_competitor": [
+    "Parents with documented fall risk who will wear a device consistently",
+    "Households that want 24/7 professional monitoring and dispatch",
+    "Situations where fall detection is a must-have",
+    "Parents who don't use a smartphone but will carry a PERS device"
+  ],
+  "snapshot": {
+    "starting_price": "Around $29.95/month per Medical Guardian's published materials (accessed May 2026)",
+    "starting_price_note": "Varies by device (in-home vs mobile vs wearable); fall detection is typically an add-on — verify current pricing on medicalguardian.com",
+    "contract": "Monthly; some plans discounted annually",
+    "platform": "PERS hardware (base unit / mobile / wearable)",
+    "fall_detection": "Yes (optional add-on on supported devices)",
+    "gps_tracking": "On mobile GPS devices",
+    "who_gets_alerts_first": "Medical Guardian 24/7 monitoring center",
+    "daily_check_in": "No (reactive button-press, not a daily tap)"
+  },
+  "feature_matrix": [
+    { "feature": "Starting monthly price", "daily_ok": "$3.99 (Caregiver tier)", "competitor": "~$29.95 per published materials", "winner": "daily_ok" },
+    { "feature": "Hardware required", "daily_ok": "None — uses existing smartphone", "competitor": "PERS device", "winner": "daily_ok" },
+    { "feature": "Equipment / activation fee", "daily_ok": "None", "competitor": "Device-dependent", "winner": "daily_ok" },
+    { "feature": "Contract", "daily_ok": "Monthly, cancel anytime", "competitor": "Monthly / annual options", "winner": "different" },
+    { "feature": "Fall detection", "daily_ok": "No — not a medical device", "competitor": "Yes (add-on)", "winner": "competitor" },
+    { "feature": "24/7 professional monitoring", "daily_ok": "No", "competitor": "Yes", "winner": "competitor" },
+    { "feature": "Daily proactive check-in", "daily_ok": "Yes — one tap each morning", "competitor": "No — reactive only", "winner": "daily_ok" },
+    { "feature": "Who gets alerted first", "daily_ok": "Family you designate", "competitor": "Monitoring center → 911", "winner": "different" },
+    { "feature": "Works if device unworn", "daily_ok": "N/A", "competitor": "No", "winner": "daily_ok" },
+    { "feature": "GPS / location", "daily_ok": "None by design", "competitor": "Yes on mobile units", "winner": "different" },
+    { "feature": "Cameras / mic in home", "daily_ok": "None", "competitor": "None", "winner": "tie" },
+    { "feature": "Caregiver dashboard", "daily_ok": "Yes (Family / Family+)", "competitor": "Caregiver portal varies", "winner": "different" },
+    { "feature": "Parent-side effort", "daily_ok": "One tap on existing phone", "competitor": "Wear / carry device", "winner": "daily_ok" },
+    { "feature": "Pattern / trend signals", "daily_ok": "Yes — consistency & mood trends", "competitor": "No", "winner": "daily_ok" },
+    { "feature": "Time to set up", "daily_ok": "Under two minutes on caregiver's phone", "competitor": "Device shipping + setup", "winner": "daily_ok" }
+  ],
+  "pricing_breakdown": {
+    "monthly": "Daily OK: $3.99 / $6.99 / $9.99. Medical Guardian: starting around $29.95/month depending on device, fall detection extra, per their published materials — verify current pricing on medicalguardian.com.",
+    "one_year_tco": "Daily OK: roughly $48–$120 for the year, cancel anytime. Medical Guardian: twelve months of monitoring plus any equipment/add-on fees — confirm current totals.",
+    "three_year_tco": "Daily OK: roughly $144–$360, cancel any month. Medical Guardian: three years of monitoring plus add-ons — verify current totals."
+  },
+  "migration_guide": [
+    "Decide whether fall detection and 24/7 dispatch are must-haves. If yes, keep Medical Guardian and add Daily OK as the daily layer.",
+    "If the device is rarely worn, estimate real compliance — a PERS only protects when it's on the person.",
+    "Install Daily OK on your phone and invite your parent by SMS link (under two minutes).",
+    "Choose a morning check-in time tied to an existing routine.",
+    "Agree what a missed check-in means — usually a call from you, not dispatch.",
+    "If cancelling Medical Guardian, review your current plan's cancellation terms first."
+  ],
+  "faqs": [
+    { "q": "Is Daily OK a replacement for Medical Guardian?", "a": "Not for a parent who needs fall detection or 24/7 dispatch. Medical Guardian is a PERS; Daily OK is a daily check-in app. For an independent, smartphone-using parent who rejects pendants, Daily OK is often the right daily tool." },
+    { "q": "Why is Medical Guardian more expensive?", "a": "It includes hardware and a 24/7 monitoring center with emergency dispatch. Daily OK is software only with family-first alerts, so it starts at $3.99/month." },
+    { "q": "What if my parent won't wear the device?", "a": "That's a common reason families look at Daily OK. It uses the phone they already carry and needs only a single daily tap — nothing to wear." },
+    { "q": "Can I use both?", "a": "Yes. Medical Guardian covers the urgent fall moment; Daily OK covers the daily 'are they up and OK' question it doesn't address." },
+    { "q": "Does Daily OK detect falls?", "a": "No. It is not a medical device. It only knows whether the daily check-in was tapped." },
+    { "q": "Is the price on this page current?", "a": "We show an approximate starting figure from Medical Guardian's published materials with the date checked. Confirm current pricing on medicalguardian.com before deciding." }
+  ],
+  "sources": [
+    { "title": "Medical Guardian plans and pricing", "url": "https://www.medicalguardian.com", "accessed": "2026-05-17" },
+    { "title": "Daily OK pricing", "url": "https://dailyok.net/pricing", "accessed": "2026-05-17" }
+  ]
+}

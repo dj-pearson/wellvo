@@ -1,4 +1,46 @@
+# Daily OK — https://dailyok.net
+# AI search crawlers are explicitly welcomed: we want Daily OK to be
+# citable in ChatGPT / Claude / Perplexity / Google AI Overview answers
+# to caregiver queries. Admin / auth surfaces are excluded for every bot.
+
 User-agent: *
 Allow: /
+Disallow: /app/
+Disallow: /api/
+Disallow: /account/
+Disallow: /admin
+Disallow: /admin/
+
+User-agent: GPTBot
+Allow: /
+Disallow: /app/
+Disallow: /api/
+Disallow: /account/
+Disallow: /admin
+Disallow: /admin/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /app/
+Disallow: /api/
+Disallow: /account/
+Disallow: /admin
+Disallow: /admin/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /app/
+Disallow: /api/
+Disallow: /account/
+Disallow: /admin
+Disallow: /admin/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /app/
+Disallow: /api/
+Disallow: /account/
+Disallow: /admin
+Disallow: /admin/
 
 Sitemap: https://dailyok.net/sitemap.xml
