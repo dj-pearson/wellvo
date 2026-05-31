@@ -52,7 +52,8 @@
       "Bash(./gradlew compileDebugKotlin)",
       "Bash(echo \"---exit:$?---\")",
       "Bash(deno check *)",
-      "PowerShell(Get-Command *)"
+      "PowerShell(Get-Command *)",
+      "Bash(echo \"exit: $?\")"
     ]
   }
 }
