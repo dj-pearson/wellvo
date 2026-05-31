@@ -73,6 +73,7 @@ struct ReceiverSettings: Codable, Identifiable {
     var weekendCheckinTime: String? // HH:mm (used with weekday_weekend)
     var customSchedule: DaySchedule?
     var schedulePaused: Bool
+    var notifyOwnerOnCheckin: Bool // owner gets a push when this receiver checks in OK
 
     enum CodingKeys: String, CodingKey {
         case id, timezone
@@ -96,6 +97,7 @@ struct ReceiverSettings: Codable, Identifiable {
         case weekendCheckinTime = "weekend_checkin_time"
         case customSchedule = "custom_schedule"
         case schedulePaused = "schedule_paused"
+        case notifyOwnerOnCheckin = "notify_owner_on_checkin"
     }
 
     init(from decoder: Decoder) throws {
@@ -122,5 +124,6 @@ struct ReceiverSettings: Codable, Identifiable {
         weekendCheckinTime = try container.decodeIfPresent(String.self, forKey: .weekendCheckinTime)
         customSchedule = try container.decodeIfPresent(DaySchedule.self, forKey: .customSchedule)
         schedulePaused = try container.decodeIfPresent(Bool.self, forKey: .schedulePaused) ?? false
+        notifyOwnerOnCheckin = try container.decodeIfPresent(Bool.self, forKey: .notifyOwnerOnCheckin) ?? true
     }
 }

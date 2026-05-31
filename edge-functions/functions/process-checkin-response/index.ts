@@ -409,6 +409,94 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
         }
       }
     }
+  } else {
+    // Routine "I'm OK" — send the owner a confirmation push so they get peace of
+    // mind even when the app is closed (the realtime dashboard only updates a
+    // foregrounded app). Opt-in via receiver_settings.notify_owner_on_checkin,
+    // which defaults to TRUE.
+    const { data: settings } = await supabaseAdmin
+      .from("receiver_settings")
+      .select("notify_owner_on_checkin")
+      .eq("family_member_id", membership.id)
+      .single();
+
+    // Treat a missing setting/row as opted-in (default on) so existing families
+    // start receiving confirmations without having to re-save their settings.
+    if (settings?.notify_owner_on_checkin !== false) {
+      const { data: family } = await supabaseAdmin
+        .from("families")
+        .select("owner_id")
+        .eq("id", familyId)
+        .single();
+
+      if (family?.owner_id) {
+        const { data: receiver } = await supabaseAdmin
+          .from("users")
+          .select("display_name")
+          .eq("id", receiverId)
+          .single();
+
+        const displayName = sanitizeDisplayName(receiver?.display_name || "A family member");
+        const checkedInLocal = new Intl.DateTimeFormat("en-US", {
+          timeZone: receiverTz,
+          hour: "numeric",
+          minute: "2-digit",
+        }).format(new Date(checkIn.checked_in_at as string));
+        const okTitle = "Checked in ✓";
+        const okMessage = `${displayName} checked in at ${checkedInLocal}.`;
+
+        const { data: ownerTokens } = await supabaseAdmin
+          .from("push_tokens")
+          .select("token, platform")
+          .eq("user_id", family.owner_id)
+          .eq("is_active", true);
+
+        if (ownerTokens?.length) {
+          const okPayload = {
+            aps: {
+              alert: { title: okTitle, body: okMessage },
+              sound: "default",
+              category: "CHECKIN_CONFIRMED",
+              "thread-id": `checkin-${familyId}`,
+              "interruption-level": "active" as const,
+            },
+            checkin_id: checkIn.id,
+            receiver_id: receiverId,
+            type: "checkin_confirmed",
+          };
+
+          const fcmData: Record<string, string> = {
+            checkin_id: String(checkIn.id),
+            receiver_id: receiverId!,
+            type: "checkin_confirmed",
+            notification_type: "checkin_confirmed",
+          };
+
+          const results = await Promise.all(
+            ownerTokens.map((t: { token: string; platform: string }) => {
+              if (t.platform === "android") {
+                return sendFCMNotification(t.token, buildFCMAlertPayload(okTitle, okMessage, fcmData));
+              }
+              return sendPushNotification(t.token, okPayload, { priority: 5 });
+            })
+          );
+
+          for (let i = 0; i < results.length; i++) {
+            const isInvalid =
+              results[i].statusCode === 410 ||
+              results[i].reason === "NOT_FOUND" ||
+              results[i].reason === "UNREGISTERED";
+            if (isInvalid) {
+              await supabaseAdmin
+                .from("push_tokens")
+                .update({ is_active: false })
+                .eq("token", ownerTokens[i].token);
+              console.log(`Deactivated invalid ${ownerTokens[i].platform} token for user ${family.owner_id}`);
+            }
+          }
+        }
+      }
+    }
   }
 
   return markRequestsAndRespond(receiverId, familyId, checkIn);
