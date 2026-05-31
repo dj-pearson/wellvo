@@ -129,21 +129,21 @@ struct FirstReceiverWalkthroughView: View {
                     number: 1,
                     icon: "bell.badge.fill",
                     title: "We send them a daily reminder",
-                    body: "At the time you choose, your family member gets a notification asking how they're doing."
+                    detail: "At the time you choose, your family member gets a notification asking how they're doing."
                 )
 
                 FlowStepRow(
                     number: 2,
                     icon: "checkmark.circle.fill",
                     title: "They tap \"I'm OK\"",
-                    body: "One tap. No typing. They can also share a quick mood or note if they want."
+                    detail: "One tap. No typing. They can also share a quick mood or note if they want."
                 )
 
                 FlowStepRow(
                     number: 3,
                     icon: "heart.text.square.fill",
                     title: "You see they checked in",
-                    body: "Their status updates here on your dashboard. If they miss a check-in, you'll get an alert."
+                    detail: "Their status updates here on your dashboard. If they miss a check-in, you'll get an alert."
                 )
             }
             .padding(.horizontal, 24)
@@ -382,7 +382,7 @@ private struct FlowStepRow: View {
     let number: Int
     let icon: String
     let title: String
-    let body: String
+    let detail: String
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
@@ -404,7 +404,7 @@ private struct FlowStepRow: View {
                     Text(title)
                         .font(.subheadline.weight(.semibold))
                 }
-                Text(body)
+                Text(detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

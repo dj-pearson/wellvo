@@ -53,7 +53,9 @@
       "Bash(echo \"---exit:$?---\")",
       "Bash(deno check *)",
       "PowerShell(Get-Command *)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(git fetch *)",
+      "Bash(echo \"exit:$?\")"
     ]
   }
 }
