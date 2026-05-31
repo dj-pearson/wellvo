@@ -62,6 +62,9 @@ struct ReceiverHomeView: View {
                     if viewModel.hasCheckedInToday {
                         statusCard.padding(.horizontal)
                     } else {
+                        if viewModel.hasPendingRequest {
+                            pendingRequestBanner.padding(.horizontal)
+                        }
                         checkInButton
                     }
 
@@ -154,6 +157,28 @@ struct ReceiverHomeView: View {
         } message: {
             Text("You'll stop receiving check-in notifications until you sign back in.")
         }
+    }
+
+    private var pendingRequestBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "bell.badge.fill")
+                .font(.title3)
+                .foregroundStyle(DailyOKColor.warning)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(isKidMode ? "Your family wants to hear from you!" : "Your family is waiting")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Text("Tap \"I'm OK\" below to let them know you're alright.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity)
+        .glassPill(style: .thin)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Your family is waiting for you to check in.")
     }
 
     private var checkInButton: some View {
@@ -297,6 +322,20 @@ struct ReceiverHomeView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+
+            if let mood = viewModel.selectedMood {
+                HStack(spacing: 6) {
+                    Text(mood.emoji)
+                    Text("Feeling \(mood.label.lowercased())")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 4)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Feeling \(mood.label)")
+            } else if viewModel.shouldPromptForMood {
+                moodPicker.padding(.top, 8)
+            }
         }
         .padding(24)
         .frame(maxWidth: .infinity)
@@ -307,6 +346,37 @@ struct ReceiverHomeView: View {
         )
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Checked in successfully. Your family has been notified.")
+    }
+
+    private var moodPicker: some View {
+        VStack(spacing: 10) {
+            Text(isKidMode ? "How are you feeling?" : "How are you feeling? (optional)")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            let moods = isKidMode ? Mood.kidMoods : Mood.standardMoods
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 64), spacing: 12)], spacing: 12) {
+                ForEach(moods, id: \.self) { mood in
+                    Button {
+                        DailyOKHaptics.light()
+                        Task { await viewModel.setMood(mood) }
+                    } label: {
+                        VStack(spacing: 4) {
+                            Text(mood.emoji)
+                                .font(.title2)
+                            Text(mood.label)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .glassPill(style: .thin)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Feeling \(mood.label)")
+                }
+            }
+        }
     }
 
     private func animateCheckmark() {

@@ -68,4 +68,39 @@ actor PushNotificationService {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         return settings.authorizationStatus
     }
+
+    // MARK: - Local Fallback Reminder
+
+    private static let fallbackReminderId = "local-checkin-fallback"
+
+    /// Schedule a single local reminder as a safety net in case the server-side
+    /// push never arrives (edge function down, stale APNs token, etc.). It's a
+    /// one-shot for the next occurrence — `ReceiverViewModel` reschedules it on
+    /// every load and cancels it once the receiver has checked in, so it won't
+    /// double up with a working server push.
+    func scheduleLocalCheckinFallback(at date: Date, isKidMode: Bool) async {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [Self.fallbackReminderId])
+
+        guard date > Date() else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = isKidMode ? "Don't forget! 👋" : "Reminder: Check in"
+        content.body = isKidMode
+            ? "Tap to let your family know you're OK."
+            : "You haven't checked in yet. Tap to let your family know you're OK."
+        content.sound = .default
+        content.categoryIdentifier = "CHECKIN_REQUEST"
+
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        let request = UNNotificationRequest(identifier: Self.fallbackReminderId, content: content, trigger: trigger)
+
+        try? await center.add(request)
+    }
+
+    func cancelLocalCheckinFallback() {
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: [Self.fallbackReminderId])
+    }
 }
