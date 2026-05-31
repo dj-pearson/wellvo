@@ -76,9 +76,11 @@ struct DashboardView: View {
 
                         // Receiver Cards
                         ForEach(Array(viewModel.receiverCards.enumerated()), id: \.element.id) { index, card in
-                            ReceiverStatusCardView(card: card) {
+                            ReceiverStatusCardView(card: card, onCheckOn: {
                                 Task { await viewModel.sendOnDemandCheckIn(to: card.id) }
-                            }
+                            }, onStandDown: {
+                                Task { await viewModel.standDownEscalation(for: card.id) }
+                            })
                             .transition(.asymmetric(
                                 insertion: .opacity.combined(with: .move(edge: .bottom)).animation(DailyOKMotion.smoothSpring.delay(Double(index) * 0.05)),
                                 removal: .opacity
@@ -329,6 +331,7 @@ struct ReceiverStatusCardView: View {
     let card: ReceiverStatusCard
     var isReadOnly: Bool = false
     let onCheckOn: () -> Void
+    var onStandDown: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -451,6 +454,43 @@ struct ReceiverStatusCardView: View {
             // Kid response type
             if let kidResponse = card.kidResponseType, !kidResponse.isEmpty {
                 kidResponseBadge(kidResponse)
+            }
+
+            // Escalation in progress (owner-only) — show the receiver hasn't
+            // responded and offer a "stand down" so the owner can stop the alerts
+            // after reaching them another way (e.g. a phone call).
+            if !isReadOnly, card.status != .checkedIn, card.escalationStep >= 1 {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "bell.and.waves.left.and.right.fill")
+                            .font(.caption)
+                        Text(card.status == .missed
+                             ? "\(card.name) didn't check in — alerts were sent."
+                             : "Escalating — \(card.name) hasn't responded yet (step \(card.escalationStep) of 3).")
+                            .font(.caption)
+                    }
+                    .foregroundStyle(card.status == .missed ? .red : .orange)
+
+                    if let onStandDown {
+                        Button {
+                            onStandDown()
+                        } label: {
+                            HStack {
+                                Image(systemName: "checkmark.shield")
+                                Text("I've reached them — stand down")
+                            }
+                            .font(.caption.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.secondary)
+                        .accessibilityHint("Stops the escalation reminders and alerts for \(card.name)")
+                    }
+                }
+                .padding(8)
+                .background((card.status == .missed ? Color.red : Color.orange).opacity(0.1))
+                .cornerRadius(8)
             }
 
             // Check on button (owner-only) — always available so a parent can

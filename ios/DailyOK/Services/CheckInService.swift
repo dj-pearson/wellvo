@@ -83,13 +83,30 @@ actor CheckInService {
                 body["battery_level"] = String(battery)
             }
 
-            try await EdgeFunctionsClient.invoke(
-                "process-checkin-response",
-                body: body
-            )
+            // Retry transient failures with backoff — a tapped "I'm OK" from the
+            // lock screen on flaky signal shouldn't be silently lost (which would
+            // leave the request pending and falsely escalate to the owner).
+            try await NetworkRetry.execute {
+                try await EdgeFunctionsClient.invoke(
+                    "process-checkin-response",
+                    body: body
+                )
+            }
         } catch {
             throw DailyOKError.network(error)
         }
+    }
+
+    /// Owner "stand down" — stop the escalation chain for a receiver's pending
+    /// request(s) after reaching them another way (call, in person).
+    func cancelEscalation(receiverId: UUID, familyId: UUID) async throws {
+        try await EdgeFunctionsClient.invoke(
+            "cancel-escalation",
+            body: [
+                "receiver_id": receiverId.uuidString,
+                "family_id": familyId.uuidString,
+            ]
+        )
     }
 
     /// Confirm delivery of a push notification

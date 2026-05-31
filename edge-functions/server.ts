@@ -30,6 +30,7 @@ import { handleSendCheckinNotification } from "./functions/send-checkin-notifica
 import { handleProcessCheckinResponse } from "./functions/process-checkin-response/index.ts";
 import { handleEscalationTick } from "./functions/escalation-tick/index.ts";
 import { handleOnDemandCheckin } from "./functions/on-demand-checkin/index.ts";
+import { handleCancelEscalation } from "./functions/cancel-escalation/index.ts";
 import { handleSubscriptionWebhook } from "./functions/subscription-webhook/index.ts";
 import { handleInviteReceiver } from "./functions/invite-receiver/index.ts";
 import { handleSubscriptionCancellation } from "./functions/subscription-cancellation/index.ts";
@@ -69,6 +70,7 @@ const routes: Record<string, FunctionHandler> = {
   "/process-checkin-response": handleProcessCheckinResponse,
   "/escalation-tick": handleEscalationTick,
   "/on-demand-checkin": handleOnDemandCheckin,
+  "/cancel-escalation": handleCancelEscalation,
   "/subscription-webhook": handleSubscriptionWebhook,
   "/invite-receiver": handleInviteReceiver,
   "/subscription-cancellation": handleSubscriptionCancellation,

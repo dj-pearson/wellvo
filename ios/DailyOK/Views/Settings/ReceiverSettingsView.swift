@@ -15,6 +15,7 @@ struct ReceiverSettingsView: View {
     @State private var quietHoursEnd = Calendar.current.date(from: DateComponents(hour: 7)) ?? Date()
     @State private var moodTrackingEnabled = false
     @State private var smsEscalationEnabled = false
+    @State private var notifyOwnerOnCheckin = true
     @State private var isLoading = false
     @State private var isSaving = false
     @State private var showSavedConfirmation = false
@@ -144,6 +145,17 @@ struct ReceiverSettingsView: View {
                     Text(member.user?.timezone ?? TimeZone.current.identifier)
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            // Check-In Confirmations
+            Section {
+                Toggle("Notify Me When They Check In", isOn: $notifyOwnerOnCheckin)
+                    .accessibilityLabel("Notify me when they check in")
+                    .accessibilityHint("Sends you a push notification each time they tap I'm OK")
+            } header: {
+                Text("Check-In Confirmations")
+            } footer: {
+                Text("Get a push notification when \(member.user?.displayName ?? "they") check in, so you know they're OK without opening the app.")
             }
 
             // Escalation Chain
@@ -350,6 +362,7 @@ struct ReceiverSettingsView: View {
             escalationEnabled = loaded.escalationEnabled
             moodTrackingEnabled = loaded.moodTrackingEnabled
             smsEscalationEnabled = loaded.smsEscalationEnabled
+            notifyOwnerOnCheckin = loaded.notifyOwnerOnCheckin
             receiverMode = loaded.receiverMode
 
             // Schedule fields
@@ -407,6 +420,7 @@ struct ReceiverSettingsView: View {
             "escalation_enabled": String(escalationEnabled),
             "mood_tracking_enabled": String(moodTrackingEnabled),
             "sms_escalation_enabled": String(smsEscalationEnabled),
+            "notify_owner_on_checkin": String(notifyOwnerOnCheckin),
             "receiver_mode": receiverMode.rawValue,
             "schedule_type": scheduleType.rawValue,
             "schedule_paused": String(schedulePaused),

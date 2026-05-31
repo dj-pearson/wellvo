@@ -15,8 +15,22 @@ final class ReceiverViewModel: ObservableObject {
     @Published var receiverSettings: ReceiverSettings?
     @Published var streakDays: Int = 0
     @Published var consistencyPercent: Int = 0
+    /// True when the family is actively waiting on a response (a pending
+    /// checkin_request exists) and the receiver hasn't checked in yet.
+    @Published var hasPendingRequest = false
+    /// Mood the receiver picked after checking in (optional, post-check-in).
+    @Published var selectedMood: Mood?
 
     private let offlineService = OfflineCheckInService.shared
+
+    /// Whether to show the optional "how are you feeling?" picker after a
+    /// check-in: enabled in settings, an online check-in row exists to attach to,
+    /// and no mood has been recorded yet.
+    var shouldPromptForMood: Bool {
+        guard receiverSettings?.moodTrackingEnabled == true else { return false }
+        guard let checkIn = lastCheckIn, checkIn.mood == nil else { return false }
+        return selectedMood == nil
+    }
 
     func loadStatus() async {
         guard let family = try? await FamilyService.shared.getFamily() else { return }
@@ -52,6 +66,9 @@ final class ReceiverViewModel: ObservableObject {
         #endif
         lastCheckIn = todayCheckIn
         hasCheckedInToday = (todayCheckIn != nil)
+        // A fresh load reflects server truth — clear any locally-picked mood so
+        // the prompt reappears only if today's row genuinely has no mood yet.
+        selectedMood = todayCheckIn?.mood
 
         // Load 30-day history for streak + consistency badges on the home header.
         // Failures here are non-fatal — the chips just stay hidden.
@@ -69,8 +86,66 @@ final class ReceiverViewModel: ObservableObject {
 
         await loadReceiverSettings(userId: session.user.id, familyId: family.id)
 
+        // Surface whether the family is currently waiting on a response, but only
+        // when the receiver hasn't already checked in today.
+        if hasCheckedInToday {
+            hasPendingRequest = false
+        } else {
+            await loadPendingRequest(receiverId: session.user.id, familyId: family.id)
+        }
+
+        // (Re)schedule or clear the local fallback reminder safety net.
+        await refreshLocalFallbackReminder()
+
         isOffline = !offlineService.isOnline
         pendingOfflineCount = offlineService.pendingCount
+    }
+
+    private func loadPendingRequest(receiverId: UUID, familyId: UUID) async {
+        let requests: [CheckInRequest]? = try? await SupabaseService.shared.client
+            .from("checkin_requests")
+            .select()
+            .eq("receiver_id", value: receiverId.uuidString)
+            .eq("family_id", value: familyId.uuidString)
+            .eq("status", value: "pending")
+            .limit(1)
+            .execute()
+            .value
+        hasPendingRequest = !(requests?.isEmpty ?? true)
+    }
+
+    /// Schedule a one-shot local reminder as a safety net against a missed
+    /// server push, or cancel it if the receiver has already checked in.
+    private func refreshLocalFallbackReminder() async {
+        guard !hasCheckedInToday, let settings = receiverSettings, !settings.schedulePaused,
+              let fallbackDate = nextFallbackDate(from: settings) else {
+            await PushNotificationService.shared.cancelLocalCheckinFallback()
+            return
+        }
+        await PushNotificationService.shared.scheduleLocalCheckinFallback(
+            at: fallbackDate,
+            isKidMode: receiverMode == .kid
+        )
+    }
+
+    /// Next moment a check-in is expected (today if still upcoming, else
+    /// tomorrow), pushed out by the grace period so the local fallback fires
+    /// only after the server push has had its chance.
+    private func nextFallbackDate(from settings: ReceiverSettings) -> Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        guard let parsedTime = formatter.date(from: String(settings.checkinTime.prefix(5))) else { return nil }
+
+        let calendar = Calendar.current
+        let comps = calendar.dateComponents([.hour, .minute], from: parsedTime)
+        guard var todayTarget = calendar.date(
+            bySettingHour: comps.hour ?? 9, minute: comps.minute ?? 0, second: 0, of: Date()
+        ) else { return nil }
+
+        if todayTarget <= Date() {
+            todayTarget = calendar.date(byAdding: .day, value: 1, to: todayTarget) ?? todayTarget
+        }
+        return calendar.date(byAdding: .minute, value: settings.gracePeriodMinutes, to: todayTarget)
     }
 
     private func loadReceiverSettings(userId: UUID, familyId: UUID) async {
@@ -135,6 +210,11 @@ final class ReceiverViewModel: ObservableObject {
                 lastCheckIn = checkIn
             }
             hasCheckedInToday = true
+            hasPendingRequest = false
+            selectedMood = nil
+            // The server push did its job (or wasn't needed) — drop the local
+            // safety-net reminder so it can't fire after a successful check-in.
+            await PushNotificationService.shared.cancelLocalCheckinFallback()
             Task { await AnalyticsService.shared.track(.checkIn) }
         } catch let error as NetworkError {
             // Offline path: the check-in is queued locally and will sync when
@@ -152,5 +232,22 @@ final class ReceiverViewModel: ObservableObject {
         }
 
         isCheckingIn = false
+    }
+
+    /// Attach an optional mood to today's check-in row after the fact. Updates
+    /// the UI optimistically; a failure is non-fatal (the check-in itself stands).
+    func setMood(_ mood: Mood) async {
+        selectedMood = mood
+        guard let checkIn = lastCheckIn else { return }
+        do {
+            try await SupabaseService.shared.client
+                .from("checkins")
+                .update(["mood": mood.rawValue])
+                .eq("id", value: checkIn.id.uuidString)
+                .execute()
+            await AnalyticsService.shared.track(.moodSubmitted, properties: ["mood": mood.rawValue])
+        } catch {
+            // Non-fatal — keep the optimistic selection; the row just lacks a mood.
+        }
     }
 }

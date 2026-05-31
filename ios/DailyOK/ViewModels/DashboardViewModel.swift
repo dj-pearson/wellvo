@@ -15,6 +15,9 @@ struct ReceiverStatusCard: Identifiable {
     var checkedInTime: Date? // Time component only, for timeline
     var locationLabel: String?
     var kidResponseType: String?
+    /// Current escalation step of an active (pending) request: 0 = none yet,
+    /// 1+ = reminders/alerts in progress. Drives the owner "escalating" banner.
+    var escalationStep: Int = 0
 }
 
 enum ReceiverCheckInStatus {
@@ -121,12 +124,27 @@ final class DashboardViewModel: ObservableObject {
                 let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
                 weeklyCheckIns.append(contentsOf: history.filter { $0.checkedInAt >= sevenDaysAgo })
 
+                // Resolve live status from the latest active request: if they've
+                // checked in we show that; otherwise reflect a missed or
+                // in-progress (escalating) pending request.
+                let activeRequest = todayCheckIn == nil
+                    ? await latestActiveRequest(receiverId: receiver.userId, familyId: family.id)
+                    : nil
+                let status: ReceiverCheckInStatus
+                if todayCheckIn != nil {
+                    status = .checkedIn
+                } else if activeRequest?.status == .missed {
+                    status = .missed
+                } else {
+                    status = .pending
+                }
+
                 cards.append(ReceiverStatusCard(
                     id: receiver.userId,
                     memberId: receiver.id,
                     name: receiver.user?.displayName ?? "Unknown",
                     avatarUrl: receiver.user?.avatarUrl,
-                    status: todayCheckIn != nil ? .checkedIn : .pending,
+                    status: status,
                     lastCheckIn: todayCheckIn?.checkedInAt ?? history.first?.checkedInAt,
                     streak: streak,
                     consistencyPercent: consistency,
@@ -134,7 +152,8 @@ final class DashboardViewModel: ObservableObject {
                     hasNotificationsEnabled: hasNotifications,
                     checkedInTime: todayCheckIn?.checkedInAt,
                     locationLabel: todayCheckIn?.locationLabel,
-                    kidResponseType: todayCheckIn?.kidResponseType
+                    kidResponseType: todayCheckIn?.kidResponseType,
+                    escalationStep: activeRequest?.escalationStep ?? 0
                 ))
             }
 
@@ -159,6 +178,36 @@ final class DashboardViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Owner "stand down" — stop the escalation chain for a receiver after
+    /// reaching them another way. Optimistically clears the escalating banner.
+    func standDownEscalation(for receiverId: UUID) async {
+        guard let family else { return }
+        do {
+            try await CheckInService.shared.cancelEscalation(receiverId: receiverId, familyId: family.id)
+            if let idx = receiverCards.firstIndex(where: { $0.id == receiverId }) {
+                receiverCards[idx].escalationStep = 0
+            }
+        } catch {
+            errorMessage = DailyOKError.network(error).localizedDescription
+        }
+    }
+
+    /// Latest pending/missed request for a receiver, used to surface escalation
+    /// progress on the owner dashboard.
+    private func latestActiveRequest(receiverId: UUID, familyId: UUID) async -> CheckInRequest? {
+        let requests: [CheckInRequest]? = try? await SupabaseService.shared.client
+            .from("checkin_requests")
+            .select()
+            .eq("receiver_id", value: receiverId.uuidString)
+            .eq("family_id", value: familyId.uuidString)
+            .in("status", values: ["pending", "missed"])
+            .order("created_at", ascending: false)
+            .limit(1)
+            .execute()
+            .value
+        return requests?.first
     }
 
     func dismissAlert(_ alert: DailyOKAlert) async {

@@ -198,6 +198,24 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 )
             } catch {
                 print("[CheckIn] Notification response failed")
+                // If the device is genuinely offline, persist the check-in so it
+                // syncs later instead of being lost. Only for a plain "I'm OK" —
+                // urgent responses (need help / call me) must reach the server
+                // live, so we don't silently defer them. Mirrors the app-button
+                // path's "queue only when offline" guard to avoid duplicate
+                // inserts hitting the daily unique index.
+                let isOnline = await OfflineCheckInService.shared.isOnline
+                if responseType == .ok, !isOnline {
+                    if let family = try? await FamilyService.shared.getFamily(),
+                       let session = try? await SupabaseService.shared.client.auth.session {
+                        try? await OfflineCheckInService.shared.queueCheckIn(
+                            familyId: family.id,
+                            receiverId: session.user.id,
+                            mood: nil,
+                            source: .notification
+                        )
+                    }
+                }
             }
         }
     }
