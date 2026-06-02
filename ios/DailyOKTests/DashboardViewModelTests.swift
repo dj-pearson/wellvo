@@ -110,7 +110,14 @@ final class DashboardViewModelTests: XCTestCase {
             checkedInAt: adjustedDate,
             mood: mood,
             source: .app,
-            scheduledFor: nil
+            scheduledFor: nil,
+            responseType: nil,
+            latitude: nil,
+            longitude: nil,
+            locationAccuracyMeters: nil,
+            distanceFromHomeMeters: nil,
+            locationLabel: nil,
+            kidResponseType: nil
         )
     }
 
