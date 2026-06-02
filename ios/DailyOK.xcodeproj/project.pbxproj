@@ -97,6 +97,15 @@
 		B2U00001 /* DailyOKUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00001; };
 		B2U00002 /* OwnerFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00002; };
 		B2U00003 /* ReceiverFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00003; };
+		/* Unit Tests */
+		B3T00001 /* DashboardViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3T00001; };
+		B3T00002 /* ErrorHandlingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3T00002; };
+		B3T00003 /* ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3T00003; };
+		B3T00004 /* SubscriptionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3T00004; };
+		/* Notification Service Extension */
+		B4N00001 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4N00001; };
+		B4N00002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F4N00002; };
+		B4N00003 /* DailyOKNotificationService.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = F4P00004; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -183,6 +192,18 @@
 		F2U00001 /* DailyOKUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKUITests.swift; sourceTree = "<group>"; };
 		F2U00002 /* OwnerFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnerFlowTests.swift; sourceTree = "<group>"; };
 		F2U00003 /* ReceiverFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverFlowTests.swift; sourceTree = "<group>"; };
+		/* Unit Test Files */
+		F3T00001 /* DashboardViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModelTests.swift; sourceTree = "<group>"; };
+		F3T00002 /* ErrorHandlingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorHandlingTests.swift; sourceTree = "<group>"; };
+		F3T00003 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
+		F3T00004 /* SubscriptionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionServiceTests.swift; sourceTree = "<group>"; };
+		F3P00003 /* DailyOKTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DailyOKTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		/* Notification Service Extension Files */
+		F4N00001 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		F4N00002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		F4N00003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F4N00004 /* DailyOKNotificationService.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DailyOKNotificationService.entitlements; sourceTree = "<group>"; };
+		F4P00004 /* DailyOKNotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DailyOKNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
@@ -193,6 +214,20 @@
 			remoteGlobalIDString = T1000001;
 			remoteInfo = DailyOK;
 		};
+		CP000002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = PR000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = T1000001;
+			remoteInfo = DailyOK;
+		};
+		CP000003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = PR000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = T4000001;
+			remoteInfo = DailyOKNotificationService;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXTargetDependency section */
@@ -200,6 +235,16 @@
 			isa = PBXTargetDependency;
 			target = T1000001 /* DailyOK */;
 			targetProxy = CP000001 /* PBXContainerItemProxy */;
+		};
+		TD000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = T1000001 /* DailyOK */;
+			targetProxy = CP000002 /* PBXContainerItemProxy */;
+		};
+		TD000003 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = T4000001 /* DailyOKNotificationService */;
+			targetProxy = CP000003 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -220,7 +265,35 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D3000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D4000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		PF000001 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B4N00003 /* DailyOKNotificationService.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXGroup section */
 		G1000001 = {
@@ -228,6 +301,8 @@
 			children = (
 				G1000002 /* DailyOK */,
 				G2U00001 /* DailyOKUITests */,
+				G3T00001 /* DailyOKTests */,
+				G4N00001 /* DailyOKNotificationService */,
 				G1000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -252,6 +327,8 @@
 			children = (
 				F1P00001 /* DailyOK.app */,
 				F1P00002 /* DailyOKUITests.xctest */,
+				F3P00003 /* DailyOKTests.xctest */,
+				F4P00004 /* DailyOKNotificationService.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -264,6 +341,28 @@
 				F2U00003 /* ReceiverFlowTests.swift */,
 			);
 			path = DailyOKUITests;
+			sourceTree = "<group>";
+		};
+		G3T00001 /* DailyOKTests */ = {
+			isa = PBXGroup;
+			children = (
+				F3T00001 /* DashboardViewModelTests.swift */,
+				F3T00002 /* ErrorHandlingTests.swift */,
+				F3T00003 /* ModelTests.swift */,
+				F3T00004 /* SubscriptionServiceTests.swift */,
+			);
+			path = DailyOKTests;
+			sourceTree = "<group>";
+		};
+		G4N00001 /* DailyOKNotificationService */ = {
+			isa = PBXGroup;
+			children = (
+				F4N00001 /* NotificationService.swift */,
+				F4N00003 /* Info.plist */,
+				F4N00004 /* DailyOKNotificationService.entitlements */,
+				F4N00002 /* PrivacyInfo.xcprivacy */,
+			);
+			path = DailyOKNotificationService;
 			sourceTree = "<group>";
 		};
 		G1A00001 /* App */ = {
@@ -438,10 +537,12 @@
 				S1000001 /* Sources */,
 				D1000001 /* Frameworks */,
 				R1000001 /* Resources */,
+				PF000001 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				TD000003 /* PBXTargetDependency */,
 			);
 			name = DailyOK;
 			packageProductDependencies = (
@@ -469,6 +570,40 @@
 			productReference = F1P00002 /* DailyOKUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		T3000001 /* DailyOKTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CL000004 /* Build configuration list for PBXNativeTarget "DailyOKTests" */;
+			buildPhases = (
+				S3000001 /* Sources */,
+				D3000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				TD000002 /* PBXTargetDependency */,
+			);
+			name = DailyOKTests;
+			productName = DailyOKTests;
+			productReference = F3P00003 /* DailyOKTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		T4000001 /* DailyOKNotificationService */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CL000005 /* Build configuration list for PBXNativeTarget "DailyOKNotificationService" */;
+			buildPhases = (
+				S4000001 /* Sources */,
+				D4000001 /* Frameworks */,
+				R4000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DailyOKNotificationService;
+			productName = DailyOKNotificationService;
+			productReference = F4P00004 /* DailyOKNotificationService.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -485,6 +620,13 @@
 					T2000001 = {
 						CreatedOnToolsVersion = 15.2;
 						TestTargetID = T1000001;
+					};
+					T3000001 = {
+						CreatedOnToolsVersion = 15.2;
+						TestTargetID = T1000001;
+					};
+					T4000001 = {
+						CreatedOnToolsVersion = 15.2;
 					};
 				};
 			};
@@ -507,6 +649,8 @@
 			targets = (
 				T1000001 /* DailyOK */,
 				T2000001 /* DailyOKUITests */,
+				T3000001 /* DailyOKTests */,
+				T4000001 /* DailyOKNotificationService */,
 			);
 		};
 /* End PBXProject section */
@@ -593,6 +737,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		S3000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B3T00001 /* DashboardViewModelTests.swift in Sources */,
+				B3T00002 /* ErrorHandlingTests.swift in Sources */,
+				B3T00003 /* ModelTests.swift in Sources */,
+				B3T00004 /* SubscriptionServiceTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		S4000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B4N00001 /* NotificationService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXResourcesBuildPhase section */
@@ -601,6 +764,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				B1G00001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		R4000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B4N00002 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -756,6 +927,98 @@
 			};
 			name = Release;
 		};
+		BC000007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 6;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DailyOK.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DailyOK";
+				TEST_TARGET_NAME = DailyOK;
+			};
+			name = Debug;
+		};
+		BC000008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 6;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DailyOK.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DailyOK";
+				TEST_TARGET_NAME = DailyOK;
+			};
+			name = Release;
+		};
+		BC000009 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = DailyOKNotificationService/DailyOKNotificationService.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 6;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DailyOKNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Daily OK Notifications";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios.NotificationService;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BC000010 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = DailyOKNotificationService/DailyOKNotificationService.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 6;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DailyOKNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Daily OK Notifications";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios.NotificationService;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -782,6 +1045,24 @@
 			buildConfigurations = (
 				BC000005 /* Debug */,
 				BC000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CL000004 /* Build configuration list for PBXNativeTarget "DailyOKTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BC000007 /* Debug */,
+				BC000008 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CL000005 /* Build configuration list for PBXNativeTarget "DailyOKNotificationService" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BC000009 /* Debug */,
+				BC000010 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

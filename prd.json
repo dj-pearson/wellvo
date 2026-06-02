@@ -2448,6 +2448,157 @@
       "priority": 55,
       "passes": true,
       "notes": "Discovered while triaging loose files in repo root. Apple Sign-In client_secret JWTs expire in 6 months \u2014 if rotation is missed, all SIWA logins break silently. Low effort, high value to ops. Don't automate the rotation itself (requires the .p8 key which should not live in CI), only the reminder. [DONE 2026-05-17] /Untitled deleted (git rm). Content moved into docs/auth/sign-in-with-apple-rotation.md as a full runbook (prerequisites table, Ruby JWT-gen command, Supabase paste location, 6-month expiry / 5-month cadence, calendar-reminder template, failure-mode table, explicit \"not automated: signing requires the .p8 which must never live in CI\"). docs/runbooks/README.md created as the runbook index with cadence. docs/auth/last-rotated.txt added as a secret-free iat/exp tracker. .github/workflows/siwa-secret-expiry-reminder.yml added: weekly cron reads last-rotated.txt exp and opens/refreshes a labeled GitHub issue 30 days before expiry (reads only, never signs). .gitignore already had *.p8 (matches AuthKey_*.p8); added an explicit AuthKey_*.p8 line for defense-in-depth."
+    },
+    {
+      "id": "US-IOS001",
+      "title": "Ship the Notification Service Extension so push delivery confirmation actually works",
+      "description": "As the backend that tracks notification delivery, I need the iOS Notification Service Extension to actually run on devices. The extension source (ios/DailyOKNotificationService/NotificationService.swift) is complete and POSTs to the confirm-delivery edge function via the shared App Group, but it was never wired into DailyOK.xcodeproj as a build target, so it never shipped. Worse, the APNs payload (edge-functions/shared/apns.ts) never set 'mutable-content': 1, so iOS would not invoke a service extension even if one were present. Together this means PRD section 4.5 'delivery confirmation tracking' is dead on iOS.",
+      "acceptanceCriteria": [
+        "Add a DailyOKNotificationService app-extension target to DailyOK.xcodeproj building NotificationService.swift, using its Info.plist + entitlements (App Group group.com.wellvo.ios), bundling PrivacyInfo.xcprivacy",
+        "Bundle id com.wellvo.ios.NotificationService (prefixed by host app id com.wellvo.ios)",
+        "Embed the .appex in the host app via an Embed App Extensions copy-files phase + target dependency",
+        "Set 'mutable-content': 1 on the check-in APNs payload in edge-functions/shared/apns.ts",
+        "Verify the extension compiles and embeds (via the iOS Unit Tests CI workflow building the DailyOK scheme)",
+        "progress.txt entry"
+      ],
+      "priority": 56,
+      "passes": false,
+      "notes": "Discovered during iOS gap audit. IMPLEMENTED THIS SESSION (awaiting CI verification, hence passes=false): (1) project.pbxproj now declares the DailyOKNotificationService app-extension target (T4000001) with sources/resources/frameworks phases, Debug+Release configs, an Embed App Extensions copy phase (PF000001) on the host app, and a target dependency; pbxproj validated for balanced braces + zero dangling UUID refs. (2) apns.ts buildCheckinPayload now sets 'mutable-content': 1 (additive, backward-compatible). REMAINING MANUAL STEP for release: the production device build (ios-build-deploy.yml, manual signing, single provisioning profile) needs a SEPARATE App ID + provisioning profile for com.wellvo.ios.NotificationService with the App Groups capability before the next App Store archive. The simulator CI build (signing disabled) validates wiring compiles but not device signing."
+    },
+    {
+      "id": "US-IOS002",
+      "title": "Build and run the iOS unit-test bundle in CI (DailyOKTests was never a target)",
+      "description": "As a developer, I want the iOS unit tests to actually compile and run in CI. The four files in ios/DailyOKTests/ use @testable import DailyOK and cover streak logic, error descriptions, model decoding, and subscription product IDs, but DailyOKTests was never declared as a target in DailyOK.xcodeproj and the only iOS CI runs the UI tests. The unit tests are dead code that has never run.",
+      "acceptanceCriteria": [
+        "Add a DailyOKTests unit-test target hosting in the DailyOK app (TEST_HOST/BUNDLE_LOADER) with the 4 test files",
+        "Add a shared DailyOK.xcscheme that builds the app and includes DailyOKTests + DailyOKUITests in its test action",
+        "Add a CI workflow that builds for the simulator and runs -only-testing:DailyOKTests on feature/integration pushes and PRs, before the release workflow, signing disabled",
+        "Tests compile (app target has ENABLE_TESTABILITY=YES in Debug) and pass green in CI",
+        "progress.txt entry"
+      ],
+      "priority": 57,
+      "passes": false,
+      "notes": "Discovered during iOS gap audit. IMPLEMENTED THIS SESSION (awaiting CI verification, hence passes=false): project.pbxproj declares the DailyOKTests unit-test target (T3000001, TEST_HOST -> DailyOK.app, TestTargetID=DailyOK, app dependency); ios/DailyOK.xcodeproj/xcshareddata/xcschemes/DailyOK.xcscheme lists both test bundles; .github/workflows/ios-unit-tests.yml builds the DailyOK scheme on a simulator (signing disabled) and runs -only-testing:DailyOKTests on pushes to develop/feat/**/claude/**/release/**/hotfix/** and PRs to develop/main. This is the requested 'CI feedback before release' loop. NOT YET CONFIRMED GREEN; first CI run on this branch is the verification."
+    },
+    {
+      "id": "US-IOS003",
+      "title": "Fix APNs apns-topic bundle-id mismatch (com.dailyok.ios vs the app's com.wellvo.ios)",
+      "description": "As a Receiver, I need to actually receive check-in push notifications. edge-functions/shared/apns.ts hardcodes BUNDLE_ID = 'com.dailyok.ios' and sends it as the apns-topic header, but the iOS app's bundle identifier is com.wellvo.ios everywhere (pbxproj, BuildConfig.xcconfig, both entitlements, App Group, CI). APNs rejects pushes whose apns-topic does not equal the app bundle id, so this mismatch likely breaks ALL iOS push delivery.",
+      "acceptanceCriteria": [
+        "Confirm the shipped iOS app bundle id (com.wellvo.ios) and whether any env override of the APNs topic exists",
+        "Correct the apns-topic to match the shipped bundle id (or make it configurable via APNS_TOPIC env with the correct default)",
+        "Ensure the Android FCM path is unaffected (push_tokens.platform routing)",
+        "progress.txt entry"
+      ],
+      "priority": 58,
+      "passes": false,
+      "notes": "DISCOVERED THIS SESSION, NOT FIXED (filed for confirmation): apns.ts ~line 18 has BUNDLE_ID='com.dailyok.ios' used as apns-topic, but all iOS app config uses com.wellvo.ios. If the const is authoritative, no iOS push has ever been delivered, which is suspicious for a shipped app, so this needs human confirmation of the real App Store bundle id and any deploy-time override before changing a production push path. Left unchanged to avoid breaking prod push on an unverifiable assumption. HIGH PRIORITY."
+    },
+    {
+      "id": "US-IOS004",
+      "title": "Home Screen Widgets: Owner status glance + Receiver one-tap check-in (WidgetKit)",
+      "description": "As an Owner I want a home-screen widget showing each Receiver's check-in status; as a Receiver I want a widget with the 'I'm OK' button to check in without opening the app. PRD 10.3 Phase 3 lists widgets for both roles. No WidgetKit target or code exists.",
+      "acceptanceCriteria": [
+        "Add a WidgetKit extension target sharing data via App Group group.com.wellvo.ios",
+        "Owner widget (small/medium) showing Receiver name + status badge + last check-in time via TimelineProvider",
+        "Receiver widget with an 'I'm OK' App Intent (interactive, iOS 17+) performing the check-in, with deep-link fallback on older OS",
+        "Reads cached status from the shared App Group container; avoid direct network from the widget where possible",
+        "progress.txt entry"
+      ],
+      "priority": 59,
+      "passes": false,
+      "notes": "Phase 3 product gap (absent on iOS AND Android). Net-new; not started this session. Sizeable: new target + App Intents + shared-container data plumbing."
+    },
+    {
+      "id": "US-IOS005",
+      "title": "Apple Watch app + complication for one-tap check-in",
+      "description": "As a Receiver (especially elderly) I want to tap 'I'm OK' from my Apple Watch. PRD 10.3 Phase 3 lists an Apple Watch complication for one-tap check-in. No watchOS target exists.",
+      "acceptanceCriteria": [
+        "Add a watchOS app target (+ complication)",
+        "Watch app shows a single large 'I'm OK' button performing a check-in via the edge-functions client or a WatchConnectivity relay",
+        "Complication shows today's check-in state and deep-links to the action",
+        "Auth/session shared from the paired iPhone (no separate watch login)",
+        "progress.txt entry"
+      ],
+      "priority": 60,
+      "passes": false,
+      "notes": "Phase 3 product gap. Net-new; not started this session. Large (new watchOS target, connectivity, complication)."
+    },
+    {
+      "id": "US-IOS006",
+      "title": "Siri Shortcuts / App Intents: 'Hey Siri, I'm OK'",
+      "description": "As a Receiver I want to check in by voice. PRD 10.3 Phase 3 lists Siri Shortcuts integration. No App Intents / SiriKit code exists.",
+      "acceptanceCriteria": [
+        "Add an AppIntents 'Check In' intent performing the check-in for the signed-in Receiver",
+        "Provide an AppShortcutsProvider so 'I'm OK' is available to Siri and the Shortcuts app with a natural-language phrase",
+        "Works from the background where possible; surfaces the green confirmation when launched interactively",
+        "Handles not-signed-in / no-pending-checkin with a spoken/visible response",
+        "progress.txt entry"
+      ],
+      "priority": 61,
+      "passes": false,
+      "notes": "Phase 3 product gap. Net-new; not started this session. Medium effort (AppIntents framework; no new target strictly required)."
+    },
+    {
+      "id": "US-IOS007",
+      "title": "Passive monitoring mode for cognitive-decline Receivers",
+      "description": "As an Owner of a parent who cannot reliably tap a button, I want a passive mode that infers 'they're OK' from phone activity. PRD 10.3 Phase 3 lists passive monitoring. HeartbeatService reports battery/last-seen but there is no activity-based passive check-in.",
+      "acceptanceCriteria": [
+        "Define passive-mode semantics: which device signals count as activity (foreground, unlock heartbeat, significant-location already in LocationService) and the inactivity window before escalation",
+        "Add a per-Receiver passive-monitoring setting in receiver_settings that satisfies the daily check-in from detected activity without a tap",
+        "Extend HeartbeatService / background processing to record activity and mark the day satisfied via an edge function",
+        "Owner dashboard distinguishes a passive 'seen active' day from an explicit 'I'm OK' tap",
+        "Privacy: no new location collection beyond existing consent; documented in the privacy manifest",
+        "progress.txt entry"
+      ],
+      "priority": 62,
+      "passes": false,
+      "notes": "Phase 3 product gap. Net-new; not started this session. Requires additive backend (receiver_settings column + edge function) and careful privacy framing."
+    },
+    {
+      "id": "US-IOS008",
+      "title": "Multi-family support (one Owner managing several family groups)",
+      "description": "As an Owner who watches both aging parents AND teenagers, I want separate family groups under one account. PRD 10.3 Phase 3 lists multi-family support. FamilyService.getFamily() returns only the first family and AppState assumes a single active family.",
+      "acceptanceCriteria": [
+        "FamilyService can list all families a user belongs to and switch the active family",
+        "AppState holds an activeFamilyId and a family switcher appears in the Owner UI",
+        "Dashboard/History/Family/Settings scope to the active family",
+        "Subscription entitlements and Receiver/Viewer limits resolve per the correct family",
+        "Backward compatible: single-family users unaffected; on-device persistence migrates cleanly",
+        "progress.txt entry"
+      ],
+      "priority": 63,
+      "passes": false,
+      "notes": "Phase 3 product gap. Net-new; not started this session. Cross-cutting refactor (FamilyService, AppState, most Owner views); verify RLS already supports multi-family membership first."
+    },
+    {
+      "id": "US-IOS009",
+      "title": "Caregiver notes per Receiver (with optional medication/appointment tracking)",
+      "description": "As a caregiver I want notes (and optionally medication reminders / appointments) per Receiver. PRD 10.3 Phase 3 lists caregiver notes, medication reminders, appointment tracking. No models or UI exist.",
+      "acceptanceCriteria": [
+        "New backend table(s) for per-Receiver caregiver notes (additive migration; RLS so only the Owner/Viewers of that family read, Owner writes)",
+        "iOS UI to add/edit/list notes on a Receiver detail/history screen",
+        "Phase medication-reminder and appointment-tracking as follow-on stories if large; at minimum ship notes",
+        "Notes NOT exposed to the Receiver role",
+        "progress.txt entry"
+      ],
+      "priority": 64,
+      "passes": false,
+      "notes": "Phase 3 product gap. Net-new; not started this session. Start with notes (smallest slice); medication/appointments can split out."
+    },
+    {
+      "id": "US-IOS010",
+      "title": "Dedicated branded launch/splash screen (parity with Android)",
+      "description": "As a user I want a polished branded launch. Android has a dedicated SplashScreen; iOS relies on the auto-generated launch screen with no branded splash. Minor parity/polish gap from the iOS<->Android comparison.",
+      "acceptanceCriteria": [
+        "Add a branded launch/splash consistent with Theme/Colors (logo + tagline 'One tap. Total peace of mind.')",
+        "Implemented as a launch screen and/or a brief SwiftUI splash shown while AppState resolves auth, without delaying time-to-interactive perceptibly",
+        "Respects dark mode and Dynamic Type",
+        "progress.txt entry"
+      ],
+      "priority": 65,
+      "passes": false,
+      "notes": "Parity/polish gap (Android has SplashScreen.kt; iOS none). Net-new; not started this session. Smallest filed gap; note it adds a new Swift/asset file needing a project.pbxproj reference (explicit file refs, objectVersion 56)."
     }
   ]
 }

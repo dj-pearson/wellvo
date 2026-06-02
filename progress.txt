@@ -1082,3 +1082,90 @@ Full URL list (13): /what-to-do, /what-to-do/mom-not-answering-phone, /what-to-d
 Patterns: Single shared component (WhatToDo.tsx) renders any page from src/data/whatToDo.ts by :slug → no drift across the 12 (the AC's "shared layout component" requirement). Per-relation differentiation is real, not templated: intro, "why this is specific to X", first-30-minute and first-24-hour checklists, welfare-check escalation criteria, the prevention/CTA paragraph, and all 5 FAQs are hand-authored per relationship — elderly/living-alone pages argue a lower escalation threshold and in-person verification; teen/college/adult-child pages argue proportionality, autonomy and consent-based (not covert) check-ins; grandparent pages center the diffuse-responsibility coordination failure; spouse page leans on shared-context judgement and a mutual check-in framing. Shared scaffold (calm 911-vs-welfare-check explainer, fill-in welfare-check phone script, not-medical/not-emergency disclaimer, byline, JSON-LD) lives once in the component. YMYL mitigations per pSEO.md §7: byline is "By the Daily OK Editorial Team · Last updated 2026-05-17" — deliberately NOT an LCSW credential (the slot is ready for a real reviewer when contracted); calm, never scare-to-sell tone; explicit disclaimer that Daily OK is not a medical device and to call 911 for immediate danger. JSON-LD: FAQPage (5 Q&A) + BreadcrumbList per page via the reusable src/lib/breadcrumb.ts. Verified: npm run build green (tsc -b + vike), 39 prerendered HTML docs (was 26), generate-sitemap.mjs auto-picked them up (sitemap now 38 URLs), every detail page 924–1266 visible words (≥800 with margin even net of ~100 shared chrome), FAQPage+BreadcrumbList+byline+Last-updated present on all, 0 JSON-LD parse errors, eslint clean. The interactive decision-tree from pSEO.md's suggested structure was intentionally not built — the US-WEB005 AC defines a different (checklist-based) structure and the AC is authoritative; a static, prerender-safe checklist also avoids shipping a client-only widget that crawlers can't read.
 
 == ALL WEB/OPS BACKLOG COMPLETE (US-WEB001..007 + US-OPS001) — all 145 prd.json stories now pass ==
+
+================================================================================
+== iOS GAP AUDIT + STRUCTURAL FIXES (2026-06-02) — branch claude/prd-stories-ios-gaps-Zg8G9
+================================================================================
+
+Trigger: all 145 prd.json stories had passes=true, so per the standing instruction
+we audited the iOS app for gaps, filed them as stories, and began implementation.
+
+AUDIT METHOD: two parallel Explore agents — (a) iOS feature completeness vs the
+full DailyOK-PRD-v1.md (Phase 1/2/3), (b) iOS<->Android parity — plus direct
+inspection of ios/DailyOK.xcodeproj/project.pbxproj, entitlements, and CI workflows.
+
+KEY FINDINGS:
+- iOS is the RICHER reference implementation; Android lags it (so few "iOS is
+  missing what Android has" gaps — mainly a dedicated splash screen). The real
+  iOS gaps are structural/build issues + Phase-3 product features absent on BOTH
+  platforms.
+- Agent false-positives corrected by direct reads: CheckInReportGenerator.swift
+  (218 lines) is a complete UIGraphicsPDFRenderer PDF export; FamilyView
+  transferOwnership() is fully implemented (direct DB writes); CheckInTrendChartView
+  (232 lines) is real. None of these are gaps.
+- VERIFIED STRUCTURAL GAPS:
+  1. ios/DailyOKNotificationService/ (delivery-confirmation NSE) is complete source
+     but has ZERO references in project.pbxproj — never a build target, never ships.
+     The app already shares the access token + URLs to it via App Group
+     group.com.wellvo.ios, and the confirm-delivery edge function exists and is
+     routed in server.ts — so the whole delivery-confirmation path (PRD 4.5) was dead.
+  2. edge-functions/shared/apns.ts never set 'mutable-content': 1, so iOS would not
+     invoke a service extension even if one shipped.
+  3. ios/DailyOKTests/ (4 unit-test files, @testable import DailyOK) is NOT a target;
+     the only iOS CI (ios-e2e-tests.yml) runs -only-testing:DailyOKUITests. Unit tests
+     have never compiled or run.
+  4. DISCOVERED BUG (filed, NOT fixed): apns.ts BUNDLE_ID='com.dailyok.ios' is sent as
+     the apns-topic, but the app's bundle id is com.wellvo.ios everywhere. APNs requires
+     topic == bundle id, so this likely breaks all iOS push. Left unchanged pending human
+     confirmation (US-IOS003) to avoid breaking prod push on an unverifiable assumption.
+- PHASE-3 PRODUCT GAPS (absent iOS+Android): Widgets, Apple Watch, Siri/App Intents,
+  passive monitoring, multi-family, caregiver notes.
+
+STORIES FILED (10, all passes=false): US-IOS001..US-IOS010 in prd.json (priorities 56-65).
+
+IMPLEMENTED THIS SESSION (passes left FALSE — awaiting CI verification, since this
+environment is Linux with no Xcode and the existing iOS CI only runs on PR-to-main):
+
+US-IOS001 — Notification Service Extension wired in:
+  Files: ios/DailyOK.xcodeproj/project.pbxproj, edge-functions/shared/apns.ts
+  - pbxproj: added app-extension target DailyOKNotificationService (T4000001) — PBXNativeTarget,
+    Sources phase (S4000001: NotificationService.swift), Resources phase (R4000001:
+    PrivacyInfo.xcprivacy), empty Frameworks phase (D4000001), Debug/Release configs
+    (BC000009/10: INFOPLIST_FILE + entitlements + bundle id com.wellvo.ios.NotificationService
+    + SKIP_INSTALL=YES + appex rpath), config list CL000005, product F4P00004 (.appex),
+    group G4N00001. Host app (T1000001) got an Embed App Extensions copy phase (PF000001,
+    dstSubfolderSpec=13) + target dependency (TD000003 via CP000003).
+  - apns.ts: buildCheckinPayload now sets "mutable-content": 1 (additive/backward-compatible);
+    added the field to the APNsPayload aps type with a comment.
+  REMAINING MANUAL (release-time): create an App ID + provisioning profile for
+  com.wellvo.ios.NotificationService with App Groups capability before the next App Store
+  archive — ios-build-deploy.yml uses manual signing with a single profile and will need a
+  second one once the appex is a target.
+
+US-IOS002 — iOS unit tests wired into a target + CI:
+  Files: ios/DailyOK.xcodeproj/project.pbxproj,
+         ios/DailyOK.xcodeproj/xcshareddata/xcschemes/DailyOK.xcscheme (new),
+         .github/workflows/ios-unit-tests.yml (new)
+  - pbxproj: added unit-test target DailyOKTests (T3000001) hosting in the app
+    (TEST_HOST=$(BUILT_PRODUCTS_DIR)/DailyOK.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DailyOK,
+    BUNDLE_LOADER, TestTargetID=DailyOK, bundle id com.wellvo.ios.tests), Sources phase
+    S3000001 (the 4 test files), empty Frameworks D3000001, configs BC000007/8, list CL000004,
+    product F3P00003 (.xctest), group G3T00001, dependency TD000002 via CP000002.
+  - DailyOK.xcscheme: shared scheme building the app, with DailyOKTests + DailyOKUITests in the
+    test action (deterministic CI test selection instead of relying on autocreation).
+  - ios-unit-tests.yml: macos-15, triggers on push to develop/feat/**/claude/**/release/**/hotfix/**
+    and PR to develop/main (paths ios/**), boots a simulator, build-for-testing the DailyOK scheme
+    (signing disabled — this ALSO compiles+embeds the new NSE, validating US-IOS001 wiring), then
+    test-without-building -only-testing:DailyOKTests. This is the requested "feedback before the
+    release build" loop. Configuration.swift falls back to localhost in DEBUG (no fatalError), so
+    the host app launches cleanly in the test runner with placeholder Info.plist values.
+
+VALIDATION (no Xcode available here): project.pbxproj checked programmatically — brace/paren
+balance = 0, every ID-like UUID referenced is defined, no dangling or orphaned objects (222
+objects). The four new native-target/attributes pairs are expected, not duplicates. Real build +
+test verification happens on the first ios-unit-tests.yml run on this branch push.
+
+NOT STARTED (filed for later, larger net-new work): US-IOS004 Widgets, US-IOS005 Apple Watch,
+US-IOS006 Siri/App Intents, US-IOS007 passive monitoring, US-IOS008 multi-family, US-IOS009
+caregiver notes, US-IOS010 branded splash screen. US-IOS003 (APNs topic bug) is filed and flagged
+to the maintainer rather than fixed blind.

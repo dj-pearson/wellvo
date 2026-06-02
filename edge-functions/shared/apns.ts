@@ -29,6 +29,11 @@ interface APNsPayload {
     "thread-id"?: string;
     "interruption-level"?: "passive" | "active" | "time-sensitive" | "critical";
     "relevance-score"?: number;
+    // When set to 1, iOS launches the app's Notification Service Extension
+    // before display, which lets us POST delivery confirmation to the
+    // confirm-delivery edge function. Additive + backward-compatible:
+    // installs without the extension simply ignore it.
+    "mutable-content"?: number;
   };
   // Custom data
   [key: string]: unknown;
@@ -152,6 +157,8 @@ export function buildCheckinPayload(
       category: "CHECKIN_REQUEST",
       "thread-id": `checkin-${requestId}`,
       "interruption-level": interruptionLevel as APNsPayload["aps"]["interruption-level"],
+      // Invoke the Notification Service Extension so it can confirm delivery.
+      "mutable-content": 1,
     },
     checkin_request_id: requestId,
     type,
