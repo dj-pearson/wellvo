@@ -20,12 +20,33 @@
 
 ## 1. Apple App Store Connect — Full Metadata
 
+### 1.0 Metadata Version History (rollback reference)
+
+We optimize the listing for App Store ranking in **versions** so every change is
+reversible. **v2** is the current ASO-optimized set (rationale and full plan in
+`docs/ASO_STRATEGY.md`). If a version underperforms, paste the previous column
+back into the fields below and submit a metadata-only update (reusing the build).
+
+| Field | v1 (original — 2026-03 launch) | v2 (current — ASO-optimized, 2026-06) |
+| --- | --- | --- |
+| App Name | `Daily OK — Daily Check-In` | `Daily OK: Senior Check-In` |
+| Subtitle | `One tap. Peace of mind.` | `Elderly safety & care alerts` |
+| Keywords (en-US) | `check in,family safety,aging parents,daily check,senior safety,teen check in,caregiver,peace of mind` | `aging,parent,family,caregiver,reminder,alone,fall,wellbeing,mood,emergency,sos,loved,safe,wellness` |
+| Keywords (en-GB) | _(localization did not exist)_ | `checkup,welfare,distress,dementia,independent,living,vulnerable,relative,grandparent,reassurance` |
+| Keywords (en-AU) | _(localization did not exist)_ | `carer,housebound,frail,disabled,recovery,anxiety,worry,neighbour,support,connection,checkin,nudge` |
+| Promotional Text | `The #1 daily check-in app for families. Know your aging parent or teenager is OK with one tap. No tracking. No surveillance. Just peace of mind.` | `Set up a daily check-in for someone you love in under 2 minutes. Get an alert the moment they miss one. No tracking — just peace of mind.` |
+| Screenshots | bare app screens — `screenshots/output/` | caption-headline marketing frames — `screenshots/output-v2/` (run `npm run capture:v2`) |
+
+> **Reverting screenshots:** the v1 (bare) PNGs are preserved untouched in
+> `screenshots/output/`; the v2 captioned set generates into `screenshots/output-v2/`.
+> Switch the App Store Connect upload between the two folders to roll forward/back.
+
 ### 1.1 App Information
 
 | Field                  | Value                                |
 | ---------------------- | ------------------------------------ |
-| **App Name**           | Daily OK — Daily Check-In              |
-| **Subtitle**           | One tap. Peace of mind.              |
+| **App Name**           | Daily OK: Senior Check-In _(v2 — see §1.0)_ |
+| **Subtitle**           | Elderly safety & care alerts _(v2 — see §1.0)_ |
 | **Bundle ID**          | `net.dailyok.app`                     |
 | **SKU**                | `dailyok-ios-001`                     |
 | **Primary Language**   | English (U.S.)                       |
@@ -96,17 +117,45 @@ Privacy Policy: https://dailyok.net/privacy
 Terms of Use: https://dailyok.net/terms
 ```
 
-#### Promotional Text (170 chars, can be updated without new build)
+#### Promotional Text (170 chars, can be updated without new build) — v2
 
 ```
-The #1 daily check-in app for families. Know your aging parent or teenager is OK with one tap. No tracking. No surveillance. Just peace of mind.
+Set up a daily check-in for someone you love in under 2 minutes. Get an alert the moment they miss one. No tracking — just peace of mind.
 ```
 
-#### Keywords (100 characters max)
+> v1 (rollback): `The #1 daily check-in app for families. Know your aging parent or teenager is OK with one tap. No tracking. No surveillance. Just peace of mind.`
+> v2 drops the unverifiable "#1" superlative (App Review rejection risk) for a benefit-led CTA. Promotional Text is **not** indexed for search — it only affects conversion — and can be edited anytime without a new version.
+
+#### Keywords (100 characters max) — v2
+
+**English (U.S.)** — 98/100:
 
 ```
-check in,family safety,aging parents,daily check,senior safety,teen check in,caregiver,peace of mind
+aging,parent,family,caregiver,reminder,alone,fall,wellbeing,mood,emergency,sos,loved,safe,wellness
 ```
+
+Add two more English localizations to the same version (reuse U.S. screenshots/
+description). Apple indexes en-GB and en-AU keyword fields for U.S.-storefront
+searches too — this ~triples indexed keyword coverage for ~30 min of work. Treat
+as a measured experiment (track keyword impressions for 2 weeks). See
+`docs/ASO_STRATEGY.md §4`.
+
+**English (U.K.)** — 96/100:
+
+```
+checkup,welfare,distress,dementia,independent,living,vulnerable,relative,grandparent,reassurance
+```
+
+**English (Australia)** — 97/100:
+
+```
+carer,housebound,frail,disabled,recovery,anxiety,worry,neighbour,support,connection,checkin,nudge
+```
+
+> v1 (rollback en-US): `check in,family safety,aging parents,daily check,senior safety,teen check in,caregiver,peace of mind`
+> Rules applied in v2: single tokens (Apple recombines them into phrases), no
+> word repeated across Name/Subtitle/Keywords, singular forms, commas with no
+> spaces, and no competitor trademarks (we conquest those via Search Ads instead).
 
 #### What's New (v1.0.0)
 

@@ -8,6 +8,8 @@
     "capture": "tsc && node dist/capture.js",
     "capture:required": "tsc && node dist/capture.js --required-only",
     "capture:screen": "tsc && node dist/capture.js",
+    "capture:v2": "tsc && node dist/capture.js --variant=v2",
+    "capture:v2:required": "tsc && node dist/capture.js --variant=v2 --required-only",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

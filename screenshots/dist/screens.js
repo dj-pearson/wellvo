@@ -1,11 +1,89 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getScreenHTML = getScreenHTML;
-/** Returns the full HTML page for a given screen, sized to the device's logical viewport */
-function getScreenHTML(screenId, device) {
+/**
+ * v2 marketing captions — a bold value-prop headline rendered above the
+ * device frame. The first 2–3 screenshots show in App Store search results
+ * without a tap, so these sell the value instantly. See docs/ASO_STRATEGY.md.
+ * `\n` becomes a line break in the headline.
+ */
+const CAPTIONS = {
+    'receiver-checkin': { headline: "Know they're OK —\nevery single day", sub: 'One tap is all it takes' },
+    'receiver-done': { headline: "One tap.\nThey're safe.", sub: 'Your family knows instantly' },
+    'mood-selector': { headline: 'A quick mood check, too', sub: 'Notice changes before they grow' },
+    'owner-dashboard': { headline: 'See everyone\nat a glance', sub: 'Get alerted if anyone misses a check-in' },
+    'history-heatmap': { headline: 'Spot worrying\npatterns early', sub: 'Streaks, trends & check-in history' },
+    'family-management': { headline: 'No tracking.\nNo surveillance.', sub: "Just a daily 'I'm OK' — ages 13 to 95" },
+    'plan-selection': { headline: 'Start free.\nCancel anytime.', sub: 'One plan covers the whole family' },
+};
+/**
+ * Returns the full HTML page for a given screen, sized to the device's logical viewport.
+ * `variant` 'v1' (default) renders the bare app screen (original, byte-for-byte preserved).
+ * `variant` 'v2' wraps it in a marketing frame with a caption headline (see CAPTIONS).
+ */
+function getScreenHTML(screenId, device, variant = 'v1') {
     const isIPad = device.slug.startsWith('ipad');
     const isLegacy = device.cornerRadius === 0; // iPhone 8 Plus style
     const contentHeight = device.logicalHeight - device.statusBar - device.homeIndicator;
+    const isV2 = variant === 'v2';
+    // Shared phone markup (status bar + app screen + home indicator). In v1 this
+    // is the whole body; in v2 it lives inside a scaled-down .device-frame.
+    const phoneInner = `
+    ${getStatusBarHTML(device)}
+    <div class="screen-content">
+      ${getScreenContent(screenId, device)}
+    </div>
+    ${device.homeIndicator > 0 ? `<div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>` : ''}
+  `;
+    // v2 marketing-frame geometry: caption headline above a scaled device.
+    const lw = device.logicalWidth;
+    const lh = device.logicalHeight;
+    const frameScale = isLegacy ? 0.82 : 0.84;
+    const frameW = Math.round(lw * frameScale);
+    const frameH = Math.round(lh * frameScale);
+    const frameRadius = Math.round((device.cornerRadius || 28) * frameScale);
+    const bottomGap = Math.round(lh * 0.03);
+    const captionH = lh - frameH - bottomGap;
+    const captionFont = Math.round(lw * (isIPad ? 0.05 : 0.075));
+    const subFont = Math.round(captionFont * 0.5);
+    const cap = CAPTIONS[screenId] || { headline: '', sub: '' };
+    const v2Styles = isV2 ? `
+    html, body { background: transparent; }
+    .marketing {
+      width: ${lw}px; height: ${lh}px;
+      display: flex; flex-direction: column; align-items: center;
+      background: linear-gradient(180deg, #F0FDF4 0%, #DCFCE7 100%);
+    }
+    .caption {
+      height: ${captionH}px; width: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 0 ${Math.round(lw * 0.08)}px;
+    }
+    .caption h2 { font-size: ${captionFont}px; line-height: 1.12; font-weight: 800; color: #1E293B; letter-spacing: -0.5px; }
+    .caption p { margin-top: ${Math.round(captionFont * 0.35)}px; font-size: ${subFont}px; font-weight: 600; color: #22A85C; }
+    .device-frame {
+      width: ${frameW}px; height: ${frameH}px;
+      border-radius: ${frameRadius}px; overflow: hidden; position: relative;
+      background: #FFFFFF; flex-shrink: 0;
+      box-shadow: 0 24px 60px rgba(16,24,40,0.18), 0 4px 16px rgba(16,24,40,0.10);
+    }
+    .phone {
+      width: ${lw}px; height: ${lh}px;
+      transform: scale(${frameScale}); transform-origin: top left;
+      background: #FFFFFF; overflow: hidden; position: relative;
+    }
+  ` : '';
+    const v2Body = `
+    <div class="marketing">
+      <div class="caption">
+        <h2>${cap.headline.replace(/\n/g, '<br>')}</h2>
+        <p>${cap.sub}</p>
+      </div>
+      <div class="device-frame">
+        <div class="phone">${phoneInner}</div>
+      </div>
+    </div>
+  `;
     const base = `
 <!DOCTYPE html>
 <html lang="en">
@@ -132,15 +210,12 @@ function getScreenHTML(screenId, device) {
     margin-bottom: 12px;
   }
 
+  ${v2Styles}
   ${getScreenStyles(screenId, device)}
 </style>
 </head>
 <body>
-  ${getStatusBarHTML(device)}
-  <div class="screen-content">
-    ${getScreenContent(screenId, device)}
-  </div>
-  ${device.homeIndicator > 0 ? `<div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>` : ''}
+  ${isV2 ? v2Body : phoneInner}
 </body>
 </html>`;
     return base;
@@ -814,44 +889,43 @@ function getScreenContent(screenId, device) {
         <div class="plan-screen">
           <div class="plan-subheading">Start with a free trial. Cancel anytime.</div>
 
-          <div class="plan-card">
-            <div class="plan-name-row">
-              <div class="plan-name">Free</div>
-              <div class="plan-price">$0 <span>/month</span></div>
-            </div>
-            <ul class="plan-features-list">
-              <li class="plan-feature"><span class="check">✓</span> 1 Receiver</li>
-              <li class="plan-feature"><span class="check">✓</span> Daily check-ins</li>
-              <li class="plan-feature"><span class="check">✓</span> Basic escalation</li>
-              <li class="plan-feature"><span class="check">✓</span> 7-day history</li>
-            </ul>
-          </div>
-
           <div class="plan-card highlighted">
             <div class="plan-popular">Most Popular</div>
             <div class="plan-name-row">
-              <div class="plan-name">Family</div>
-              <div class="plan-price">$4.99 <span>/month</span></div>
+              <div class="plan-name">Caregiver</div>
+              <div class="plan-price">$3.99 <span>/month</span></div>
             </div>
             <ul class="plan-features-list">
-              <li class="plan-feature"><span class="check">✓</span> 2 Receivers, 2 Viewers</li>
-              <li class="plan-feature"><span class="check">✓</span> Custom schedules</li>
-              <li class="plan-feature"><span class="check">✓</span> On-demand check-ins</li>
-              <li class="plan-feature"><span class="check">✓</span> Mood tracking</li>
+              <li class="plan-feature"><span class="check">✓</span> 1 Receiver, 3 Viewers</li>
+              <li class="plan-feature"><span class="check">✓</span> Daily + on-demand check-ins</li>
+              <li class="plan-feature"><span class="check">✓</span> Full escalation chain</li>
+              <li class="plan-feature"><span class="check">✓</span> Mood + pattern alerts</li>
               <li class="plan-feature"><span class="check">✓</span> 90-day history</li>
-              <li class="plan-feature"><span class="check">✓</span> Pattern alerts</li>
+            </ul>
+          </div>
+
+          <div class="plan-card">
+            <div class="plan-name-row">
+              <div class="plan-name">Family</div>
+              <div class="plan-price">$6.99 <span>/month</span></div>
+            </div>
+            <ul class="plan-features-list">
+              <li class="plan-feature"><span class="check">✓</span> 3 Receivers, 5 Viewers</li>
+              <li class="plan-feature"><span class="check">✓</span> Everything in Caregiver</li>
+              <li class="plan-feature"><span class="check">✓</span> Clinician PDF export</li>
+              <li class="plan-feature"><span class="check">✓</span> 1-year history</li>
+              <li class="plan-feature"><span class="check">✓</span> Kid mode</li>
             </ul>
           </div>
 
           <div class="plan-card">
             <div class="plan-name-row">
               <div class="plan-name">Family+</div>
-              <div class="plan-price">$7.99 <span>/month</span></div>
+              <div class="plan-price">$9.99 <span>/month</span></div>
             </div>
             <ul class="plan-features-list">
-              <li class="plan-feature"><span class="check">✓</span> 5 Receivers, 5 Viewers</li>
+              <li class="plan-feature"><span class="check">✓</span> 6 Receivers, 10 Viewers</li>
               <li class="plan-feature"><span class="check">✓</span> Critical Alerts (bypass DND)</li>
-              <li class="plan-feature"><span class="check">✓</span> PDF reports</li>
               <li class="plan-feature"><span class="check">✓</span> Unlimited history</li>
               <li class="plan-feature"><span class="check">✓</span> Priority support</li>
             </ul>
