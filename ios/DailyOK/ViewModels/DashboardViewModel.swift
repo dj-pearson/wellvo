@@ -21,6 +21,8 @@ struct ReceiverStatusCard: Identifiable {
     /// Current escalation step of an active (pending) request: 0 = none yet,
     /// 1+ = reminders/alerts in progress. Drives the owner "escalating" banner.
     var escalationStep: Int = 0
+    /// US-IOS016: number of shared care notes on this receiver, for the card badge.
+    var noteCount: Int = 0
 }
 
 enum ReceiverCheckInStatus {
@@ -166,6 +168,8 @@ final class DashboardViewModel: ObservableObject {
             }
 
             receiverCards = cards
+            // US-IOS016: tally shared care notes per receiver for the card badge.
+            await applyNoteCounts(familyId: family.id)
             // Mirror status to the App Group so the owner status widget can show
             // an at-a-glance summary without opening the app.
             SharedOwnerPublisher.publish(cards)
@@ -276,6 +280,31 @@ final class DashboardViewModel: ObservableObject {
     }
 
     // MARK: - Private
+
+    /// US-IOS016: count care notes per receiver and apply to the cards' badges.
+    /// Best-effort — a load failure (or an older backend without the table)
+    /// simply leaves every badge at 0.
+    private func applyNoteCounts(familyId: UUID) async {
+        struct NoteReceiver: Decodable {
+            let receiverId: UUID
+            enum CodingKeys: String, CodingKey { case receiverId = "receiver_id" }
+        }
+        do {
+            let rows: [NoteReceiver] = try await SupabaseService.shared.client
+                .from("care_notes")
+                .select("receiver_id")
+                .eq("family_id", value: familyId.uuidString)
+                .execute()
+                .value
+            var counts: [UUID: Int] = [:]
+            for row in rows { counts[row.receiverId, default: 0] += 1 }
+            for i in receiverCards.indices {
+                receiverCards[i].noteCount = counts[receiverCards[i].id] ?? 0
+            }
+        } catch {
+            // Non-critical; leave badges at 0.
+        }
+    }
 
     private func loadAlerts(familyId: UUID) async {
         do {

@@ -19,6 +19,7 @@
 		B1B00004 /* ReceiverSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B00004; };
 		B1B00005 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B00005; };
 		B1B00006 /* DailyOKAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B00006; };
+		B1B00200 /* CareNote.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B00200; };
 		B1B00007 /* DailyOKError.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B00007; };
 		/* Services */
 		B1C00001 /* AnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00001; };
@@ -51,6 +52,7 @@
 		B1F00005 /* CheckInReportGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00005; };
 		B1F00006 /* CheckInTrendChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00006; };
 		B1F00007 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00007; };
+		B1F00202 /* CareNotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00202; };
 		B1F00008 /* FamilyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00008; };
 		B1F00009 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00009; };
 		B1F0000A /* OwnerTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0000A; };
@@ -176,6 +178,7 @@
 		F1B00004 /* ReceiverSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverSettings.swift; sourceTree = "<group>"; };
 		F1B00005 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
 		F1B00006 /* DailyOKAlert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKAlert.swift; sourceTree = "<group>"; };
+		F1B00200 /* CareNote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CareNote.swift; sourceTree = "<group>"; };
 		F1B00007 /* DailyOKError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKError.swift; sourceTree = "<group>"; };
 		/* Services */
 		F1C00001 /* AnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsService.swift; sourceTree = "<group>"; };
@@ -213,6 +216,7 @@
 		F1F00005 /* CheckInReportGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInReportGenerator.swift; sourceTree = "<group>"; };
 		F1F00006 /* CheckInTrendChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInTrendChartView.swift; sourceTree = "<group>"; };
 		F1F00007 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		F1F00202 /* CareNotesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CareNotesView.swift; sourceTree = "<group>"; };
 		F1F00008 /* FamilyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyView.swift; sourceTree = "<group>"; };
 		F1F00009 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		F1F0000A /* OwnerTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnerTabView.swift; sourceTree = "<group>"; };
@@ -583,6 +587,7 @@
 				F1B00004 /* ReceiverSettings.swift */,
 				F1B00005 /* User.swift */,
 				F1B00006 /* DailyOKAlert.swift */,
+				F1B00200 /* CareNote.swift */,
 				F1B00007 /* DailyOKError.swift */,
 			);
 			path = Models;
@@ -699,6 +704,7 @@
 				F1F00005 /* CheckInReportGenerator.swift */,
 				F1F00006 /* CheckInTrendChartView.swift */,
 				F1F00007 /* DashboardView.swift */,
+				F1F00202 /* CareNotesView.swift */,
 				F1F00008 /* FamilyView.swift */,
 				F1F00009 /* HistoryView.swift */,
 				F1F0000A /* OwnerTabView.swift */,
@@ -932,6 +938,7 @@
 				B1B00004 /* ReceiverSettings.swift in Sources */,
 				B1B00005 /* User.swift in Sources */,
 				B1B00006 /* DailyOKAlert.swift in Sources */,
+				B1B00200 /* CareNote.swift in Sources */,
 				B1B00007 /* DailyOKError.swift in Sources */,
 				B1C00001 /* AnalyticsService.swift in Sources */,
 				B1C00002 /* AuthService.swift in Sources */,
@@ -958,6 +965,7 @@
 				B1F00005 /* CheckInReportGenerator.swift in Sources */,
 				B1F00006 /* CheckInTrendChartView.swift in Sources */,
 				B1F00007 /* DashboardView.swift in Sources */,
+				B1F00202 /* CareNotesView.swift in Sources */,
 				B1F00008 /* FamilyView.swift in Sources */,
 				B1F00009 /* HistoryView.swift in Sources */,
 				B1F0000A /* OwnerTabView.swift in Sources */,

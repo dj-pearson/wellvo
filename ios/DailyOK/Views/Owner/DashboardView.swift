@@ -83,7 +83,7 @@ struct DashboardView: View {
                                 Task { await viewModel.sendOnDemandCheckIn(to: card.id) }
                             }, onStandDown: {
                                 Task { await viewModel.standDownEscalation(for: card.id) }
-                            })
+                            }, familyId: viewModel.family?.id)
                             .transition(.asymmetric(
                                 insertion: .opacity.combined(with: .move(edge: .bottom)).animation(DailyOKMotion.smoothSpring.delay(Double(index) * 0.05)),
                                 removal: .opacity
@@ -344,6 +344,9 @@ struct ReceiverStatusCardView: View {
     var isReadOnly: Bool = false
     let onCheckOn: () -> Void
     var onStandDown: (() -> Void)? = nil
+    /// US-IOS016: family the receiver belongs to, so the card can open the
+    /// shared care-notes timeline. Nil hides the notes affordance.
+    var familyId: UUID? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -531,6 +534,30 @@ struct ReceiverStatusCardView: View {
             // One-tap reach the receiver directly — useful for any caregiver
             // (owner or viewer) when a check-in looks off.
             ContactQuickActions(name: card.name, phone: card.phone)
+
+            // Shared care notes / timeline (owner + viewers). US-IOS016.
+            if let familyId {
+                NavigationLink {
+                    CareNotesView(familyId: familyId, receiverId: card.id, receiverName: card.name)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "note.text")
+                        Text("Care notes")
+                        if card.noteCount > 0 {
+                            Text("\(card.noteCount)")
+                                .font(.caption2.weight(.bold))
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(DailyOKColor.green.opacity(0.2), in: Capsule())
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                    .padding(.vertical, 4)
+                }
+                .accessibilityHint("Open the shared care notes for \(card.name).")
+            }
         }
         .padding()
         .glassCard(style: .regular, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)

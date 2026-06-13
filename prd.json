@@ -2702,7 +2702,7 @@
         "Empty state encourages the first note"
       ],
       "priority": 115,
-      "passes": false,
+      "passes": true,
       "notes": "Turns Daily OK from a single-signal tool into a lightweight shared caregiving hub \u2014 raises switching cost and differentiates from pure check-in apps. All schema additive + RLS-scoped."
     },
     {

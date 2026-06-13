@@ -1128,3 +1128,17 @@ iOS:
   - In-app summary card: reuses the existing dashboard weekly-summary card per the AC ("no new analytics for v1"); no new in-app card built.
 Verification: source-level only (no Xcode/Deno/Postgres in this Linux container). SQL hand-reviewed against 00003/00035 cron patterns; TS mirrors on-demand-checkin + send-notification helper; pbxproj entries added in all 4 required sections.
 Documented scope notes: quiet-hours in the AC is a receiver concept; for the owner digest the owner picks the delivery hour and the send is gated on having notification tokens, which covers "respects notification permission state". Weekly cadence fixed to Monday (not user-selectable day) for v1.
+
+--- Iteration IOS-016: US-IOS016 shared care notes / family timeline (2026-06-13) ---
+Per-receiver shared notes feed so the care team (owner + viewers) can record context everyone sees. Backend-first, all additive (new table only; no existing table/policy/function changed).
+Backend: supabase/migrations/00041_care_notes.sql
+  - New care_notes table (id, family_id, receiver_id, author_id, author_name [denormalized for display + realtime], body, created_at, updated_at) + index (family_id, receiver_id, created_at DESC) + BEFORE UPDATE trigger to touch updated_at.
+  - RLS scoped to active caregivers: SELECT (owner/viewer of family), INSERT (caregiver authoring as self), UPDATE (author edits own), DELETE (author OR family owner = moderation). Receivers intentionally excluded — notes are caregiver-side context.
+  - Added care_notes to supabase_realtime + REPLICA IDENTITY FULL so INSERT/UPDATE/DELETE stream to co-caregivers. No edge function: standard Supabase RLS + PostgREST CRUD, same approach as alerts.
+iOS:
+  - Models/CareNote.swift (NEW).
+  - Views/Owner/CareNotesView.swift (NEW) + embedded CareNotesViewModel: newest-first feed showing author + timestamp + (edited) marker, composer to add, context-menu edit/delete gated by canEdit (author) / canDelete (author or owner), empty state encouraging the first note, realtime subscription (realtimeV2 channel filtered receiver_id) that reloads on change. Resolves the author's id/display_name + owner status from the session on open.
+  - Views/Owner/DashboardView.swift ReceiverStatusCardView: added optional familyId param + a "Care notes" NavigationLink with a count badge; passed viewModel.family?.id at the call site. Owners AND viewers get it (shared DashboardView via ViewerTabView).
+  - ViewModels/DashboardViewModel.swift: ReceiverStatusCard.noteCount + applyNoteCounts(familyId:) tallies care_notes per receiver during loadDashboard (best-effort; older backend without the table leaves badges at 0).
+  - Registered CareNote.swift + CareNotesView.swift in DailyOK.xcodeproj (ids F1B00200/B1B00200, F1F00202/B1F00202).
+Verification: source-level only (no Xcode/Deno/Postgres). SQL hand-reviewed against the alerts/00020 RLS+realtime patterns; Swift mirrors existing .from()/.insert()/.update()/.delete() + realtimeV2 usage (DashboardViewModel). pbxproj entries added in all 4 sections per file.
