@@ -94,6 +94,13 @@
 		B1F00019 /* PaywallFeatureCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00019; };
 		B1F0001A /* PremiumCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0001A; };
 		B1F0001B /* StreakBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0001B; };
+		/* Shared (App Intents / widget / watch hand-off) */
+		B1S00001 /* SharedAppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00001; };
+		B1S00002 /* SharedCheckInState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00002; };
+		B1S00003 /* SharedCheckInClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00003; };
+		B1S00004 /* CheckInIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00004; };
+		B1S00005 /* DailyOKAppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00005; };
+		B1C00022 /* SharedCheckInPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00022; };
 		/* UI Tests */
 		B2U00001 /* DailyOKUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00001; };
 		B2U00002 /* OwnerFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00002; };
@@ -180,6 +187,13 @@
 		F1F00019 /* PaywallFeatureCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallFeatureCarousel.swift; sourceTree = "<group>"; };
 		F1F0001A /* PremiumCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumCards.swift; sourceTree = "<group>"; };
 		F1F0001B /* StreakBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakBadge.swift; sourceTree = "<group>"; };
+		/* Shared (App Intents / widget / watch hand-off) */
+		F1S00001 /* SharedAppGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedAppGroup.swift; sourceTree = "<group>"; };
+		F1S00002 /* SharedCheckInState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedCheckInState.swift; sourceTree = "<group>"; };
+		F1S00003 /* SharedCheckInClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedCheckInClient.swift; sourceTree = "<group>"; };
+		F1S00004 /* CheckInIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInIntent.swift; sourceTree = "<group>"; };
+		F1S00005 /* DailyOKAppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKAppShortcuts.swift; sourceTree = "<group>"; };
+		F1C00022 /* SharedCheckInPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedCheckInPublisher.swift; sourceTree = "<group>"; };
 		/* Resources */
 		F1G00001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		/* Config */
@@ -277,10 +291,23 @@
 				G1D00001 /* Utilities */,
 				G1E00001 /* ViewModels */,
 				G1F00001 /* Views */,
+				G1S00001 /* Shared */,
 				F1G00001 /* Assets.xcassets */,
 				F1X00001 /* BuildConfig.xcconfig */,
 			);
 			path = DailyOK;
+			sourceTree = "<group>";
+		};
+		G1S00001 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				F1S00001 /* SharedAppGroup.swift */,
+				F1S00002 /* SharedCheckInState.swift */,
+				F1S00003 /* SharedCheckInClient.swift */,
+				F1S00004 /* CheckInIntent.swift */,
+				F1S00005 /* DailyOKAppShortcuts.swift */,
+			);
+			path = Shared;
 			sourceTree = "<group>";
 		};
 		G1000003 /* Products */ = {
@@ -343,6 +370,7 @@
 				F1C00021 /* ReviewPromptService.swift */,
 				F1C00005 /* OfflineCheckInService.swift */,
 				F1C00006 /* PushNotificationService.swift */,
+				F1C00022 /* SharedCheckInPublisher.swift */,
 				F1C00007 /* SubscriptionService.swift */,
 				F1C00008 /* SupabaseService.swift */,
 			);
@@ -653,6 +681,12 @@
 				B1F00019 /* PaywallFeatureCarousel.swift in Sources */,
 				B1F0001A /* PremiumCards.swift in Sources */,
 				B1F0001B /* StreakBadge.swift in Sources */,
+				B1S00001 /* SharedAppGroup.swift in Sources */,
+				B1S00002 /* SharedCheckInState.swift in Sources */,
+				B1S00003 /* SharedCheckInClient.swift in Sources */,
+				B1S00004 /* CheckInIntent.swift in Sources */,
+				B1S00005 /* DailyOKAppShortcuts.swift in Sources */,
+				B1C00022 /* SharedCheckInPublisher.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
