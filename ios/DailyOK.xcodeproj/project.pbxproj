@@ -139,6 +139,8 @@
 		B4F00003 /* WatchCheckInModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F00003; };
 		B4F00004 /* WatchConnectivityProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F00004; };
 		B4F00005 /* WatchOfflineQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F00007; };
+		B4F00006 /* WatchNotificationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F00008; };
+		B4F00007 /* CheckInNotificationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F00009; };
 		/* Shared files compiled into the watch app */
 		B4S00001 /* SharedAppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00001; };
 		B4S00002 /* SharedCheckInState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00002; };
@@ -278,6 +280,8 @@
 		F4F00003 /* WatchCheckInModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchCheckInModel.swift; sourceTree = "<group>"; };
 		F4F00004 /* WatchConnectivityProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityProvider.swift; sourceTree = "<group>"; };
 		F4F00007 /* WatchOfflineQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchOfflineQueue.swift; sourceTree = "<group>"; };
+		F4F00008 /* WatchNotificationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchNotificationController.swift; sourceTree = "<group>"; };
+		F4F00009 /* CheckInNotificationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInNotificationView.swift; sourceTree = "<group>"; };
 		F4F00005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F4F00006 /* DailyOKWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DailyOKWatch.entitlements; sourceTree = "<group>"; };
 		F4P00001 /* DailyOKWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DailyOKWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -461,6 +465,8 @@
 				F4F00003 /* WatchCheckInModel.swift */,
 				F4F00004 /* WatchConnectivityProvider.swift */,
 				F4F00007 /* WatchOfflineQueue.swift */,
+				F4F00008 /* WatchNotificationController.swift */,
+				F4F00009 /* CheckInNotificationView.swift */,
 				F4F00005 /* Info.plist */,
 				F4F00006 /* DailyOKWatch.entitlements */,
 			);
@@ -1033,6 +1039,8 @@
 				B4F00003 /* WatchCheckInModel.swift in Sources */,
 				B4F00004 /* WatchConnectivityProvider.swift in Sources */,
 				B4F00005 /* WatchOfflineQueue.swift in Sources */,
+				B4F00006 /* WatchNotificationController.swift in Sources */,
+				B4F00007 /* CheckInNotificationView.swift in Sources */,
 				B4S00001 /* SharedAppGroup.swift in Sources */,
 				B4S00002 /* SharedCheckInState.swift in Sources */,
 				B4S00003 /* SharedCheckInClient.swift in Sources */,

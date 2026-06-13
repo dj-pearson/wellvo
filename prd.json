@@ -2498,7 +2498,7 @@
       ],
       "priority": 102,
       "passes": false,
-      "notes": "iOS forwards categorized notifications to the watch automatically when the phone is locked/away. The main work is the custom long-look UI and ensuring the action handlers run on the watch side. No new server contract."
+      "notes": "IMPLEMENTED (pending Xcode build verification): watch registers the CHECKIN_REQUEST category (I'm OK/Need Help/Call Me) and a UNUserNotificationCenterDelegate (WatchNotificationController) that completes the response via the shared core (reuses process-checkin-response); offline 'OK' is queued. Custom long-look UI via WKNotificationScene + CheckInNotificationController. iPhone forwards the categorized notification to the wrist. | iOS forwards categorized notifications to the watch automatically when the phone is locked/away. The main work is the custom long-look UI and ensuring the action handlers run on the watch side. No new server contract."
     },
     {
       "id": "US-IOS004",
