@@ -86,9 +86,19 @@ clears it.
 - **Verify in Xcode**: complication extension builds for watchOS and appears in
   the watch face gallery; add an app-icon/asset catalog before submission.
 
+### Phase 5 — Watch offline queue + standalone resilience (`US-IOS005`) (DONE)
+- `ios/DailyOKWatch/WatchOfflineQueue.swift`: one-slot offline marker in the
+  watch's App Group. A wrist check-in made with no network is queued and
+  confirmed optimistically ("Saved — will send when connected").
+- Auto-sync on launch, foreground, and when a fresh snapshot arrives from the
+  phone (a reconnect signal). Distinct messaging for an expired session with an
+  unreachable phone ("open Daily OK on iPhone").
+- **Idempotency is server-side**: `process-checkin-response` already dedupes
+  per local day (returns the existing row instead of inserting), so flushing a
+  stale watch queue after the phone already checked in never creates a
+  duplicate. No client idempotency token needed.
+
 ### Not yet done (follow-ups)
-- Watch→phone reverse sync currently just nudges the phone to refresh; full
-  offline-on-watch queue + idempotent dedupe (rest of `US-IOS005`).
 - Widget-vs-Siri source attribution (would need an intent parameter; the enum
   value `widget` is already provisioned by migration 00037).
 

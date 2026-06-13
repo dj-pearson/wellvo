@@ -2530,7 +2530,7 @@
       ],
       "priority": 104,
       "passes": false,
-      "notes": "PARTIAL: phone->watch snapshot sync via updateApplicationContext done; watch checks in over its own network; wrist check-in nudges phone to refresh. Full offline-on-watch queue + idempotent dedupe still TODO. | Idempotency matters \u2014 reuse the offline check-in id scheme so the same day's check-in from watch+phone collapses to one record. Keep dedupe client-side plus the server's existing today-status guard."
+      "notes": "IMPLEMENTED (pending Xcode build verification): watch performs check-ins over its own network; WatchOfflineQueue persists a wrist check-in made offline and auto-syncs on launch/foreground/reconnect with 'will send when connected' messaging; expired-session+unreachable-phone shows 'open iPhone'. Idempotency is guaranteed server-side (process-checkin-response dedupes per local day), so flushing a stale queue never duplicates. | PARTIAL: phone->watch snapshot sync via updateApplicationContext done; watch checks in over its own network; wrist check-in nudges phone to refresh. Full offline-on-watch queue + idempotent dedupe still TODO. | Idempotency matters \u2014 reuse the offline check-in id scheme so the same day's check-in from watch+phone collapses to one record. Keep dedupe client-side plus the server's existing today-status guard."
     },
     {
       "id": "US-IOS006",

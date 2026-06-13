@@ -19,11 +19,21 @@ struct WatchCheckInView: View {
                 checkInButton
             }
         }
-        .onAppear { model.reload() }
-        // A fresh snapshot from the phone arrived — re-read it.
-        .onChange(of: connectivity.revision) { _, _ in model.reload() }
+        .onAppear {
+            model.reload()
+            Task { await model.syncPendingIfNeeded() }
+        }
+        // A fresh snapshot from the phone arrived (often a reconnect) — re-read
+        // it and try to flush any queued check-in.
+        .onChange(of: connectivity.revision) { _, _ in
+            model.reload()
+            Task { await model.syncPendingIfNeeded() }
+        }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { model.reload() }
+            if phase == .active {
+                model.reload()
+                Task { await model.syncPendingIfNeeded() }
+            }
         }
     }
 
@@ -70,7 +80,11 @@ struct WatchCheckInView: View {
                 .foregroundStyle(brandGreen)
             Text("You're all set!")
                 .font(.headline)
-            if let at = model.state?.lastCheckInAt {
+            if model.queued {
+                Text("Saved — will send when connected")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else if let at = model.state?.lastCheckInAt {
                 Text("Checked in \(at.formatted(date: .omitted, time: .shortened))")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
