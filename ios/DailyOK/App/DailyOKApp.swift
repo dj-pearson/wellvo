@@ -55,6 +55,14 @@ struct DailyOKApp: App {
                 }
                 appState.pendingInviteToken = token
             }
+        case "standdown":
+            // From an escalation Live Activity "Stand down" button — stop the
+            // escalation chain for this receiver (owner is authenticated here).
+            if let r = components.queryItems?.first(where: { $0.name == "receiver" })?.value,
+               let f = components.queryItems?.first(where: { $0.name == "family" })?.value,
+               let receiverId = UUID(uuidString: r), let familyId = UUID(uuidString: f) {
+                Task { try? await CheckInService.shared.cancelEscalation(receiverId: receiverId, familyId: familyId) }
+            }
         default:
             break
         }

@@ -2448,6 +2448,293 @@
       "priority": 55,
       "passes": true,
       "notes": "Discovered while triaging loose files in repo root. Apple Sign-In client_secret JWTs expire in 6 months \u2014 if rotation is missed, all SIWA logins break silently. Low effort, high value to ops. Don't automate the rotation itself (requires the .p8 key which should not live in CI), only the reminder. [DONE 2026-05-17] /Untitled deleted (git rm). Content moved into docs/auth/sign-in-with-apple-rotation.md as a full runbook (prerequisites table, Ruby JWT-gen command, Supabase paste location, 6-month expiry / 5-month cadence, calendar-reminder template, failure-mode table, explicit \"not automated: signing requires the .p8 which must never live in CI\"). docs/runbooks/README.md created as the runbook index with cadence. docs/auth/last-rotated.txt added as a secret-free iat/exp tracker. .github/workflows/siwa-secret-expiry-reminder.yml added: weekly cron reads last-rotated.txt exp and opens/refreshes a labeled GitHub issue 30 days before expiry (reads only, never signs). .gitignore already had *.p8 (matches AuthKey_*.p8); added an explicit AuthKey_*.p8 line for defense-in-depth."
+    },
+    {
+      "id": "US-IOS001",
+      "title": "Scaffold watchOS companion app target with shared auth/session handoff",
+      "description": "As a receiver who wears an Apple Watch, I want a Daily OK watch app so that I can check in from my wrist without taking out my phone.",
+      "acceptanceCriteria": [
+        "New watchOS app target 'DailyOK Watch App' added to ios/DailyOK.xcodeproj (watchOS 10+ to match modern SwiftUI APIs)",
+        "App Group (group.net.dailyok.shared) enabled on the iOS app, watch app, widget, and notification-service extensions so they can share Keychain/session and cached state",
+        "Shared Swift package or shared-source membership for Models (CheckIn, ReceiverSettings, Mood, etc.), Colors/Theme tokens, and the EdgeFunctionsClient request/response DTOs \u2014 no model duplication",
+        "Supabase session/refresh token mirrored to the App Group Keychain on the phone and read by the watch on launch (read-only consumer; phone remains the auth owner)",
+        "WatchConnectivity session activated on both sides (WCSession) with reachability + applicationContext plumbing established",
+        "Watch app builds and launches to a placeholder check-in screen showing the signed-in receiver's name",
+        "No new edge-function endpoints required \u2014 the watch reuses process-checkin-response via the shared EdgeFunctionsClient"
+      ],
+      "priority": 100,
+      "passes": false,
+      "notes": "PARTIAL/IMPLEMENTED (pending Xcode build verification): watchOS target DailyOKWatch added with App Group + shared models/EdgeFunctionsClient via an SDK-free shared core; session handed off from phone via WatchConnectivity. See docs/ios-watch-widgets-setup.md. | Foundation for all watch work. Keep the watch a thin client that reuses existing services/DTOs. Auth stays phone-led: the watch consumes a mirrored session and falls back to 'open Daily OK on your iPhone to sign in' if none is present. Respect backward compat \u2014 additive only, no API/schema changes."
+    },
+    {
+      "id": "US-IOS002",
+      "title": "Watch check-in home screen with giant 'I'm OK' button and haptic confirmation",
+      "description": "As a senior receiver, I want a single huge button on my watch so that one tap tells my family I'm OK with clear haptic and visual confirmation.",
+      "acceptanceCriteria": [
+        "Watch ContentView shows one full-width, full-height 'I'm OK' button using the brand green gradient, sized to fill the watch face with a large tap target",
+        "Tap performs the check-in via the shared CheckInService/EdgeFunctionsClient (source = app), capturing watch battery level",
+        "Success: green checkmark fill animation + success haptic (WKInterfaceDevice.play(.success)) + 'You're all set' text and the check-in time",
+        "Already-checked-in state shows a calm confirmation card with next check-in time instead of the button",
+        "Pending-request state shows 'Your family is waiting' banner above the button",
+        "Failure state shows a retry affordance and an error haptic (.failure)",
+        "Respects Dynamic Type / larger watch text sizes and Reduce Motion (no pulsing when enabled)",
+        "Loads today's status on appear and refreshes when the app returns to foreground"
+      ],
+      "priority": 101,
+      "passes": false,
+      "notes": "IMPLEMENTED (pending Xcode build verification): WatchCheckInView giant one-tap button with success/failure haptics, checked-in/not-signed-in states, reload on foreground. | Mirror of ReceiverHomeView but radically simplified for the wrist \u2014 one button, one outcome. This is the core senior value prop: check in without the phone. Reuse Mood only as an optional secondary screen, not required."
+    },
+    {
+      "id": "US-IOS003",
+      "title": "Actionable check-in notifications on the Apple Watch",
+      "description": "As a receiver, I want the check-in reminder to appear on my watch with action buttons so that I can respond from the notification without opening any app.",
+      "acceptanceCriteria": [
+        "The existing CHECKIN_REQUEST category (CHECKIN_OK_ACTION / CHECKIN_NEED_HELP_ACTION / CHECKIN_CALL_ME_ACTION) renders its actions on the paired watch",
+        "Tapping 'I'm OK \u2713' from the watch notification completes the check-in via process-checkin-response and shows confirmation, without launching the full app",
+        "Custom long-look notification UI (WKUserNotificationHostingController) shows the family name and a prominent 'I'm OK' button",
+        "Need Help / Call Me actions forward to the same escalation handlers used on iOS",
+        "Offline on the watch: the response is queued in the App Group and synced when connectivity returns (reuse OfflineCheckInService semantics)",
+        "Delivery confirmation still flows through the notification-service extension on the phone; the watch path does not double-confirm"
+      ],
+      "priority": 102,
+      "passes": false,
+      "notes": "IMPLEMENTED (pending Xcode build verification): watch registers the CHECKIN_REQUEST category (I'm OK/Need Help/Call Me) and a UNUserNotificationCenterDelegate (WatchNotificationController) that completes the response via the shared core (reuses process-checkin-response); offline 'OK' is queued. Custom long-look UI via WKNotificationScene + CheckInNotificationController. iPhone forwards the categorized notification to the wrist. | iOS forwards categorized notifications to the watch automatically when the phone is locked/away. The main work is the custom long-look UI and ensuring the action handlers run on the watch side. No new server contract."
+    },
+    {
+      "id": "US-IOS004",
+      "title": "Watch face complications for one-tap check-in and today's status",
+      "description": "As a receiver, I want a Daily OK complication on my watch face so that checking in is always one tap away and I can see whether I've checked in today.",
+      "acceptanceCriteria": [
+        "WidgetKit complications (ClockKit is deprecated) for the common families: .accessoryCircular, .accessoryCorner, .accessoryInline, .accessoryRectangular",
+        "Complication shows today's status at a glance: a filled green ring/check when checked in, an open amber ring when a check-in is due",
+        "Tapping the complication deep-links into the watch check-in screen (or completes the check-in directly via AppIntent where the family supports it)",
+        "TimelineProvider refreshes status at the scheduled check-in time and after a check-in completes (WidgetCenter.reloadTimelines)",
+        "Reads status from the App Group shared cache so it works without a network round-trip",
+        "Provides redacted placeholder + sample snapshot for the watch face gallery"
+      ],
+      "priority": 103,
+      "passes": false,
+      "notes": "IMPLEMENTED (pending Xcode build verification): watchOS WidgetKit extension DailyOKWatchWidgets with CheckInComplication across accessoryCircular/corner/inline/rectangular; reads the watch's shared snapshot; reloads on check-in and on new phone snapshot; tap launches the watch app. | An always-visible 'I'm OK' affordance on the watch face is a real differentiator for seniors \u2014 no app launch, no scrolling. Drives daily engagement and reduces missed check-ins."
+    },
+    {
+      "id": "US-IOS005",
+      "title": "Watch standalone connectivity and phone<->watch state sync",
+      "description": "As a receiver, I want my watch to work even when my phone isn't nearby so that I can still check in from a cellular/Wi-Fi Apple Watch.",
+      "acceptanceCriteria": [
+        "Watch can complete a check-in independently over its own network (cellular/Wi-Fi) using the mirrored session, when the phone is unreachable",
+        "WatchConnectivity transfers: phone -> watch pushes latest status + receiver settings via updateApplicationContext; watch -> phone sends completed/queued check-ins via transferUserInfo",
+        "Offline-on-watch check-ins persist in the App Group and sync on reconnect; no duplicate check-ins when both devices later sync (idempotency via client-generated id / today-dedupe)",
+        "Phone and watch never show contradictory 'checked in' vs 'please check in' states once connectivity is restored",
+        "Graceful messaging when the watch has neither a reachable phone nor its own network ('Will sync when connected')",
+        "Token refresh: if the mirrored session is expired and the phone is unreachable, the watch shows a clear 'open Daily OK on iPhone' prompt rather than failing silently"
+      ],
+      "priority": 104,
+      "passes": false,
+      "notes": "IMPLEMENTED (pending Xcode build verification): watch performs check-ins over its own network; WatchOfflineQueue persists a wrist check-in made offline and auto-syncs on launch/foreground/reconnect with 'will send when connected' messaging; expired-session+unreachable-phone shows 'open iPhone'. Idempotency is guaranteed server-side (process-checkin-response dedupes per local day), so flushing a stale queue never duplicates. | PARTIAL: phone->watch snapshot sync via updateApplicationContext done; watch checks in over its own network; wrist check-in nudges phone to refresh. Full offline-on-watch queue + idempotent dedupe still TODO. | Idempotency matters \u2014 reuse the offline check-in id scheme so the same day's check-in from watch+phone collapses to one record. Keep dedupe client-side plus the server's existing today-status guard."
+    },
+    {
+      "id": "US-IOS006",
+      "title": "Receiver interactive Home Screen + Lock Screen check-in widget",
+      "description": "As a senior receiver, I want a check-in widget on my Home and Lock Screen so that I can tap 'I'm OK' without opening the app.",
+      "acceptanceCriteria": [
+        "WidgetKit extension with a receiver widget in .systemSmall, .systemMedium, and Lock Screen .accessoryCircular / .accessoryRectangular families",
+        "Interactive widget (iOS 17 AppIntent) so the tap performs the check-in in-place and the widget flips to a confirmed state \u2014 no app launch required",
+        "Widget shows today's status: 'Tap I'm OK' when due, green check + time when done",
+        "Performs check-in through a shared AppIntent backed by CheckInService; writes status to the App Group and calls WidgetCenter.reloadTimelines",
+        "Handles not-signed-in / no-family gracefully with a 'Open Daily OK' prompt",
+        "Accessibility: VoiceOver label describes current status and action; large enough hit target on Lock Screen"
+      ],
+      "priority": 105,
+      "passes": false,
+      "notes": "IMPLEMENTED (pending Xcode build verification): DailyOKWidgets extension with interactive Home/Lock Screen check-in widget (Button(intent: CheckInIntent())) across systemSmall/Medium + accessory families. | Lock Screen one-tap check-in is ideal for seniors who struggle to find/open apps. Reuse the same AppIntent that powers Siri (US-IOS008) and the Control Center control (US-IOS010)."
+    },
+    {
+      "id": "US-IOS007",
+      "title": "Owner at-a-glance status widgets (Home + Lock Screen)",
+      "description": "As an owner, I want a widget showing my receivers' check-in status so that I get peace of mind at a glance without opening the app.",
+      "acceptanceCriteria": [
+        "Owner widget in .systemSmall (single most-relevant receiver), .systemMedium / .systemLarge (multiple receivers), and Lock Screen .accessoryRectangular",
+        "Each receiver shown with name + status dot (green checked-in / amber pending / red missed / gray no-data), matching dashboard colors",
+        "Lock Screen variant shows a compact 'N of M checked in today' summary",
+        "Timeline refreshes around scheduled check-in windows and after dashboard activity; reads from App Group cache populated by the app/realtime",
+        "Tapping deep-links into the relevant receiver on the Dashboard",
+        "Redacted placeholder and sample snapshot provided for the gallery"
+      ],
+      "priority": 106,
+      "passes": false,
+      "notes": "IMPLEMENTED (pending Xcode build verification): OwnerStatusWidget (systemSmall/Medium/Large + accessoryRectangular) shows each receiver's status dot + 'N of M checked in', deep-links to dashboard. DashboardViewModel publishes SharedOwnerState to the App Group after each load; widget reads it. No backend change. | Pairs with the receiver widget. Owner peace-of-mind without opening the app is a strong retention/differentiation feature vs competitors that bury status behind a login."
+    },
+    {
+      "id": "US-IOS008",
+      "title": "Siri / App Intents voice check-in and Shortcuts donation",
+      "description": "As a receiver with limited vision or dexterity, I want to say 'Hey Siri, check in with Daily OK' so that I can confirm I'm OK hands-free.",
+      "acceptanceCriteria": [
+        "AppIntent 'CheckInIntent' (App Intents framework) that completes a check-in via CheckInService and returns a spoken/visual confirmation",
+        "AppShortcutsProvider exposes the intent with natural phrases ('Check in', 'I'm OK', 'Daily OK check in') so it works from Siri and the Shortcuts app without manual setup",
+        "Intent is donated after in-app check-ins so Siri Suggestions surface it on the right device at the right time",
+        "Spoken confirmation via the intent dialog ('You're all set \u2014 your family has been notified')",
+        "Intent runs on iOS and watchOS (reused by US-IOS006 widget and US-IOS010 control)",
+        "Handles errors with a clear spoken message and falls back to opening the app when auth/family is missing"
+      ],
+      "priority": 107,
+      "passes": false,
+      "notes": "IMPLEMENTED (pending Xcode build verification): shared CheckInIntent + DailyOKAppShortcuts give Siri/Shortcuts voice check-in; reused by widget/control/watch. | Voice is the most accessible input for many seniors. One shared CheckInIntent powers Siri, Shortcuts, widgets, and the Control Center control \u2014 build it once."
+    },
+    {
+      "id": "US-IOS009",
+      "title": "Live Activity / Dynamic Island for the owner during an escalation window",
+      "description": "As an owner, I want a Live Activity when a receiver has missed their check-in so that I can track the escalation and act fast from the Lock Screen / Dynamic Island.",
+      "acceptanceCriteria": [
+        "ActivityKit Live Activity started (via push or local trigger) when a receiver enters a pending/missed escalation window",
+        "Compact + expanded Dynamic Island and Lock Screen presentations show receiver name, time since due, and current escalation step",
+        "Action buttons: 'Call now' and 'Stand down' wired to the existing escalation handlers",
+        "Activity ends automatically when the receiver checks in (real-time) or the escalation resolves",
+        "Respects a per-owner toggle so users who don't want it can disable it",
+        "Uses additive push payload fields only; older clients ignore the Live Activity push"
+      ],
+      "priority": 108,
+      "passes": false,
+      "notes": "IMPLEMENTED (pending Xcode build verification): ActivityKit Live Activity (EscalationLiveActivity) with Lock Screen + Dynamic Island (compact/expanded/minimal) showing receiver, status, and elapsed timer. Started/updated/ended from the dashboard (EscalationActivityManager) for receivers in escalation; per-owner toggle in Settings. 'Call now' = tel: link; 'Stand down' = dailyok://standdown deep link handled in DailyOKApp (owner authenticated) -> cancelEscalation. NSSupportsLiveActivities added. Local start only; push-to-start is a follow-up (needs APNs payload). | Turns the most anxious moment (a missed check-in) into a calm, trackable, actionable surface. Push-to-start Live Activities need an additive APNs payload from the edge functions \u2014 keep it backward-compatible."
+    },
+    {
+      "id": "US-IOS010",
+      "title": "Control Center control + Action Button check-in (iOS 18)",
+      "description": "As a receiver, I want a Daily OK control in Control Center and an Action Button option so that checking in is a single press from anywhere.",
+      "acceptanceCriteria": [
+        "ControlWidget (iOS 18 Controls API) that triggers the shared CheckInIntent and reflects today's status",
+        "Control is assignable to the Action Button on supported iPhones",
+        "Successful check-in shows a system confirmation and updates status across widgets/complications via WidgetCenter reload",
+        "Graceful state when not signed in (deep-links to the app)"
+      ],
+      "priority": 109,
+      "passes": false,
+      "notes": "IMPLEMENTED (pending Xcode build verification): iOS 18 ControlWidget (CheckInControl) firing the shared CheckInIntent; Action Button assignable. | Low-effort once the shared CheckInIntent exists (US-IOS008). Another zero-friction entry point that competitors lack."
+    },
+    {
+      "id": "US-IOS011",
+      "title": "Senior 'Simple Mode' accessibility profile for receivers",
+      "description": "As an older receiver, I want an extra-simple, extra-large interface so that I can check in confidently regardless of vision or dexterity limits.",
+      "acceptanceCriteria": [
+        "Per-receiver 'Simple Mode' toggle (owner-configurable in ReceiverSettings, additive nullable column with safe default off)",
+        "When on: even larger check-in button, increased default text size floor, higher-contrast palette, reduced chrome (no streak chips/menus competing for attention)",
+        "Optional emoji-free presentation (text labels only) for moods/status",
+        "Optional spoken/audible confirmation tone in addition to haptics on successful check-in",
+        "Confirmation copy uses plain, reassuring language ('Done. Your family knows you're OK.')",
+        "Mode is respected on the watch app and widgets where applicable",
+        "Setting persists locally and via receiver_settings; backward compatible with older clients that ignore the field"
+      ],
+      "priority": 110,
+      "passes": false,
+      "notes": "IMPLEMENTED (pending Xcode build verification): owner-controlled per-receiver Simple Mode (receiver_settings.simple_mode, additive migration 00038). ReceiverHomeView in simple mode uses a larger steady (non-pulsing) button, drops the aurora halo + streak chips + mood picker for a calm high-contrast screen; emoji-free standard copy. Owner toggle in ReceiverSettingsView 'Senior Accessibility' section. The watch app and widget are already minimal so they inherently honor the spirit. | The app already has strong Dynamic Type / VoiceOver / Reduce Motion foundations. Simple Mode packages an opinionated senior-first profile so caregivers can enable it in one tap. New receiver_settings column must be additive (nullable, default off) per backward-compat rules."
+    },
+    {
+      "id": "US-IOS012",
+      "title": "Audible confirmation and spoken prompts for low-vision receivers",
+      "description": "As a low-vision receiver, I want audio feedback so that I know my check-in worked without needing to read the screen.",
+      "acceptanceCriteria": [
+        "Optional audio confirmation (short success chime) on a confirmed online check-in, gated behind a setting and Simple Mode",
+        "Optional spoken confirmation via AVSpeechSynthesizer ('You're all set, your family has been notified') for users who opt in",
+        "Audio respects the silent switch / Do Not Disturb conventions and does not play for queued-offline check-ins (which aren't yet confirmed)",
+        "VoiceOver users get a posted announcement on status change (reuse the existing .announce helper) so there's no double-speech with VoiceOver enabled",
+        "No audio in the owner/viewer experiences \u2014 receiver-only"
+      ],
+      "priority": 111,
+      "passes": false,
+      "notes": "IMPLEMENTED (pending Xcode build verification): CheckInAudio speaks a confirmation via AVSpeechSynthesizer on a confirmed online check-in when receiver_settings.audio_confirmation_enabled is on; skipped when VoiceOver is running (no double-speak) and never for optimistic offline check-ins. Owner toggle 'Speak Confirmation'. | Complements Simple Mode. Be careful not to double-announce when VoiceOver is active \u2014 branch on UIAccessibility.isVoiceOverRunning."
+    },
+    {
+      "id": "US-IOS013",
+      "title": "Multi-caregiver alert acknowledgement ('I've got this')",
+      "description": "As one of several caregivers (owner + viewers), I want to acknowledge an alert so that other family members know it's being handled and don't all call at once.",
+      "acceptanceCriteria": [
+        "Owner/viewer alert and missed-check-in cards show an 'I've got this' acknowledge button",
+        "Acknowledging records who acknowledged and when, and broadcasts to other caregivers in the family in real-time (Supabase realtime)",
+        "Other caregivers see 'Handled by <name> at <time>' on the same alert and a muted state",
+        "Acknowledgement is reversible ('Release') before the situation resolves",
+        "Backend: additive new table or nullable columns + new RPC/endpoint only \u2014 no change to existing escalation contract; older clients simply don't show the ack UI",
+        "Push: the urgent-alert payload gains optional ack metadata; older apps ignore it"
+      ],
+      "priority": 112,
+      "passes": false,
+      "notes": "Families with multiple caregivers currently risk everyone panicking/calling simultaneously. Coordination is a clear differentiator vs single-owner competitors. Keep all DB/API changes additive and forward-only per CLAUDE.md."
+    },
+    {
+      "id": "US-IOS014",
+      "title": "Caregiver daily/weekly digest notification and summary card",
+      "description": "As an owner, I want a gentle daily/weekly summary so that I get reassurance and trends without having to open the app and check every receiver.",
+      "acceptanceCriteria": [
+        "Owner-configurable digest: off / daily / weekly, with a preferred delivery time",
+        "Digest push + in-app summary card: who checked in, streaks, any misses, mood trend, and consistency % for the period",
+        "Reuses existing weekly-summary computation already on the dashboard; no new analytics needed for v1",
+        "Scheduling via a new additive pg_cron job + edge function that sends the digest push (backward compatible; no existing job changed)",
+        "Respects quiet hours and notification permission state",
+        "Setting stored additively; older clients unaffected"
+      ],
+      "priority": 113,
+      "passes": false,
+      "notes": "Shifts owners from anxious checking to passive reassurance \u2014 a retention lever. New cron/edge work must be additive (new job, new endpoint)."
+    },
+    {
+      "id": "US-IOS015",
+      "title": "One-tap call / FaceTime / message from receiver cards and alerts",
+      "description": "As an owner, I want to call, FaceTime, or text a receiver directly from their card so that I can reach them instantly when something looks off.",
+      "acceptanceCriteria": [
+        "Receiver status cards and alert banners expose quick actions: Call, FaceTime, Message (using tel:/facetime:/sms: with the receiver's stored phone)",
+        "Actions only shown when a phone number is available; gracefully hidden otherwise",
+        "The notification 'Call Me' / urgent-alert 'Call Now' actions route to the same dialer path",
+        "Actions are accessible (clear VoiceOver labels) and confirm before dialing where appropriate",
+        "No new backend \u2014 uses phone already stored on the user/family member"
+      ],
+      "priority": 114,
+      "passes": false,
+      "notes": "IMPLEMENTED (pending Xcode build verification): ContactQuickActions component (Call/FaceTime/Text via tel:/facetime:/sms: Link) shown on each dashboard receiver card for owners and viewers when a phone number exists; ReceiverStatusCard now carries phone from the user record. Notification 'Call Me'/urgent 'Call Now' already route to the dialer. No backend change. | Reduces time-to-contact in the moment that matters. Pure client-side using URL schemes; the data is already present."
+    },
+    {
+      "id": "US-IOS016",
+      "title": "Shared care notes / family timeline per receiver",
+      "description": "As a caregiver, I want a shared notes/timeline on each receiver so that the family can record context (doctor visits, 'traveling this week', 'left phone at home') everyone can see.",
+      "acceptanceCriteria": [
+        "Per-receiver notes feed visible to owner + viewers, ordered newest-first, showing author and timestamp",
+        "Add/edit/delete own notes; owner can moderate",
+        "Notes surface inline context on the dashboard card (e.g., a small 'note' badge) without cluttering the at-a-glance status",
+        "Backend: new additive 'care_notes' table with RLS scoped to family members; new RPC/endpoints; no changes to existing tables",
+        "Realtime updates so co-caregivers see new notes promptly",
+        "Empty state encourages the first note"
+      ],
+      "priority": 115,
+      "passes": false,
+      "notes": "Turns Daily OK from a single-signal tool into a lightweight shared caregiving hub \u2014 raises switching cost and differentiates from pure check-in apps. All schema additive + RLS-scoped."
+    },
+    {
+      "id": "US-IOS017",
+      "title": "Optional Apple Health passive wellness signals",
+      "description": "As a receiver, I want to optionally share basic activity (steps/movement) so that my family gets passive reassurance even on days I forget to tap.",
+      "acceptanceCriteria": [
+        "Opt-in HealthKit read of low-sensitivity signals (e.g., step count / stand activity) with clear, minimal-scope consent and a privacy explanation",
+        "A passive 'active today' indicator can supplement (never replace) an explicit check-in on the owner dashboard",
+        "Receiver controls exactly what is shared and can revoke at any time; default is fully off",
+        "Data handling documented; only derived/aggregate signals leave the device, sent via additive optional fields/endpoint",
+        "Feature degrades cleanly on devices without HealthKit data or when permission is denied",
+        "Clear UX that this is supplementary reassurance, not medical monitoring or fall detection"
+      ],
+      "priority": 116,
+      "passes": false,
+      "notes": "Differentiator but privacy-sensitive \u2014 keep scope minimal, opt-in, and explicit. Frame as reassurance, not medical. Must clear App Store HealthKit review guidelines. Backward-compatible additive payload only."
+    },
+    {
+      "id": "US-IOS018",
+      "title": "Guided 'Set up Daily OK on their Apple Watch' onboarding flow",
+      "description": "As an owner setting up a loved one, I want a guided flow to get Daily OK onto their Apple Watch so that wrist check-ins work from day one.",
+      "acceptanceCriteria": [
+        "Owner onboarding/family screens detect when a receiver may benefit from the watch and offer a 'Set up on Apple Watch' guide",
+        "Step-by-step instructions for the receiver to install the watch app, add the complication, and enable notifications on the watch",
+        "Receiver-side first-run hint on the watch app that points to the complication and explains the one-tap check-in",
+        "Helps the receiver enable the Lock Screen / Home Screen widget as an alternative if no watch",
+        "Content matches the app's reassuring tone; accessible and skippable"
+      ],
+      "priority": 117,
+      "passes": false,
+      "notes": "IMPLEMENTED (pending Xcode build verification): WatchSetupGuideView \u2014 guided steps to install the watch app, add the complication, enable watch notifications, and tap to check in, plus a Lock/Home Screen widget fallback for users without a watch. Accessible from Settings \u2192 Devices \u2192 Set Up Apple Watch. | The watch features only deliver value if seniors actually get them installed. This flow closes the adoption gap and reinforces the 'easiest check-in for seniors' positioning."
     }
   ]
 }

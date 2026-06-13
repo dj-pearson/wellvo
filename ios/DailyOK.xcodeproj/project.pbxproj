@@ -45,6 +45,7 @@
 		B1F00003 /* ReceiverOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00003; };
 		B1F00011 /* PairingCodeEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00011; };
 		B1F00099 /* FirstReceiverWalkthroughView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00099; };
+		B1F00100 /* WatchSetupGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00100; };
 		/* Views/Owner */
 		B1F00004 /* CalendarHeatmapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00004; };
 		B1F00005 /* CheckInReportGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00005; };
@@ -85,6 +86,7 @@
 		B1D00006 /* AccessibilityHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00006; };
 		B1D00007 /* Streaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00007; };
 		B1D00008 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00008; };
+		B1D00009 /* CheckInAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00009; };
 		/* Views/Components (added) */
 		B1F00014 /* BrandedProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00014; };
 		B1F00015 /* CelebrationOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00015; };
@@ -94,6 +96,19 @@
 		B1F00019 /* PaywallFeatureCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00019; };
 		B1F0001A /* PremiumCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0001A; };
 		B1F0001B /* StreakBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0001B; };
+		B1F0001C /* ContactQuickActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0001C; };
+		/* Shared (App Intents / widget / watch hand-off) */
+		B1S00001 /* SharedAppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00001; };
+		B1S00002 /* SharedCheckInState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00002; };
+		B1S00003 /* SharedCheckInClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00003; };
+		B1S00004 /* CheckInIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00004; };
+		B1S00005 /* DailyOKAppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00005; };
+		B1S00006 /* SharedOwnerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00006; };
+		B1S00007 /* EscalationActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00007; };
+		B1C00022 /* SharedCheckInPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00022; };
+		B1C00023 /* PhoneWatchSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00023; };
+		B1C00024 /* SharedOwnerPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00024; };
+		B1C00025 /* EscalationActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00025; };
 		/* UI Tests */
 		B2U00001 /* DailyOKUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00001; };
 		B2U00002 /* OwnerFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00002; };
@@ -104,6 +119,47 @@
 		B3U00003 /* ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00003; };
 		B3U00004 /* SubscriptionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00004; };
 		B3U00005 /* ReviewPromptServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00005; };
+		/* Widget extension sources */
+		B5F00001 /* DailyOKWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F00001; };
+		B5F00002 /* CheckInWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F00002; };
+		B5F00003 /* CheckInProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F00003; };
+		B5F00004 /* CheckInControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F00004; };
+		/* Shared files compiled into the widget extension */
+		B5S00001 /* SharedAppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00001; };
+		B5S00002 /* SharedCheckInState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00002; };
+		B5S00003 /* SharedCheckInClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00003; };
+		B5S00004 /* CheckInIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00004; };
+		B5S00005 /* DailyOKAppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00005; };
+		B5S00006 /* SharedOwnerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00006; };
+		B5S00007 /* EscalationActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00007; };
+		B5F00005 /* OwnerStatusWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F00007; };
+		B5F00006 /* OwnerStatusProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F00008; };
+		B5F00007 /* EscalationLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F00009; };
+		/* Embed widget extension into the app */
+		BEMB0001 /* DailyOKWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F5P00001; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		/* Watch app sources */
+		B4F00001 /* DailyOKWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F00001; };
+		B4F00002 /* WatchCheckInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F00002; };
+		B4F00003 /* WatchCheckInModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F00003; };
+		B4F00004 /* WatchConnectivityProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F00004; };
+		B4F00005 /* WatchOfflineQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F00007; };
+		B4F00006 /* WatchNotificationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F00008; };
+		B4F00007 /* CheckInNotificationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F00009; };
+		/* Shared files compiled into the watch app */
+		B4S00001 /* SharedAppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00001; };
+		B4S00002 /* SharedCheckInState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00002; };
+		B4S00003 /* SharedCheckInClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00003; };
+		/* Embed watch app into the iOS app */
+		BEMB0002 /* DailyOKWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = F4P00001; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		/* Watch complication (widget extension) sources */
+		B6F00001 /* DailyOKWatchWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6F00001; };
+		B6F00002 /* CheckInComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6F00002; };
+		B6F00003 /* ComplicationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6F00003; };
+		/* Shared files compiled into the watch complication */
+		B6S00001 /* SharedAppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00001; };
+		B6S00002 /* SharedCheckInState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00002; };
+		/* Embed complication into the watch app */
+		BEMB0003 /* DailyOKWatchWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F6P00001; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -151,6 +207,7 @@
 		F1F00003 /* ReceiverOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverOnboardingView.swift; sourceTree = "<group>"; };
 		F1F00011 /* PairingCodeEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingCodeEntryView.swift; sourceTree = "<group>"; };
 		F1F00099 /* FirstReceiverWalkthroughView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstReceiverWalkthroughView.swift; sourceTree = "<group>"; };
+		F1F00100 /* WatchSetupGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSetupGuideView.swift; sourceTree = "<group>"; };
 		F1F00004 /* CalendarHeatmapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarHeatmapView.swift; sourceTree = "<group>"; };
 		F1F00005 /* CheckInReportGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInReportGenerator.swift; sourceTree = "<group>"; };
 		F1F00006 /* CheckInTrendChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInTrendChartView.swift; sourceTree = "<group>"; };
@@ -171,6 +228,7 @@
 		F1D00006 /* AccessibilityHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityHelpers.swift; sourceTree = "<group>"; };
 		F1D00007 /* Streaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Streaks.swift; sourceTree = "<group>"; };
 		F1D00008 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
+		F1D00009 /* CheckInAudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInAudio.swift; sourceTree = "<group>"; };
 		/* Views/Components (added) */
 		F1F00014 /* BrandedProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandedProgressView.swift; sourceTree = "<group>"; };
 		F1F00015 /* CelebrationOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CelebrationOverlay.swift; sourceTree = "<group>"; };
@@ -180,6 +238,19 @@
 		F1F00019 /* PaywallFeatureCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallFeatureCarousel.swift; sourceTree = "<group>"; };
 		F1F0001A /* PremiumCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumCards.swift; sourceTree = "<group>"; };
 		F1F0001B /* StreakBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakBadge.swift; sourceTree = "<group>"; };
+		F1F0001C /* ContactQuickActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactQuickActions.swift; sourceTree = "<group>"; };
+		/* Shared (App Intents / widget / watch hand-off) */
+		F1S00001 /* SharedAppGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedAppGroup.swift; sourceTree = "<group>"; };
+		F1S00002 /* SharedCheckInState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedCheckInState.swift; sourceTree = "<group>"; };
+		F1S00003 /* SharedCheckInClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedCheckInClient.swift; sourceTree = "<group>"; };
+		F1S00004 /* CheckInIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInIntent.swift; sourceTree = "<group>"; };
+		F1S00005 /* DailyOKAppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKAppShortcuts.swift; sourceTree = "<group>"; };
+		F1S00006 /* SharedOwnerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedOwnerState.swift; sourceTree = "<group>"; };
+		F1S00007 /* EscalationActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscalationActivityAttributes.swift; sourceTree = "<group>"; };
+		F1C00024 /* SharedOwnerPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedOwnerPublisher.swift; sourceTree = "<group>"; };
+		F1C00025 /* EscalationActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscalationActivityManager.swift; sourceTree = "<group>"; };
+		F1C00022 /* SharedCheckInPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedCheckInPublisher.swift; sourceTree = "<group>"; };
+		F1C00023 /* PhoneWatchSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneWatchSync.swift; sourceTree = "<group>"; };
 		/* Resources */
 		F1G00001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		/* Config */
@@ -199,6 +270,35 @@
 		F3U00003 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
 		F3U00004 /* SubscriptionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionServiceTests.swift; sourceTree = "<group>"; };
 		F3U00005 /* ReviewPromptServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewPromptServiceTests.swift; sourceTree = "<group>"; };
+		/* Widget extension */
+		F5F00001 /* DailyOKWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKWidgetBundle.swift; sourceTree = "<group>"; };
+		F5F00002 /* CheckInWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInWidget.swift; sourceTree = "<group>"; };
+		F5F00003 /* CheckInProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInProvider.swift; sourceTree = "<group>"; };
+		F5F00004 /* CheckInControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInControl.swift; sourceTree = "<group>"; };
+		F5F00007 /* OwnerStatusWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnerStatusWidget.swift; sourceTree = "<group>"; };
+		F5F00008 /* OwnerStatusProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnerStatusProvider.swift; sourceTree = "<group>"; };
+		F5F00009 /* EscalationLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscalationLiveActivity.swift; sourceTree = "<group>"; };
+		F5F00005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F5F00006 /* DailyOKWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DailyOKWidgets.entitlements; sourceTree = "<group>"; };
+		F5P00001 /* DailyOKWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DailyOKWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		/* Watch app */
+		F4F00001 /* DailyOKWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKWatchApp.swift; sourceTree = "<group>"; };
+		F4F00002 /* WatchCheckInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchCheckInView.swift; sourceTree = "<group>"; };
+		F4F00003 /* WatchCheckInModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchCheckInModel.swift; sourceTree = "<group>"; };
+		F4F00004 /* WatchConnectivityProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityProvider.swift; sourceTree = "<group>"; };
+		F4F00007 /* WatchOfflineQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchOfflineQueue.swift; sourceTree = "<group>"; };
+		F4F00008 /* WatchNotificationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchNotificationController.swift; sourceTree = "<group>"; };
+		F4F00009 /* CheckInNotificationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInNotificationView.swift; sourceTree = "<group>"; };
+		F4F00005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F4F00006 /* DailyOKWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DailyOKWatch.entitlements; sourceTree = "<group>"; };
+		F4P00001 /* DailyOKWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DailyOKWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		/* Watch complication (widget extension) */
+		F6F00001 /* DailyOKWatchWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKWatchWidgetBundle.swift; sourceTree = "<group>"; };
+		F6F00002 /* CheckInComplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInComplication.swift; sourceTree = "<group>"; };
+		F6F00003 /* ComplicationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationProvider.swift; sourceTree = "<group>"; };
+		F6F00004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F6F00005 /* DailyOKWatchWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DailyOKWatchWidgets.entitlements; sourceTree = "<group>"; };
+		F6P00001 /* DailyOKWatchWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DailyOKWatchWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
@@ -216,6 +316,27 @@
 			remoteGlobalIDString = T1000001;
 			remoteInfo = DailyOK;
 		};
+		CP000003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = PR000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = T5000001;
+			remoteInfo = DailyOKWidgets;
+		};
+		CP000004 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = PR000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = T4000001;
+			remoteInfo = DailyOKWatch;
+		};
+		CP000005 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = PR000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = T6000001;
+			remoteInfo = DailyOKWatchWidgets;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXTargetDependency section */
@@ -228,6 +349,21 @@
 			isa = PBXTargetDependency;
 			target = T1000001 /* DailyOK */;
 			targetProxy = CP000002 /* PBXContainerItemProxy */;
+		};
+		TD000003 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = T5000001 /* DailyOKWidgets */;
+			targetProxy = CP000003 /* PBXContainerItemProxy */;
+		};
+		TD000004 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = T4000001 /* DailyOKWatch */;
+			targetProxy = CP000004 /* PBXContainerItemProxy */;
+		};
+		TD000005 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = T6000001 /* DailyOKWatchWidgets */;
+			targetProxy = CP000005 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -255,17 +391,121 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D5000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D4000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		CE000001 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				BEMB0001 /* DailyOKWidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CE000002 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				BEMB0002 /* DailyOKWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CE000003 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				BEMB0003 /* DailyOKWatchWidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXGroup section */
 		G1000001 = {
 			isa = PBXGroup;
 			children = (
 				G1000002 /* DailyOK */,
+				G5000001 /* DailyOKWidgets */,
+				G4000001 /* DailyOKWatch */,
+				G6000001 /* DailyOKWatchWidgets */,
 				G2U00001 /* DailyOKUITests */,
 				G3U00001 /* DailyOKTests */,
 				G1000003 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		G4000001 /* DailyOKWatch */ = {
+			isa = PBXGroup;
+			children = (
+				F4F00001 /* DailyOKWatchApp.swift */,
+				F4F00002 /* WatchCheckInView.swift */,
+				F4F00003 /* WatchCheckInModel.swift */,
+				F4F00004 /* WatchConnectivityProvider.swift */,
+				F4F00007 /* WatchOfflineQueue.swift */,
+				F4F00008 /* WatchNotificationController.swift */,
+				F4F00009 /* CheckInNotificationView.swift */,
+				F4F00005 /* Info.plist */,
+				F4F00006 /* DailyOKWatch.entitlements */,
+			);
+			path = DailyOKWatch;
+			sourceTree = "<group>";
+		};
+		G6000001 /* DailyOKWatchWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				F6F00001 /* DailyOKWatchWidgetBundle.swift */,
+				F6F00002 /* CheckInComplication.swift */,
+				F6F00003 /* ComplicationProvider.swift */,
+				F6F00004 /* Info.plist */,
+				F6F00005 /* DailyOKWatchWidgets.entitlements */,
+			);
+			path = DailyOKWatchWidgets;
+			sourceTree = "<group>";
+		};
+		G5000001 /* DailyOKWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				F5F00001 /* DailyOKWidgetBundle.swift */,
+				F5F00002 /* CheckInWidget.swift */,
+				F5F00003 /* CheckInProvider.swift */,
+				F5F00004 /* CheckInControl.swift */,
+				F5F00007 /* OwnerStatusWidget.swift */,
+				F5F00008 /* OwnerStatusProvider.swift */,
+				F5F00009 /* EscalationLiveActivity.swift */,
+				F5F00005 /* Info.plist */,
+				F5F00006 /* DailyOKWidgets.entitlements */,
+			);
+			path = DailyOKWidgets;
 			sourceTree = "<group>";
 		};
 		G1000002 /* DailyOK */ = {
@@ -277,10 +517,25 @@
 				G1D00001 /* Utilities */,
 				G1E00001 /* ViewModels */,
 				G1F00001 /* Views */,
+				G1S00001 /* Shared */,
 				F1G00001 /* Assets.xcassets */,
 				F1X00001 /* BuildConfig.xcconfig */,
 			);
 			path = DailyOK;
+			sourceTree = "<group>";
+		};
+		G1S00001 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				F1S00001 /* SharedAppGroup.swift */,
+				F1S00002 /* SharedCheckInState.swift */,
+				F1S00003 /* SharedCheckInClient.swift */,
+				F1S00004 /* CheckInIntent.swift */,
+				F1S00005 /* DailyOKAppShortcuts.swift */,
+				F1S00006 /* SharedOwnerState.swift */,
+				F1S00007 /* EscalationActivityAttributes.swift */,
+			);
+			path = Shared;
 			sourceTree = "<group>";
 		};
 		G1000003 /* Products */ = {
@@ -289,6 +544,9 @@
 				F1P00001 /* DailyOK.app */,
 				F1P00002 /* DailyOKUITests.xctest */,
 				F1P00003 /* DailyOKTests.xctest */,
+				F5P00001 /* DailyOKWidgetsExtension.appex */,
+				F4P00001 /* DailyOKWatch.app */,
+				F6P00001 /* DailyOKWatchWidgetsExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -343,6 +601,10 @@
 				F1C00021 /* ReviewPromptService.swift */,
 				F1C00005 /* OfflineCheckInService.swift */,
 				F1C00006 /* PushNotificationService.swift */,
+				F1C00023 /* PhoneWatchSync.swift */,
+				F1C00022 /* SharedCheckInPublisher.swift */,
+				F1C00024 /* SharedOwnerPublisher.swift */,
+				F1C00025 /* EscalationActivityManager.swift */,
 				F1C00007 /* SubscriptionService.swift */,
 				F1C00008 /* SupabaseService.swift */,
 			);
@@ -353,6 +615,7 @@
 			isa = PBXGroup;
 			children = (
 				F1D00006 /* AccessibilityHelpers.swift */,
+				F1D00009 /* CheckInAudio.swift */,
 				F1D00004 /* Colors.swift */,
 				F1D00001 /* Configuration.swift */,
 				F1D00008 /* Haptics.swift */,
@@ -410,6 +673,7 @@
 				F1F0001A /* PremiumCards.swift */,
 				F1F00012 /* SkeletonView.swift */,
 				F1F0001B /* StreakBadge.swift */,
+				F1F0001C /* ContactQuickActions.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -421,6 +685,7 @@
 				F1F00003 /* ReceiverOnboardingView.swift */,
 				F1F00011 /* PairingCodeEntryView.swift */,
 				F1F00099 /* FirstReceiverWalkthroughView.swift */,
+				F1F00100 /* WatchSetupGuideView.swift */,
 			);
 			path = Onboarding;
 			sourceTree = "<group>";
@@ -488,10 +753,14 @@
 				S1000001 /* Sources */,
 				D1000001 /* Frameworks */,
 				R1000001 /* Resources */,
+				CE000001 /* Embed Foundation Extensions */,
+				CE000002 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				TD000003 /* PBXTargetDependency */,
+				TD000004 /* PBXTargetDependency */,
 			);
 			name = DailyOK;
 			packageProductDependencies = (
@@ -536,6 +805,56 @@
 			productReference = F1P00003 /* DailyOKTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		T5000001 /* DailyOKWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CL000005 /* Build configuration list for PBXNativeTarget "DailyOKWidgets" */;
+			buildPhases = (
+				S5000001 /* Sources */,
+				D5000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DailyOKWidgets;
+			productName = DailyOKWidgets;
+			productReference = F5P00001 /* DailyOKWidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		T4000001 /* DailyOKWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CL000006 /* Build configuration list for PBXNativeTarget "DailyOKWatch" */;
+			buildPhases = (
+				S4000001 /* Sources */,
+				D4000001 /* Frameworks */,
+				CE000003 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				TD000005 /* PBXTargetDependency */,
+			);
+			name = DailyOKWatch;
+			productName = DailyOKWatch;
+			productReference = F4P00001 /* DailyOKWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+		T6000001 /* DailyOKWatchWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CL000007 /* Build configuration list for PBXNativeTarget "DailyOKWatchWidgets" */;
+			buildPhases = (
+				S6000001 /* Sources */,
+				D6000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DailyOKWatchWidgets;
+			productName = DailyOKWatchWidgets;
+			productReference = F6P00001 /* DailyOKWatchWidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -557,6 +876,15 @@
 						CreatedOnToolsVersion = 15.2;
 						TestTargetID = T1000001;
 					};
+					T5000001 = {
+						CreatedOnToolsVersion = 15.2;
+					};
+					T4000001 = {
+						CreatedOnToolsVersion = 15.2;
+					};
+					T6000001 = {
+						CreatedOnToolsVersion = 15.2;
+					};
 				};
 			};
 			buildConfigurationList = CL000002 /* Build configuration list for PBXProject "DailyOK" */;
@@ -577,6 +905,9 @@
 			projectRoot = "";
 			targets = (
 				T1000001 /* DailyOK */,
+				T5000001 /* DailyOKWidgets */,
+				T4000001 /* DailyOKWatch */,
+				T6000001 /* DailyOKWatchWidgets */,
 				T2000001 /* DailyOKUITests */,
 				T3000001 /* DailyOKTests */,
 			);
@@ -619,6 +950,7 @@
 				B1F00003 /* ReceiverOnboardingView.swift in Sources */,
 				B1F00011 /* PairingCodeEntryView.swift in Sources */,
 				B1F00099 /* FirstReceiverWalkthroughView.swift in Sources */,
+				B1F00100 /* WatchSetupGuideView.swift in Sources */,
 				B1F00004 /* CalendarHeatmapView.swift in Sources */,
 				B1F00005 /* CheckInReportGenerator.swift in Sources */,
 				B1F00006 /* CheckInTrendChartView.swift in Sources */,
@@ -645,6 +977,7 @@
 				B1D00006 /* AccessibilityHelpers.swift in Sources */,
 				B1D00007 /* Streaks.swift in Sources */,
 				B1D00008 /* Haptics.swift in Sources */,
+				B1D00009 /* CheckInAudio.swift in Sources */,
 				B1F00014 /* BrandedProgressView.swift in Sources */,
 				B1F00015 /* CelebrationOverlay.swift in Sources */,
 				B1F00016 /* EmptyStateView.swift in Sources */,
@@ -653,6 +986,18 @@
 				B1F00019 /* PaywallFeatureCarousel.swift in Sources */,
 				B1F0001A /* PremiumCards.swift in Sources */,
 				B1F0001B /* StreakBadge.swift in Sources */,
+				B1F0001C /* ContactQuickActions.swift in Sources */,
+				B1S00001 /* SharedAppGroup.swift in Sources */,
+				B1S00002 /* SharedCheckInState.swift in Sources */,
+				B1S00003 /* SharedCheckInClient.swift in Sources */,
+				B1S00004 /* CheckInIntent.swift in Sources */,
+				B1S00005 /* DailyOKAppShortcuts.swift in Sources */,
+				B1C00022 /* SharedCheckInPublisher.swift in Sources */,
+				B1C00023 /* PhoneWatchSync.swift in Sources */,
+				B1S00006 /* SharedOwnerState.swift in Sources */,
+				B1S00007 /* EscalationActivityAttributes.swift in Sources */,
+				B1C00024 /* SharedOwnerPublisher.swift in Sources */,
+				B1C00025 /* EscalationActivityManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -675,6 +1020,56 @@
 				B3U00003 /* ModelTests.swift in Sources */,
 				B3U00004 /* SubscriptionServiceTests.swift in Sources */,
 				B3U00005 /* ReviewPromptServiceTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		S5000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B5F00001 /* DailyOKWidgetBundle.swift in Sources */,
+				B5F00002 /* CheckInWidget.swift in Sources */,
+				B5F00003 /* CheckInProvider.swift in Sources */,
+				B5F00004 /* CheckInControl.swift in Sources */,
+				B5S00001 /* SharedAppGroup.swift in Sources */,
+				B5S00002 /* SharedCheckInState.swift in Sources */,
+				B5S00003 /* SharedCheckInClient.swift in Sources */,
+				B5S00004 /* CheckInIntent.swift in Sources */,
+				B5S00005 /* DailyOKAppShortcuts.swift in Sources */,
+				B5S00006 /* SharedOwnerState.swift in Sources */,
+				B5S00007 /* EscalationActivityAttributes.swift in Sources */,
+				B5F00005 /* OwnerStatusWidget.swift in Sources */,
+				B5F00006 /* OwnerStatusProvider.swift in Sources */,
+				B5F00007 /* EscalationLiveActivity.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		S4000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B4F00001 /* DailyOKWatchApp.swift in Sources */,
+				B4F00002 /* WatchCheckInView.swift in Sources */,
+				B4F00003 /* WatchCheckInModel.swift in Sources */,
+				B4F00004 /* WatchConnectivityProvider.swift in Sources */,
+				B4F00005 /* WatchOfflineQueue.swift in Sources */,
+				B4F00006 /* WatchNotificationController.swift in Sources */,
+				B4F00007 /* CheckInNotificationView.swift in Sources */,
+				B4S00001 /* SharedAppGroup.swift in Sources */,
+				B4S00002 /* SharedCheckInState.swift in Sources */,
+				B4S00003 /* SharedCheckInClient.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		S6000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B6F00001 /* DailyOKWatchWidgetBundle.swift in Sources */,
+				B6F00002 /* CheckInComplication.swift in Sources */,
+				B6F00003 /* ComplicationProvider.swift in Sources */,
+				B6S00001 /* SharedAppGroup.swift in Sources */,
+				B6S00002 /* SharedCheckInState.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -879,6 +1274,174 @@
 			};
 			name = Release;
 		};
+		BC000009 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = F1X00001 /* BuildConfig.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = DailyOKWidgets/DailyOKWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 6;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DailyOKWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Daily OK";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios.DailyOKWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BC000010 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = F1X00001 /* BuildConfig.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = DailyOKWidgets/DailyOKWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 6;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DailyOKWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Daily OK";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios.DailyOKWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		BC000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = DailyOKWatch/DailyOKWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 6;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DailyOKWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Daily OK";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.wellvo.ios;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		BC000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = DailyOKWatch/DailyOKWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 6;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DailyOKWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Daily OK";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.wellvo.ios;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		BC000013 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = DailyOKWatchWidgets/DailyOKWatchWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 6;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DailyOKWatchWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Daily OK";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios.watchkitapp.complication;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		BC000014 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = DailyOKWatchWidgets/DailyOKWatchWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 6;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DailyOKWatchWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Daily OK";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios.watchkitapp.complication;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -914,6 +1477,33 @@
 			buildConfigurations = (
 				BC000007 /* Debug */,
 				BC000008 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CL000005 /* Build configuration list for PBXNativeTarget "DailyOKWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BC000009 /* Debug */,
+				BC000010 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CL000006 /* Build configuration list for PBXNativeTarget "DailyOKWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BC000011 /* Debug */,
+				BC000012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CL000007 /* Build configuration list for PBXNativeTarget "DailyOKWatchWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BC000013 /* Debug */,
+				BC000014 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

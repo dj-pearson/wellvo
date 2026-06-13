@@ -387,6 +387,9 @@ final class AuthViewModel: ObservableObject {
         do {
             try await AuthService.shared.signOut()
             await BiometricService.shared.reset()
+            // Drop the shared check-in snapshot so Siri/widget/watch can't act
+            // on a stale session after sign-out.
+            SharedCheckInPublisher.clear()
             currentUser = nil
             authState = .unauthenticated
             biometricLocked = false

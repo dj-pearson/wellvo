@@ -74,6 +74,8 @@ struct ReceiverSettings: Codable, Identifiable {
     var customSchedule: DaySchedule?
     var schedulePaused: Bool
     var notifyOwnerOnCheckin: Bool // owner gets a push when this receiver checks in OK
+    var simpleMode: Bool // extra-large, low-clutter, emoji-free check-in for seniors
+    var audioConfirmationEnabled: Bool // speak/chime a confirmation on check-in
 
     enum CodingKeys: String, CodingKey {
         case id, timezone
@@ -98,6 +100,8 @@ struct ReceiverSettings: Codable, Identifiable {
         case customSchedule = "custom_schedule"
         case schedulePaused = "schedule_paused"
         case notifyOwnerOnCheckin = "notify_owner_on_checkin"
+        case simpleMode = "simple_mode"
+        case audioConfirmationEnabled = "audio_confirmation_enabled"
     }
 
     init(from decoder: Decoder) throws {
@@ -125,5 +129,7 @@ struct ReceiverSettings: Codable, Identifiable {
         customSchedule = try container.decodeIfPresent(DaySchedule.self, forKey: .customSchedule)
         schedulePaused = try container.decodeIfPresent(Bool.self, forKey: .schedulePaused) ?? false
         notifyOwnerOnCheckin = try container.decodeIfPresent(Bool.self, forKey: .notifyOwnerOnCheckin) ?? true
+        simpleMode = try container.decodeIfPresent(Bool.self, forKey: .simpleMode) ?? false
+        audioConfirmationEnabled = try container.decodeIfPresent(Bool.self, forKey: .audioConfirmationEnabled) ?? false
     }
 }

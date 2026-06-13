@@ -21,6 +21,15 @@ struct ReceiverHomeView: View {
         viewModel.receiverMode == .kid
     }
 
+    /// Senior Simple Mode: extra-large, calm, high-contrast, low-clutter.
+    private var isSimpleMode: Bool {
+        viewModel.simpleMode
+    }
+
+    private var effectiveDiameter: CGFloat {
+        isSimpleMode ? buttonDiameter * 1.18 : buttonDiameter
+    }
+
     var body: some View {
         ZStack {
             AmbientBackground(tone: viewModel.hasCheckedInToday ? .calm : .warm)
@@ -53,7 +62,7 @@ struct ReceiverHomeView: View {
                     // Streak + 7-day consistency header chips. Both chips
                     // self-hide when there isn't enough history (streak < 2,
                     // consistency < 50%), so first-day receivers see no header.
-                    if viewModel.streakDays >= 2 || Streaks.badge(consistencyPercent: viewModel.consistencyPercent) != .none {
+                    if !isSimpleMode && (viewModel.streakDays >= 2 || Streaks.badge(consistencyPercent: viewModel.consistencyPercent) != .none) {
                         HStack(spacing: 8) {
                             StreakChip(streakDays: viewModel.streakDays)
                             ConsistencyChip(badge: Streaks.badge(consistencyPercent: viewModel.consistencyPercent))
@@ -197,7 +206,11 @@ struct ReceiverHomeView: View {
                         DailyOKHaptics.success()
                         animateCheckmark()
                         if viewModel.errorMessage == nil && !viewModel.isOffline {
-                            showCelebration = true
+                            // Simple Mode keeps the screen calm — skip confetti.
+                            if !isSimpleMode { showCelebration = true }
+                            // Spoken/audible confirmation for low-vision receivers
+                            // (only on a confirmed online check-in).
+                            if viewModel.audioConfirmationEnabled { CheckInAudio.confirm() }
                             // A confirmed, online check-in is a genuine positive
                             // moment. Ask for an App Store rating only if the user
                             // has earned it — the service handles the threshold and
@@ -214,18 +227,22 @@ struct ReceiverHomeView: View {
                 }
             } label: {
                 ZStack {
-                    // Aurora halo — two soft orbs behind the button for premium depth
-                    Circle()
-                        .fill(DailyOKColor.green300.opacity(0.5))
-                        .frame(width: buttonDiameter * 1.4, height: buttonDiameter * 1.4)
-                        .blur(radius: 40)
-                        .scaleEffect(isPulsing ? 1.05 : 1.0)
-                    Circle()
-                        .fill(DailyOKColor.teal.opacity(0.4))
-                        .frame(width: buttonDiameter * 1.2, height: buttonDiameter * 1.2)
-                        .blur(radius: 30)
-                        .offset(x: 20, y: 20)
-                        .scaleEffect(isPulsing ? 1.08 : 1.0)
+                    // Aurora halo — two soft orbs behind the button for premium
+                    // depth. Hidden in Simple Mode to keep the screen calm and
+                    // high-contrast for senior receivers.
+                    if !isSimpleMode {
+                        Circle()
+                            .fill(DailyOKColor.green300.opacity(0.5))
+                            .frame(width: buttonDiameter * 1.4, height: buttonDiameter * 1.4)
+                            .blur(radius: 40)
+                            .scaleEffect(isPulsing ? 1.05 : 1.0)
+                        Circle()
+                            .fill(DailyOKColor.teal.opacity(0.4))
+                            .frame(width: buttonDiameter * 1.2, height: buttonDiameter * 1.2)
+                            .blur(radius: 30)
+                            .offset(x: 20, y: 20)
+                            .scaleEffect(isPulsing ? 1.08 : 1.0)
+                    }
 
                     // Main button — brand gradient with a glass highlight on top
                     Circle()
@@ -238,7 +255,7 @@ struct ReceiverHomeView: View {
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .frame(width: buttonDiameter, height: buttonDiameter)
+                        .frame(width: effectiveDiameter, height: effectiveDiameter)
                         .overlay(
                             Circle()
                                 .fill(
@@ -279,7 +296,9 @@ struct ReceiverHomeView: View {
             .disabled(viewModel.isCheckingIn)
             .accessibilityLabel("Tap to check in and let your family know you're okay")
             .onAppear {
-                guard !reduceMotion else { return }
+                // No pulsing in Simple Mode — a steady, calm target is easier
+                // for senior receivers to focus on and tap.
+                guard !reduceMotion, !isSimpleMode else { return }
                 withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
                     isPulsing = true
                     buttonScale = 1.05
@@ -343,7 +362,7 @@ struct ReceiverHomeView: View {
                 .padding(.top, 4)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Feeling \(mood.label)")
-            } else if viewModel.shouldPromptForMood {
+            } else if viewModel.shouldPromptForMood && !isSimpleMode {
                 moodPicker.padding(.top, 8)
             }
         }

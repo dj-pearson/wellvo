@@ -11,6 +11,10 @@ final class ReceiverViewModel: ObservableObject {
     @Published var isOffline = false
     @Published var pendingOfflineCount = 0
     @Published var receiverMode: ReceiverMode = .standard
+    /// Senior "Simple Mode": extra-large, low-clutter, emoji-free check-in.
+    @Published var simpleMode = false
+    /// Speak/chime a confirmation on a successful check-in (low-vision support).
+    @Published var audioConfirmationEnabled = false
     @Published var nextCheckInTime: Date?
     @Published var receiverSettings: ReceiverSettings?
     @Published var streakDays: Int = 0
@@ -99,6 +103,18 @@ final class ReceiverViewModel: ObservableObject {
 
         isOffline = !offlineService.isOnline
         pendingOfflineCount = offlineService.pendingCount
+
+        // Publish a snapshot to the shared App Group so Siri, Shortcuts, the
+        // widget, the Control Center control, and the watch can check in and
+        // show today's status without a live app session.
+        await SharedCheckInPublisher.publish(
+            familyId: family.id,
+            isKidMode: receiverMode == .kid,
+            hasCheckedInToday: hasCheckedInToday,
+            lastCheckInAt: lastCheckIn?.checkedInAt,
+            nextCheckInAt: nextCheckInTime,
+            displayName: nil
+        )
     }
 
     private func loadPendingRequest(receiverId: UUID, familyId: UUID) async {
@@ -171,6 +187,8 @@ final class ReceiverViewModel: ObservableObject {
 
             receiverSettings = settings
             receiverMode = settings.receiverMode
+            simpleMode = settings.simpleMode
+            audioConfirmationEnabled = settings.audioConfirmationEnabled
             computeNextCheckInTime(from: settings)
         } catch {
             // Non-critical — default to standard mode
@@ -212,6 +230,8 @@ final class ReceiverViewModel: ObservableObject {
             hasCheckedInToday = true
             hasPendingRequest = false
             selectedMood = nil
+            // Keep the shared snapshot (widget/Siri/watch) in sync immediately.
+            SharedCheckInPublisher.markCheckedIn(at: checkIn?.checkedInAt ?? Date())
             // The server push did its job (or wasn't needed) — drop the local
             // safety-net reminder so it can't fire after a successful check-in.
             await PushNotificationService.shared.cancelLocalCheckinFallback()

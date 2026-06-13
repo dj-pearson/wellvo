@@ -6,6 +6,9 @@ struct ReceiverStatusCard: Identifiable {
     let memberId: UUID
     let name: String
     let avatarUrl: String?
+    /// Receiver's phone number (E.164/raw), if known — drives one-tap call /
+    /// FaceTime / message quick actions. Nil hides those actions.
+    var phone: String?
     var status: ReceiverCheckInStatus
     var lastCheckIn: Date?
     var streak: Int
@@ -148,6 +151,7 @@ final class DashboardViewModel: ObservableObject {
                     memberId: receiver.id,
                     name: receiver.user?.displayName ?? "Unknown",
                     avatarUrl: receiver.user?.avatarUrl,
+                    phone: receiver.user?.phone,
                     status: status,
                     lastCheckIn: todayCheckIn?.checkedInAt ?? history.first?.checkedInAt,
                     streak: streak,
@@ -162,6 +166,11 @@ final class DashboardViewModel: ObservableObject {
             }
 
             receiverCards = cards
+            // Mirror status to the App Group so the owner status widget can show
+            // an at-a-glance summary without opening the app.
+            SharedOwnerPublisher.publish(cards)
+            // Start/refresh/end Live Activities for any receiver in escalation.
+            EscalationActivityManager.sync(cards: cards, familyId: family.id)
             weeklySummary = computeWeeklySummary(checkIns: weeklyCheckIns, receiverCount: receivers.count)
             // A receiver hitting a strong streak is a high-satisfaction moment —
             // flag it so the view can ask for a rating (gated + throttled in the
