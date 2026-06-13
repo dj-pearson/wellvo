@@ -6,6 +6,9 @@ struct ReceiverStatusCard: Identifiable {
     let memberId: UUID
     let name: String
     let avatarUrl: String?
+    /// Receiver's phone number (E.164/raw), if known — drives one-tap call /
+    /// FaceTime / message quick actions. Nil hides those actions.
+    var phone: String?
     var status: ReceiverCheckInStatus
     var lastCheckIn: Date?
     var streak: Int
@@ -148,6 +151,7 @@ final class DashboardViewModel: ObservableObject {
                     memberId: receiver.id,
                     name: receiver.user?.displayName ?? "Unknown",
                     avatarUrl: receiver.user?.avatarUrl,
+                    phone: receiver.user?.phone,
                     status: status,
                     lastCheckIn: todayCheckIn?.checkedInAt ?? history.first?.checkedInAt,
                     streak: streak,

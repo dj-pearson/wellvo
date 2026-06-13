@@ -525,6 +525,10 @@ struct ReceiverStatusCardView: View {
                 .accessibilityLabel(alreadyChecked ? "Request another update from \(card.name)" : "Check on \(card.name)")
                 .accessibilityHint("Sends an immediate check-in notification")
             }
+
+            // One-tap reach the receiver directly — useful for any caregiver
+            // (owner or viewer) when a check-in looks off.
+            ContactQuickActions(name: card.name, phone: card.phone)
         }
         .padding()
         .glassCard(style: .regular, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)

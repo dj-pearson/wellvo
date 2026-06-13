@@ -2687,7 +2687,7 @@
       ],
       "priority": 114,
       "passes": false,
-      "notes": "Reduces time-to-contact in the moment that matters. Pure client-side using URL schemes; the data is already present."
+      "notes": "IMPLEMENTED (pending Xcode build verification): ContactQuickActions component (Call/FaceTime/Text via tel:/facetime:/sms: Link) shown on each dashboard receiver card for owners and viewers when a phone number exists; ReceiverStatusCard now carries phone from the user record. Notification 'Call Me'/urgent 'Call Now' already route to the dialer. No backend change. | Reduces time-to-contact in the moment that matters. Pure client-side using URL schemes; the data is already present."
     },
     {
       "id": "US-IOS016",
