@@ -25,6 +25,7 @@
 		B1C00001 /* AnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00001; };
 		B1C00002 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00002; };
 		B1C00003 /* CheckInService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00003; };
+		B1C00200 /* HealthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00200; };
 		B1C00004 /* FamilyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00004; };
 		B1C00005 /* OfflineCheckInService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00005; };
 		B1C00006 /* PushNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00006; };
@@ -59,6 +60,7 @@
 		B1F00010 /* ReceiverSetupGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00010; };
 		/* Views/Receiver */
 		B1F0000B /* ReceiverHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0000B; };
+		B1F00203 /* HealthSharingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00203; };
 		/* Views/Settings */
 		B1F0000C /* NotificationPermissionBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0000C; };
 		B1F0000D /* ReceiverSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0000D; };
@@ -184,6 +186,7 @@
 		F1C00001 /* AnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsService.swift; sourceTree = "<group>"; };
 		F1C00002 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		F1C00003 /* CheckInService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInService.swift; sourceTree = "<group>"; };
+		F1C00200 /* HealthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthService.swift; sourceTree = "<group>"; };
 		F1C00004 /* FamilyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyService.swift; sourceTree = "<group>"; };
 		F1C00005 /* OfflineCheckInService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineCheckInService.swift; sourceTree = "<group>"; };
 		F1C00006 /* PushNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationService.swift; sourceTree = "<group>"; };
@@ -222,6 +225,7 @@
 		F1F0000A /* OwnerTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnerTabView.swift; sourceTree = "<group>"; };
 		F1F00010 /* ReceiverSetupGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverSetupGuideView.swift; sourceTree = "<group>"; };
 		F1F0000B /* ReceiverHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverHomeView.swift; sourceTree = "<group>"; };
+		F1F00203 /* HealthSharingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSharingView.swift; sourceTree = "<group>"; };
 		F1F0000C /* NotificationPermissionBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPermissionBanner.swift; sourceTree = "<group>"; };
 		F1F0000D /* ReceiverSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverSettingsView.swift; sourceTree = "<group>"; };
 		F1F0000E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -601,6 +605,7 @@
 				F1C0000B /* BiometricService.swift */,
 				F1C0000C /* CertificatePinningService.swift */,
 				F1C00003 /* CheckInService.swift */,
+				F1C00200 /* HealthService.swift */,
 				F1C00020 /* EdgeFunctionsClient.swift */,
 				F1C00004 /* FamilyService.swift */,
 				F1C0000A /* HeartbeatService.swift */,
@@ -717,6 +722,7 @@
 			isa = PBXGroup;
 			children = (
 				F1F0000B /* ReceiverHomeView.swift */,
+				F1F00203 /* HealthSharingView.swift */,
 			);
 			path = Receiver;
 			sourceTree = "<group>";
@@ -943,6 +949,7 @@
 				B1C00001 /* AnalyticsService.swift in Sources */,
 				B1C00002 /* AuthService.swift in Sources */,
 				B1C00003 /* CheckInService.swift in Sources */,
+				B1C00200 /* HealthService.swift in Sources */,
 				B1C00004 /* FamilyService.swift in Sources */,
 				B1C00005 /* OfflineCheckInService.swift in Sources */,
 				B1C00006 /* PushNotificationService.swift in Sources */,
@@ -971,6 +978,7 @@
 				B1F0000A /* OwnerTabView.swift in Sources */,
 				B1F00010 /* ReceiverSetupGuideView.swift in Sources */,
 				B1F0000B /* ReceiverHomeView.swift in Sources */,
+				B1F00203 /* HealthSharingView.swift in Sources */,
 				B1F0000C /* NotificationPermissionBanner.swift in Sources */,
 				B1F0000D /* ReceiverSettingsView.swift in Sources */,
 				B1F0000E /* SettingsView.swift in Sources */,

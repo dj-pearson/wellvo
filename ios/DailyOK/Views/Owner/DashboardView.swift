@@ -382,6 +382,18 @@ struct ReceiverStatusCardView: View {
                             .font(.subheadline)
                     }
                     .foregroundStyle(card.status.color)
+
+                    // US-IOS017: supplementary passive signal — never a substitute
+                    // for the check-in above, just a calm extra reassurance.
+                    if card.passiveActiveToday == true {
+                        HStack(spacing: 4) {
+                            Image(systemName: "figure.walk")
+                            Text("Active today")
+                        }
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Also active today, from Apple Health")
+                    }
                 }
 
                 Spacer()

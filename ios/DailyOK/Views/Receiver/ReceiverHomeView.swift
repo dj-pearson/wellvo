@@ -13,6 +13,7 @@ struct ReceiverHomeView: View {
     @State private var checkmarkOpacity: Double = 0.0
     @State private var showSignOutConfirmation = false
     @State private var showCelebration = false
+    @State private var showHealthSharing = false
     @ScaledMetric(relativeTo: .largeTitle) private var buttonDiameter: CGFloat = 200
     @ScaledMetric(relativeTo: .title) private var tapIconSize: CGFloat = 40
     @ScaledMetric(relativeTo: .title) private var tapTextSize: CGFloat = 28
@@ -121,6 +122,11 @@ struct ReceiverHomeView: View {
                         } label: {
                             Label("Notification Settings", systemImage: "bell.badge")
                         }
+                        Button {
+                            showHealthSharing = true
+                        } label: {
+                            Label("Activity Sharing", systemImage: "figure.walk")
+                        }
                         Button(role: .destructive) {
                             showSignOutConfirmation = true
                         } label: {
@@ -143,7 +149,15 @@ struct ReceiverHomeView: View {
                 showCelebration = false
             }
         }
-        .task { await viewModel.loadStatus() }
+        .sheet(isPresented: $showHealthSharing) {
+            HealthSharingView()
+        }
+        .task {
+            await viewModel.loadStatus()
+            // US-IOS017: refresh the opt-in passive "active today" signal (no-op
+            // unless the receiver has turned activity sharing on).
+            await HealthService.shared.reportTodayIfEnabled()
+        }
         // If a silent push request arrived while the app was backgrounded, or the
         // user checked in on another device, re-fetch on foreground so the home
         // screen reflects the true state instead of stale "please check in" UI.

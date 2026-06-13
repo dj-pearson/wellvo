@@ -2718,7 +2718,7 @@
         "Clear UX that this is supplementary reassurance, not medical monitoring or fall detection"
       ],
       "priority": 116,
-      "passes": false,
+      "passes": true,
       "notes": "Differentiator but privacy-sensitive \u2014 keep scope minimal, opt-in, and explicit. Frame as reassurance, not medical. Must clear App Store HealthKit review guidelines. Backward-compatible additive payload only."
     },
     {

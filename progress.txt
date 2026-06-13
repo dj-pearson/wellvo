@@ -1142,3 +1142,18 @@ iOS:
   - ViewModels/DashboardViewModel.swift: ReceiverStatusCard.noteCount + applyNoteCounts(familyId:) tallies care_notes per receiver during loadDashboard (best-effort; older backend without the table leaves badges at 0).
   - Registered CareNote.swift + CareNotesView.swift in DailyOK.xcodeproj (ids F1B00200/B1B00200, F1F00202/B1F00202).
 Verification: source-level only (no Xcode/Deno/Postgres). SQL hand-reviewed against the alerts/00020 RLS+realtime patterns; Swift mirrors existing .from()/.insert()/.update()/.delete() + realtimeV2 usage (DashboardViewModel). pbxproj entries added in all 4 sections per file.
+
+--- Iteration IOS-017: US-IOS017 optional Apple Health passive signals (2026-06-13) ---
+Strictly opt-in, privacy-minimal passive reassurance: a receiver may share a single DERIVED boolean ("active today", computed on-device from step count) that supplements — never replaces — an explicit check-in. Default fully off; revocable any time. Backend-first, all additive.
+Backend: supabase/migrations/00042_wellness_signals.sql
+  - New wellness_signals table: receiver_id, family_id, signal_date (local date), active boolean, source ('healthkit'), updated_at, UNIQUE(receiver_id, family_id, signal_date) for daily upsert. Index (family_id, signal_date).
+  - RLS: receiver writes/updates/deletes OWN signal (insert/update/delete where receiver_id=auth.uid()); caregivers (active owner/viewer) + the receiver read. Added to supabase_realtime + REPLICA IDENTITY FULL.
+  - No raw health data is ever stored — only the derived yes/no.
+iOS:
+  - Services/HealthService.swift (NEW): #if canImport(HealthKit). Opt-in stored locally (UserDefaults source of truth so toggle-off stops reporting instantly). setSharing(true) requests read auth for stepCount ONLY; reportTodayIfEnabled() sums today's steps via HKStatisticsQuery, derives active = steps >= 250, upserts wellness_signals. setSharing(false) clears the flag AND deletes all shared rows (full revoke). Degrades cleanly: no-ops when HealthKit unavailable / permission denied / query fails (never uploads a misleading "inactive").
+  - Views/Receiver/HealthSharingView.swift (NEW): receiver opt-in toggle + plain-language privacy explanation ("just a yes/no", "your health details never leave your phone", "never replaces your check-in", "turn off any time → removed", "not a medical device / no fall detection"). Disabled when HealthKit unavailable.
+  - Views/Receiver/ReceiverHomeView.swift: "Activity Sharing" entry in the existing top-right menu → HealthSharingView sheet; reportTodayIfEnabled() on appear.
+  - Owner dashboard: ReceiverStatusCard.passiveActiveToday (nil = not shared); DashboardViewModel.applyWellnessSignals reads signals updated in the last 24h (timezone-robust vs a date-string match); card shows a subtle secondary "Active today" chip ONLY when active==true, clearly supplementary to the status above.
+  - Info.plist NSHealthShareUsageDescription; DailyOK.entitlements com.apple.developer.healthkit. Registered HealthService.swift + HealthSharingView.swift in DailyOK.xcodeproj (F1C00200/B1C00200, F1F00203/B1F00203).
+Verification: source-level only (no Xcode/Deno/Postgres). HealthKit code guarded by canImport + isHealthDataAvailable. SQL hand-reviewed against the care_notes/00041 RLS+realtime pattern.
+Documented follow-ups: (1) HealthKit capability must be enabled on the app target in Xcode/App Store Connect provisioning (entitlement added here, but the provisioning profile must include HealthKit) and the feature must clear App Store HealthKit review (framed as reassurance, minimal scope, opt-in) — flagged for the Mac/release pass; (2) the website Privacy page should add a line about the opt-in derived activity signal to match the in-app disclosure.
