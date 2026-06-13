@@ -115,6 +115,12 @@ struct SettingsView: View {
                         .onChange(of: liveActivitiesEnabled) { _, enabled in
                             if !enabled { EscalationActivityManager.endAll() }
                         }
+
+                        NavigationLink {
+                            CaregiverDigestView()
+                        } label: {
+                            Label("Daily Summary", systemImage: "envelope.badge")
+                        }
                     }
                 }
 

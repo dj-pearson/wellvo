@@ -2671,7 +2671,7 @@
         "Setting stored additively; older clients unaffected"
       ],
       "priority": 113,
-      "passes": false,
+      "passes": true,
       "notes": "Shifts owners from anxious checking to passive reassurance \u2014 a retention lever. New cron/edge work must be additive (new job, new endpoint)."
     },
     {

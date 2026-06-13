@@ -61,6 +61,7 @@
 		B1F0000C /* NotificationPermissionBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0000C; };
 		B1F0000D /* ReceiverSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0000D; };
 		B1F0000E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0000E; };
+		B1F00200 /* CaregiverDigestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00200; };
 		/* Views/Viewer */
 		B1F0000F /* ViewerTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0000F; };
 		/* Resources */
@@ -220,6 +221,7 @@
 		F1F0000C /* NotificationPermissionBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPermissionBanner.swift; sourceTree = "<group>"; };
 		F1F0000D /* ReceiverSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverSettingsView.swift; sourceTree = "<group>"; };
 		F1F0000E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		F1F00200 /* CaregiverDigestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaregiverDigestView.swift; sourceTree = "<group>"; };
 		F1F0000F /* ViewerTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerTabView.swift; sourceTree = "<group>"; };
 		F1F00012 /* SkeletonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonView.swift; sourceTree = "<group>"; };
 		F1F00013 /* PasswordStrength.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordStrength.swift; sourceTree = "<group>"; };
@@ -719,6 +721,7 @@
 				F1F0000C /* NotificationPermissionBanner.swift */,
 				F1F0000D /* ReceiverSettingsView.swift */,
 				F1F0000E /* SettingsView.swift */,
+				F1F00200 /* CaregiverDigestView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -963,6 +966,7 @@
 				B1F0000C /* NotificationPermissionBanner.swift in Sources */,
 				B1F0000D /* ReceiverSettingsView.swift in Sources */,
 				B1F0000E /* SettingsView.swift in Sources */,
+				B1F00200 /* CaregiverDigestView.swift in Sources */,
 				B1F0000F /* ViewerTabView.swift in Sources */,
 				B1C00009 /* LocationService.swift in Sources */,
 				B1C0000A /* HeartbeatService.swift in Sources */,
