@@ -2655,7 +2655,7 @@
         "Push: the urgent-alert payload gains optional ack metadata; older apps ignore it"
       ],
       "priority": 112,
-      "passes": false,
+      "passes": true,
       "notes": "Families with multiple caregivers currently risk everyone panicking/calling simultaneously. Coordination is a clear differentiator vs single-owner competitors. Keep all DB/API changes additive and forward-only per CLAUDE.md."
     },
     {

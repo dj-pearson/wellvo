@@ -51,6 +51,8 @@ actor AnalyticsService {
         // Alerts
         case alertViewed = "alert.viewed"
         case alertDismissed = "alert.dismissed"
+        case alertAcknowledged = "alert.acknowledged"
+        case alertReleased = "alert.released"
 
         // App lifecycle
         case appOpened = "app.opened"

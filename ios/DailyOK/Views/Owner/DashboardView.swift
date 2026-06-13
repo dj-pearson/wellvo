@@ -56,9 +56,11 @@ struct DashboardView: View {
 
                         // Pattern Alerts
                         if !viewModel.alerts.isEmpty {
-                            AlertsBannerView(alerts: viewModel.alerts) { alert in
+                            AlertsBannerView(alerts: viewModel.alerts, onDismiss: { alert in
                                 Task { await viewModel.dismissAlert(alert) }
-                            }
+                            }, onAcknowledge: { alert, release in
+                                Task { await viewModel.acknowledgeAlert(alert, release: release) }
+                            })
                             .transition(.asymmetric(
                                 insertion: .opacity.combined(with: .move(edge: .top)),
                                 removal: .opacity
@@ -580,50 +582,94 @@ private func kidResponseBadge(_ rawValue: String) -> some View {
 struct AlertsBannerView: View {
     let alerts: [DailyOKAlert]
     let onDismiss: (DailyOKAlert) -> Void
+    /// US-IOS013: acknowledge (false) / release (true) so co-caregivers can
+    /// coordinate. Optional so existing call sites that don't pass it still work.
+    var onAcknowledge: ((DailyOKAlert, Bool) -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 8) {
             ForEach(alerts) { alert in
-                HStack(spacing: 12) {
-                    Image(systemName: alert.type == "time_drift" ? "clock.badge.exclamationmark" : "exclamationmark.triangle.fill")
-                        .font(.title3)
-                        .foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 12) {
+                        Image(systemName: alert.type == "time_drift" ? "clock.badge.exclamationmark" : "exclamationmark.triangle.fill")
+                            .font(.title3)
+                            .foregroundStyle(.orange)
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(alert.title)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                        Text(alert.message)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(alert.title)
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Text(alert.message)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
 
-                        if let driftHours = alert.data?["drift_hours"] as? Double {
-                            Text("Shifted by \(String(format: "%.1f", driftHours)) hours")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
+                            if let driftHours = alert.data?["drift_hours"] as? Double {
+                                Text("Shifted by \(String(format: "%.1f", driftHours)) hours")
+                                    .font(.caption2)
+                                    .foregroundStyle(.orange)
+                            }
                         }
+
+                        Spacer()
+
+                        Button {
+                            onDismiss(alert)
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
                     }
 
-                    Spacer()
-
-                    Button {
-                        onDismiss(alert)
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
+                    if let onAcknowledge {
+                        acknowledgementRow(for: alert, onAcknowledge: onAcknowledge)
                     }
-                    .buttonStyle(.plain)
                 }
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
-                        .fill(DailyOKColor.warning.opacity(0.12))
+                        .fill(DailyOKColor.warning.opacity(alert.isAcknowledged ? 0.06 : 0.12))
                         .overlay(
                             RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
-                                .strokeBorder(DailyOKColor.warning.opacity(0.3), lineWidth: 0.75)
+                                .strokeBorder(DailyOKColor.warning.opacity(alert.isAcknowledged ? 0.15 : 0.3), lineWidth: 0.75)
                         )
                 )
+                .opacity(alert.isAcknowledged ? 0.7 : 1)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func acknowledgementRow(for alert: DailyOKAlert,
+                                    onAcknowledge: @escaping (DailyOKAlert, Bool) -> Void) -> some View {
+        if alert.isAcknowledged {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.shield.fill")
+                    .foregroundStyle(DailyOKColor.green)
+                let who = alert.acknowledgedByName ?? "A caregiver"
+                let when = alert.acknowledgedAt?.formatted(date: .omitted, time: .shortened) ?? ""
+                Text(when.isEmpty ? "Handled by \(who)" : "Handled by \(who) at \(when)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Release") { onAcknowledge(alert, true) }
+                    .font(.caption2.weight(.semibold))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(DailyOKColor.green)
+            }
+            .accessibilityElement(children: .combine)
+        } else {
+            Button {
+                onAcknowledge(alert, false)
+            } label: {
+                Label("I've got this", systemImage: "hand.raised.fill")
+                    .font(.caption.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(DailyOKColor.green)
+            .accessibilityHint("Lets other caregivers know you're handling this so they don't all respond at once.")
         }
     }
 }

@@ -1102,3 +1102,17 @@ Documented judgment calls (left as-is, defensible against the AC):
   - US-IOS015 confirm-before-dialing: tel:// shows iOS's native call confirmation sheet; FaceTime/SMS open their own apps. Verified CALL_RECEIVER_ACTION / CHECKIN_CALL_ME_ACTION route to the dialer in AppDelegate.swift.
   - US-IOS011 Simple Mode on watch/widget: those surfaces are already minimal/large/calm, so "respected where applicable" holds without piping simple_mode through SharedCheckInState (avoids Codable decode risk across 5 targets during upgrades).
 Remaining iOS backlog (passes:false): US-IOS013 (multi-caregiver ack), US-IOS014 (caregiver digest), US-IOS016 (shared care notes), US-IOS017 (Apple Health) — implemented next, backend-first.
+
+--- Iteration IOS-013: US-IOS013 multi-caregiver alert acknowledgement (2026-06-13) ---
+Implemented "I've got this" so co-caregivers (owner + viewers) can claim a missed-check-in / pattern alert and the others stand down. Backend-first, all additive/forward-only per CLAUDE.md.
+Backend: supabase/migrations/00039_caregiver_alert_acknowledgement.sql
+  - Three nullable columns on alerts: acknowledged_by (FK users, ON DELETE SET NULL), acknowledged_at, acknowledged_by_name (denormalized so co-caregivers render "Handled by <name>" with no join). No change to the existing alerts shape — older clients ignore the keys.
+  - New additive SELECT policy "Viewers can read family alerts" (owners already could via 00006) so viewers see alerts + receive the realtime UPDATE.
+  - New SECURITY DEFINER RPC acknowledge_alert(p_alert_id, p_release default false): authorizes the caller as an ACTIVE owner/viewer of the alert's family, then sets (acknowledge) or clears (release) the three columns and RETURNS the alerts row. Reversible. GRANT EXECUTE to authenticated. Chose an RPC over broad UPDATE grants so viewers can't flip is_read/etc.
+  - Realtime: alerts is already in supabase_realtime with REPLICA IDENTITY FULL (00020), so the acknowledgement UPDATE streams to other caregivers with zero extra wiring.
+iOS:
+  - Models/DailyOKAlert.swift: added nullable acknowledgedBy/At/ByName + isAcknowledged. decodeIfPresent-safe via optional Codable.
+  - ViewModels/DashboardViewModel.swift: acknowledgeAlert(_:release:) calls the RPC with an Encodable param struct (mixed String+Bool), applies the returned row optimistically; analytics alert.acknowledged / alert.released (added to AnalyticsService).
+  - Views/Owner/DashboardView.swift AlertsBannerView: new optional onAcknowledge closure → "I've got this" button when unacknowledged; muted card + "Handled by <name> at <time>" + "Release" when acknowledged. Viewers get the same UI for free because Views/Viewer/ViewerTabView.swift reuses DashboardView().
+Verification: source-level only (Linux container, no Xcode and no Deno/Postgres). SQL reviewed by hand against the existing 00006/00020 patterns; Swift follows the existing .rpc() + Codable conventions (export_user_data RPC, alerts decode path).
+Documented follow-ups (additive, out of this slice): (1) the urgent-alert APNs/FCM payload could carry optional ack metadata so a push (not just realtime) reflects "handled" — additive, older apps ignore it; (2) acknowledgement currently targets rows in the alerts table (pattern/urgent alerts); a missed-check-in card without a backing alert row has nothing to acknowledge yet — when escalation starts writing an owner_alert row, the same banner/RPC covers it.

@@ -244,6 +244,37 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
+    private struct AcknowledgeAlertParams: Encodable {
+        let p_alert_id: String
+        let p_release: Bool
+    }
+
+    /// US-IOS013: acknowledge ("I've got this") or release a family alert via the
+    /// `acknowledge_alert` RPC. The resulting UPDATE streams to other caregivers
+    /// through the existing `alerts` realtime subscription, so they see
+    /// "Handled by <name>" without a manual refresh. The returned row is applied
+    /// locally so the tapping caregiver gets instant feedback.
+    func acknowledgeAlert(_ alert: DailyOKAlert, release: Bool) async {
+        do {
+            let updated: DailyOKAlert = try await SupabaseService.shared.client
+                .rpc("acknowledge_alert",
+                     params: AcknowledgeAlertParams(p_alert_id: alert.id.uuidString, p_release: release))
+                .single()
+                .execute()
+                .value
+
+            if let idx = alerts.firstIndex(where: { $0.id == updated.id }) {
+                alerts[idx] = updated
+            }
+            await AnalyticsService.shared.track(
+                release ? .alertReleased : .alertAcknowledged,
+                properties: ["type": alert.type]
+            )
+        } catch {
+            errorMessage = DailyOKError.network(error).localizedDescription
+        }
+    }
+
     // MARK: - Private
 
     private func loadAlerts(familyId: UUID) async {
