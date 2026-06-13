@@ -50,6 +50,8 @@ struct CheckInWidgetView: View {
                 Text("Open Daily OK").font(.caption).fontWeight(.semibold)
                 Text("to finish setup").font(.caption2).foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(homeAccessibilityLabel)
         } else if entry.hasCheckedInToday {
             VStack(spacing: 8) {
                 Image(systemName: "checkmark.circle.fill").font(.largeTitle).foregroundStyle(brandGreen)
@@ -60,6 +62,8 @@ struct CheckInWidgetView: View {
                 }
             }
             .multilineTextAlignment(.center)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(homeAccessibilityLabel)
         } else {
             VStack(spacing: 10) {
                 Button(intent: CheckInIntent()) {
@@ -70,11 +74,25 @@ struct CheckInWidgetView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(brandGreen)
+                .accessibilityLabel("I'm OK, check in")
+                .accessibilityHint("Lets your family know you're OK today.")
                 Text("Tap to let your family know")
                     .font(.caption2).foregroundStyle(.secondary)
             }
             .padding(.horizontal, 4)
         }
+    }
+
+    /// VoiceOver description of the current state for the Home Screen variant.
+    private var homeAccessibilityLabel: String {
+        if !entry.isSignedIn { return "Daily OK. Open the app to finish setup." }
+        if entry.hasCheckedInToday {
+            if let at = entry.lastCheckInAt {
+                return "Checked in today at \(at.formatted(date: .omitted, time: .shortened))."
+            }
+            return "Checked in today."
+        }
+        return "You haven't checked in today. Activate to check in and let your family know you're OK."
     }
 
     // MARK: Lock Screen accessories

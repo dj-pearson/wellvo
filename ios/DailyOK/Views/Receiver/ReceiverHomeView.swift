@@ -354,7 +354,10 @@ struct ReceiverHomeView: View {
 
             if let mood = viewModel.selectedMood {
                 HStack(spacing: 6) {
-                    Text(mood.emoji)
+                    // Simple Mode is an emoji-free, text-only presentation.
+                    if !isSimpleMode {
+                        Text(mood.emoji)
+                    }
                     Text("Feeling \(mood.label.lowercased())")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)

@@ -234,6 +234,33 @@ struct FirstReceiverWalkthroughView: View {
                 .padding(12)
                 .background(Color.orange.opacity(0.08))
                 .cornerRadius(12)
+
+                NavigationLink {
+                    WatchSetupGuideView()
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "applewatch")
+                            .font(.title2)
+                            .foregroundStyle(.green)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Set up on Apple Watch")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                            Text("Make checking in even easier — one tap from their wrist.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.leading)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(12)
+                    .background(Color.green.opacity(0.08))
+                    .cornerRadius(12)
+                }
+                .accessibilityHint("Opens step-by-step instructions for installing Daily OK on an Apple Watch.")
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 20)
