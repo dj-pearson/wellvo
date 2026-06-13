@@ -11,6 +11,10 @@ final class ReceiverViewModel: ObservableObject {
     @Published var isOffline = false
     @Published var pendingOfflineCount = 0
     @Published var receiverMode: ReceiverMode = .standard
+    /// Senior "Simple Mode": extra-large, low-clutter, emoji-free check-in.
+    @Published var simpleMode = false
+    /// Speak/chime a confirmation on a successful check-in (low-vision support).
+    @Published var audioConfirmationEnabled = false
     @Published var nextCheckInTime: Date?
     @Published var receiverSettings: ReceiverSettings?
     @Published var streakDays: Int = 0
@@ -183,6 +187,8 @@ final class ReceiverViewModel: ObservableObject {
 
             receiverSettings = settings
             receiverMode = settings.receiverMode
+            simpleMode = settings.simpleMode
+            audioConfirmationEnabled = settings.audioConfirmationEnabled
             computeNextCheckInTime(from: settings)
         } catch {
             // Non-critical — default to standard mode

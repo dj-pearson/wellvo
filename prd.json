@@ -2625,7 +2625,7 @@
       ],
       "priority": 110,
       "passes": false,
-      "notes": "The app already has strong Dynamic Type / VoiceOver / Reduce Motion foundations. Simple Mode packages an opinionated senior-first profile so caregivers can enable it in one tap. New receiver_settings column must be additive (nullable, default off) per backward-compat rules."
+      "notes": "IMPLEMENTED (pending Xcode build verification): owner-controlled per-receiver Simple Mode (receiver_settings.simple_mode, additive migration 00038). ReceiverHomeView in simple mode uses a larger steady (non-pulsing) button, drops the aurora halo + streak chips + mood picker for a calm high-contrast screen; emoji-free standard copy. Owner toggle in ReceiverSettingsView 'Senior Accessibility' section. The watch app and widget are already minimal so they inherently honor the spirit. | The app already has strong Dynamic Type / VoiceOver / Reduce Motion foundations. Simple Mode packages an opinionated senior-first profile so caregivers can enable it in one tap. New receiver_settings column must be additive (nullable, default off) per backward-compat rules."
     },
     {
       "id": "US-IOS012",
@@ -2640,7 +2640,7 @@
       ],
       "priority": 111,
       "passes": false,
-      "notes": "Complements Simple Mode. Be careful not to double-announce when VoiceOver is active \u2014 branch on UIAccessibility.isVoiceOverRunning."
+      "notes": "IMPLEMENTED (pending Xcode build verification): CheckInAudio speaks a confirmation via AVSpeechSynthesizer on a confirmed online check-in when receiver_settings.audio_confirmation_enabled is on; skipped when VoiceOver is running (no double-speak) and never for optimistic offline check-ins. Owner toggle 'Speak Confirmation'. | Complements Simple Mode. Be careful not to double-announce when VoiceOver is active \u2014 branch on UIAccessibility.isVoiceOverRunning."
     },
     {
       "id": "US-IOS013",

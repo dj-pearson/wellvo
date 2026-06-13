@@ -21,6 +21,8 @@ struct ReceiverSettingsView: View {
     @State private var showSavedConfirmation = false
     @State private var errorMessage: String?
     @State private var receiverMode: ReceiverMode = .standard
+    @State private var simpleMode = false
+    @State private var audioConfirmationEnabled = false
 
     // Schedule fields
     @State private var scheduleType: ScheduleType = .daily
@@ -77,6 +79,21 @@ struct ReceiverSettingsView: View {
                 Text("Receiver Mode")
             } footer: {
                 Text("Kid mode provides a fun, engaging experience with expanded mood options and location sharing.")
+            }
+
+            // Senior Accessibility (Simple Mode)
+            Section {
+                Toggle("Simple Mode", isOn: $simpleMode)
+                    .accessibilityLabel("Simple mode")
+                    .accessibilityHint("Shows an extra-large, low-clutter check-in screen")
+
+                Toggle("Speak Confirmation", isOn: $audioConfirmationEnabled)
+                    .accessibilityLabel("Speak confirmation aloud")
+                    .accessibilityHint("Says a confirmation out loud after a successful check-in")
+            } header: {
+                Text("Senior Accessibility")
+            } footer: {
+                Text("Simple Mode gives \(member.user?.displayName ?? "them") an extra-large, calm, emoji-free check-in button. Speak Confirmation reads a short confirmation aloud — helpful for low vision. (Spoken confirmation is skipped automatically when VoiceOver is on.)")
             }
 
             // Pause & Manual Notifications
@@ -364,6 +381,8 @@ struct ReceiverSettingsView: View {
             smsEscalationEnabled = loaded.smsEscalationEnabled
             notifyOwnerOnCheckin = loaded.notifyOwnerOnCheckin
             receiverMode = loaded.receiverMode
+            simpleMode = loaded.simpleMode
+            audioConfirmationEnabled = loaded.audioConfirmationEnabled
 
             // Schedule fields
             scheduleType = loaded.scheduleType
@@ -424,6 +443,8 @@ struct ReceiverSettingsView: View {
             "receiver_mode": receiverMode.rawValue,
             "schedule_type": scheduleType.rawValue,
             "schedule_paused": String(schedulePaused),
+            "simple_mode": String(simpleMode),
+            "audio_confirmation_enabled": String(audioConfirmationEnabled),
         ]
 
         // Schedule-specific fields
