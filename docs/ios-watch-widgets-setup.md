@@ -38,8 +38,20 @@ clears it.
   Action Button assignment — all without opening the app. (`US-IOS008`, and the
   intent half of `US-IOS010`.)
 
-### Phase 2 — Interactive Home/Lock Screen widget (`US-IOS006`) + Control (`US-IOS010`)
-Requires a **Widget Extension target** (see "Create in Xcode" below).
+### Phase 2 — Interactive widget (`US-IOS006`) + Control (`US-IOS010`) (DONE)
+- New `DailyOKWidgets` app-extension target wired into `project.pbxproj`
+  (target `T5000001`, embedded into the app via an "Embed Foundation
+  Extensions" copy phase, with a target dependency).
+- `ios/DailyOKWidgets/`: `DailyOKWidgetBundle`, `CheckInWidget` (+ Lock Screen
+  accessory families), `CheckInProvider` (reads the shared snapshot),
+  `CheckInControl` (iOS 18). Shared core files are compiled into the widget
+  target too.
+- Interactive `Button(intent: CheckInIntent())` so a tap checks in in-place
+  (iOS 17+), no app launch.
+- Bundle id `com.wellvo.ios.DailyOKWidgets`; App Group on the extension.
+- **Verify in Xcode**: that the embed phase + automatic signing resolve, and
+  that the `dailyok://checkin` deep link (used by the not-signed-in widget)
+  is handled by the app (otherwise it just opens the app, which is fine).
 
 ### Phase 3 — Apple Watch app (`US-IOS001/002`, complications `US-IOS004`)
 Requires a **watchOS App target** + WatchConnectivity (see below).
