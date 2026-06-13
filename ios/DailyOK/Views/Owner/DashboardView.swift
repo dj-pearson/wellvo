@@ -6,6 +6,7 @@ struct DashboardView: View {
     @State private var showFirstReceiverWalkthrough = false
     @EnvironmentObject var appState: AppState
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.requestReview) private var requestReview
 
     private static let walkthroughAutoShownKey = "dailyok.firstReceiverWalkthrough.autoShown"
 
@@ -111,6 +112,15 @@ struct DashboardView: View {
                 if newTab == .dashboard {
                     Task { await viewModel.loadDashboard() }
                 }
+            }
+            // Present the App Store rating prompt when the view model flags a
+            // milestone. The service already gated/throttled the decision; we
+            // just show it and reset the flag.
+            .onChange(of: viewModel.shouldRequestReview) { _, shouldPrompt in
+                guard shouldPrompt else { return }
+                requestReview()
+                ReviewPromptService.shared.markPrompted()
+                viewModel.shouldRequestReview = false
             }
             // Reload when a queued offline check-in syncs (e.g. the owner is
             // also a receiver on the same device) so the card flips from

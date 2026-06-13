@@ -1,10 +1,93 @@
 import { DeviceSpec } from './devices'
 
-/** Returns the full HTML page for a given screen, sized to the device's logical viewport */
-export function getScreenHTML(screenId: string, device: DeviceSpec): string {
+/**
+ * v2 marketing captions — a bold value-prop headline rendered above the
+ * device frame. The first 2–3 screenshots show in App Store search results
+ * without a tap, so these sell the value instantly. See docs/ASO_STRATEGY.md.
+ * `\n` becomes a line break in the headline.
+ */
+const CAPTIONS: Record<string, { headline: string; sub: string }> = {
+  'receiver-checkin':  { headline: "Know they're OK —\nevery single day", sub: 'One tap is all it takes' },
+  'receiver-done':     { headline: "One tap.\nThey're safe.",            sub: 'Your family knows instantly' },
+  'mood-selector':     { headline: 'A quick mood check, too',            sub: 'Notice changes before they grow' },
+  'owner-dashboard':   { headline: 'See everyone\nat a glance',          sub: 'Get alerted if anyone misses a check-in' },
+  'history-heatmap':   { headline: 'Spot worrying\npatterns early',      sub: 'Streaks, trends & check-in history' },
+  'family-management': { headline: 'No tracking.\nNo surveillance.',     sub: "Just a daily 'I'm OK' — ages 13 to 95" },
+  'plan-selection':    { headline: 'Start free.\nCancel anytime.',       sub: 'One plan covers the whole family' },
+}
+
+/**
+ * Returns the full HTML page for a given screen, sized to the device's logical viewport.
+ * `variant` 'v1' (default) renders the bare app screen (original, byte-for-byte preserved).
+ * `variant` 'v2' wraps it in a marketing frame with a caption headline (see CAPTIONS).
+ */
+export function getScreenHTML(screenId: string, device: DeviceSpec, variant: 'v1' | 'v2' = 'v1'): string {
   const isIPad = device.slug.startsWith('ipad')
   const isLegacy = device.cornerRadius === 0 // iPhone 8 Plus style
   const contentHeight = device.logicalHeight - device.statusBar - device.homeIndicator
+  const isV2 = variant === 'v2'
+
+  // Shared phone markup (status bar + app screen + home indicator). In v1 this
+  // is the whole body; in v2 it lives inside a scaled-down .device-frame.
+  const phoneInner = `
+    ${getStatusBarHTML(device)}
+    <div class="screen-content">
+      ${getScreenContent(screenId, device)}
+    </div>
+    ${device.homeIndicator > 0 ? `<div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>` : ''}
+  `
+
+  // v2 marketing-frame geometry: caption headline above a scaled device.
+  const lw = device.logicalWidth
+  const lh = device.logicalHeight
+  const frameScale = isLegacy ? 0.82 : 0.84
+  const frameW = Math.round(lw * frameScale)
+  const frameH = Math.round(lh * frameScale)
+  const frameRadius = Math.round((device.cornerRadius || 28) * frameScale)
+  const bottomGap = Math.round(lh * 0.03)
+  const captionH = lh - frameH - bottomGap
+  const captionFont = Math.round(lw * (isIPad ? 0.05 : 0.075))
+  const subFont = Math.round(captionFont * 0.5)
+  const cap = CAPTIONS[screenId] || { headline: '', sub: '' }
+
+  const v2Styles = isV2 ? `
+    html, body { background: transparent; }
+    .marketing {
+      width: ${lw}px; height: ${lh}px;
+      display: flex; flex-direction: column; align-items: center;
+      background: linear-gradient(180deg, #F0FDF4 0%, #DCFCE7 100%);
+    }
+    .caption {
+      height: ${captionH}px; width: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 0 ${Math.round(lw * 0.08)}px;
+    }
+    .caption h2 { font-size: ${captionFont}px; line-height: 1.12; font-weight: 800; color: #1E293B; letter-spacing: -0.5px; }
+    .caption p { margin-top: ${Math.round(captionFont * 0.35)}px; font-size: ${subFont}px; font-weight: 600; color: #22A85C; }
+    .device-frame {
+      width: ${frameW}px; height: ${frameH}px;
+      border-radius: ${frameRadius}px; overflow: hidden; position: relative;
+      background: #FFFFFF; flex-shrink: 0;
+      box-shadow: 0 24px 60px rgba(16,24,40,0.18), 0 4px 16px rgba(16,24,40,0.10);
+    }
+    .phone {
+      width: ${lw}px; height: ${lh}px;
+      transform: scale(${frameScale}); transform-origin: top left;
+      background: #FFFFFF; overflow: hidden; position: relative;
+    }
+  ` : ''
+
+  const v2Body = `
+    <div class="marketing">
+      <div class="caption">
+        <h2>${cap.headline.replace(/\n/g, '<br>')}</h2>
+        <p>${cap.sub}</p>
+      </div>
+      <div class="device-frame">
+        <div class="phone">${phoneInner}</div>
+      </div>
+    </div>
+  `
 
   const base = `
 <!DOCTYPE html>
@@ -132,15 +215,12 @@ export function getScreenHTML(screenId: string, device: DeviceSpec): string {
     margin-bottom: 12px;
   }
 
+  ${v2Styles}
   ${getScreenStyles(screenId, device)}
 </style>
 </head>
 <body>
-  ${getStatusBarHTML(device)}
-  <div class="screen-content">
-    ${getScreenContent(screenId, device)}
-  </div>
-  ${device.homeIndicator > 0 ? `<div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>` : ''}
+  ${isV2 ? v2Body : phoneInner}
 </body>
 </html>`
   return base

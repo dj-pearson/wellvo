@@ -5,6 +5,7 @@ struct ReceiverHomeView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.requestReview) private var requestReview
     @State private var buttonScale: CGFloat = 1.0
     @State private var isPulsing = false
     @State private var showCheckmark = false
@@ -197,6 +198,15 @@ struct ReceiverHomeView: View {
                         animateCheckmark()
                         if viewModel.errorMessage == nil && !viewModel.isOffline {
                             showCelebration = true
+                            // A confirmed, online check-in is a genuine positive
+                            // moment. Ask for an App Store rating only if the user
+                            // has earned it — the service handles the threshold and
+                            // throttling, and lets the celebration play first.
+                            if ReviewPromptService.shared.registerSuccessfulCheckIn() {
+                                try? await Task.sleep(for: .seconds(2))
+                                requestReview()
+                                ReviewPromptService.shared.markPrompted()
+                            }
                         }
                     } else if viewModel.errorMessage != nil {
                         DailyOKHaptics.error()

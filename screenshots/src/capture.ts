@@ -24,7 +24,12 @@ const SCREEN_IDS = [
   'plan-selection',     // 7. Plan selection / pricing
 ]
 
-const OUTPUT_DIR = path.resolve(__dirname, '..', 'output')
+// Variant: 'v1' (bare app screens, original) or 'v2' (marketing captions).
+// v2 writes to a separate folder so the original v1 set is never overwritten —
+// switch the App Store Connect upload between them to roll forward/back.
+const VARIANT: 'v1' | 'v2' =
+  process.argv.find(a => a.startsWith('--variant='))?.split('=')[1] === 'v2' ? 'v2' : 'v1'
+const OUTPUT_DIR = path.resolve(__dirname, '..', VARIANT === 'v2' ? 'output-v2' : 'output')
 
 interface CaptureOptions {
   /** Only capture required devices */
@@ -40,7 +45,7 @@ async function captureScreen(
   device: DeviceSpec,
   screenId: string,
 ): Promise<string> {
-  const html = getScreenHTML(screenId, device)
+  const html = getScreenHTML(screenId, device, VARIANT)
   const deviceDir = path.join(OUTPUT_DIR, device.slug)
   fs.mkdirSync(deviceDir, { recursive: true })
 
@@ -85,7 +90,8 @@ async function main() {
     deviceSlugs: args.filter(a => a.startsWith('--device=')).map(a => a.split('=')[1]),
   }
 
-  console.log('=== Daily OK App Store Screenshot Generator ===\n')
+  console.log(`=== Daily OK App Store Screenshot Generator (variant: ${VARIANT}) ===\n`)
+  console.log(`Output dir: ${OUTPUT_DIR}\n`)
 
   // Filter devices
   let targetDevices = devices

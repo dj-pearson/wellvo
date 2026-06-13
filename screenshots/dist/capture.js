@@ -39,7 +39,7 @@ const fs = __importStar(require("fs"));
 const devices_1 = require("./devices");
 const screens_1 = require("./screens");
 /**
- * App Store Screenshot Generator for DailyOK
+ * App Store Screenshot Generator for Daily OK
  *
  * Generates screenshots at exact App Store required resolutions
  * by rendering HTML mockups of each app screen in a headless browser.
@@ -56,9 +56,13 @@ const SCREEN_IDS = [
     'family-management', // 6. Family member management
     'plan-selection', // 7. Plan selection / pricing
 ];
-const OUTPUT_DIR = path.resolve(__dirname, '..', 'output');
+// Variant: 'v1' (bare app screens, original) or 'v2' (marketing captions).
+// v2 writes to a separate folder so the original v1 set is never overwritten —
+// switch the App Store Connect upload between them to roll forward/back.
+const VARIANT = process.argv.find(a => a.startsWith('--variant='))?.split('=')[1] === 'v2' ? 'v2' : 'v1';
+const OUTPUT_DIR = path.resolve(__dirname, '..', VARIANT === 'v2' ? 'output-v2' : 'output');
 async function captureScreen(page, device, screenId) {
-    const html = (0, screens_1.getScreenHTML)(screenId, device);
+    const html = (0, screens_1.getScreenHTML)(screenId, device, VARIANT);
     const deviceDir = path.join(OUTPUT_DIR, device.slug);
     fs.mkdirSync(deviceDir, { recursive: true });
     // Set viewport to logical size
@@ -95,7 +99,8 @@ async function main() {
         screens: args.filter(a => a.startsWith('--screen=')).map(a => a.split('=')[1]),
         deviceSlugs: args.filter(a => a.startsWith('--device=')).map(a => a.split('=')[1]),
     };
-    console.log('=== DailyOK App Store Screenshot Generator ===\n');
+    console.log(`=== Daily OK App Store Screenshot Generator (variant: ${VARIANT}) ===\n`);
+    console.log(`Output dir: ${OUTPUT_DIR}\n`);
     // Filter devices
     let targetDevices = devices_1.devices;
     if (opts.requiredOnly) {
