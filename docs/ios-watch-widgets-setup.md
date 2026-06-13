@@ -98,9 +98,25 @@ clears it.
   stale watch queue after the phone already checked in never creates a
   duplicate. No client idempotency token needed.
 
+### Phase 6 — More client surfaces (DONE)
+- **US-IOS007 owner status widgets**: `OwnerStatusWidget` (system + Lock Screen)
+  reads `SharedOwnerState` published by the dashboard.
+- **US-IOS003 watch actionable notifications**: `WatchNotificationController`
+  handles the CHECKIN_REQUEST actions on the wrist; `WKNotificationScene` custom
+  long-look UI.
+- **US-IOS009 escalation Live Activity**: `EscalationLiveActivity` (Lock Screen +
+  Dynamic Island), driven by `EscalationActivityManager` from the dashboard;
+  per-owner toggle in Settings; "Call now" tel: link, "Stand down" via
+  `dailyok://standdown` deep link. `NSSupportsLiveActivities` added to Info.plist.
+- **US-IOS018 watch onboarding**: `WatchSetupGuideView` (Settings → Devices).
+- **Verify in Xcode**: ActivityKit APIs (`Activity.request`/`update`/`end`,
+  `ActivityConfiguration`, `DynamicIsland`) compile against the SDK; Live
+  Activities require running on device/simulator to fully exercise.
+
 ### Not yet done (follow-ups)
 - Widget-vs-Siri source attribution (would need an intent parameter; the enum
   value `widget` is already provisioned by migration 00037).
+- Live Activity push-to-start (needs an additive APNs payload from edge funcs).
 
 ## ⚠️ Reconcile in Xcode (cannot be done headlessly)
 

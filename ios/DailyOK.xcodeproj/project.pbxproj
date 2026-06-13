@@ -104,9 +104,11 @@
 		B1S00004 /* CheckInIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00004; };
 		B1S00005 /* DailyOKAppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00005; };
 		B1S00006 /* SharedOwnerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00006; };
+		B1S00007 /* EscalationActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00007; };
 		B1C00022 /* SharedCheckInPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00022; };
 		B1C00023 /* PhoneWatchSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00023; };
 		B1C00024 /* SharedOwnerPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00024; };
+		B1C00025 /* EscalationActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00025; };
 		/* UI Tests */
 		B2U00001 /* DailyOKUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00001; };
 		B2U00002 /* OwnerFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00002; };
@@ -129,8 +131,10 @@
 		B5S00004 /* CheckInIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00004; };
 		B5S00005 /* DailyOKAppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00005; };
 		B5S00006 /* SharedOwnerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00006; };
+		B5S00007 /* EscalationActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00007; };
 		B5F00005 /* OwnerStatusWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F00007; };
 		B5F00006 /* OwnerStatusProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F00008; };
+		B5F00007 /* EscalationLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F00009; };
 		/* Embed widget extension into the app */
 		BEMB0001 /* DailyOKWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F5P00001; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		/* Watch app sources */
@@ -242,7 +246,9 @@
 		F1S00004 /* CheckInIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInIntent.swift; sourceTree = "<group>"; };
 		F1S00005 /* DailyOKAppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKAppShortcuts.swift; sourceTree = "<group>"; };
 		F1S00006 /* SharedOwnerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedOwnerState.swift; sourceTree = "<group>"; };
+		F1S00007 /* EscalationActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscalationActivityAttributes.swift; sourceTree = "<group>"; };
 		F1C00024 /* SharedOwnerPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedOwnerPublisher.swift; sourceTree = "<group>"; };
+		F1C00025 /* EscalationActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscalationActivityManager.swift; sourceTree = "<group>"; };
 		F1C00022 /* SharedCheckInPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedCheckInPublisher.swift; sourceTree = "<group>"; };
 		F1C00023 /* PhoneWatchSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneWatchSync.swift; sourceTree = "<group>"; };
 		/* Resources */
@@ -271,6 +277,7 @@
 		F5F00004 /* CheckInControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInControl.swift; sourceTree = "<group>"; };
 		F5F00007 /* OwnerStatusWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnerStatusWidget.swift; sourceTree = "<group>"; };
 		F5F00008 /* OwnerStatusProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnerStatusProvider.swift; sourceTree = "<group>"; };
+		F5F00009 /* EscalationLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscalationLiveActivity.swift; sourceTree = "<group>"; };
 		F5F00005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F5F00006 /* DailyOKWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DailyOKWidgets.entitlements; sourceTree = "<group>"; };
 		F5P00001 /* DailyOKWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DailyOKWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -494,6 +501,7 @@
 				F5F00004 /* CheckInControl.swift */,
 				F5F00007 /* OwnerStatusWidget.swift */,
 				F5F00008 /* OwnerStatusProvider.swift */,
+				F5F00009 /* EscalationLiveActivity.swift */,
 				F5F00005 /* Info.plist */,
 				F5F00006 /* DailyOKWidgets.entitlements */,
 			);
@@ -525,6 +533,7 @@
 				F1S00004 /* CheckInIntent.swift */,
 				F1S00005 /* DailyOKAppShortcuts.swift */,
 				F1S00006 /* SharedOwnerState.swift */,
+				F1S00007 /* EscalationActivityAttributes.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -595,6 +604,7 @@
 				F1C00023 /* PhoneWatchSync.swift */,
 				F1C00022 /* SharedCheckInPublisher.swift */,
 				F1C00024 /* SharedOwnerPublisher.swift */,
+				F1C00025 /* EscalationActivityManager.swift */,
 				F1C00007 /* SubscriptionService.swift */,
 				F1C00008 /* SupabaseService.swift */,
 			);
@@ -985,7 +995,9 @@
 				B1C00022 /* SharedCheckInPublisher.swift in Sources */,
 				B1C00023 /* PhoneWatchSync.swift in Sources */,
 				B1S00006 /* SharedOwnerState.swift in Sources */,
+				B1S00007 /* EscalationActivityAttributes.swift in Sources */,
 				B1C00024 /* SharedOwnerPublisher.swift in Sources */,
+				B1C00025 /* EscalationActivityManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1025,8 +1037,10 @@
 				B5S00004 /* CheckInIntent.swift in Sources */,
 				B5S00005 /* DailyOKAppShortcuts.swift in Sources */,
 				B5S00006 /* SharedOwnerState.swift in Sources */,
+				B5S00007 /* EscalationActivityAttributes.swift in Sources */,
 				B5F00005 /* OwnerStatusWidget.swift in Sources */,
 				B5F00006 /* OwnerStatusProvider.swift in Sources */,
+				B5F00007 /* EscalationLiveActivity.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

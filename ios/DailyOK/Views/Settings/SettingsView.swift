@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var isExportingData = false
     @State private var exportedData: String?
     @State private var showExportSheet = false
+    @AppStorage(EscalationActivityManager.toggleKey) private var liveActivitiesEnabled = true
 
     private var isOwner: Bool { appState.currentUserRole == .owner }
 
@@ -104,6 +105,16 @@ struct SettingsView: View {
                 Section("Notifications") {
                     NavigationLink("Notification Settings") {
                         Text("Notification settings coming soon")
+                    }
+
+                    if isOwner {
+                        Toggle(isOn: $liveActivitiesEnabled) {
+                            Label("Live Activity for Missed Check-ins", systemImage: "bell.and.waves.left.and.right")
+                        }
+                        .tint(DailyOKColor.green500)
+                        .onChange(of: liveActivitiesEnabled) { _, enabled in
+                            if !enabled { EscalationActivityManager.endAll() }
+                        }
                     }
                 }
 

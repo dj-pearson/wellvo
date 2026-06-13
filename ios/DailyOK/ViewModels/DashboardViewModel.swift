@@ -169,6 +169,8 @@ final class DashboardViewModel: ObservableObject {
             // Mirror status to the App Group so the owner status widget can show
             // an at-a-glance summary without opening the app.
             SharedOwnerPublisher.publish(cards)
+            // Start/refresh/end Live Activities for any receiver in escalation.
+            EscalationActivityManager.sync(cards: cards, familyId: family.id)
             weeklySummary = computeWeeklySummary(checkIns: weeklyCheckIns, receiverCount: receivers.count)
             // A receiver hitting a strong streak is a high-satisfaction moment —
             // flag it so the view can ask for a rating (gated + throttled in the

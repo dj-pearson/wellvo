@@ -2594,7 +2594,7 @@
       ],
       "priority": 108,
       "passes": false,
-      "notes": "Turns the most anxious moment (a missed check-in) into a calm, trackable, actionable surface. Push-to-start Live Activities need an additive APNs payload from the edge functions \u2014 keep it backward-compatible."
+      "notes": "IMPLEMENTED (pending Xcode build verification): ActivityKit Live Activity (EscalationLiveActivity) with Lock Screen + Dynamic Island (compact/expanded/minimal) showing receiver, status, and elapsed timer. Started/updated/ended from the dashboard (EscalationActivityManager) for receivers in escalation; per-owner toggle in Settings. 'Call now' = tel: link; 'Stand down' = dailyok://standdown deep link handled in DailyOKApp (owner authenticated) -> cancelEscalation. NSSupportsLiveActivities added. Local start only; push-to-start is a follow-up (needs APNs payload). | Turns the most anxious moment (a missed check-in) into a calm, trackable, actionable surface. Push-to-start Live Activities need an additive APNs payload from the edge functions \u2014 keep it backward-compatible."
     },
     {
       "id": "US-IOS010",
