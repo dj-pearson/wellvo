@@ -171,6 +171,26 @@ jobs:
           path: ${{ runner.temp }}/TestResults.xcresult
           retention-days: 7
 
+      - name: Run Unit Tests
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building \
+            -project DailyOK.xcodeproj \
+            -scheme DailyOK \
+            -destination "id=${{ env.DEVICE_ID }}" \
+            -only-testing:DailyOKTests \
+            -resultBundlePath $RUNNER_TEMP/UnitTestResults.xcresult \
+            | xcbeautify
+
+      - name: Upload unit test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: ${{ runner.temp }}/UnitTestResults.xcresult
+          retention-days: 7
+
       - name: Shutdown simulator
         if: always()
         run: xcrun simctl shutdown "${{ env.DEVICE_ID }}" 2>/dev/null || true
