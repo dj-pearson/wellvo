@@ -45,6 +45,7 @@
 		B1F00003 /* ReceiverOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00003; };
 		B1F00011 /* PairingCodeEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00011; };
 		B1F00099 /* FirstReceiverWalkthroughView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00099; };
+		B1F00100 /* WatchSetupGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00100; };
 		/* Views/Owner */
 		B1F00004 /* CalendarHeatmapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00004; };
 		B1F00005 /* CheckInReportGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00005; };
@@ -200,6 +201,7 @@
 		F1F00003 /* ReceiverOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverOnboardingView.swift; sourceTree = "<group>"; };
 		F1F00011 /* PairingCodeEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingCodeEntryView.swift; sourceTree = "<group>"; };
 		F1F00099 /* FirstReceiverWalkthroughView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstReceiverWalkthroughView.swift; sourceTree = "<group>"; };
+		F1F00100 /* WatchSetupGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSetupGuideView.swift; sourceTree = "<group>"; };
 		F1F00004 /* CalendarHeatmapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarHeatmapView.swift; sourceTree = "<group>"; };
 		F1F00005 /* CheckInReportGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInReportGenerator.swift; sourceTree = "<group>"; };
 		F1F00006 /* CheckInTrendChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInTrendChartView.swift; sourceTree = "<group>"; };
@@ -667,6 +669,7 @@
 				F1F00003 /* ReceiverOnboardingView.swift */,
 				F1F00011 /* PairingCodeEntryView.swift */,
 				F1F00099 /* FirstReceiverWalkthroughView.swift */,
+				F1F00100 /* WatchSetupGuideView.swift */,
 			);
 			path = Onboarding;
 			sourceTree = "<group>";
@@ -931,6 +934,7 @@
 				B1F00003 /* ReceiverOnboardingView.swift in Sources */,
 				B1F00011 /* PairingCodeEntryView.swift in Sources */,
 				B1F00099 /* FirstReceiverWalkthroughView.swift in Sources */,
+				B1F00100 /* WatchSetupGuideView.swift in Sources */,
 				B1F00004 /* CalendarHeatmapView.swift in Sources */,
 				B1F00005 /* CheckInReportGenerator.swift in Sources */,
 				B1F00006 /* CheckInTrendChartView.swift in Sources */,

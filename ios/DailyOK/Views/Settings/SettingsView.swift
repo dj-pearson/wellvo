@@ -107,6 +107,14 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("Devices") {
+                    NavigationLink {
+                        WatchSetupGuideView()
+                    } label: {
+                        Label("Set Up Apple Watch", systemImage: "applewatch")
+                    }
+                }
+
                 // Feedback
                 Section {
                     Toggle(isOn: $appState.hapticsEnabled) {

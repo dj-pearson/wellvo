@@ -2734,7 +2734,7 @@
       ],
       "priority": 117,
       "passes": false,
-      "notes": "The watch features only deliver value if seniors actually get them installed. This flow closes the adoption gap and reinforces the 'easiest check-in for seniors' positioning."
+      "notes": "IMPLEMENTED (pending Xcode build verification): WatchSetupGuideView \u2014 guided steps to install the watch app, add the complication, enable watch notifications, and tap to check in, plus a Lock/Home Screen widget fallback for users without a watch. Accessible from Settings \u2192 Devices \u2192 Set Up Apple Watch. | The watch features only deliver value if seniors actually get them installed. This flow closes the adoption gap and reinforces the 'easiest check-in for seniors' positioning."
     }
   ]
 }
