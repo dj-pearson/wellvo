@@ -21,6 +21,11 @@ struct ReceiverStatusCard: Identifiable {
     /// Current escalation step of an active (pending) request: 0 = none yet,
     /// 1+ = reminders/alerts in progress. Drives the owner "escalating" banner.
     var escalationStep: Int = 0
+    /// US-IOS016: number of shared care notes on this receiver, for the card badge.
+    var noteCount: Int = 0
+    /// US-IOS017: optional passive "active today" signal (Apple Health, opt-in).
+    /// Supplements — never replaces — an explicit check-in. Nil = not shared.
+    var passiveActiveToday: Bool? = nil
 }
 
 enum ReceiverCheckInStatus {
@@ -166,6 +171,10 @@ final class DashboardViewModel: ObservableObject {
             }
 
             receiverCards = cards
+            // US-IOS016: tally shared care notes per receiver for the card badge.
+            await applyNoteCounts(familyId: family.id)
+            // US-IOS017: apply any opt-in passive "active today" signals.
+            await applyWellnessSignals(familyId: family.id)
             // Mirror status to the App Group so the owner status widget can show
             // an at-a-glance summary without opening the app.
             SharedOwnerPublisher.publish(cards)
@@ -244,7 +253,91 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
+    private struct AcknowledgeAlertParams: Encodable {
+        let p_alert_id: String
+        let p_release: Bool
+    }
+
+    /// US-IOS013: acknowledge ("I've got this") or release a family alert via the
+    /// `acknowledge_alert` RPC. The resulting UPDATE streams to other caregivers
+    /// through the existing `alerts` realtime subscription, so they see
+    /// "Handled by <name>" without a manual refresh. The returned row is applied
+    /// locally so the tapping caregiver gets instant feedback.
+    func acknowledgeAlert(_ alert: DailyOKAlert, release: Bool) async {
+        do {
+            let updated: DailyOKAlert = try await SupabaseService.shared.client
+                .rpc("acknowledge_alert",
+                     params: AcknowledgeAlertParams(p_alert_id: alert.id.uuidString, p_release: release))
+                .single()
+                .execute()
+                .value
+
+            if let idx = alerts.firstIndex(where: { $0.id == updated.id }) {
+                alerts[idx] = updated
+            }
+            await AnalyticsService.shared.track(
+                release ? .alertReleased : .alertAcknowledged,
+                properties: ["type": alert.type]
+            )
+        } catch {
+            errorMessage = DailyOKError.network(error).localizedDescription
+        }
+    }
+
     // MARK: - Private
+
+    /// US-IOS016: count care notes per receiver and apply to the cards' badges.
+    /// Best-effort — a load failure (or an older backend without the table)
+    /// simply leaves every badge at 0.
+    private func applyNoteCounts(familyId: UUID) async {
+        struct NoteReceiver: Decodable {
+            let receiverId: UUID
+            enum CodingKeys: String, CodingKey { case receiverId = "receiver_id" }
+        }
+        do {
+            let rows: [NoteReceiver] = try await SupabaseService.shared.client
+                .from("care_notes")
+                .select("receiver_id")
+                .eq("family_id", value: familyId.uuidString)
+                .execute()
+                .value
+            var counts: [UUID: Int] = [:]
+            for row in rows { counts[row.receiverId, default: 0] += 1 }
+            for i in receiverCards.indices {
+                receiverCards[i].noteCount = counts[receiverCards[i].id] ?? 0
+            }
+        } catch {
+            // Non-critical; leave badges at 0.
+        }
+    }
+
+    /// US-IOS017: mark receivers who have shared a passive "active today" signal
+    /// in the last 24h. Best-effort and supplementary — failure leaves it nil.
+    private func applyWellnessSignals(familyId: UUID) async {
+        struct Signal: Decodable {
+            let receiverId: UUID
+            let active: Bool
+            enum CodingKeys: String, CodingKey { case receiverId = "receiver_id", active }
+        }
+        let since = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-24 * 60 * 60))
+        do {
+            let rows: [Signal] = try await SupabaseService.shared.client
+                .from("wellness_signals")
+                .select("receiver_id, active")
+                .eq("family_id", value: familyId.uuidString)
+                .gte("updated_at", value: since)
+                .execute()
+                .value
+            let activeIds = Set(rows.filter { $0.active }.map { $0.receiverId })
+            let sharedIds = Set(rows.map { $0.receiverId })
+            for i in receiverCards.indices {
+                let id = receiverCards[i].id
+                receiverCards[i].passiveActiveToday = sharedIds.contains(id) ? activeIds.contains(id) : nil
+            }
+        } catch {
+            // Non-critical; leave as nil.
+        }
+    }
 
     private func loadAlerts(familyId: UUID) async {
         do {

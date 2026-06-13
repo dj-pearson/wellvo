@@ -47,6 +47,7 @@ import { handleAdminBlogAi } from "./functions/admin-blog-ai/index.ts";
 import { handleAdminSocial } from "./functions/admin-social/index.ts";
 import { handleGenerateNextArticle } from "./functions/generate-next-article/index.ts";
 import { handleIngestMetrics } from "./functions/ingest-metrics/index.ts";
+import { handleSendDigest } from "./functions/send-digest/index.ts";
 
 type FunctionHandler = (req: Request, auth: AuthResult) => Promise<Response>;
 
@@ -54,6 +55,7 @@ type FunctionHandler = (req: Request, auth: AuthResult) => Promise<Response>;
 const serviceRoleOnlyRoutes = new Set([
   "/send-checkin-notification",
   "/escalation-tick",
+  "/send-digest",
 ]);
 
 // Routes authenticated by a shared webhook secret instead of a Supabase JWT.
@@ -87,6 +89,7 @@ const routes: Record<string, FunctionHandler> = {
   "/admin-social": handleAdminSocial,
   "/generate-next-article": handleGenerateNextArticle,
   "/ingest-metrics": handleIngestMetrics,
+  "/send-digest": handleSendDigest,
 };
 
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://dailyok.net";

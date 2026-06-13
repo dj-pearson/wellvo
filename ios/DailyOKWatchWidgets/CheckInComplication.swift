@@ -21,17 +21,23 @@ struct CheckInComplication: Widget {
 }
 
 private let brandGreen = Color(red: 0.133, green: 0.773, blue: 0.369)
+private let brandAmber = Color(red: 0.96, green: 0.62, blue: 0.04)
 
 struct ComplicationView: View {
     @Environment(\.widgetFamily) private var family
     let entry: ComplicationEntry
 
     private var icon: String {
-        entry.hasCheckedInToday ? "checkmark.circle.fill" : "hand.tap.fill"
+        entry.hasCheckedInToday ? "checkmark.circle.fill" : "circle.dashed"
     }
     private var text: String {
         guard entry.isSignedIn else { return "Sign in" }
         return entry.hasCheckedInToday ? "Checked in" : "Check in"
+    }
+    /// Green when done, open amber when a check-in is due.
+    private var tint: Color {
+        guard entry.isSignedIn else { return .secondary }
+        return entry.hasCheckedInToday ? brandGreen : brandAmber
     }
 
     var body: some View {
@@ -41,11 +47,11 @@ struct ComplicationView: View {
         case .accessoryCorner:
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundStyle(brandGreen)
+                .foregroundStyle(tint)
                 .widgetLabel(text)
         case .accessoryRectangular:
             HStack(spacing: 6) {
-                Image(systemName: icon).foregroundStyle(brandGreen)
+                Image(systemName: icon).foregroundStyle(tint)
                 VStack(alignment: .leading) {
                     Text(entry.hasCheckedInToday ? "You're all set" : "Tap to check in")
                         .font(.headline)
@@ -60,7 +66,7 @@ struct ComplicationView: View {
                 AccessoryWidgetBackground()
                 Image(systemName: icon)
                     .font(.title2)
-                    .foregroundStyle(entry.hasCheckedInToday ? brandGreen : .primary)
+                    .foregroundStyle(tint)
             }
             .widgetAccentable()
             .accessibilityLabel(text)

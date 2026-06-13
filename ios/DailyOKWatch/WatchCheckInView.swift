@@ -8,6 +8,12 @@ struct WatchCheckInView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     private let brandGreen = Color(red: 0.133, green: 0.773, blue: 0.369)
+    private let brandGradient = LinearGradient(
+        colors: [Color(red: 0.157, green: 0.82, blue: 0.42),
+                 Color(red: 0.086, green: 0.64, blue: 0.29)],
+        startPoint: .top,
+        endPoint: .bottom
+    )
 
     var body: some View {
         Group {
@@ -43,7 +49,7 @@ struct WatchCheckInView: View {
                 Task { await model.checkIn() }
             } label: {
                 ZStack {
-                    Circle().fill(brandGreen)
+                    Circle().fill(brandGradient)
                     if model.isCheckingIn {
                         ProgressView().tint(.white)
                     } else {
@@ -54,6 +60,7 @@ struct WatchCheckInView: View {
                         .foregroundStyle(.white)
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .buttonStyle(.plain)
             .disabled(model.isCheckingIn)
