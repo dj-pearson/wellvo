@@ -12,6 +12,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         UIDevice.current.isBatteryMonitoringEnabled = true
         HeartbeatService.shared.start()
 
+        // Activate the Apple Watch session so the wrist app receives the latest
+        // check-in snapshot and can report wrist check-ins back to the phone.
+        PhoneWatchSync.shared.activate()
+
         // Sync access token to shared App Group for Notification Service Extension
         Task { await SupabaseService.shared.syncAccessTokenToExtension() }
 

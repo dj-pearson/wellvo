@@ -40,6 +40,7 @@ enum SharedCheckInPublisher {
         )
         SharedCheckInStore.save(state)
         WidgetCenter.shared.reloadAllTimelines()
+        PhoneWatchSync.shared.sync()
     }
 
     /// Optimistically mark today's check-in done (e.g. right after an in-app tap)
@@ -50,10 +51,12 @@ enum SharedCheckInPublisher {
             $0.lastCheckInAt = date
         }
         WidgetCenter.shared.reloadAllTimelines()
+        PhoneWatchSync.shared.sync()
     }
 
     static func clear() {
         SharedCheckInStore.clear()
         WidgetCenter.shared.reloadAllTimelines()
+        PhoneWatchSync.shared.sync()
     }
 }

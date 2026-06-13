@@ -53,8 +53,31 @@ clears it.
   that the `dailyok://checkin` deep link (used by the not-signed-in widget)
   is handled by the app (otherwise it just opens the app, which is fine).
 
-### Phase 3 — Apple Watch app (`US-IOS001/002`, complications `US-IOS004`)
-Requires a **watchOS App target** + WatchConnectivity (see below).
+### Phase 3 — Apple Watch app (`US-IOS001/002`, phone↔watch sync `US-IOS005`) (DONE)
+- New single-target watchOS app `DailyOKWatch` wired into `project.pbxproj`
+  (target `T4000001`, embedded into the iOS app via an "Embed Watch Content"
+  copy phase; `WKApplication = YES`, companion = `com.wellvo.ios`).
+- `ios/DailyOKWatch/`: `DailyOKWatchApp`, `WatchCheckInView` (giant one-tap
+  "I'm OK" button + `.success`/`.failure` haptics), `WatchCheckInModel`
+  (checks in via the shared client using the watch's own network), and
+  `WatchConnectivityProvider` (receives the phone's snapshot).
+- Phone side: `Services/PhoneWatchSync.swift` pushes the snapshot via
+  `updateApplicationContext` (on publish/check-in/sign-out and on session
+  activation) and listens for wrist check-ins; activated in `AppDelegate`.
+- `supabase/migrations/00037_checkin_source_watch_widget.sql` adds `watch`/
+  `widget` to the `checkin_source` enum (additive). The watch sends `watch`;
+  the shared intent (Siri/widget/control) stays on the existing `app` value.
+- Bundle id `com.wellvo.ios.watchkitapp`; App Group on the watch target.
+- **Verify in Xcode**: that the watch scheme builds for the watchOS SDK, the
+  "Embed Watch Content" phase resolves, and signing works. Add a watch app
+  icon asset catalog before submitting (skipped here — not required to build).
+
+### Not yet done (follow-ups)
+- Watch complications (`US-IOS004`) — a watch WidgetKit extension.
+- Watch→phone reverse sync currently just nudges the phone to refresh; full
+  offline-on-watch queue + idempotent dedupe (rest of `US-IOS005`).
+- Widget-vs-Siri source attribution (would need an intent parameter; the enum
+  value `widget` is already provisioned by migration 00037).
 
 ## ⚠️ Reconcile in Xcode (cannot be done headlessly)
 
