@@ -166,6 +166,9 @@ final class DashboardViewModel: ObservableObject {
             }
 
             receiverCards = cards
+            // Mirror status to the App Group so the owner status widget can show
+            // an at-a-glance summary without opening the app.
+            SharedOwnerPublisher.publish(cards)
             weeklySummary = computeWeeklySummary(checkIns: weeklyCheckIns, receiverCount: receivers.count)
             // A receiver hitting a strong streak is a high-satisfaction moment —
             // flag it so the view can ask for a rating (gated + throttled in the

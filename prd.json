@@ -2562,7 +2562,7 @@
       ],
       "priority": 106,
       "passes": false,
-      "notes": "Pairs with the receiver widget. Owner peace-of-mind without opening the app is a strong retention/differentiation feature vs competitors that bury status behind a login."
+      "notes": "IMPLEMENTED (pending Xcode build verification): OwnerStatusWidget (systemSmall/Medium/Large + accessoryRectangular) shows each receiver's status dot + 'N of M checked in', deep-links to dashboard. DashboardViewModel publishes SharedOwnerState to the App Group after each load; widget reads it. No backend change. | Pairs with the receiver widget. Owner peace-of-mind without opening the app is a strong retention/differentiation feature vs competitors that bury status behind a login."
     },
     {
       "id": "US-IOS008",
