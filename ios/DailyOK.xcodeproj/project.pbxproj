@@ -73,6 +73,7 @@
 		B1C00020 /* EdgeFunctionsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00020; };
 		B1C0000B /* BiometricService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C0000B; };
 		B1C0000C /* CertificatePinningService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C0000C; };
+		B1C00021 /* ReviewPromptService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00021; };
 		/* Utilities */
 		B1D00004 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00004; };
 		/* Views/Components */
@@ -127,6 +128,7 @@
 		F1C00020 /* EdgeFunctionsClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EdgeFunctionsClient.swift; sourceTree = "<group>"; };
 		F1C0000B /* BiometricService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricService.swift; sourceTree = "<group>"; };
 		F1C0000C /* CertificatePinningService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertificatePinningService.swift; sourceTree = "<group>"; };
+		F1C00021 /* ReviewPromptService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewPromptService.swift; sourceTree = "<group>"; };
 		/* Utilities */
 		F1D00001 /* Configuration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
 		F1D00002 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
@@ -303,6 +305,7 @@
 				F1C00004 /* FamilyService.swift */,
 				F1C0000A /* HeartbeatService.swift */,
 				F1C00009 /* LocationService.swift */,
+				F1C00021 /* ReviewPromptService.swift */,
 				F1C00005 /* OfflineCheckInService.swift */,
 				F1C00006 /* PushNotificationService.swift */,
 				F1C00007 /* SubscriptionService.swift */,
@@ -565,6 +568,7 @@
 				B1C00020 /* EdgeFunctionsClient.swift in Sources */,
 				B1C0000B /* BiometricService.swift in Sources */,
 				B1C0000C /* CertificatePinningService.swift in Sources */,
+				B1C00021 /* ReviewPromptService.swift in Sources */,
 				B1D00004 /* Colors.swift in Sources */,
 				B1F00012 /* SkeletonView.swift in Sources */,
 				B1F00013 /* PasswordStrength.swift in Sources */,

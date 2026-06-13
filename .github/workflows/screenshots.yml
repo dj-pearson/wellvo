@@ -1,0 +1,63 @@
+name: Generate App Store Screenshots
+
+# Renders the App Store screenshot sets from the HTML mockups in `screenshots/`.
+# Produces two downloadable artifacts so they can be compared / rolled back:
+#   - app-store-screenshots-v1  → bare app screens (original)
+#   - app-store-screenshots-v2  → marketing frames with caption headlines (new)
+# Download the artifact from the workflow run and upload the chosen set to
+# App Store Connect. See docs/ASO_STRATEGY.md §5.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'screenshots/src/**'
+      - 'screenshots/package.json'
+      - '.github/workflows/screenshots.yml'
+  pull_request:
+    paths:
+      - 'screenshots/src/**'
+      - 'screenshots/package.json'
+      - '.github/workflows/screenshots.yml'
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: screenshots
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Render v1 (bare app screens)
+        run: npm run capture
+
+      - name: Render v2 (caption marketing frames)
+        run: npm run capture:v2
+
+      - name: Upload v1 screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-store-screenshots-v1
+          path: screenshots/output/
+          if-no-files-found: error
+
+      - name: Upload v2 screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-store-screenshots-v2
+          path: screenshots/output-v2/
+          if-no-files-found: error

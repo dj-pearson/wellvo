@@ -70,6 +70,10 @@ final class DashboardViewModel: ObservableObject {
     @Published var alerts: [DailyOKAlert] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
+    /// Set true when a milestone (a receiver reaching a multi-day streak) makes
+    /// this a good moment to ask for an App Store rating. The view observes this
+    /// and presents the system prompt, then resets it.
+    @Published var shouldRequestReview = false
 
     private var realtimeChannel: RealtimeChannelV2?
     private var realtimeFamilyId: UUID?
@@ -159,6 +163,12 @@ final class DashboardViewModel: ObservableObject {
 
             receiverCards = cards
             weeklySummary = computeWeeklySummary(checkIns: weeklyCheckIns, receiverCount: receivers.count)
+            // A receiver hitting a strong streak is a high-satisfaction moment —
+            // flag it so the view can ask for a rating (gated + throttled in the
+            // service, so this only fires occasionally and never offline).
+            if ReviewPromptService.shared.shouldPromptForOwnerStreak(maxStreak: cards.map(\.streak).max() ?? 0) {
+                shouldRequestReview = true
+            }
             await loadAlerts(familyId: family.id)
             await subscribeToRealtime(familyId: family.id)
         } catch {
