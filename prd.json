@@ -2514,7 +2514,7 @@
       ],
       "priority": 103,
       "passes": false,
-      "notes": "An always-visible 'I'm OK' affordance on the watch face is a real differentiator for seniors \u2014 no app launch, no scrolling. Drives daily engagement and reduces missed check-ins."
+      "notes": "IMPLEMENTED (pending Xcode build verification): watchOS WidgetKit extension DailyOKWatchWidgets with CheckInComplication across accessoryCircular/corner/inline/rectangular; reads the watch's shared snapshot; reloads on check-in and on new phone snapshot; tap launches the watch app. | An always-visible 'I'm OK' affordance on the watch face is a real differentiator for seniors \u2014 no app launch, no scrolling. Drives daily engagement and reduces missed check-ins."
     },
     {
       "id": "US-IOS005",

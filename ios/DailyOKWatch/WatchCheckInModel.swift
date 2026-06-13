@@ -1,5 +1,6 @@
 import Foundation
 import WatchKit
+import WidgetKit
 
 @MainActor
 final class WatchCheckInModel: ObservableObject {
@@ -33,6 +34,7 @@ final class WatchCheckInModel: ObservableObject {
             state = updated
             didCheckIn = true
             WKInterfaceDevice.current().play(.success)
+            WidgetCenter.shared.reloadAllTimelines() // refresh the complication
             WatchConnectivityProvider.shared.notifyPhoneOfCheckIn()
         } catch {
             errorMessage = (error as? SharedCheckInError)?.localizedDescription

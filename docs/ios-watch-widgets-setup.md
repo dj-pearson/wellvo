@@ -72,8 +72,21 @@ clears it.
   "Embed Watch Content" phase resolves, and signing works. Add a watch app
   icon asset catalog before submitting (skipped here — not required to build).
 
+### Phase 4 — Watch-face complications (`US-IOS004`) (DONE)
+- New watchOS WidgetKit extension `DailyOKWatchWidgets` wired into
+  `project.pbxproj` (target `T6000001`, embedded into the **watch app**
+  `DailyOKWatch` via an "Embed Foundation Extensions" copy phase).
+- `ios/DailyOKWatchWidgets/`: `DailyOKWatchWidgetBundle`,
+  `CheckInComplication` (`.accessoryCircular/.accessoryCorner/.accessoryInline/
+  .accessoryRectangular`), `ComplicationProvider` (reads the watch's snapshot).
+- Filled green check when checked in, open ring when due; tapping launches the
+  watch app. Watch reloads complication timelines on check-in and when a new
+  snapshot arrives from the phone.
+- Bundle id `com.wellvo.ios.watchkitapp.complication`; App Group on the target.
+- **Verify in Xcode**: complication extension builds for watchOS and appears in
+  the watch face gallery; add an app-icon/asset catalog before submission.
+
 ### Not yet done (follow-ups)
-- Watch complications (`US-IOS004`) — a watch WidgetKit extension.
 - Watch→phone reverse sync currently just nudges the phone to refresh; full
   offline-on-watch queue + idempotent dedupe (rest of `US-IOS005`).
 - Widget-vs-Siri source attribution (would need an intent parameter; the enum

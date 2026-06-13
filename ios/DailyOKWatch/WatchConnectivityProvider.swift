@@ -1,5 +1,6 @@
 import Foundation
 import WatchConnectivity
+import WidgetKit
 
 /// Receives the check-in snapshot the iPhone publishes via
 /// `WCSession.updateApplicationContext` and persists it into the watch's local
@@ -36,6 +37,8 @@ final class WatchConnectivityProvider: NSObject, ObservableObject, WCSessionDele
         } else {
             SharedAppGroup.defaults?.set(data, forKey: SharedAppGroup.Key.checkInState)
         }
+        // The complication reads the same snapshot — refresh it too.
+        WidgetCenter.shared.reloadAllTimelines()
         DispatchQueue.main.async { self.revision += 1 }
     }
 
