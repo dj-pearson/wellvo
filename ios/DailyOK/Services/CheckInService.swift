@@ -183,7 +183,8 @@ actor CheckInService {
 
     /// Fetch check-in history for a receiver
     func checkInHistory(receiverId: UUID, familyId: UUID, days: Int = 30) async throws -> [CheckIn] {
-        let fromDate = Calendar.current.date(byAdding: .day, value: -days, to: Date())!
+        let fromDate = Calendar.current.date(byAdding: .day, value: -days, to: Date())
+            ?? Date().addingTimeInterval(-Double(days) * 86_400)
         let formatter = ISO8601DateFormatter()
 
         let checkIns: [CheckIn] = try await supabase

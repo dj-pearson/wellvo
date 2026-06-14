@@ -152,8 +152,10 @@ struct CheckInTrendChartView: View {
         dateFormatter.dateFormat = days <= 7 ? "EEE" : "M/d"
 
         for bucket in 0..<bucketCount {
-            let bucketStart = calendar.date(byAdding: .day, value: -(days - bucket * bucketSize), to: today)!
-            let bucketEnd = calendar.date(byAdding: .day, value: bucketSize, to: bucketStart)!
+            guard let bucketStart = calendar.date(byAdding: .day, value: -(days - bucket * bucketSize), to: today),
+                  let bucketEnd = calendar.date(byAdding: .day, value: bucketSize, to: bucketStart) else {
+                continue
+            }
 
             let bucketCheckIns = checkIns.filter { ci in
                 ci.checkedInAt >= bucketStart && ci.checkedInAt < bucketEnd

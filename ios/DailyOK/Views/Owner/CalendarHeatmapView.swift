@@ -93,7 +93,7 @@ struct CalendarHeatmapView: View {
     private func buildGrid() -> [[DayEntry]] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        let startDate = calendar.date(byAdding: .day, value: -days, to: today)!
+        let startDate = calendar.date(byAdding: .day, value: -days, to: today) ?? today
 
         // Build check-in lookup by day
         var checkInByDay: [Date: CheckIn] = [:]
@@ -135,7 +135,8 @@ struct CalendarHeatmapView: View {
             }
 
             entries.append(DayEntry(date: current, status: status, tooltip: tooltip))
-            current = calendar.date(byAdding: .day, value: 1, to: current)!
+            guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
+            current = next
         }
 
         // Pad the beginning to align with the correct day of the week
@@ -166,7 +167,7 @@ struct CalendarHeatmapView: View {
     private func monthLabels() -> [(offset: Int, name: String, weeks: Int)] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        let startDate = calendar.date(byAdding: .day, value: -days, to: today)!
+        let startDate = calendar.date(byAdding: .day, value: -days, to: today) ?? today
 
         var labels: [(offset: Int, name: String, weeks: Int)] = []
         var current = startDate
@@ -180,13 +181,15 @@ struct CalendarHeatmapView: View {
         while current <= today {
             let month = calendar.component(.month, from: current)
             if month != currentMonth {
-                labels.append((offset: offset, name: monthFormatter.string(from: calendar.date(byAdding: .day, value: -1, to: current)!), weeks: max(1, weekCount / 7)))
+                let prevDay = calendar.date(byAdding: .day, value: -1, to: current) ?? current
+                labels.append((offset: offset, name: monthFormatter.string(from: prevDay), weeks: max(1, weekCount / 7)))
                 offset += weekCount / 7
                 weekCount = 0
                 currentMonth = month
             }
             weekCount += 1
-            current = calendar.date(byAdding: .day, value: 1, to: current)!
+            guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
+            current = next
         }
         labels.append((offset: offset, name: monthFormatter.string(from: today), weeks: max(1, weekCount / 7)))
 

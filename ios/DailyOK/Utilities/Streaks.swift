@@ -80,3 +80,21 @@ enum Streaks {
 enum ConsistencyBadge {
     case gold, silver, bronze, none
 }
+
+extension Calendar {
+    /// A calendar pinned to the given IANA timezone (falling back to the
+    /// device's current calendar when the id is nil or unknown).
+    ///
+    /// Day-bucketing for a receiver — "today", streak boundaries, consistency
+    /// windows — must be evaluated in the *receiver's* zone so it matches the
+    /// server-side dedup and `CheckInService.todayCheckInStatus`. Using the
+    /// viewer's device zone made a traveling receiver's streak and badges
+    /// disagree with their "checked in today" status by a day.
+    static func forTimezone(_ identifier: String?) -> Calendar {
+        var calendar = Calendar.current
+        if let identifier, let tz = TimeZone(identifier: identifier) {
+            calendar.timeZone = tz
+        }
+        return calendar
+    }
+}

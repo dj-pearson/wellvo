@@ -2791,8 +2791,8 @@
         "Tests cover a streak across a DST boundary and a device-vs-configured timezone mismatch"
       ],
       "priority": 121,
-      "passes": false,
-      "notes": "BUG. Timezone/DST inconsistency between timezone-aware status code and device-zone Streaks utility breaks streaks by a day; fallback reminder can misfire on DST days. Files: ios/DailyOK/Utilities/Streaks.swift, ios/DailyOK/ViewModels/ReceiverViewModel.swift, ios/DailyOK/ViewModels/DashboardViewModel.swift, ios/DailyOK/Services/CheckInService.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): Added Calendar.forTimezone(_:) helper; DashboardViewModel (streak + consistency) and ReceiverViewModel (streak + consistency) now bucket days in the receivers IANA timezone, matching CheckInService.todayCheckInStatus. nextFallbackDate and computeNextCheckInTime now use Calendar.nextDate(after:matching:matchingPolicy:.nextTime) (DST spring-forward safe) via a shared nonisolated parseCheckinTime(_:) parser, replacing bySettingHour + add-day and its force-unwraps. Replaced all force-unwrapped calendar.date(byAdding:)! in CalendarHeatmapView, CheckInTrendChartView, and CheckInService.checkInHistory with safe guards/fallbacks. Added StreaksTimezoneTests (tz bucketing, fallback, time parsing). | BUG. Timezone/DST inconsistency between timezone-aware status code and device-zone Streaks utility breaks streaks by a day; fallback reminder can misfire on DST days. Files: ios/DailyOK/Utilities/Streaks.swift, ios/DailyOK/ViewModels/ReceiverViewModel.swift, ios/DailyOK/ViewModels/DashboardViewModel.swift, ios/DailyOK/Services/CheckInService.swift."
     },
     {
       "id": "US-IOS023",

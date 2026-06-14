@@ -127,7 +127,13 @@ final class DashboardViewModel: ObservableObject {
                 let isoFormatter = ISO8601DateFormatter()
                 isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
                 let isoTimestamps = history.map { isoFormatter.string(from: $0.checkedInAt) }
-                let consistency = Streaks.consistencyPercent(isoTimestamps: isoTimestamps, windowDays: 7)
+                // Bucket consistency days in the receiver's timezone so the
+                // dashboard chip agrees with their "checked in today" status.
+                let consistency = Streaks.consistencyPercent(
+                    isoTimestamps: isoTimestamps,
+                    windowDays: 7,
+                    calendar: .forTimezone(receiverTz)
+                )
 
                 // Check notification status — look for active push tokens
                 let hasNotifications = await checkNotificationStatus(userId: receiver.userId)
@@ -382,10 +388,7 @@ final class DashboardViewModel: ObservableObject {
 
     private func calculateStreak(from checkIns: [CheckIn], timezone: String? = nil) -> Int {
         guard !checkIns.isEmpty else { return 0 }
-        var calendar = Calendar.current
-        if let tzId = timezone, let tz = TimeZone(identifier: tzId) {
-            calendar.timeZone = tz
-        }
+        let calendar = Calendar.forTimezone(timezone)
         var streak = 0
         var currentDate = calendar.startOfDay(for: Date())
 

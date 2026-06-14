@@ -84,8 +84,11 @@ final class ReceiverViewModel: ObservableObject {
             let isoFormatter = ISO8601DateFormatter()
             isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             let isoTimestamps = history.map { isoFormatter.string(from: $0.checkedInAt) }
-            streakDays = Streaks.currentStreak(isoTimestamps: isoTimestamps)
-            consistencyPercent = Streaks.consistencyPercent(isoTimestamps: isoTimestamps, windowDays: 7)
+            // Use the receiver's configured timezone so the streak/consistency
+            // chips bucket days the same way `todayCheckInStatus` does.
+            let cal = Calendar.forTimezone(tzRow?.timezone)
+            streakDays = Streaks.currentStreak(isoTimestamps: isoTimestamps, calendar: cal)
+            consistencyPercent = Streaks.consistencyPercent(isoTimestamps: isoTimestamps, windowDays: 7, calendar: cal)
         }
 
         await loadReceiverSettings(userId: session.user.id, familyId: family.id)
@@ -148,20 +151,33 @@ final class ReceiverViewModel: ObservableObject {
     /// tomorrow), pushed out by the grace period so the local fallback fires
     /// only after the server push has had its chance.
     private func nextFallbackDate(from settings: ReceiverSettings) -> Date? {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        guard let parsedTime = formatter.date(from: String(settings.checkinTime.prefix(5))) else { return nil }
+        guard let (hour, minute) = Self.parseCheckinTime(settings.checkinTime) else { return nil }
 
         let calendar = Calendar.current
-        let comps = calendar.dateComponents([.hour, .minute], from: parsedTime)
-        guard var todayTarget = calendar.date(
-            bySettingHour: comps.hour ?? 9, minute: comps.minute ?? 0, second: 0, of: Date()
+        let now = Date()
+        // Find the next occurrence of the check-in time at or after `now`. Using
+        // `nextDate(after:matching:)` (rather than `bySettingHour` + add-a-day)
+        // correctly skips a wall-clock time that doesn't exist on the DST
+        // spring-forward day instead of producing an hour-off or invalid target.
+        var components = DateComponents()
+        components.hour = hour
+        components.minute = minute
+        components.second = 0
+        guard let target = calendar.nextDate(
+            after: now,
+            matching: components,
+            matchingPolicy: .nextTime
         ) else { return nil }
 
-        if todayTarget <= Date() {
-            todayTarget = calendar.date(byAdding: .day, value: 1, to: todayTarget) ?? todayTarget
-        }
-        return calendar.date(byAdding: .minute, value: settings.gracePeriodMinutes, to: todayTarget)
+        return calendar.date(byAdding: .minute, value: settings.gracePeriodMinutes, to: target)
+    }
+
+    /// Parse a stored "HH:mm[:ss]" check-in time into hour/minute components.
+    nonisolated static func parseCheckinTime(_ raw: String) -> (hour: Int, minute: Int)? {
+        let parts = raw.split(separator: ":")
+        guard parts.count >= 2, let hour = Int(parts[0]), let minute = Int(parts[1]),
+              (0..<24).contains(hour), (0..<60).contains(minute) else { return nil }
+        return (hour, minute)
     }
 
     private func loadReceiverSettings(userId: UUID, familyId: UUID) async {
@@ -196,19 +212,19 @@ final class ReceiverViewModel: ObservableObject {
     }
 
     private func computeNextCheckInTime(from settings: ReceiverSettings) {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        let timeString = String(settings.checkinTime.prefix(5))
-        guard let parsedTime = formatter.date(from: timeString) else { return }
+        guard let (hour, minute) = Self.parseCheckinTime(settings.checkinTime) else { return }
 
         let calendar = Calendar.current
-        let timeComponents = calendar.dateComponents([.hour, .minute], from: parsedTime)
-        var tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))!
-        tomorrow = calendar.date(bySettingHour: timeComponents.hour ?? 9,
-                                  minute: timeComponents.minute ?? 0,
-                                  second: 0,
-                                  of: tomorrow) ?? tomorrow
-        nextCheckInTime = tomorrow
+        var components = DateComponents()
+        components.hour = hour
+        components.minute = minute
+        components.second = 0
+        // Next occurrence of the check-in time strictly after now (DST-safe).
+        nextCheckInTime = calendar.nextDate(
+            after: Date(),
+            matching: components,
+            matchingPolicy: .nextTime
+        )
     }
 
     func performCheckIn() async {
