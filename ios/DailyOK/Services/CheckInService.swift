@@ -1,5 +1,6 @@
 import Foundation
 import Supabase
+import os
 
 actor CheckInService {
     static let shared = CheckInService()
@@ -149,11 +150,6 @@ actor CheckInService {
         let startISO = formatter.string(from: startOfDay)
         let endISO = formatter.string(from: startOfTomorrow)
 
-        // Logged in release too — the bug we're chasing ("already checked in"
-        // when no row exists) has been surviving multiple rebuild cycles, so
-        // NSLog goes to os_log and is visible even without a DEBUG build.
-        NSLog("[CheckInService] todayCheckInStatus query: receiver=\(receiverId.uuidString) tz=\(timezone ?? "nil"/* -> device */) window=[\(startISO), \(endISO))")
-
         let checkIns: [CheckIn] = try await supabase
             .from("checkins")
             .select()
@@ -166,8 +162,6 @@ actor CheckInService {
             .execute()
             .value
 
-        NSLog("[CheckInService] todayCheckInStatus returned \(checkIns.count) row(s): \(checkIns.first?.checkedInAt.description ?? "nil")")
-
         // Defensive client-side verification: even if the server returned a
         // row, trust it only if its timestamp genuinely falls within today's
         // local-day window. This catches decoding quirks, stray rows with
@@ -175,7 +169,7 @@ actor CheckInService {
         // onto from a previous sign-in.
         guard let candidate = checkIns.first else { return nil }
         if candidate.checkedInAt < startOfDay || candidate.checkedInAt >= startOfTomorrow {
-            NSLog("[CheckInService] Discarding out-of-window check-in: \(candidate.checkedInAt) vs [\(startOfDay), \(startOfTomorrow))")
+            Log.checkIn.debug("Discarding out-of-window check-in candidate")
             return nil
         }
         return candidate

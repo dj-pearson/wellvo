@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 import Supabase
 
 @MainActor
@@ -65,9 +66,7 @@ final class ReceiverViewModel: ObservableObject {
             familyId: family.id,
             timezone: tzRow?.timezone
         )
-        #if DEBUG
-        print("[ReceiverViewModel] loadStatus: tz=\(tzRow?.timezone ?? "nil") todayCheckIn=\(todayCheckIn?.checkedInAt.description ?? "nil")")
-        #endif
+        Log.receiver.debug("loadStatus tz=\(tzRow?.timezone ?? "nil", privacy: .public) hasCheckedInToday=\(todayCheckIn != nil, privacy: .public)")
         lastCheckIn = todayCheckIn
         hasCheckedInToday = (todayCheckIn != nil)
         // A fresh load reflects server truth — clear any locally-picked mood so

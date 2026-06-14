@@ -1,5 +1,6 @@
 import UIKit
 import UserNotifications
+import os
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
@@ -31,7 +32,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             do {
                 try await PushNotificationService.shared.registerToken(token)
             } catch {
-                print("[PushNotification] Token registration failed")
+                Log.push.error("Token registration failed: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -40,7 +41,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         _ application: UIApplication,
         didFailToRegisterForRemoteNotificationsWithError error: Error
     ) {
-        print("[PushNotification] Failed to register for remote notifications")
+        Log.push.error("Failed to register for remote notifications: \(error.localizedDescription, privacy: .public)")
     }
 
     // MARK: - UNUserNotificationCenterDelegate
@@ -168,7 +169,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 .value
 
             guard let phone = users.first?.phone, !phone.isEmpty else {
-                print("[Call] No phone number found for receiver")
+                Log.general.error("No phone number found for receiver")
                 return
             }
 
@@ -201,7 +202,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                     batteryLevel: battery
                 )
             } catch {
-                print("[CheckIn] Notification response failed")
+                Log.checkIn.error("Notification check-in response failed: \(error.localizedDescription, privacy: .public)")
                 // If the device is genuinely offline, persist the check-in so it
                 // syncs later instead of being lost. Only for a plain "I'm OK" —
                 // urgent responses (need help / call me) must reach the server

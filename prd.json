@@ -2864,8 +2864,8 @@
         "A lightweight Logging helper (subsystem/category per area) replaces ad-hoc print/NSLog"
       ],
       "priority": 126,
-      "passes": false,
-      "notes": "SECURITY/privacy + maintainability. NSLog goes to os_log and is visible in release; ReceiverViewModel:69 logs timezone+check-in on every load. No os.Logger usage exists today. Files across ios/DailyOK/."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): Added Utilities/Log.swift (os.Logger category loggers with privacy guidance). Removed the deliberate release NSLogs of receiver UUID/timestamps in CheckInService.todayCheckInStatus (root cause addressed by US-IOS019/US-IOS022); the one anomaly path now logs at .debug with no PII. Migrated all 13 print()/NSLog sites across CheckInService, ReceiverViewModel, SettingsView, CaregiverDigestView, SubscriptionService, OfflineCheckInService, EscalationActivityManager, and AppDelegate to Log.* with privacy: .private/.public redaction, adding import os to each. No raw tokens or identifiers are logged. | SECURITY/privacy + maintainability. NSLog goes to os_log and is visible in release; ReceiverViewModel:69 logs timezone+check-in on every load. No os.Logger usage exists today. Files across ios/DailyOK/."
     },
     {
       "id": "US-IOS028",

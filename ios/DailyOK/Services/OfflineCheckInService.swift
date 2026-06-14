@@ -2,6 +2,7 @@ import Foundation
 import SwiftData
 import Network
 import Supabase
+import os
 
 /// Manages offline check-in queuing and syncing.
 /// When the device is offline, check-ins are persisted to SwiftData.

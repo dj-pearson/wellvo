@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 import AuthenticationServices
 import StoreKit
 
@@ -361,7 +362,7 @@ struct DataRetentionView: View {
                 showSaved = false
             }
         } catch {
-            print("[Settings] Failed to save retention: \(error.localizedDescription)")
+            Log.settings.error("Failed to save retention: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

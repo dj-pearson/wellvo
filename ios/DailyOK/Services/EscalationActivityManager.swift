@@ -1,4 +1,5 @@
 import Foundation
+import os
 #if canImport(ActivityKit)
 import ActivityKit
 #endif
