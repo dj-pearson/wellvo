@@ -184,22 +184,31 @@ actor CheckInService {
         return candidate
     }
 
-    /// Fetch check-in history for a receiver
+    /// Fetch check-in history for a receiver over the last `days` days.
     func checkInHistory(receiverId: UUID, familyId: UUID, days: Int = 30) async throws -> [CheckIn] {
         let fromDate = Calendar.current.date(byAdding: .day, value: -days, to: Date())
             ?? Date().addingTimeInterval(-Double(days) * 86_400)
-        let formatter = ISO8601DateFormatter()
+        return try await checkInHistory(receiverId: receiverId, familyId: familyId, from: fromDate, to: nil)
+    }
 
-        let checkIns: [CheckIn] = try await supabase
+    /// Fetch check-in history for an explicit date range (for a caregiver report
+    /// covering a custom window, e.g. ahead of a doctor visit). `to` defaults to
+    /// now.
+    func checkInHistory(receiverId: UUID, familyId: UUID, from: Date, to: Date? = nil) async throws -> [CheckIn] {
+        let formatter = ISO8601DateFormatter()
+        var query = supabase
             .from("checkins")
             .select()
             .eq("receiver_id", value: receiverId.uuidString)
             .eq("family_id", value: familyId.uuidString)
-            .gte("checked_in_at", value: formatter.string(from: fromDate))
+            .gte("checked_in_at", value: formatter.string(from: from))
+        if let to {
+            query = query.lt("checked_in_at", value: formatter.string(from: to))
+        }
+        let checkIns: [CheckIn] = try await query
             .order("checked_in_at", ascending: false)
             .execute()
             .value
-
         return checkIns
     }
 }

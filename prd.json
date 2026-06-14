@@ -3169,8 +3169,8 @@
         "Export performance is acceptable for 90+ day ranges"
       ],
       "priority": 148,
-      "passes": false,
-      "notes": "FEATURE-GAP. Pairs with US-IOS019 (duplicates inflate consistency). Files: ios/DailyOK/Services/CheckInService.swift, ios/DailyOK/Views/Owner/CheckInReportGenerator.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): Report consistency now counts DISTINCT days with a check-in (Set of startOfDay) over the period and is capped at 100%, instead of raw check-in count / periodDays which could exceed 100% when duplicates existed. PDF summary now shows Days Checked In: X / N plus Total Check-Ins separately. Added CheckInService.checkInHistory(from:to:) for an explicit custom date range (days-based overload delegates to it). HistoryView already offers a 7/30/90-day segmented picker feeding both the on-screen history and the exported report. | FEATURE-GAP. Pairs with US-IOS019 (duplicates inflate consistency). Files: ios/DailyOK/Services/CheckInService.swift, ios/DailyOK/Views/Owner/CheckInReportGenerator.swift."
     },
     {
       "id": "US-IOS050",
