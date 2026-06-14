@@ -282,13 +282,17 @@ struct OnboardingView: View {
 
     private var choosePlanStep: some View {
         VStack(spacing: 24) {
-            Text("Choose Your Plan")
+            Text("Plans & Pricing")
                 .font(.title)
                 .fontWeight(.bold)
 
-            Text("Start with a 7-day free trial. Cancel anytime.")
+            // Informational only — tapping a card no longer silently "advances"
+            // as if it started a plan. Subscriptions start from the paywall in
+            // Settings, so don't promise a trial begins here.
+            Text("Here's what each plan includes. You can start a free trial anytime in Settings — no charge now.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
 
             VStack(spacing: 12) {
                 planCard(
@@ -296,90 +300,92 @@ struct OnboardingView: View {
                     price: "$3.99/mo",
                     features: ["1 Receiver", "3 Viewers", "Full escalation", "Pattern alerts"],
                     isHighlighted: true
-                ) {
-                    viewModel.advance()
-                }
-
+                )
                 planCard(
                     title: "Family",
                     price: "$6.99/mo",
                     features: ["3 Receivers", "5 Viewers", "Clinician PDF export", "Kid mode"],
                     isHighlighted: false
-                ) {
-                    viewModel.advance()
-                }
-
+                )
                 planCard(
                     title: "Family+",
                     price: "$9.99/mo",
                     features: ["6 Receivers", "10 Viewers", "Critical Alerts", "Priority support"],
                     isHighlighted: false
-                ) {
-                    viewModel.advance()
-                }
+                )
             }
 
-            Text("You can change your plan anytime in Settings.")
+            Button {
+                viewModel.advance()
+            } label: {
+                Text("Continue")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(DailyOKColor.green500)
+
+            Text("You can change or start a plan anytime in Settings.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
         .padding()
     }
 
-    private func planCard(title: String, price: String, features: [String], isHighlighted: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(title)
-                        .font(.headline)
-                    Spacer()
-                    Text(price)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(isHighlighted ? .white : .green)
-                }
+    private func planCard(title: String, price: String, features: [String], isHighlighted: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title)
+                    .font(.headline)
+                Spacer()
+                Text(price)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(isHighlighted ? .white : .green)
+            }
 
-                ForEach(features, id: \.self) { feature in
-                    HStack(spacing: 6) {
-                        Image(systemName: "checkmark")
-                            .font(.caption2)
-                            .foregroundStyle(isHighlighted ? .white.opacity(0.8) : .green)
-                        Text(feature)
-                            .font(.caption)
-                            .foregroundStyle(isHighlighted ? .white.opacity(0.9) : .secondary)
-                    }
+            ForEach(features, id: \.self) { feature in
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark")
+                        .font(.caption2)
+                        .foregroundStyle(isHighlighted ? .white.opacity(0.8) : .green)
+                    Text(feature)
+                        .font(.caption)
+                        .foregroundStyle(isHighlighted ? .white.opacity(0.9) : .secondary)
                 }
             }
-            .padding()
-            .background(
-                Group {
-                    if isHighlighted {
-                        RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
-                            .fill(
-                                LinearGradient(colors: [DailyOKColor.green500, DailyOKColor.green600],
-                                               startPoint: .topLeading, endPoint: .bottomTrailing)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
-                                    .strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
-                            )
-                    } else {
-                        RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
-                            .fill(.thinMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
-                                    .strokeBorder(DailyOKGlass.strokeLight, lineWidth: 0.75)
-                            )
-                    }
-                }
-            )
-            .foregroundStyle(isHighlighted ? .white : .primary)
-            .clipShape(RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous))
-            .shadow(color: .black.opacity(isHighlighted ? 0.18 : 0.08),
-                    radius: isHighlighted ? DailyOKElevation.level3 : DailyOKElevation.level2,
-                    y: isHighlighted ? 6 : 3)
         }
-        .buttonStyle(.pressable)
+        .padding()
+        .background(
+            Group {
+                if isHighlighted {
+                    RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
+                        .fill(
+                            LinearGradient(colors: [DailyOKColor.green500, DailyOKColor.green600],
+                                           startPoint: .topLeading, endPoint: .bottomTrailing)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
+                        )
+                } else {
+                    RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
+                        .fill(.thinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
+                                .strokeBorder(DailyOKGlass.strokeLight, lineWidth: 0.75)
+                        )
+                }
+            }
+        )
+        .foregroundStyle(isHighlighted ? .white : .primary)
+        .clipShape(RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous))
+        .shadow(color: .black.opacity(isHighlighted ? 0.18 : 0.08),
+                radius: isHighlighted ? DailyOKElevation.level3 : DailyOKElevation.level2,
+                y: isHighlighted ? 6 : 3)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title) plan, \(price). Includes \(features.joined(separator: ", ")).")
     }
 
     private var completeStep: some View {

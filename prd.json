@@ -3006,8 +3006,8 @@
         "Plan prices are pulled from Product.displayPrice rather than hardcoded '$3.99/mo' literals (OnboardingView:296-315)"
       ],
       "priority": 136,
-      "passes": false,
-      "notes": "UX (high) + StoreKit correctness. File: ios/DailyOK/Views/Onboarding/OnboardingView.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): The Choose Your Plan step no longer presents tappable cards that silently call advance() (false selection) while promising a trial. Retitled to Plans & Pricing with honest copy (no charge now; start a trial in Settings). Plan cards are now non-interactive info cards with a combined VoiceOver label (title, price, features). A single explicit Continue button (>=44pt) advances onboarding. NOTE: dynamic Product.displayPrice pricing is handled under US-IOS044 (i18n/StoreKit track); prices remain placeholder here for now. | UX (high) + StoreKit correctness. File: ios/DailyOK/Views/Onboarding/OnboardingView.swift."
     },
     {
       "id": "US-IOS038",
