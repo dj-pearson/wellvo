@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import Supabase
+import os
 
 /// Periodically reports app activity (last-seen), battery level, and app version
 /// to the server so owners can see when a receiver was last active.
@@ -43,6 +44,12 @@ final class HeartbeatService {
             body["app_version"] = version
         }
 
-        try? await EdgeFunctionsClient.invoke("heartbeat", body: body)
+        do {
+            try await EdgeFunctionsClient.invoke("heartbeat", body: body)
+        } catch {
+            // Heartbeat drives the owner's "last seen" — a silent failure makes a
+            // receiver look inactive. Log it (non-fatal; next tick retries).
+            Log.general.error("Heartbeat failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 }

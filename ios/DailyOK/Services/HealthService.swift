@@ -1,4 +1,5 @@
 import Foundation
+import os
 #if canImport(HealthKit)
 import HealthKit
 #endif
@@ -150,7 +151,9 @@ final class HealthService: ObservableObject {
                 .upsert(payload, onConflict: "receiver_id,family_id,signal_date")
                 .execute()
         } catch {
-            // Best-effort; passive signal is non-critical.
+            // Best-effort; passive signal is non-critical — but log so a
+            // persistently-failing upload is diagnosable.
+            Log.general.error("Wellness signal upload failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -164,7 +167,7 @@ final class HealthService: ObservableObject {
                 .eq("receiver_id", value: session.user.id.uuidString)
                 .execute()
         } catch {
-            // Best-effort.
+            Log.general.error("Wellness signal revoke failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

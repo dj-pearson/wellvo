@@ -104,9 +104,20 @@ struct SettingsView: View {
 
                 // Notifications
                 Section("Notifications") {
-                    NavigationLink("Notification Settings") {
-                        Text("Notification settings coming soon")
+                    Button {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        HStack {
+                            Label("Notification Settings", systemImage: "bell.badge")
+                            Spacer()
+                            Image(systemName: "arrow.up.forward.app")
+                                .foregroundStyle(.secondary)
+                                .font(.footnote)
+                        }
                     }
+                    .accessibilityHint("Opens iOS Settings to manage notifications for Daily OK")
 
                     if isOwner {
                         Toggle(isOn: $liveActivitiesEnabled) {

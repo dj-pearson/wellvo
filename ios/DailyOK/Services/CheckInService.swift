@@ -112,10 +112,19 @@ actor CheckInService {
 
     /// Confirm delivery of a push notification
     func confirmDelivery(checkinRequestId: String) async {
-        try? await EdgeFunctionsClient.invoke(
-            "confirm-delivery",
-            body: ["checkin_request_id": checkinRequestId]
-        )
+        // Part of the escalation-suppression contract: the server uses this to
+        // know the push landed. A silently-dropped failure can let an escalation
+        // fire unnecessarily, so retry transient failures and log if it sticks.
+        do {
+            try await NetworkRetry.execute {
+                try await EdgeFunctionsClient.invoke(
+                    "confirm-delivery",
+                    body: ["checkin_request_id": checkinRequestId]
+                )
+            }
+        } catch {
+            Log.checkIn.error("confirmDelivery failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     /// Owner sends on-demand check-in request

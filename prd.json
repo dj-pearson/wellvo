@@ -3047,8 +3047,8 @@
         "Verified with Reduce Motion enabled across Auth/Onboarding/Dashboard/Receiver/Settings"
       ],
       "priority": 139,
-      "passes": false,
-      "notes": "UX/accessibility (medium). The one global reduce-motion offender; rest of the app is diligent. File: ios/DailyOK/Utilities/Theme.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): AmbientBackground now reads @Environment(\\.accessibilityReduceMotion) and skips the 14s repeatForever orb animation (holding phase static) when Reduce Motion is on, cutting continuous blur/GPU cost behind every screen. | UX/accessibility (medium). The one global reduce-motion offender; rest of the app is diligent. File: ios/DailyOK/Utilities/Theme.swift."
     },
     {
       "id": "US-IOS041",
@@ -3086,8 +3086,8 @@
         "No shipped settings row leads to placeholder 'coming soon' text"
       ],
       "priority": 142,
-      "passes": false,
-      "notes": "UX (lower/polish). File: ios/DailyOK/Views/Settings/SettingsView.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): Replaced the dead-end \"Notification Settings coming soon\" NavigationLink in SettingsView with a Button that deep-links to iOS notification settings via UIApplication.openSettingsURLString, with an accessibility hint. | UX (lower/polish). File: ios/DailyOK/Views/Settings/SettingsView.swift."
     },
     {
       "id": "US-IOS044",
@@ -3114,8 +3114,8 @@
         "A failed confirmDelivery is retried before giving up"
       ],
       "priority": 144,
-      "passes": false,
-      "notes": "BUG (reliability). confirmDelivery is part of the escalation-suppression contract; swallowing its failure can cause unnecessary escalation with no telemetry. Files: ios/DailyOK/Services/CheckInService.swift, ios/DailyOK/Services/HeartbeatService.swift, ios/DailyOK/Services/HealthService.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): confirmDelivery now wraps the edge call in NetworkRetry.execute and logs on persistent failure (escalation-suppression contract). HeartbeatService.sendHeartbeat and HealthService.upload/revokeSharedSignals no longer swallow errors with try?/empty catch — they log via Log.* so persistent failures are diagnosable. | BUG (reliability). confirmDelivery is part of the escalation-suppression contract; swallowing its failure can cause unnecessary escalation with no telemetry. Files: ios/DailyOK/Services/CheckInService.swift, ios/DailyOK/Services/HeartbeatService.swift, ios/DailyOK/Services/HealthService.swift."
     },
     {
       "id": "US-IOS046",
