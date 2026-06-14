@@ -94,6 +94,18 @@ struct FamilyView: View {
                                 }
                                 .tint(.blue)
                             }
+                            // Surface Transfer Ownership as a visible swipe action
+                            // (standard, discoverable gesture) — not only buried in
+                            // the long-press context menu.
+                            if isOwner && member.role != .owner && member.status == .active {
+                                Button {
+                                    transferTarget = member
+                                    showTransferAlert = true
+                                } label: {
+                                    Label("Transfer", systemImage: "arrow.right.arrow.left")
+                                }
+                                .tint(.orange)
+                            }
                         }
                         .contextMenu {
                             if isOwner && member.role != .owner && member.status == .active {

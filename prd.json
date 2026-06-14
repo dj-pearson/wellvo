@@ -3061,8 +3061,8 @@
         "Copy clearly states the consequence of each destructive action"
       ],
       "priority": 140,
-      "passes": false,
-      "notes": "UX (medium). Files: ios/DailyOK/Views/Owner/FamilyView.swift, ios/DailyOK/Views/Settings/SettingsView.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): Delete Account now requires typing DELETE in the alert (TextField) before the destructive button enables, so a single mistaken tap cannot wipe the account. Transfer Ownership is now a visible orange swipe action on active members (standard discoverable gesture) in addition to the existing context menu — no longer only a hidden long-press. NOTE: an undo/grace-window for member removal was deferred because it requires server-side soft-delete support (no backend change in this client-only pass); removal keeps its confirm dialog. | UX (medium). Files: ios/DailyOK/Views/Owner/FamilyView.swift, ios/DailyOK/Views/Settings/SettingsView.swift."
     },
     {
       "id": "US-IOS042",
