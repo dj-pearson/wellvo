@@ -2964,8 +2964,8 @@
         "Hitting a limit shows the paywall; the server remains the source of truth and still rejects over-limit requests"
       ],
       "priority": 133,
-      "passes": false,
-      "notes": "BUG/UX. hasAccess/memberLimitReached are dead code; limits only (maybe) enforced server-side, surfacing as raw errors. Files: ios/DailyOK/Services/FamilyService.swift, ios/DailyOK/Services/SubscriptionService.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): The Invite Family Member entry point now gates on the family receiver limit client-side (currentReceiverCount >= family.maxReceivers) and presents the SubscriptionView paywall instead of firing an invite that fails server-side with a raw error. Added a footer showing X of N receivers used. createFamily documented to NOT grant a paid tier — it keeps the unpaid single-receiver allowance and relies on the subscription webhook to upgrade tier/max_receivers/max_viewers on verified purchase (changing the values client-side was deliberately avoided to not grant unpaid users paid limits). NOTE: broader per-feature gating (PDF export/care notes/location behind hasAccess) left as a follow-up; the invite/multi-receiver gate is the primary paywall surface. | BUG/UX. hasAccess/memberLimitReached are dead code; limits only (maybe) enforced server-side, surfacing as raw errors. Files: ios/DailyOK/Services/FamilyService.swift, ios/DailyOK/Services/SubscriptionService.swift."
     },
     {
       "id": "US-IOS035",

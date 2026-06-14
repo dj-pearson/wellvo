@@ -12,6 +12,16 @@ struct FamilyView: View {
     @State private var errorMessage: String?
     @State private var memberToRemove: FamilyMember?
     @State private var showRemoveConfirmation = false
+    @State private var showPaywall = false
+
+    /// Receivers currently occupying a slot (active or pending invite).
+    private var currentReceiverCount: Int {
+        members.filter { $0.role == .receiver }.count
+    }
+
+    private var receiverLimitReached: Bool {
+        currentReceiverCount >= (family?.maxReceivers ?? 1)
+    }
     @Namespace private var heroNamespace
 
     private var isOwner: Bool { appState.currentUserRole == .owner }
@@ -130,9 +140,20 @@ struct FamilyView: View {
                 if isOwner {
                     Section {
                         Button {
-                            showInviteSheet = true
+                            // Gate on the family's receiver limit client-side and
+                            // present the paywall instead of letting the invite
+                            // request fail server-side with a raw error.
+                            if receiverLimitReached {
+                                showPaywall = true
+                            } else {
+                                showInviteSheet = true
+                            }
                         } label: {
                             Label("Invite Family Member", systemImage: "person.badge.plus")
+                        }
+                    } footer: {
+                        if let family {
+                            Text("\(currentReceiverCount) of \(family.maxReceivers) receiver\(family.maxReceivers == 1 ? "" : "s") used.")
                         }
                     }
                 }
@@ -145,6 +166,9 @@ struct FamilyView: View {
             .sheet(isPresented: $showInviteSheet) {
                 InviteReceiverSheet { await loadData() }
                     .dailyokGlassSheet(style: .regular)
+            }
+            .sheet(isPresented: $showPaywall) {
+                SubscriptionView()
             }
             .alert("Transfer Ownership", isPresented: $showTransferAlert) {
                 Button("Transfer", role: .destructive) {

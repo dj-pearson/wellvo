@@ -11,6 +11,12 @@ actor FamilyService {
             throw FamilyError.notAuthenticated
         }
 
+        // Initial *unpaid* limits. We deliberately do NOT grant a paid tier here:
+        // a new family starts with a single-receiver allowance, and the
+        // subscription webhook upgrades `subscription_tier` / `max_receivers` /
+        // `max_viewers` once a purchase is verified. (The `free` tier is the
+        // grandfathered unpaid state; gating elsewhere checks the paid tiers via
+        // SubscriptionService.hasAccess and the family's max_receivers.)
         let family: Family = try await supabase
             .from("families")
             .insert([
