@@ -119,14 +119,9 @@ struct AuthView: View {
                 Text("Enter the code we texted you")
                     .font(.headline)
 
-                TextField("6-digit code", text: $authViewModel.otpCode)
-                    .textFieldStyle(.roundedBorder)
-                    .keyboardType(.numberPad)
-                    .textContentType(.oneTimeCode)
-                    .multilineTextAlignment(.center)
-                    .font(.title2.monospaced())
-                    .frame(maxWidth: 200)
-                    .onSubmit { Task { await authViewModel.verifyPhoneOTP() } }
+                SegmentedCodeField(code: $authViewModel.otpCode, length: 6) {
+                    Task { await authViewModel.verifyPhoneOTP() }
+                }
 
                 Button {
                     Task { await authViewModel.verifyPhoneOTP() }

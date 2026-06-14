@@ -3074,8 +3074,8 @@
         "Fields support paste and one-time-code autofill"
       ],
       "priority": 141,
-      "passes": false,
-      "notes": "UX (lower). Files: ios/DailyOK/Views/Onboarding/PairingCodeEntryView.swift, ios/DailyOK/Views/Auth/AuthView.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): Added reusable SegmentedCodeField component (per-digit boxes backed by one hidden field; numberPad + .oneTimeCode autofill + paste; live focus highlight; VoiceOver value reports x of N digits). Adopted it in PairingCodeEntryView (with a visible x of 6 progress caption) and AuthView phone OTP, replacing the single monospaced TextFields. Submit buttons and the code field are disabled during lockout (isLockedOut); the existing lockout error shows the countdown inline. | UX (lower). Files: ios/DailyOK/Views/Onboarding/PairingCodeEntryView.swift, ios/DailyOK/Views/Auth/AuthView.swift."
     },
     {
       "id": "US-IOS043",
