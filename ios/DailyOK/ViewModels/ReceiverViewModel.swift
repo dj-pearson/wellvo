@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 import Supabase
 
 @MainActor
@@ -26,6 +27,10 @@ final class ReceiverViewModel: ObservableObject {
     @Published var selectedMood: Mood?
 
     private let offlineService = OfflineCheckInService.shared
+    private var loadTask: Task<Void, Never>?
+    /// The receiver's own family_member id, so they can self-serve display
+    /// preferences (Simple Mode, spoken confirmation) without an owner.
+    private var receiverMemberId: UUID?
 
     /// Whether to show the optional "how are you feeling?" picker after a
     /// check-in: enabled in settings, an online check-in row exists to attach to,
@@ -36,7 +41,22 @@ final class ReceiverViewModel: ObservableObject {
         return selectedMood == nil
     }
 
+    /// Coalesce reload triggers. `loadStatus` is invoked from `.task`,
+    /// `scenePhase == .active`, AND the `didSyncCheckIns` observer — and
+    /// `loadStatus` itself calls `syncPendingCheckIns()`, which on success posts
+    /// `didSyncCheckIns`. Without coalescing, that re-enters `loadStatus` for a
+    /// full extra round of queries. Re-entrant callers await the in-flight load.
     func loadStatus() async {
+        if let loadTask {
+            return await loadTask.value
+        }
+        let task = Task { await performLoadStatus() }
+        loadTask = task
+        await task.value
+        loadTask = nil
+    }
+
+    private func performLoadStatus() async {
         guard let family = try? await FamilyService.shared.getFamily() else { return }
         familyId = family.id
 
@@ -65,9 +85,7 @@ final class ReceiverViewModel: ObservableObject {
             familyId: family.id,
             timezone: tzRow?.timezone
         )
-        #if DEBUG
-        print("[ReceiverViewModel] loadStatus: tz=\(tzRow?.timezone ?? "nil") todayCheckIn=\(todayCheckIn?.checkedInAt.description ?? "nil")")
-        #endif
+        Log.receiver.debug("loadStatus tz=\(tzRow?.timezone ?? "nil", privacy: .public) hasCheckedInToday=\(todayCheckIn != nil, privacy: .public)")
         lastCheckIn = todayCheckIn
         hasCheckedInToday = (todayCheckIn != nil)
         // A fresh load reflects server truth — clear any locally-picked mood so
@@ -84,8 +102,11 @@ final class ReceiverViewModel: ObservableObject {
             let isoFormatter = ISO8601DateFormatter()
             isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             let isoTimestamps = history.map { isoFormatter.string(from: $0.checkedInAt) }
-            streakDays = Streaks.currentStreak(isoTimestamps: isoTimestamps)
-            consistencyPercent = Streaks.consistencyPercent(isoTimestamps: isoTimestamps, windowDays: 7)
+            // Use the receiver's configured timezone so the streak/consistency
+            // chips bucket days the same way `todayCheckInStatus` does.
+            let cal = Calendar.forTimezone(tzRow?.timezone)
+            streakDays = Streaks.currentStreak(isoTimestamps: isoTimestamps, calendar: cal)
+            consistencyPercent = Streaks.consistencyPercent(isoTimestamps: isoTimestamps, windowDays: 7, calendar: cal)
         }
 
         await loadReceiverSettings(userId: session.user.id, familyId: family.id)
@@ -148,20 +169,113 @@ final class ReceiverViewModel: ObservableObject {
     /// tomorrow), pushed out by the grace period so the local fallback fires
     /// only after the server push has had its chance.
     private func nextFallbackDate(from settings: ReceiverSettings) -> Date? {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        guard let parsedTime = formatter.date(from: String(settings.checkinTime.prefix(5))) else { return nil }
+        // Honor the full schedule (weekday/weekend/custom/paused/quiet-hours),
+        // then push out by the grace period so the local fallback fires only
+        // after the server push has had its chance.
+        guard let target = Self.nextScheduledCheckIn(for: settings) else { return nil }
+        return Calendar.current.date(byAdding: .minute, value: settings.gracePeriodMinutes, to: target)
+    }
 
-        let calendar = Calendar.current
-        let comps = calendar.dateComponents([.hour, .minute], from: parsedTime)
-        guard var todayTarget = calendar.date(
-            bySettingHour: comps.hour ?? 9, minute: comps.minute ?? 0, second: 0, of: Date()
-        ) else { return nil }
+    /// Parse a stored "HH:mm[:ss]" check-in time into hour/minute components.
+    nonisolated static func parseCheckinTime(_ raw: String) -> (hour: Int, minute: Int)? {
+        let parts = raw.split(separator: ":")
+        guard parts.count >= 2, let hour = Int(parts[0]), let minute = Int(parts[1]),
+              (0..<24).contains(hour), (0..<60).contains(minute) else { return nil }
+        return (hour, minute)
+    }
 
-        if todayTarget <= Date() {
-            todayTarget = calendar.date(byAdding: .day, value: 1, to: todayTarget) ?? todayTarget
+    /// Resolve the next scheduled check-in moment, honoring the full schedule
+    /// model: `scheduleType` (daily / weekday-weekend / custom), weekend and
+    /// per-day custom times, `schedulePaused`, and quiet hours. Returns nil when
+    /// paused or no day in the coming week has a scheduled time. Pure + testable.
+    nonisolated static func nextScheduledCheckIn(
+        for settings: ReceiverSettings,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Date? {
+        guard !settings.schedulePaused else { return nil }
+
+        // Scan today + a full week for the earliest scheduled slot after `now`.
+        for dayOffset in 0...7 {
+            guard let day = calendar.date(byAdding: .day, value: dayOffset, to: now),
+                  let timeString = scheduledTime(for: settings, on: day, calendar: calendar),
+                  let (hour, minute) = parseCheckinTime(timeString) else { continue }
+
+            var comps = calendar.dateComponents([.year, .month, .day], from: day)
+            comps.hour = hour
+            comps.minute = minute
+            comps.second = 0
+            guard let rawTarget = calendar.date(from: comps) else { continue }
+
+            let target = deferPastQuietHours(rawTarget, settings: settings, calendar: calendar)
+            if target > now { return target }
         }
-        return calendar.date(byAdding: .minute, value: settings.gracePeriodMinutes, to: todayTarget)
+        return nil
+    }
+
+    /// The "HH:mm" time scheduled for the given day, or nil if no check-in is
+    /// scheduled that day (custom schedule with an empty day).
+    nonisolated private static func scheduledTime(
+        for settings: ReceiverSettings,
+        on day: Date,
+        calendar: Calendar
+    ) -> String? {
+        let weekday = calendar.component(.weekday, from: day) // 1 = Sun ... 7 = Sat
+        let isWeekend = (weekday == 1 || weekday == 7)
+
+        switch settings.scheduleType {
+        case .daily:
+            return settings.checkinTime
+        case .weekdayWeekend:
+            return isWeekend ? (settings.weekendCheckinTime ?? settings.checkinTime) : settings.checkinTime
+        case .custom:
+            guard let custom = settings.customSchedule else { return settings.checkinTime }
+            switch weekday {
+            case 1: return custom.sun
+            case 2: return custom.mon
+            case 3: return custom.tue
+            case 4: return custom.wed
+            case 5: return custom.thu
+            case 6: return custom.fri
+            case 7: return custom.sat
+            default: return nil
+            }
+        }
+    }
+
+    /// If `date` falls inside the receiver's quiet hours, defer it to the end of
+    /// quiet hours so a reminder isn't scheduled during a do-not-disturb window.
+    nonisolated private static func deferPastQuietHours(
+        _ date: Date,
+        settings: ReceiverSettings,
+        calendar: Calendar
+    ) -> Date {
+        guard let qStart = settings.quietHoursStart, let qEnd = settings.quietHoursEnd,
+              let (sh, sm) = parseCheckinTime(qStart), let (eh, em) = parseCheckinTime(qEnd) else {
+            return date
+        }
+        let minutesOfDay = calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date)
+        let startMin = sh * 60 + sm
+        let endMin = eh * 60 + em
+
+        let inQuiet: Bool
+        if startMin <= endMin {
+            inQuiet = minutesOfDay >= startMin && minutesOfDay < endMin
+        } else {
+            // Window wraps midnight (e.g. 22:00–07:00).
+            inQuiet = minutesOfDay >= startMin || minutesOfDay < endMin
+        }
+        guard inQuiet else { return date }
+
+        var comps = calendar.dateComponents([.year, .month, .day], from: date)
+        comps.hour = eh
+        comps.minute = em
+        comps.second = 0
+        var endDate = calendar.date(from: comps) ?? date
+        if endDate <= date {
+            endDate = calendar.date(byAdding: .day, value: 1, to: endDate) ?? endDate
+        }
+        return endDate
     }
 
     private func loadReceiverSettings(userId: UUID, familyId: UUID) async {
@@ -176,6 +290,7 @@ final class ReceiverViewModel: ObservableObject {
                 .value
 
             guard let member = members.first else { return }
+            receiverMemberId = member.id
 
             let settings: ReceiverSettings = try await SupabaseService.shared.client
                 .from("receiver_settings")
@@ -195,20 +310,36 @@ final class ReceiverViewModel: ObservableObject {
         }
     }
 
-    private func computeNextCheckInTime(from settings: ReceiverSettings) {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        let timeString = String(settings.checkinTime.prefix(5))
-        guard let parsedTime = formatter.date(from: timeString) else { return }
+    /// Receiver self-service: toggle Simple Mode from their own device.
+    func updateSimpleMode(_ value: Bool) async {
+        simpleMode = value
+        await updateReceiverSetting(["simple_mode": String(value)])
+    }
 
-        let calendar = Calendar.current
-        let timeComponents = calendar.dateComponents([.hour, .minute], from: parsedTime)
-        var tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))!
-        tomorrow = calendar.date(bySettingHour: timeComponents.hour ?? 9,
-                                  minute: timeComponents.minute ?? 0,
-                                  second: 0,
-                                  of: tomorrow) ?? tomorrow
-        nextCheckInTime = tomorrow
+    /// Receiver self-service: toggle spoken/audible confirmation.
+    func updateAudioConfirmation(_ value: Bool) async {
+        audioConfirmationEnabled = value
+        await updateReceiverSetting(["audio_confirmation_enabled": String(value)])
+    }
+
+    private func updateReceiverSetting(_ updates: [String: String]) async {
+        guard let memberId = receiverMemberId else { return }
+        do {
+            try await SupabaseService.shared.client
+                .from("receiver_settings")
+                .update(updates)
+                .eq("family_member_id", value: memberId.uuidString)
+                .execute()
+            DailyOKHaptics.success()
+        } catch {
+            Log.settings.error("Failed to update receiver setting: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func computeNextCheckInTime(from settings: ReceiverSettings) {
+        // Use the full schedule resolver so the displayed "next check-in" matches
+        // the receiver's weekday/weekend/custom schedule (and is nil when paused).
+        nextCheckInTime = Self.nextScheduledCheckIn(for: settings)
     }
 
     func performCheckIn() async {

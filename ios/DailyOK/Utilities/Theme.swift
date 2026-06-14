@@ -195,6 +195,7 @@ struct AmbientBackground: View {
     var tone: Tone = .calm
     @State private var phase: CGFloat = 0
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geo in
@@ -215,6 +216,10 @@ struct AmbientBackground: View {
             .ignoresSafeArea()
         }
         .onAppear {
+            // Respect Reduce Motion: hold the orbs still (and skip the continuous
+            // blur recomputation / GPU cost) for users with vestibular
+            // sensitivity. This view sits behind nearly every screen.
+            guard !reduceMotion else { return }
             withAnimation(.linear(duration: 14).repeatForever(autoreverses: true)) {
                 phase = .pi * 2
             }

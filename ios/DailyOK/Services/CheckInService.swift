@@ -1,5 +1,6 @@
 import Foundation
 import Supabase
+import os
 
 actor CheckInService {
     static let shared = CheckInService()
@@ -111,10 +112,19 @@ actor CheckInService {
 
     /// Confirm delivery of a push notification
     func confirmDelivery(checkinRequestId: String) async {
-        try? await EdgeFunctionsClient.invoke(
-            "confirm-delivery",
-            body: ["checkin_request_id": checkinRequestId]
-        )
+        // Part of the escalation-suppression contract: the server uses this to
+        // know the push landed. A silently-dropped failure can let an escalation
+        // fire unnecessarily, so retry transient failures and log if it sticks.
+        do {
+            try await NetworkRetry.execute {
+                try await EdgeFunctionsClient.invoke(
+                    "confirm-delivery",
+                    body: ["checkin_request_id": checkinRequestId]
+                )
+            }
+        } catch {
+            Log.checkIn.error("confirmDelivery failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     /// Owner sends on-demand check-in request
@@ -149,11 +159,6 @@ actor CheckInService {
         let startISO = formatter.string(from: startOfDay)
         let endISO = formatter.string(from: startOfTomorrow)
 
-        // Logged in release too — the bug we're chasing ("already checked in"
-        // when no row exists) has been surviving multiple rebuild cycles, so
-        // NSLog goes to os_log and is visible even without a DEBUG build.
-        NSLog("[CheckInService] todayCheckInStatus query: receiver=\(receiverId.uuidString) tz=\(timezone ?? "nil"/* -> device */) window=[\(startISO), \(endISO))")
-
         let checkIns: [CheckIn] = try await supabase
             .from("checkins")
             .select()
@@ -166,8 +171,6 @@ actor CheckInService {
             .execute()
             .value
 
-        NSLog("[CheckInService] todayCheckInStatus returned \(checkIns.count) row(s): \(checkIns.first?.checkedInAt.description ?? "nil")")
-
         // Defensive client-side verification: even if the server returned a
         // row, trust it only if its timestamp genuinely falls within today's
         // local-day window. This catches decoding quirks, stray rows with
@@ -175,27 +178,37 @@ actor CheckInService {
         // onto from a previous sign-in.
         guard let candidate = checkIns.first else { return nil }
         if candidate.checkedInAt < startOfDay || candidate.checkedInAt >= startOfTomorrow {
-            NSLog("[CheckInService] Discarding out-of-window check-in: \(candidate.checkedInAt) vs [\(startOfDay), \(startOfTomorrow))")
+            Log.checkIn.debug("Discarding out-of-window check-in candidate")
             return nil
         }
         return candidate
     }
 
-    /// Fetch check-in history for a receiver
+    /// Fetch check-in history for a receiver over the last `days` days.
     func checkInHistory(receiverId: UUID, familyId: UUID, days: Int = 30) async throws -> [CheckIn] {
-        let fromDate = Calendar.current.date(byAdding: .day, value: -days, to: Date())!
-        let formatter = ISO8601DateFormatter()
+        let fromDate = Calendar.current.date(byAdding: .day, value: -days, to: Date())
+            ?? Date().addingTimeInterval(-Double(days) * 86_400)
+        return try await checkInHistory(receiverId: receiverId, familyId: familyId, from: fromDate, to: nil)
+    }
 
-        let checkIns: [CheckIn] = try await supabase
+    /// Fetch check-in history for an explicit date range (for a caregiver report
+    /// covering a custom window, e.g. ahead of a doctor visit). `to` defaults to
+    /// now.
+    func checkInHistory(receiverId: UUID, familyId: UUID, from: Date, to: Date? = nil) async throws -> [CheckIn] {
+        let formatter = ISO8601DateFormatter()
+        var query = supabase
             .from("checkins")
             .select()
             .eq("receiver_id", value: receiverId.uuidString)
             .eq("family_id", value: familyId.uuidString)
-            .gte("checked_in_at", value: formatter.string(from: fromDate))
+            .gte("checked_in_at", value: formatter.string(from: from))
+        if let to {
+            query = query.lt("checked_in_at", value: formatter.string(from: to))
+        }
+        let checkIns: [CheckIn] = try await query
             .order("checked_in_at", ascending: false)
             .execute()
             .value
-
         return checkIns
     }
 }

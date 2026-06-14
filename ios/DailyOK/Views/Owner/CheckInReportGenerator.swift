@@ -67,7 +67,11 @@ struct CheckInReportGenerator {
             let calendar = Calendar.current
             let totalDays = data.periodDays
             let totalCheckIns = data.checkIns.count
-            let consistency = totalDays > 0 ? Double(totalCheckIns) / Double(totalDays) * 100 : 0
+            // Consistency = days WITH at least one check-in over the period, not
+            // raw check-in count — so duplicate/extra check-ins on a single day
+            // can't push it past 100%. Capped defensively as well.
+            let daysWithCheckIn = Set(data.checkIns.map { calendar.startOfDay(for: $0.checkedInAt) }).count
+            let consistency = totalDays > 0 ? min(100.0, Double(daysWithCheckIn) / Double(totalDays) * 100) : 0
 
             let sectionFont = UIFont.systemFont(ofSize: 16, weight: .semibold)
             let sectionAttrs: [NSAttributedString.Key: Any] = [.font: sectionFont, .foregroundColor: UIColor.label]
@@ -78,7 +82,8 @@ struct CheckInReportGenerator {
             yPosition += 24
 
             let summaryLines = [
-                "Total Check-Ins: \(totalCheckIns) / \(totalDays) days",
+                "Days Checked In: \(daysWithCheckIn) / \(totalDays)",
+                "Total Check-Ins: \(totalCheckIns)",
                 "Consistency: \(String(format: "%.0f", consistency))%",
                 "Average Check-In Time: \(averageCheckInTime(data.checkIns))",
                 "Mood Breakdown: \(moodBreakdownString(data.checkIns))",

@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 import AuthenticationServices
 import StoreKit
 
@@ -8,6 +9,7 @@ struct SettingsView: View {
     @StateObject private var subscriptionService = SubscriptionService.shared
     @Environment(\.colorScheme) private var colorScheme
     @State private var showDeleteConfirmation = false
+    @State private var deleteConfirmText = ""
     @State private var showSignOutConfirmation = false
     @State private var isExportingData = false
     @State private var exportedData: String?
@@ -103,9 +105,20 @@ struct SettingsView: View {
 
                 // Notifications
                 Section("Notifications") {
-                    NavigationLink("Notification Settings") {
-                        Text("Notification settings coming soon")
+                    Button {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        HStack {
+                            Label("Notification Settings", systemImage: "bell.badge")
+                            Spacer()
+                            Image(systemName: "arrow.up.forward.app")
+                                .foregroundStyle(.secondary)
+                                .font(.footnote)
+                        }
                     }
+                    .accessibilityHint("Opens iOS Settings to manage notifications for Daily OK")
 
                     if isOwner {
                         Toggle(isOn: $liveActivitiesEnabled) {
@@ -208,13 +221,19 @@ struct SettingsView: View {
                 Text("Are you sure you want to sign out? You'll need to sign in again to access your family.")
             }
             .alert("Delete Account", isPresented: $showDeleteConfirmation) {
+                // Require the user to type DELETE so this irreversible action
+                // can't be triggered by a single mistaken tap.
+                TextField("Type DELETE to confirm", text: $deleteConfirmText)
+                    .textInputAutocapitalization(.characters)
                 Button("Delete Everything", role: .destructive) {
                     DailyOKHaptics.warning()
+                    deleteConfirmText = ""
                     Task { await deleteAccount() }
                 }
-                Button("Cancel", role: .cancel) {}
+                .disabled(deleteConfirmText != "DELETE")
+                Button("Cancel", role: .cancel) { deleteConfirmText = "" }
             } message: {
-                Text("This will permanently delete your account, your family group, all check-in history, and remove all members. This action cannot be undone.")
+                Text("This will permanently delete your account, your family group, all check-in history, and remove all members. Type DELETE to confirm. This action cannot be undone.")
             }
             .task {
                 await authViewModel.checkAppleLinkStatus()
@@ -353,6 +372,8 @@ struct DataRetentionView: View {
                 .eq("id", value: family.id.uuidString)
                 .execute()
 
+            DailyOKHaptics.success()
+            UIAccessibility.post(notification: .announcement, argument: "Saved")
             withAnimation {
                 showSaved = true
             }
@@ -361,7 +382,7 @@ struct DataRetentionView: View {
                 showSaved = false
             }
         } catch {
-            print("[Settings] Failed to save retention: \(error.localizedDescription)")
+            Log.settings.error("Failed to save retention: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

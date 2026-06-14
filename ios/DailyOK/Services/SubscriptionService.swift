@@ -1,4 +1,5 @@
 import Foundation
+import os
 import StoreKit
 
 @MainActor
@@ -59,7 +60,7 @@ final class SubscriptionService: ObservableObject {
                 .sorted { $0.price < $1.price }
         } catch {
             errorMessage = "Failed to load subscription options."
-            print("Failed to load products: \(error.localizedDescription)")
+            Log.subscription.error("Failed to load products: \(error.localizedDescription, privacy: .public)")
         }
         isLoading = false
     }
@@ -217,7 +218,7 @@ final class SubscriptionService: ObservableObject {
                 try? await Task.sleep(nanoseconds: delay)
                 await syncSubscriptionToBackend(transaction, attempt: attempt + 1)
             } else {
-                print("Failed to sync subscription after \(maxRetries) attempts: \(error.localizedDescription)")
+                Log.subscription.error("Failed to sync subscription after \(maxRetries, privacy: .public) attempts: \(error.localizedDescription, privacy: .public)")
                 errorMessage = "Subscription activated but sync pending. It will retry automatically."
             }
         }

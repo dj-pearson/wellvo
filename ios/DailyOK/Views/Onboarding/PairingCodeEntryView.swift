@@ -81,22 +81,15 @@ struct PairingCodeEntryView: View {
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                 .padding(.horizontal, 32)
 
-            TextField("000000", text: $code)
-                .textFieldStyle(.roundedBorder)
-                .keyboardType(.numberPad)
-                .multilineTextAlignment(.center)
-                .font(.title.monospaced())
-                .frame(maxWidth: 200)
-                .onChange(of: code) { newValue in
-                    // Limit to 6 digits
-                    let filtered = newValue.filter(\.isNumber)
-                    if filtered.count > 6 {
-                        code = String(filtered.prefix(6))
-                    } else if filtered != newValue {
-                        code = filtered
-                    }
-                }
-                .onSubmit { Task { await submitCode() } }
+            SegmentedCodeField(code: $code, length: 6) {
+                Task { await submitCode() }
+            }
+            .disabled(isLockedOut || isSubmitting)
+
+            Text("\(code.count) of 6")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
 
             if let error = errorMessage {
                 Text(error)
@@ -120,7 +113,7 @@ struct PairingCodeEntryView: View {
             .buttonStyle(.borderedProminent)
             .tint(DailyOKColor.green500)
             .controlSize(.large)
-            .disabled(code.count != 6 || isSubmitting)
+            .disabled(code.count != 6 || isSubmitting || isLockedOut)
             .padding(.horizontal, 32)
         }
         .padding(.vertical, 24)

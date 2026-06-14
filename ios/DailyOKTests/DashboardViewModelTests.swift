@@ -91,7 +91,113 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(ReceiverCheckInStatus.missed.icon, "exclamationmark.circle.fill")
     }
 
+    // MARK: - On-demand status resolution (US-IOS020)
+
+    func testResolveStatusCheckedInWhenNoActiveRequest() {
+        let result = DashboardViewModel.resolveStatus(
+            todayCheckIn: makeCheckIn(at: Date()),
+            activeRequest: nil
+        )
+        XCTAssertEqual(result.status.label, ReceiverCheckInStatus.checkedIn.label)
+        XCTAssertEqual(result.escalationStep, 0)
+    }
+
+    func testResolveStatusPendingWhenNothing() {
+        let result = DashboardViewModel.resolveStatus(todayCheckIn: nil, activeRequest: nil)
+        XCTAssertEqual(result.status.label, ReceiverCheckInStatus.pending.label)
+    }
+
+    /// The core US-IOS020 bug: a receiver who already checked in this morning,
+    /// then receives an on-demand request that is still pending, must show as
+    /// awaiting response — NOT as "checked in".
+    func testResolveStatusOnDemandRequestAfterCheckInIsPending() {
+        let now = Date()
+        let morningCheckIn = makeCheckIn(at: now.addingTimeInterval(-6 * 3600))
+        let onDemand = makeRequest(createdAt: now, status: .pending, type: .onDemand, escalationStep: 2)
+
+        let result = DashboardViewModel.resolveStatus(
+            todayCheckIn: morningCheckIn,
+            activeRequest: onDemand
+        )
+        XCTAssertEqual(
+            result.status.label,
+            ReceiverCheckInStatus.pending.label,
+            "An on-demand request sent after the morning check-in must not be masked by 'checked in today'"
+        )
+        XCTAssertEqual(result.escalationStep, 2)
+    }
+
+    /// A request that predates the most recent check-in has been answered (the
+    /// check-in postdates it), so the receiver is checked in with no escalation.
+    func testResolveStatusRequestBeforeCheckInIsCheckedIn() {
+        let now = Date()
+        let staleRequest = makeRequest(createdAt: now.addingTimeInterval(-3600), status: .pending, escalationStep: 1)
+        let checkIn = makeCheckIn(at: now)
+
+        let result = DashboardViewModel.resolveStatus(
+            todayCheckIn: checkIn,
+            activeRequest: staleRequest
+        )
+        XCTAssertEqual(result.status.label, ReceiverCheckInStatus.checkedIn.label)
+        XCTAssertEqual(result.escalationStep, 0)
+    }
+
+    func testResolveStatusMissedRequestWithNoCheckIn() {
+        let missed = makeRequest(createdAt: Date(), status: .missed, escalationStep: 3)
+        let result = DashboardViewModel.resolveStatus(todayCheckIn: nil, activeRequest: missed)
+        XCTAssertEqual(result.status.label, ReceiverCheckInStatus.missed.label)
+        XCTAssertEqual(result.escalationStep, 3)
+    }
+
+    /// US-IOS023: the Live Activity "overdue since" anchor must be the request's
+    /// created_at, so it survives an app restart rather than resetting to now.
+    func testResolveStatusDueSinceIsRequestCreatedAt() {
+        let createdAt = Date().addingTimeInterval(-40 * 60) // 40 minutes ago
+        let request = makeRequest(createdAt: createdAt, status: .pending, escalationStep: 2)
+        let result = DashboardViewModel.resolveStatus(todayCheckIn: nil, activeRequest: request)
+        XCTAssertEqual(result.dueSince, createdAt)
+    }
+
+    func testResolveStatusDueSinceNilWhenCheckedIn() {
+        let result = DashboardViewModel.resolveStatus(
+            todayCheckIn: makeCheckIn(at: Date()),
+            activeRequest: nil
+        )
+        XCTAssertNil(result.dueSince)
+    }
+
     // MARK: - Helpers
+
+    private func makeCheckIn(at date: Date) -> CheckIn {
+        CheckIn(
+            id: UUID(),
+            receiverId: UUID(),
+            familyId: UUID(),
+            checkedInAt: date,
+            mood: nil,
+            source: .app
+        )
+    }
+
+    private func makeRequest(
+        createdAt: Date,
+        status: CheckInRequestStatus,
+        type: CheckInRequestType = .onDemand,
+        escalationStep: Int = 0
+    ) -> CheckInRequest {
+        CheckInRequest(
+            id: UUID(),
+            familyId: UUID(),
+            receiverId: UUID(),
+            requestedBy: UUID(),
+            type: type,
+            status: status,
+            createdAt: createdAt,
+            respondedAt: nil,
+            escalationStep: escalationStep,
+            nextEscalationAt: nil
+        )
+    }
 
     private func makeCheckIn(daysAgo: Int, mood: Mood? = nil) -> CheckIn {
         let calendar = Calendar.current

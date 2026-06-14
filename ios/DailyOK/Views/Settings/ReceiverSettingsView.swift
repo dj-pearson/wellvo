@@ -281,6 +281,19 @@ struct ReceiverSettingsView: View {
             }
         }
         .task { await loadSettings() }
+        // errorMessage was assigned on load/manual-check-in/save but never shown,
+        // so a failed save looked identical to a success. Surface it.
+        .alert(
+            "Something went wrong",
+            isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
+        }
     }
 
     // MARK: - Schedule Sections
@@ -474,6 +487,10 @@ struct ReceiverSettingsView: View {
                 .eq("family_member_id", value: member.id.uuidString)
                 .execute()
 
+            // Confirm the save for sighted, haptic, AND VoiceOver users — the
+            // green capsule alone is invisible to VoiceOver.
+            DailyOKHaptics.success()
+            UIAccessibility.post(notification: .announcement, argument: "Settings saved")
             if reduceMotion {
                 showSavedConfirmation = true
             } else {
@@ -487,6 +504,8 @@ struct ReceiverSettingsView: View {
             }
         } catch {
             errorMessage = DailyOKError.network(error).localizedDescription
+            DailyOKHaptics.error()
+            UIAccessibility.post(notification: .announcement, argument: "Couldn't save settings")
         }
 
         isSaving = false

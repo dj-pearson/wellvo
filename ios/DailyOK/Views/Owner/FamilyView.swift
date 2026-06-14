@@ -12,6 +12,16 @@ struct FamilyView: View {
     @State private var errorMessage: String?
     @State private var memberToRemove: FamilyMember?
     @State private var showRemoveConfirmation = false
+    @State private var showPaywall = false
+
+    /// Receivers currently occupying a slot (active or pending invite).
+    private var currentReceiverCount: Int {
+        members.filter { $0.role == .receiver }.count
+    }
+
+    private var receiverLimitReached: Bool {
+        currentReceiverCount >= (family?.maxReceivers ?? 1)
+    }
     @Namespace private var heroNamespace
 
     private var isOwner: Bool { appState.currentUserRole == .owner }
@@ -31,6 +41,33 @@ struct FamilyView: View {
                                 .padding(.vertical, 4)
                                 .background(Color.green.opacity(0.2))
                                 .cornerRadius(8)
+                        }
+                    }
+                }
+
+                if let errorMessage {
+                    Section {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Button {
+                                Task { await loadData() }
+                            } label: {
+                                Text("Try Again")
+                                    .frame(maxWidth: .infinity)
+                                    .frame(minHeight: 44)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                } else if isLoading && members.isEmpty {
+                    Section {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                            Spacer()
                         }
                     }
                 }
@@ -67,6 +104,18 @@ struct FamilyView: View {
                                 }
                                 .tint(.blue)
                             }
+                            // Surface Transfer Ownership as a visible swipe action
+                            // (standard, discoverable gesture) — not only buried in
+                            // the long-press context menu.
+                            if isOwner && member.role != .owner && member.status == .active {
+                                Button {
+                                    transferTarget = member
+                                    showTransferAlert = true
+                                } label: {
+                                    Label("Transfer", systemImage: "arrow.right.arrow.left")
+                                }
+                                .tint(.orange)
+                            }
                         }
                         .contextMenu {
                             if isOwner && member.role != .owner && member.status == .active {
@@ -91,9 +140,20 @@ struct FamilyView: View {
                 if isOwner {
                     Section {
                         Button {
-                            showInviteSheet = true
+                            // Gate on the family's receiver limit client-side and
+                            // present the paywall instead of letting the invite
+                            // request fail server-side with a raw error.
+                            if receiverLimitReached {
+                                showPaywall = true
+                            } else {
+                                showInviteSheet = true
+                            }
                         } label: {
                             Label("Invite Family Member", systemImage: "person.badge.plus")
+                        }
+                    } footer: {
+                        if let family {
+                            Text("\(currentReceiverCount) of \(family.maxReceivers) receiver\(family.maxReceivers == 1 ? "" : "s") used.")
                         }
                     }
                 }
@@ -106,6 +166,9 @@ struct FamilyView: View {
             .sheet(isPresented: $showInviteSheet) {
                 InviteReceiverSheet { await loadData() }
                     .dailyokGlassSheet(style: .regular)
+            }
+            .sheet(isPresented: $showPaywall) {
+                SubscriptionView()
             }
             .alert("Transfer Ownership", isPresented: $showTransferAlert) {
                 Button("Transfer", role: .destructive) {
@@ -134,9 +197,16 @@ struct FamilyView: View {
 
     private func loadData() async {
         isLoading = true
-        family = try? await FamilyService.shared.getFamily()
-        if let family {
-            members = (try? await FamilyService.shared.getFamilyMembers(familyId: family.id)) ?? []
+        errorMessage = nil
+        do {
+            let fam = try await FamilyService.shared.getFamily()
+            family = fam
+            if let fam {
+                members = try await FamilyService.shared.getFamilyMembers(familyId: fam.id)
+            }
+        } catch {
+            // Surface the failure instead of silently showing an empty list.
+            errorMessage = DailyOKError.network(error).localizedDescription
         }
         isLoading = false
     }

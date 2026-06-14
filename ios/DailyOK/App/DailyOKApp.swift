@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import os
 
 @main
 struct DailyOKApp: App {
@@ -56,12 +57,25 @@ struct DailyOKApp: App {
                 appState.pendingInviteToken = token
             }
         case "standdown":
-            // From an escalation Live Activity "Stand down" button — stop the
-            // escalation chain for this receiver (owner is authenticated here).
+            // From an escalation Live Activity "Stand down" button. The custom
+            // URL scheme is public, so anything could invoke this — require an
+            // authenticated session before acting, and rely on the
+            // cancel-escalation edge function (which enforces caller == family
+            // owner) to reject anyone who isn't the owner of this family.
             if let r = components.queryItems?.first(where: { $0.name == "receiver" })?.value,
                let f = components.queryItems?.first(where: { $0.name == "family" })?.value,
                let receiverId = UUID(uuidString: r), let familyId = UUID(uuidString: f) {
-                Task { try? await CheckInService.shared.cancelEscalation(receiverId: receiverId, familyId: familyId) }
+                Task {
+                    guard (try? await SupabaseService.shared.client.auth.session) != nil else {
+                        Log.general.error("Ignoring standdown deep link: no authenticated session")
+                        return
+                    }
+                    do {
+                        try await CheckInService.shared.cancelEscalation(receiverId: receiverId, familyId: familyId)
+                    } catch {
+                        Log.general.error("Standdown deep link failed: \(error.localizedDescription, privacy: .public)")
+                    }
+                }
             }
         default:
             break
@@ -71,23 +85,28 @@ struct DailyOKApp: App {
     private func handleScenePhaseChange(_ phase: ScenePhase) {
         switch phase {
         case .active:
-            // Sync pending offline check-ins when app becomes active
-            Task { await offlineService.syncPendingCheckIns() }
-            // Re-check auth state
-            Task { await authViewModel.checkSession() }
-            // Re-register push token on every foreground
-            Task { await reRegisterPushToken() }
-            Task { await AnalyticsService.shared.track(.appOpened) }
-            // Validate server certificate pins
+            // Run foreground work as a single ordered task instead of six
+            // concurrent Tasks all competing for the first connection on resume.
+            // Auth-critical work first, then sync/push, then best-effort work.
             Task {
+                // Session first so downstream work uses a valid token; biometric
+                // gate immediately after.
+                await authViewModel.checkSession()
+                await authViewModel.checkBiometricOnResume()
+                // Sync queued check-ins and refresh the push token.
+                await offlineService.syncPendingCheckIns()
+                await reRegisterPushToken()
+                // Non-urgent / best-effort work last.
+                await AnalyticsService.shared.track(.appOpened)
                 let valid = await CertificatePinningService.shared.validateServerCertificate()
                 if !valid {
                     await AnalyticsService.shared.track(.certificatePinningFailure)
                 }
             }
-            // Biometric check on app resume
-            Task { await authViewModel.checkBiometricOnResume() }
         case .background:
+            // Stop the foreground heartbeat timer when backgrounded (it can't
+            // fire while suspended anyway); checkSession restarts it on resume.
+            HeartbeatService.shared.stop()
             Task { await AnalyticsService.shared.track(.appBackgrounded) }
             break
         case .inactive:

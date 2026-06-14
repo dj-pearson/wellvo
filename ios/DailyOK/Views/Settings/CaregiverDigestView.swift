@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 
 /// US-IOS014 — owner-configurable daily / weekly digest.
 ///
@@ -114,11 +115,13 @@ struct CaregiverDigestView: View {
                 .eq("id", value: session.user.id.uuidString)
                 .execute()
 
+            DailyOKHaptics.success()
+            UIAccessibility.post(notification: .announcement, argument: "Digest settings saved")
             withAnimation { showSaved = true }
             try? await Task.sleep(for: .seconds(1.5))
             withAnimation { showSaved = false }
         } catch {
-            print("[Settings] Failed to save digest prefs: \(error.localizedDescription)")
+            Log.settings.error("Failed to save digest prefs: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

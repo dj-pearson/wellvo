@@ -36,13 +36,15 @@ struct ContactQuickActions: View {
                     Image(systemName: systemImage)
                         .font(.title3)
                     Text(title)
-                        .font(.caption2)
+                        .font(.caption)
                 }
                 .frame(maxWidth: .infinity)
+                .frame(minHeight: 44) // comfortable tap target in an escalation moment
                 .padding(.vertical, 8)
                 .glassPill(style: .thin)
                 .foregroundStyle(tint)
             }
+            .simultaneousGesture(TapGesture().onEnded { DailyOKHaptics.light() })
             .accessibilityLabel("\(title) \(name)")
         }
     }

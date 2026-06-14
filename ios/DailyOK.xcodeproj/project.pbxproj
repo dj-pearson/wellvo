@@ -92,6 +92,7 @@
 		B1D00007 /* Streaks.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00007; };
 		B1D00008 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00008; };
 		B1D00009 /* CheckInAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00009; };
+		B1D0000A /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D0000A; };
 		/* Views/Components (added) */
 		B1F00014 /* BrandedProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00014; };
 		B1F00015 /* CelebrationOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00015; };
@@ -102,6 +103,7 @@
 		B1F0001A /* PremiumCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0001A; };
 		B1F0001B /* StreakBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0001B; };
 		B1F0001C /* ContactQuickActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0001C; };
+		B1F0001D /* SegmentedCodeField.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0001D; };
 		/* Shared (App Intents / widget / watch hand-off) */
 		B1S00001 /* SharedAppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00001; };
 		B1S00002 /* SharedCheckInState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00002; };
@@ -124,6 +126,9 @@
 		B3U00003 /* ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00003; };
 		B3U00004 /* SubscriptionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00004; };
 		B3U00005 /* ReviewPromptServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00005; };
+		B3U00006 /* OfflineCheckInServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00006; };
+		B3U00007 /* StreaksTimezoneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00007; };
+		B3U00008 /* ScheduleResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00008; };
 		/* Widget extension sources */
 		B5F00001 /* DailyOKWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F00001; };
 		B5F00002 /* CheckInWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F00002; };
@@ -239,6 +244,7 @@
 		F1D00007 /* Streaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Streaks.swift; sourceTree = "<group>"; };
 		F1D00008 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		F1D00009 /* CheckInAudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInAudio.swift; sourceTree = "<group>"; };
+		F1D0000A /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
 		/* Views/Components (added) */
 		F1F00014 /* BrandedProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandedProgressView.swift; sourceTree = "<group>"; };
 		F1F00015 /* CelebrationOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CelebrationOverlay.swift; sourceTree = "<group>"; };
@@ -249,6 +255,7 @@
 		F1F0001A /* PremiumCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumCards.swift; sourceTree = "<group>"; };
 		F1F0001B /* StreakBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakBadge.swift; sourceTree = "<group>"; };
 		F1F0001C /* ContactQuickActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactQuickActions.swift; sourceTree = "<group>"; };
+		F1F0001D /* SegmentedCodeField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentedCodeField.swift; sourceTree = "<group>"; };
 		/* Shared (App Intents / widget / watch hand-off) */
 		F1S00001 /* SharedAppGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedAppGroup.swift; sourceTree = "<group>"; };
 		F1S00002 /* SharedCheckInState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedCheckInState.swift; sourceTree = "<group>"; };
@@ -280,6 +287,9 @@
 		F3U00003 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
 		F3U00004 /* SubscriptionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionServiceTests.swift; sourceTree = "<group>"; };
 		F3U00005 /* ReviewPromptServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewPromptServiceTests.swift; sourceTree = "<group>"; };
+		F3U00006 /* OfflineCheckInServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineCheckInServiceTests.swift; sourceTree = "<group>"; };
+		F3U00007 /* StreaksTimezoneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreaksTimezoneTests.swift; sourceTree = "<group>"; };
+		F3U00008 /* ScheduleResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleResolverTests.swift; sourceTree = "<group>"; };
 		/* Widget extension */
 		F5F00001 /* DailyOKWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKWidgetBundle.swift; sourceTree = "<group>"; };
 		F5F00002 /* CheckInWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInWidget.swift; sourceTree = "<group>"; };
@@ -631,6 +641,7 @@
 				F1D00004 /* Colors.swift */,
 				F1D00001 /* Configuration.swift */,
 				F1D00008 /* Haptics.swift */,
+				F1D0000A /* Log.swift */,
 				F1D00002 /* KeychainService.swift */,
 				F1D00003 /* NetworkRetry.swift */,
 				F1D00007 /* Streaks.swift */,
@@ -686,6 +697,7 @@
 				F1F00012 /* SkeletonView.swift */,
 				F1F0001B /* StreakBadge.swift */,
 				F1F0001C /* ContactQuickActions.swift */,
+				F1F0001D /* SegmentedCodeField.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -754,6 +766,9 @@
 				F3U00003 /* ModelTests.swift */,
 				F3U00004 /* SubscriptionServiceTests.swift */,
 				F3U00005 /* ReviewPromptServiceTests.swift */,
+				F3U00006 /* OfflineCheckInServiceTests.swift */,
+				F3U00007 /* StreaksTimezoneTests.swift */,
+				F3U00008 /* ScheduleResolverTests.swift */,
 			);
 			path = DailyOKTests;
 			sourceTree = "<group>";
@@ -998,6 +1013,7 @@
 				B1D00007 /* Streaks.swift in Sources */,
 				B1D00008 /* Haptics.swift in Sources */,
 				B1D00009 /* CheckInAudio.swift in Sources */,
+				B1D0000A /* Log.swift in Sources */,
 				B1F00014 /* BrandedProgressView.swift in Sources */,
 				B1F00015 /* CelebrationOverlay.swift in Sources */,
 				B1F00016 /* EmptyStateView.swift in Sources */,
@@ -1007,6 +1023,7 @@
 				B1F0001A /* PremiumCards.swift in Sources */,
 				B1F0001B /* StreakBadge.swift in Sources */,
 				B1F0001C /* ContactQuickActions.swift in Sources */,
+				B1F0001D /* SegmentedCodeField.swift in Sources */,
 				B1S00001 /* SharedAppGroup.swift in Sources */,
 				B1S00002 /* SharedCheckInState.swift in Sources */,
 				B1S00003 /* SharedCheckInClient.swift in Sources */,
@@ -1040,6 +1057,9 @@
 				B3U00003 /* ModelTests.swift in Sources */,
 				B3U00004 /* SubscriptionServiceTests.swift in Sources */,
 				B3U00005 /* ReviewPromptServiceTests.swift in Sources */,
+				B3U00006 /* OfflineCheckInServiceTests.swift in Sources */,
+				B3U00007 /* StreaksTimezoneTests.swift in Sources */,
+				B3U00008 /* ScheduleResolverTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

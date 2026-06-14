@@ -1,4 +1,5 @@
 import Foundation
+import os
 #if canImport(ActivityKit)
 import ActivityKit
 #endif
@@ -36,8 +37,12 @@ enum EscalationActivityManager {
             let existing = Activity<EscalationActivityAttributes>.activities
                 .first { $0.attributes.receiverId == card.id.uuidString }
 
-            // Preserve the original due time across updates so the timer is stable.
-            let dueSince = existing?.content.state.dueSince ?? Date()
+            // Preserve the original due time across updates so the timer is
+            // stable. On a cold start (no existing activity) anchor to the
+            // request's real escalation start time — NOT `Date()` — otherwise a
+            // receiver who's been overdue for 40 minutes looks freshly due after
+            // the app is killed and relaunched.
+            let dueSince = existing?.content.state.dueSince ?? card.escalationDueSince ?? Date()
             let state = EscalationActivityAttributes.ContentState(
                 status: card.status == .missed ? "missed" : "pending",
                 escalationStep: card.escalationStep,
@@ -45,6 +50,9 @@ enum EscalationActivityManager {
             )
 
             if let existing {
+                // Only push an update when something actually changed — avoids
+                // redundant ActivityKit churn on every (frequent) dashboard reload.
+                guard existing.content.state != state else { continue }
                 Task { await existing.update(ActivityContent(state: state, staleDate: nil)) }
             } else {
                 let attributes = EscalationActivityAttributes(
@@ -53,10 +61,17 @@ enum EscalationActivityManager {
                     receiverId: card.id.uuidString,
                     familyId: familyId.uuidString
                 )
-                _ = try? Activity.request(
-                    attributes: attributes,
-                    content: ActivityContent(state: state, staleDate: nil)
-                )
+                do {
+                    // Synchronous throwing API — surface failures (e.g. exceeding
+                    // the system Live Activity cap) instead of silently dropping
+                    // them so the owner isn't left thinking escalation is visible.
+                    _ = try Activity.request(
+                        attributes: attributes,
+                        content: ActivityContent(state: state, staleDate: nil)
+                    )
+                } catch {
+                    Log.general.error("Failed to start escalation Live Activity: \(error.localizedDescription, privacy: .public)")
+                }
             }
         }
         #endif

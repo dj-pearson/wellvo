@@ -94,11 +94,15 @@ final class AuthViewModel: ObservableObject {
             if let user = try await AuthService.shared.currentSession() {
                 currentUser = user
                 authState = .authenticated
+                // Drive the last-seen heartbeat only while signed in.
+                HeartbeatService.shared.start()
             } else {
                 authState = .unauthenticated
+                HeartbeatService.shared.stop()
             }
         } catch {
             authState = .unauthenticated
+            HeartbeatService.shared.stop()
         }
     }
 
@@ -387,6 +391,7 @@ final class AuthViewModel: ObservableObject {
         do {
             try await AuthService.shared.signOut()
             await BiometricService.shared.reset()
+            HeartbeatService.shared.stop()
             // Drop the shared check-in snapshot so Siri/widget/watch can't act
             // on a stale session after sign-out.
             SharedCheckInPublisher.clear()
