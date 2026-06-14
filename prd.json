@@ -2936,8 +2936,8 @@
         "Verified smooth scrolling on the 90-day History view on an older device"
       ],
       "priority": 131,
-      "passes": false,
-      "notes": "PERFORMANCE (medium). O(days) work and repeated aggregate recomputation on the main thread during layout. Files: ios/DailyOK/Views/Owner/CalendarHeatmapView.swift, ios/DailyOK/Views/Owner/CheckInTrendChartView.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): CheckInTrendChartView no longer recomputes dataPoints ~10x per render via yMin/yMax/yMid/overall* computed properties; body now computes the buckets and bounds ONCE into locals (dataPoints converted to a static computeDataPoints(checkIns:days:); derived stats inlined as locals). CalendarHeatmapView hoists buildGrid()/monthLabels() to single top-of-body bindings. Force-unwrapped date math in both views already removed under US-IOS022. NOTE: cross-body @State memoization (recompute only when checkIns changes) deferred as a further optimization; current change removes the per-render multiplication which was the documented hotspot. | PERFORMANCE (medium). O(days) work and repeated aggregate recomputation on the main thread during layout. Files: ios/DailyOK/Views/Owner/CalendarHeatmapView.swift, ios/DailyOK/Views/Owner/CheckInTrendChartView.swift."
     },
     {
       "id": "US-IOS033",

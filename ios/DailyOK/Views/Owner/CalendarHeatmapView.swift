@@ -11,13 +11,18 @@ struct CalendarHeatmapView: View {
     private let spacing: CGFloat = 3
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        // Compute the grid and month labels once per body evaluation instead of
+        // rebuilding them inline (buildGrid is O(days)).
+        let grid = buildGrid()
+        let labels = monthLabels()
+
+        return VStack(alignment: .leading, spacing: 8) {
             Text("Check-In Calendar")
                 .font(.headline)
 
             // Month labels
             HStack(spacing: 0) {
-                ForEach(monthLabels(), id: \.offset) { label in
+                ForEach(labels, id: \.offset) { label in
                     Text(label.name)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -38,7 +43,6 @@ struct CalendarHeatmapView: View {
                 }
 
                 // Heatmap grid
-                let grid = buildGrid()
                 ForEach(0..<grid.count, id: \.self) { weekIndex in
                     VStack(spacing: spacing) {
                         ForEach(0..<grid[weekIndex].count, id: \.self) { dayIndex in

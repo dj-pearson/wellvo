@@ -9,11 +9,23 @@ struct CheckInTrendChartView: View {
     private let chartHeight: CGFloat = 160
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        // Compute the buckets and bounds ONCE per body evaluation. These were
+        // previously read ~10x per render (dataPoints + yMin/yMax/yMid/
+        // overall*), each filtering/reducing the full check-in history.
+        let points = Self.computeDataPoints(checkIns: checkIns, days: days)
+        let avgs = points.map(\.avgMinutes)
+        let yMinV = max(0, (avgs.min() ?? 0) - 60)
+        let yMaxV = min(1440, (avgs.max() ?? 1440) + 60)
+        let yMidV = (yMinV + yMaxV) / 2
+        let overallAvgV = avgs.isEmpty ? 0 : avgs.reduce(0, +) / Double(avgs.count)
+        let overallMinV = avgs.min() ?? 0
+        let overallMaxV = avgs.max() ?? 0
+
+        return VStack(alignment: .leading, spacing: 12) {
             Text("Check-In Time Trend")
                 .font(.headline)
 
-            if dataPoints.isEmpty {
+            if points.isEmpty {
                 Text("Not enough data to show a trend.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -25,15 +37,15 @@ struct CheckInTrendChartView: View {
                     HStack(alignment: .top, spacing: 4) {
                         // Y-axis labels
                         VStack {
-                            Text(formatHour(yMax))
+                            Text(formatHour(yMaxV))
                                 .font(.system(size: 9))
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text(formatHour(yMid))
+                            Text(formatHour(yMidV))
                                 .font(.system(size: 9))
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text(formatHour(yMin))
+                            Text(formatHour(yMinV))
                                 .font(.system(size: 9))
                                 .foregroundStyle(.secondary)
                         }
@@ -56,9 +68,9 @@ struct CheckInTrendChartView: View {
 
                             // Trend line
                             Path { path in
-                                for (index, point) in dataPoints.enumerated() {
-                                    let x = width * CGFloat(index) / CGFloat(max(1, dataPoints.count - 1))
-                                    let normalizedY = (point.avgMinutes - yMin) / max(1, yMax - yMin)
+                                for (index, point) in points.enumerated() {
+                                    let x = width * CGFloat(index) / CGFloat(max(1, points.count - 1))
+                                    let normalizedY = (point.avgMinutes - yMinV) / max(1, yMaxV - yMinV)
                                     let y = height - (height * CGFloat(normalizedY))
 
                                     if index == 0 {
@@ -71,10 +83,10 @@ struct CheckInTrendChartView: View {
                             .stroke(Color.green, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
 
                             // Data points
-                            ForEach(0..<dataPoints.count, id: \.self) { index in
-                                let point = dataPoints[index]
-                                let x = width * CGFloat(index) / CGFloat(max(1, dataPoints.count - 1))
-                                let normalizedY = (point.avgMinutes - yMin) / max(1, yMax - yMin)
+                            ForEach(0..<points.count, id: \.self) { index in
+                                let point = points[index]
+                                let x = width * CGFloat(index) / CGFloat(max(1, points.count - 1))
+                                let normalizedY = (point.avgMinutes - yMinV) / max(1, yMaxV - yMinV)
                                 let y = height - (height * CGFloat(normalizedY))
 
                                 Circle()
@@ -90,13 +102,13 @@ struct CheckInTrendChartView: View {
                     // X-axis labels
                     HStack {
                         Spacer().frame(width: 40)
-                        if let first = dataPoints.first, let last = dataPoints.last {
+                        if let first = points.first, let last = points.last {
                             Text(first.label)
                                 .font(.system(size: 9))
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            if dataPoints.count > 2 {
-                                let mid = dataPoints[dataPoints.count / 2]
+                            if points.count > 2 {
+                                let mid = points[points.count / 2]
                                 Text(mid.label)
                                     .font(.system(size: 9))
                                     .foregroundStyle(.secondary)
@@ -113,15 +125,15 @@ struct CheckInTrendChartView: View {
                 HStack(spacing: 20) {
                     trendStat(
                         label: "Average",
-                        value: formatMinutesToTime(Int(overallAvg))
+                        value: formatMinutesToTime(Int(overallAvgV))
                     )
                     trendStat(
                         label: "Earliest",
-                        value: formatMinutesToTime(Int(overallMin))
+                        value: formatMinutesToTime(Int(overallMinV))
                     )
                     trendStat(
                         label: "Latest",
-                        value: formatMinutesToTime(Int(overallMax))
+                        value: formatMinutesToTime(Int(overallMaxV))
                     )
                 }
             }
@@ -139,7 +151,7 @@ struct CheckInTrendChartView: View {
         let count: Int
     }
 
-    private var dataPoints: [DataPoint] {
+    private static func computeDataPoints(checkIns: [CheckIn], days: Int) -> [DataPoint] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
 
@@ -179,31 +191,6 @@ struct CheckInTrendChartView: View {
         }
 
         return points
-    }
-
-    private var yMin: Double {
-        let minVal = dataPoints.map(\.avgMinutes).min() ?? 0
-        return max(0, minVal - 60) // 1 hour padding below
-    }
-
-    private var yMax: Double {
-        let maxVal = dataPoints.map(\.avgMinutes).max() ?? 1440
-        return min(1440, maxVal + 60) // 1 hour padding above
-    }
-
-    private var yMid: Double { (yMin + yMax) / 2 }
-
-    private var overallAvg: Double {
-        let all = dataPoints.map(\.avgMinutes)
-        return all.isEmpty ? 0 : all.reduce(0, +) / Double(all.count)
-    }
-
-    private var overallMin: Double {
-        dataPoints.map(\.avgMinutes).min() ?? 0
-    }
-
-    private var overallMax: Double {
-        dataPoints.map(\.avgMinutes).max() ?? 0
     }
 
     // MARK: - Formatting
