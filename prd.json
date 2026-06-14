@@ -3142,8 +3142,8 @@
         "Unit tests cover weekday, weekend, custom-day, paused, and quiet-hours cases"
       ],
       "priority": 146,
-      "passes": false,
-      "notes": "FEATURE-GAP/BUG. ReceiverSettings already defines these fields; the VM ignores them. File: ios/DailyOK/ViewModels/ReceiverViewModel.swift, ios/DailyOK/Models/ReceiverSettings.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): Added nonisolated static ReceiverViewModel.nextScheduledCheckIn(for:now:calendar:) resolver that honors scheduleType (daily/weekday_weekend/custom), weekendCheckinTime, per-day customSchedule (skipping empty days), schedulePaused (returns nil), and quiet hours (defers a slot landing in quiet hours to quiet-hours end, handling midnight wrap). Both computeNextCheckInTime (displayed next check-in) and nextFallbackDate (local fallback reminder + grace period) now route through it instead of only reading checkinTime. Added ScheduleResolverTests (paused, daily, weekday/weekend, custom-skip-weekend, quiet-hours). | FEATURE-GAP/BUG. ReceiverSettings already defines these fields; the VM ignores them. File: ios/DailyOK/ViewModels/ReceiverViewModel.swift, ios/DailyOK/Models/ReceiverSettings.swift."
     },
     {
       "id": "US-IOS048",

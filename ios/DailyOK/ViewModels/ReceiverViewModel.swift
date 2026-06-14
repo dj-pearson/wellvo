@@ -169,25 +169,11 @@ final class ReceiverViewModel: ObservableObject {
     /// tomorrow), pushed out by the grace period so the local fallback fires
     /// only after the server push has had its chance.
     private func nextFallbackDate(from settings: ReceiverSettings) -> Date? {
-        guard let (hour, minute) = Self.parseCheckinTime(settings.checkinTime) else { return nil }
-
-        let calendar = Calendar.current
-        let now = Date()
-        // Find the next occurrence of the check-in time at or after `now`. Using
-        // `nextDate(after:matching:)` (rather than `bySettingHour` + add-a-day)
-        // correctly skips a wall-clock time that doesn't exist on the DST
-        // spring-forward day instead of producing an hour-off or invalid target.
-        var components = DateComponents()
-        components.hour = hour
-        components.minute = minute
-        components.second = 0
-        guard let target = calendar.nextDate(
-            after: now,
-            matching: components,
-            matchingPolicy: .nextTime
-        ) else { return nil }
-
-        return calendar.date(byAdding: .minute, value: settings.gracePeriodMinutes, to: target)
+        // Honor the full schedule (weekday/weekend/custom/paused/quiet-hours),
+        // then push out by the grace period so the local fallback fires only
+        // after the server push has had its chance.
+        guard let target = Self.nextScheduledCheckIn(for: settings) else { return nil }
+        return Calendar.current.date(byAdding: .minute, value: settings.gracePeriodMinutes, to: target)
     }
 
     /// Parse a stored "HH:mm[:ss]" check-in time into hour/minute components.
@@ -196,6 +182,100 @@ final class ReceiverViewModel: ObservableObject {
         guard parts.count >= 2, let hour = Int(parts[0]), let minute = Int(parts[1]),
               (0..<24).contains(hour), (0..<60).contains(minute) else { return nil }
         return (hour, minute)
+    }
+
+    /// Resolve the next scheduled check-in moment, honoring the full schedule
+    /// model: `scheduleType` (daily / weekday-weekend / custom), weekend and
+    /// per-day custom times, `schedulePaused`, and quiet hours. Returns nil when
+    /// paused or no day in the coming week has a scheduled time. Pure + testable.
+    nonisolated static func nextScheduledCheckIn(
+        for settings: ReceiverSettings,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Date? {
+        guard !settings.schedulePaused else { return nil }
+
+        // Scan today + a full week for the earliest scheduled slot after `now`.
+        for dayOffset in 0...7 {
+            guard let day = calendar.date(byAdding: .day, value: dayOffset, to: now),
+                  let timeString = scheduledTime(for: settings, on: day, calendar: calendar),
+                  let (hour, minute) = parseCheckinTime(timeString) else { continue }
+
+            var comps = calendar.dateComponents([.year, .month, .day], from: day)
+            comps.hour = hour
+            comps.minute = minute
+            comps.second = 0
+            guard let rawTarget = calendar.date(from: comps) else { continue }
+
+            let target = deferPastQuietHours(rawTarget, settings: settings, calendar: calendar)
+            if target > now { return target }
+        }
+        return nil
+    }
+
+    /// The "HH:mm" time scheduled for the given day, or nil if no check-in is
+    /// scheduled that day (custom schedule with an empty day).
+    nonisolated private static func scheduledTime(
+        for settings: ReceiverSettings,
+        on day: Date,
+        calendar: Calendar
+    ) -> String? {
+        let weekday = calendar.component(.weekday, from: day) // 1 = Sun ... 7 = Sat
+        let isWeekend = (weekday == 1 || weekday == 7)
+
+        switch settings.scheduleType {
+        case .daily:
+            return settings.checkinTime
+        case .weekdayWeekend:
+            return isWeekend ? (settings.weekendCheckinTime ?? settings.checkinTime) : settings.checkinTime
+        case .custom:
+            guard let custom = settings.customSchedule else { return settings.checkinTime }
+            switch weekday {
+            case 1: return custom.sun
+            case 2: return custom.mon
+            case 3: return custom.tue
+            case 4: return custom.wed
+            case 5: return custom.thu
+            case 6: return custom.fri
+            case 7: return custom.sat
+            default: return nil
+            }
+        }
+    }
+
+    /// If `date` falls inside the receiver's quiet hours, defer it to the end of
+    /// quiet hours so a reminder isn't scheduled during a do-not-disturb window.
+    nonisolated private static func deferPastQuietHours(
+        _ date: Date,
+        settings: ReceiverSettings,
+        calendar: Calendar
+    ) -> Date {
+        guard let qStart = settings.quietHoursStart, let qEnd = settings.quietHoursEnd,
+              let (sh, sm) = parseCheckinTime(qStart), let (eh, em) = parseCheckinTime(qEnd) else {
+            return date
+        }
+        let minutesOfDay = calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date)
+        let startMin = sh * 60 + sm
+        let endMin = eh * 60 + em
+
+        let inQuiet: Bool
+        if startMin <= endMin {
+            inQuiet = minutesOfDay >= startMin && minutesOfDay < endMin
+        } else {
+            // Window wraps midnight (e.g. 22:00–07:00).
+            inQuiet = minutesOfDay >= startMin || minutesOfDay < endMin
+        }
+        guard inQuiet else { return date }
+
+        var comps = calendar.dateComponents([.year, .month, .day], from: date)
+        comps.hour = eh
+        comps.minute = em
+        comps.second = 0
+        var endDate = calendar.date(from: comps) ?? date
+        if endDate <= date {
+            endDate = calendar.date(byAdding: .day, value: 1, to: endDate) ?? endDate
+        }
+        return endDate
     }
 
     private func loadReceiverSettings(userId: UUID, familyId: UUID) async {
@@ -257,19 +337,9 @@ final class ReceiverViewModel: ObservableObject {
     }
 
     private func computeNextCheckInTime(from settings: ReceiverSettings) {
-        guard let (hour, minute) = Self.parseCheckinTime(settings.checkinTime) else { return }
-
-        let calendar = Calendar.current
-        var components = DateComponents()
-        components.hour = hour
-        components.minute = minute
-        components.second = 0
-        // Next occurrence of the check-in time strictly after now (DST-safe).
-        nextCheckInTime = calendar.nextDate(
-            after: Date(),
-            matching: components,
-            matchingPolicy: .nextTime
-        )
+        // Use the full schedule resolver so the displayed "next check-in" matches
+        // the receiver's weekday/weekend/custom schedule (and is nil when paused).
+        nextCheckInTime = Self.nextScheduledCheckIn(for: settings)
     }
 
     func performCheckIn() async {

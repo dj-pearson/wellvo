@@ -128,6 +128,7 @@
 		B3U00005 /* ReviewPromptServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00005; };
 		B3U00006 /* OfflineCheckInServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00006; };
 		B3U00007 /* StreaksTimezoneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00007; };
+		B3U00008 /* ScheduleResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00008; };
 		/* Widget extension sources */
 		B5F00001 /* DailyOKWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F00001; };
 		B5F00002 /* CheckInWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F00002; };
@@ -288,6 +289,7 @@
 		F3U00005 /* ReviewPromptServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewPromptServiceTests.swift; sourceTree = "<group>"; };
 		F3U00006 /* OfflineCheckInServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineCheckInServiceTests.swift; sourceTree = "<group>"; };
 		F3U00007 /* StreaksTimezoneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreaksTimezoneTests.swift; sourceTree = "<group>"; };
+		F3U00008 /* ScheduleResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleResolverTests.swift; sourceTree = "<group>"; };
 		/* Widget extension */
 		F5F00001 /* DailyOKWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKWidgetBundle.swift; sourceTree = "<group>"; };
 		F5F00002 /* CheckInWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInWidget.swift; sourceTree = "<group>"; };
@@ -766,6 +768,7 @@
 				F3U00005 /* ReviewPromptServiceTests.swift */,
 				F3U00006 /* OfflineCheckInServiceTests.swift */,
 				F3U00007 /* StreaksTimezoneTests.swift */,
+				F3U00008 /* ScheduleResolverTests.swift */,
 			);
 			path = DailyOKTests;
 			sourceTree = "<group>";
@@ -1056,6 +1059,7 @@
 				B3U00005 /* ReviewPromptServiceTests.swift in Sources */,
 				B3U00006 /* OfflineCheckInServiceTests.swift in Sources */,
 				B3U00007 /* StreaksTimezoneTests.swift in Sources */,
+				B3U00008 /* ScheduleResolverTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
