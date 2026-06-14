@@ -2748,8 +2748,8 @@
         "Existing offline check-in tests updated/added to cover: tap-twice-offline, offline-then-online-same-day, app-killed-mid-sync"
       ],
       "priority": 118,
-      "passes": false,
-      "notes": "BUG. Confirmed against edge-functions/functions/process-checkin-response/index.ts (server dedups per local day, returns existing row); the iOS offline path bypasses it with a direct insert, contradicting the documented guarantee in docs/ios-watch-widgets-setup.md:96. Directly corrupts streaks/consistency/PDF export. Highest-priority correctness fix. Files: ios/DailyOK/Services/OfflineCheckInService.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): Offline sync now routes through CheckInService.checkIn (process-checkin-response edge function) which dedups per receiver local day and clears pending requests, instead of a raw checkins insert. queueCheckIn dedups per local day so repeated offline taps enqueue one row. Offline-vs-error is decided via OfflineCheckInService.isConnectivityError(_:) on the URLError code, not the async isOnline flag. Sync has an isSyncing re-entrancy guard and skips rows belonging to a different signed-in user. Added OfflineCheckInServiceTests for the connectivity classification. | BUG. Confirmed against edge-functions/functions/process-checkin-response/index.ts (server dedups per local day, returns existing row); the iOS offline path bypasses it with a direct insert, contradicting the documented guarantee in docs/ios-watch-widgets-setup.md:96. Directly corrupts streaks/consistency/PDF export. Highest-priority correctness fix. Files: ios/DailyOK/Services/OfflineCheckInService.swift."
     },
     {
       "id": "US-IOS020",
