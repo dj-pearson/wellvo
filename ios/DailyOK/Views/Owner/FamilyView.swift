@@ -35,6 +35,33 @@ struct FamilyView: View {
                     }
                 }
 
+                if let errorMessage {
+                    Section {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Button {
+                                Task { await loadData() }
+                            } label: {
+                                Text("Try Again")
+                                    .frame(maxWidth: .infinity)
+                                    .frame(minHeight: 44)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                } else if isLoading && members.isEmpty {
+                    Section {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                            Spacer()
+                        }
+                    }
+                }
+
                 Section("Members") {
                     ForEach(members) { member in
                         NavigationLink {
@@ -134,9 +161,16 @@ struct FamilyView: View {
 
     private func loadData() async {
         isLoading = true
-        family = try? await FamilyService.shared.getFamily()
-        if let family {
-            members = (try? await FamilyService.shared.getFamilyMembers(familyId: family.id)) ?? []
+        errorMessage = nil
+        do {
+            let fam = try await FamilyService.shared.getFamily()
+            family = fam
+            if let fam {
+                members = try await FamilyService.shared.getFamilyMembers(familyId: fam.id)
+            }
+        } catch {
+            // Surface the failure instead of silently showing an empty list.
+            errorMessage = DailyOKError.network(error).localizedDescription
         }
         isLoading = false
     }

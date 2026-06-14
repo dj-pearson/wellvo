@@ -365,6 +365,8 @@ struct DataRetentionView: View {
                 .eq("id", value: family.id.uuidString)
                 .execute()
 
+            DailyOKHaptics.success()
+            UIAccessibility.post(notification: .announcement, argument: "Saved")
             withAnimation {
                 showSaved = true
             }

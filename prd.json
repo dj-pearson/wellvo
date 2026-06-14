@@ -3020,8 +3020,8 @@
         "Reuse existing EmptyStateView/DashboardSkeletonView patterns"
       ],
       "priority": 137,
-      "passes": false,
-      "notes": "UX (medium). A11y.announce helper exists but is wired nowhere. Files: ios/DailyOK/Views/Owner/FamilyView.swift, ios/DailyOK/Views/Settings/ReceiverSettingsView.swift, ios/DailyOK/Views/Settings/SettingsView.swift, ios/DailyOK/Utilities/AccessibilityHelpers.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): FamilyView.loadData no longer swallows errors with try? — it sets errorMessage and the List shows an error section with a 44pt Try Again button, plus a loading spinner row while members are empty. ReceiverSettingsView now renders its previously-unshown errorMessage via an alert, and saveSettings fires DailyOKHaptics.success() + a VoiceOver Settings saved announcement on success (and error haptic + announcement on failure). Added the same success haptic + announcement to SettingsView data-retention save and CaregiverDigestView save. | UX (medium). A11y.announce helper exists but is wired nowhere. Files: ios/DailyOK/Views/Owner/FamilyView.swift, ios/DailyOK/Views/Settings/ReceiverSettingsView.swift, ios/DailyOK/Views/Settings/SettingsView.swift, ios/DailyOK/Utilities/AccessibilityHelpers.swift."
     },
     {
       "id": "US-IOS039",

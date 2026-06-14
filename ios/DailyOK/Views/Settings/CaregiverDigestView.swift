@@ -115,6 +115,8 @@ struct CaregiverDigestView: View {
                 .eq("id", value: session.user.id.uuidString)
                 .execute()
 
+            DailyOKHaptics.success()
+            UIAccessibility.post(notification: .announcement, argument: "Digest settings saved")
             withAnimation { showSaved = true }
             try? await Task.sleep(for: .seconds(1.5))
             withAnimation { showSaved = false }
