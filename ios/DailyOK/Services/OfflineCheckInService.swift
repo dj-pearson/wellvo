@@ -17,6 +17,11 @@ final class OfflineCheckInService: ObservableObject {
     private let monitor = NWPathMonitor()
     private let monitorQueue = DispatchQueue(label: "net.wellvo.networkmonitor")
     private var modelContainer: ModelContainer?
+    /// A single long-lived context reused across queue/sync/count operations
+    /// instead of constructing a fresh `ModelContext(container)` per call (which
+    /// defeats SwiftData's caching). The service is `@MainActor`, so all access
+    /// is serialized on the main actor.
+    private var sharedContext: ModelContext?
     private var syncTask: Task<Void, Never>?
     private var isSyncing = false
 
@@ -33,9 +38,7 @@ final class OfflineCheckInService: ObservableObject {
     // MARK: - Queue a Check-In (Offline)
 
     func queueCheckIn(familyId: UUID, receiverId: UUID, mood: Mood?, source: CheckInSource) throws {
-        guard let container = modelContainer else { return }
-
-        let context = ModelContext(container)
+        guard let context = sharedContext else { return }
 
         // Per-day dedup: an anxious receiver who doesn't see immediate
         // confirmation may tap "I'm OK" several times while offline. Each tap
@@ -133,7 +136,7 @@ final class OfflineCheckInService: ObservableObject {
         // Re-entrancy guard: this is triggered from the network monitor, scene
         // phase, and loadStatus simultaneously. Without a guard, two syncs could
         // process the same pending set concurrently and double-submit.
-        guard let container = modelContainer, isOnline, !isSyncing else { return }
+        guard let context = sharedContext, isOnline, !isSyncing else { return }
         isSyncing = true
         defer { isSyncing = false }
 
@@ -142,7 +145,6 @@ final class OfflineCheckInService: ObservableObject {
         guard let session = try? await SupabaseService.shared.client.auth.session else { return }
         let currentUserId = session.user.id
 
-        let context = ModelContext(container)
         let descriptor = FetchDescriptor<OfflineCheckIn>(
             predicate: #Predicate { !$0.synced },
             sortBy: [SortDescriptor(\.createdAt)]
@@ -202,7 +204,9 @@ final class OfflineCheckInService: ObservableObject {
 
     private func setupModelContainer() {
         do {
-            modelContainer = try ModelContainer(for: OfflineCheckIn.self)
+            let container = try ModelContainer(for: OfflineCheckIn.self)
+            modelContainer = container
+            sharedContext = ModelContext(container)
         } catch {
             Log.offline.error("Failed to create SwiftData container: \(error.localizedDescription, privacy: .public)")
         }
@@ -224,8 +228,7 @@ final class OfflineCheckInService: ObservableObject {
     }
 
     private func updatePendingCount() {
-        guard let container = modelContainer else { return }
-        let context = ModelContext(container)
+        guard let context = sharedContext else { return }
         let descriptor = FetchDescriptor<OfflineCheckIn>(
             predicate: #Predicate { !$0.synced }
         )

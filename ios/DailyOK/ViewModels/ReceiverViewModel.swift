@@ -27,6 +27,7 @@ final class ReceiverViewModel: ObservableObject {
     @Published var selectedMood: Mood?
 
     private let offlineService = OfflineCheckInService.shared
+    private var loadTask: Task<Void, Never>?
 
     /// Whether to show the optional "how are you feeling?" picker after a
     /// check-in: enabled in settings, an online check-in row exists to attach to,
@@ -37,7 +38,22 @@ final class ReceiverViewModel: ObservableObject {
         return selectedMood == nil
     }
 
+    /// Coalesce reload triggers. `loadStatus` is invoked from `.task`,
+    /// `scenePhase == .active`, AND the `didSyncCheckIns` observer — and
+    /// `loadStatus` itself calls `syncPendingCheckIns()`, which on success posts
+    /// `didSyncCheckIns`. Without coalescing, that re-enters `loadStatus` for a
+    /// full extra round of queries. Re-entrant callers await the in-flight load.
     func loadStatus() async {
+        if let loadTask {
+            return await loadTask.value
+        }
+        let task = Task { await performLoadStatus() }
+        loadTask = task
+        await task.value
+        loadTask = nil
+    }
+
+    private func performLoadStatus() async {
         guard let family = try? await FamilyService.shared.getFamily() else { return }
         familyId = family.id
 
