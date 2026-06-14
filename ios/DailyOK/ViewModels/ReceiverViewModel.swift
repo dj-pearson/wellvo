@@ -28,6 +28,9 @@ final class ReceiverViewModel: ObservableObject {
 
     private let offlineService = OfflineCheckInService.shared
     private var loadTask: Task<Void, Never>?
+    /// The receiver's own family_member id, so they can self-serve display
+    /// preferences (Simple Mode, spoken confirmation) without an owner.
+    private var receiverMemberId: UUID?
 
     /// Whether to show the optional "how are you feeling?" picker after a
     /// check-in: enabled in settings, an online check-in row exists to attach to,
@@ -207,6 +210,7 @@ final class ReceiverViewModel: ObservableObject {
                 .value
 
             guard let member = members.first else { return }
+            receiverMemberId = member.id
 
             let settings: ReceiverSettings = try await SupabaseService.shared.client
                 .from("receiver_settings")
@@ -223,6 +227,32 @@ final class ReceiverViewModel: ObservableObject {
             computeNextCheckInTime(from: settings)
         } catch {
             // Non-critical — default to standard mode
+        }
+    }
+
+    /// Receiver self-service: toggle Simple Mode from their own device.
+    func updateSimpleMode(_ value: Bool) async {
+        simpleMode = value
+        await updateReceiverSetting(["simple_mode": String(value)])
+    }
+
+    /// Receiver self-service: toggle spoken/audible confirmation.
+    func updateAudioConfirmation(_ value: Bool) async {
+        audioConfirmationEnabled = value
+        await updateReceiverSetting(["audio_confirmation_enabled": String(value)])
+    }
+
+    private func updateReceiverSetting(_ updates: [String: String]) async {
+        guard let memberId = receiverMemberId else { return }
+        do {
+            try await SupabaseService.shared.client
+                .from("receiver_settings")
+                .update(updates)
+                .eq("family_member_id", value: memberId.uuidString)
+                .execute()
+            DailyOKHaptics.success()
+        } catch {
+            Log.settings.error("Failed to update receiver setting: \(error.localizedDescription, privacy: .public)")
         }
     }
 

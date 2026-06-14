@@ -6,6 +6,9 @@ struct ReceiverHomeView: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.requestReview) private var requestReview
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @AppStorage("receiver.simpleModeOffered") private var simpleModeOffered = false
+    @State private var showSimpleModeOffer = false
     @State private var buttonScale: CGFloat = 1.0
     @State private var isPulsing = false
     @State private var showCheckmark = false
@@ -125,6 +128,23 @@ struct ReceiverHomeView: View {
                 HStack {
                     Spacer()
                     Menu {
+                        // Receiver can self-serve their own display preferences
+                        // here, instead of relying on a remote owner to toggle
+                        // Simple Mode for them.
+                        Section("Display") {
+                            Toggle(isOn: Binding(
+                                get: { viewModel.simpleMode },
+                                set: { newValue in Task { await viewModel.updateSimpleMode(newValue) } }
+                            )) {
+                                Label("Simple Mode", systemImage: "textformat.size.larger")
+                            }
+                            Toggle(isOn: Binding(
+                                get: { viewModel.audioConfirmationEnabled },
+                                set: { newValue in Task { await viewModel.updateAudioConfirmation(newValue) } }
+                            )) {
+                                Label("Spoken Confirmation", systemImage: "speaker.wave.2.fill")
+                            }
+                        }
                         Button {
                             if let url = URL(string: UIApplication.openSettingsURLString) {
                                 UIApplication.shared.open(url)
@@ -143,13 +163,14 @@ struct ReceiverHomeView: View {
                             Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
                         }
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        Image(systemName: "ellipsis.circle.fill")
                             .font(.title2)
-                            .foregroundStyle(.secondary)
-                            .padding(12)
+                            .foregroundStyle(DailyOKColor.green700)
+                            .frame(width: 44, height: 44) // full-size tap target
                             .contentShape(Rectangle())
                     }
                     .accessibilityLabel("More options")
+                    .accessibilityAddTraits(.isButton)
                 }
                 Spacer()
             }
@@ -167,6 +188,22 @@ struct ReceiverHomeView: View {
             // US-IOS017: refresh the opt-in passive "active today" signal (no-op
             // unless the receiver has turned activity sharing on).
             await HealthService.shared.reportTodayIfEnabled()
+            // US-IOS036: offer Simple Mode once if the receiver is clearly using
+            // accessibility settings (large text or VoiceOver) and hasn't already
+            // enabled it. Helps seniors who set up their own device.
+            if !simpleModeOffered, !viewModel.simpleMode,
+               dynamicTypeSize.isAccessibilitySize || UIAccessibility.isVoiceOverRunning {
+                simpleModeOffered = true
+                showSimpleModeOffer = true
+            }
+        }
+        .alert("Make check-in easier?", isPresented: $showSimpleModeOffer) {
+            Button("Turn On Simple Mode") {
+                Task { await viewModel.updateSimpleMode(true) }
+            }
+            Button("Not Now", role: .cancel) {}
+        } message: {
+            Text("Simple Mode shows a larger, calmer screen with a bigger “I'm OK” button. You can change this anytime from the menu.")
         }
         // If a silent push request arrived while the app was backgrounded, or the
         // user checked in on another device, re-fetch on foreground so the home

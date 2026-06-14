@@ -2992,8 +2992,8 @@
         "Sign Out and notification settings are reachable with clear labels"
       ],
       "priority": 135,
-      "passes": false,
-      "notes": "UX/accessibility (high, senior-critical). Simple Mode is today only togglable by the owner. Files: ios/DailyOK/Views/Receiver/ReceiverHomeView.swift, ios/DailyOK/Views/Settings/ReceiverSettingsView.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): Receiver can now self-serve display prefs from their own menu — a Display section with Simple Mode and Spoken Confirmation toggles that persist to receiver_settings (new ReceiverViewModel.updateSimpleMode/updateAudioConfirmation via the receivers own family_member_id), no owner required. The more affordance upgraded from a low-contrast .secondary ellipsis to a filled green700 icon in a full 44x44 tap target with an explicit .isButton trait. On first launch, if the receiver is using an accessibility text size or VoiceOver and hasnt enabled Simple Mode, a one-time alert offers to turn it on. Sign Out + Notification Settings were already in the menu with clear labels. | UX/accessibility (high, senior-critical). Simple Mode is today only togglable by the owner. Files: ios/DailyOK/Views/Receiver/ReceiverHomeView.swift, ios/DailyOK/Views/Settings/ReceiverSettingsView.swift."
     },
     {
       "id": "US-IOS037",
