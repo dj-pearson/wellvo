@@ -31,6 +31,16 @@ struct ReceiverHomeView: View {
         isSimpleMode ? buttonDiameter * 1.18 : buttonDiameter
     }
 
+    /// Greeting that matches the time of day rather than always "Good morning!".
+    private var greeting: String {
+        switch Calendar.current.component(.hour, from: Date()) {
+        case 5..<12: return "Good morning!"
+        case 12..<17: return "Good afternoon!"
+        case 17..<22: return "Good evening!"
+        default: return "Hello!"
+        }
+    }
+
     var body: some View {
         ZStack {
             AmbientBackground(tone: viewModel.hasCheckedInToday ? .calm : .warm)
@@ -207,10 +217,13 @@ struct ReceiverHomeView: View {
 
     private var checkInButton: some View {
         VStack(spacing: 24) {
-            Text("Good morning!")
+            Text(greeting)
                 .font(.title2)
                 .foregroundStyle(.secondary)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility3)
+                // The button below already announces the action; hide the
+                // decorative greeting so VoiceOver presents one clear control.
+                .accessibilityHidden(true)
 
             Button {
                 DailyOKHaptics.medium()
@@ -302,6 +315,10 @@ struct ReceiverHomeView: View {
                             Text(isKidMode ? "I'm OK! 👋" : "I'm OK")
                                 .font(.system(size: tapTextSize, weight: .bold))
                                 .foregroundStyle(.white)
+                                // Keep the label inside the circle at the largest
+                                // Dynamic Type sizes instead of overflowing it.
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.5)
                         }
                     }
                 }
@@ -309,6 +326,7 @@ struct ReceiverHomeView: View {
             .buttonStyle(.pressable)
             .disabled(viewModel.isCheckingIn)
             .accessibilityLabel("Tap to check in and let your family know you're okay")
+            .accessibilityAddTraits(.isButton)
             .onAppear {
                 // No pulsing in Simple Mode — a steady, calm target is easier
                 // for senior receivers to focus on and tap.
@@ -330,6 +348,8 @@ struct ReceiverHomeView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility3)
+                // Redundant with the button's accessibility label.
+                .accessibilityHidden(true)
         }
     }
 

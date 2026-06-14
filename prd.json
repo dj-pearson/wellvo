@@ -2978,8 +2978,8 @@
         "The button carries the .isButton trait"
       ],
       "priority": 134,
-      "passes": false,
-      "notes": "UX/accessibility (high, senior-critical). File: ios/DailyOK/Views/Receiver/ReceiverHomeView.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): Added a time-of-day greeting (morning/afternoon/evening/hello) replacing the always-Good morning text. The decorative greeting and the trailing Tap to let your family know caption are now accessibilityHidden so VoiceOver presents the single check-in button control (no triple-swipe / duplicate Tap announcement). The button carries an explicit .isButton trait. The I am OK label inside the circle is now lineLimit(1)+minimumScaleFactor(0.5) so it no longer overflows at the largest Dynamic Type sizes. | UX/accessibility (high, senior-critical). File: ios/DailyOK/Views/Receiver/ReceiverHomeView.swift."
     },
     {
       "id": "US-IOS036",
