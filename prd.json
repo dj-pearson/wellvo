@@ -2893,8 +2893,8 @@
         "The location toggle and its current state are clearly visible to the receiver"
       ],
       "priority": 128,
-      "passes": false,
-      "notes": "SECURITY/privacy. Full-precision lat/long of elderly/child users uploaded whenever Always is granted and activeFamilyId is set, with auto-restart. File: ios/DailyOK/Services/LocationService.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): Background significant-change reports now coarsen coordinates to ~110m (coarsen() rounds to 3 decimals) before upload and floor reported accuracy to >=110m, instead of full-resolution lat/long. Added throttling: clustered significant-change callbacks are skipped if under 5 minutes AND under 150m since the last report (lastBackgroundReportAt/Location). Verified the design already requires explicit opt-in — activeFamilyId is only set by an explicit startBackgroundMonitoring() call (nothing wires it from OS permission alone), so granting Always does not silently begin tracking; documented this in locationManagerDidChangeAuthorization. NOTE: explicit check-in location (reportLocation/getCurrentLocation) kept full-precision since it feeds the home-distance safety calc and is a single user-initiated point; server-side retention limits remain a backend follow-up. | SECURITY/privacy. Full-precision lat/long of elderly/child users uploaded whenever Always is granted and activeFamilyId is set, with auto-restart. File: ios/DailyOK/Services/LocationService.swift."
     },
     {
       "id": "US-IOS030",
