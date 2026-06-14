@@ -21,6 +21,10 @@ struct ReceiverStatusCard: Identifiable {
     /// Current escalation step of an active (pending) request: 0 = none yet,
     /// 1+ = reminders/alerts in progress. Drives the owner "escalating" banner.
     var escalationStep: Int = 0
+    /// When the unanswered request was raised (its `created_at`) — i.e. when the
+    /// check-in became due. Used as the Live Activity's "overdue since" anchor so
+    /// it survives an app restart instead of resetting to now. Nil = not overdue.
+    var escalationDueSince: Date? = nil
     /// US-IOS016: number of shared care notes on this receiver, for the card badge.
     var noteCount: Int = 0
     /// US-IOS017: optional passive "active today" signal (Apple Health, opt-in).
@@ -166,7 +170,8 @@ final class DashboardViewModel: ObservableObject {
                     checkedInTime: todayCheckIn?.checkedInAt,
                     locationLabel: todayCheckIn?.locationLabel,
                     kidResponseType: todayCheckIn?.kidResponseType,
-                    escalationStep: resolved.escalationStep
+                    escalationStep: resolved.escalationStep,
+                    escalationDueSince: resolved.dueSince
                 ))
             }
 
@@ -234,7 +239,7 @@ final class DashboardViewModel: ObservableObject {
     nonisolated static func resolveStatus(
         todayCheckIn: CheckIn?,
         activeRequest: CheckInRequest?
-    ) -> (status: ReceiverCheckInStatus, escalationStep: Int) {
+    ) -> (status: ReceiverCheckInStatus, escalationStep: Int, dueSince: Date?) {
         let unanswered: CheckInRequest?
         if let req = activeRequest,
            !(todayCheckIn.map { $0.checkedInAt >= req.createdAt } ?? false) {
@@ -251,7 +256,9 @@ final class DashboardViewModel: ObservableObject {
         } else {
             status = .pending
         }
-        return (status, unanswered?.escalationStep ?? 0)
+        // `createdAt` is when the request was raised — i.e. when the check-in
+        // became due. The Live Activity uses it as the real "overdue since" time.
+        return (status, unanswered?.escalationStep ?? 0, unanswered?.createdAt)
     }
 
     private func latestActiveRequest(receiverId: UUID, familyId: UUID) async -> CheckInRequest? {

@@ -149,6 +149,23 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(result.escalationStep, 3)
     }
 
+    /// US-IOS023: the Live Activity "overdue since" anchor must be the request's
+    /// created_at, so it survives an app restart rather than resetting to now.
+    func testResolveStatusDueSinceIsRequestCreatedAt() {
+        let createdAt = Date().addingTimeInterval(-40 * 60) // 40 minutes ago
+        let request = makeRequest(createdAt: createdAt, status: .pending, escalationStep: 2)
+        let result = DashboardViewModel.resolveStatus(todayCheckIn: nil, activeRequest: request)
+        XCTAssertEqual(result.dueSince, createdAt)
+    }
+
+    func testResolveStatusDueSinceNilWhenCheckedIn() {
+        let result = DashboardViewModel.resolveStatus(
+            todayCheckIn: makeCheckIn(at: Date()),
+            activeRequest: nil
+        )
+        XCTAssertNil(result.dueSince)
+    }
+
     // MARK: - Helpers
 
     private func makeCheckIn(at date: Date) -> CheckIn {

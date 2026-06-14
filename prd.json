@@ -2805,8 +2805,8 @@
         "Verified: kill+relaunch during an active escalation preserves the correct overdue duration"
       ],
       "priority": 122,
-      "passes": false,
-      "notes": "BUG. dueSince reset and silently-dropped Activity.request failures undermine the escalation surface. Ties into the dashboard-reload-frequency work (US-IOS027). File: ios/DailyOK/Services/EscalationActivityManager.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): ReceiverStatusCard now carries escalationDueSince (the unanswered requests created_at), populated via resolveStatus. EscalationActivityManager anchors a cold-start Live Activity to card.escalationDueSince instead of Date(), so a long-overdue receiver keeps the correct overdue timer after an app restart. Updates are now diffed against the existing ContentState (Hashable) and only pushed on change. Activity.request failures are caught and logged instead of silently dropped with try?. Added resolveStatus dueSince tests. | BUG. dueSince reset and silently-dropped Activity.request failures undermine the escalation surface. Ties into the dashboard-reload-frequency work (US-IOS027). File: ios/DailyOK/Services/EscalationActivityManager.swift."
     },
     {
       "id": "US-IOS024",
