@@ -52,7 +52,7 @@
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Use the official Supabase Kotlin Multiplatform SDK (io.github.jan-tennert.supabase). Supabase URL and key should NOT be hardcoded \u2014 use BuildConfig."
+      "notes": "Use the official Supabase Kotlin Multiplatform SDK (io.github.jan-tennert.supabase). Supabase URL and key should NOT be hardcoded — use BuildConfig."
     },
     {
       "id": "US-A004",
@@ -61,7 +61,7 @@
       "acceptanceCriteria": [
         "Jetpack Navigation Compose dependency added",
         "NavHost in MainActivity with routes: splash, auth, onboarding, ownerTabs, receiverHome, viewerTabs, pairingCode, receiverOnboarding",
-        "Navigation graph mirrors iOS ContentView routing: authState (loading/unauthenticated/authenticated) \u2192 role (owner/receiver/viewer)",
+        "Navigation graph mirrors iOS ContentView routing: authState (loading/unauthenticated/authenticated) → role (owner/receiver/viewer)",
         "Owner gets bottom nav with 4 tabs: Dashboard, History, Family, Settings",
         "Receiver gets single-screen check-in interface",
         "Viewer gets bottom nav with 3 tabs: Dashboard (read-only), History (read-only), Settings",
@@ -149,7 +149,7 @@
         "ApiService class with methods matching all edge function endpoints: processCheckinResponse, onDemandCheckin, confirmDelivery, heartbeat, reportLocation, inviteReceiver, redeemCode, autoJoin, subscriptionWebhook",
         "Each method calls the edge function via Supabase Functions invoke or direct HTTP",
         "Request/response DTOs as @Serializable data classes",
-        "Consistent error handling: network errors \u2192 DailyOKError.Network, auth errors \u2192 DailyOKError.Auth, 404 \u2192 DailyOKError.NotFound, 5xx \u2192 DailyOKError.ServerError",
+        "Consistent error handling: network errors → DailyOKError.Network, auth errors → DailyOKError.Auth, 404 → DailyOKError.NotFound, 5xx → DailyOKError.ServerError",
         "DailyOKError sealed class with: Network, Auth, NotFound, ServerError, Offline, Unknown variants, each with localizedMessage",
         "NetworkRetry utility: suspend function with exponential backoff, max 3 attempts, skips auth/cancellation errors",
         "Timeout of 30 seconds on all requests"
@@ -183,7 +183,7 @@
         "Phone number normalization: strip non-digits, prepend +1 for 10-digit US numbers",
         "Supabase Auth signInWithOtp used for phone flow",
         "AuthViewModel state: phoneNumber, otpCode, isAwaitingOTP, isLoading, errorMessage",
-        "OTP entry UI: phone input with country code \u2192 6-digit code input with auto-focus",
+        "OTP entry UI: phone input with country code → 6-digit code input with auto-focus",
         "Error states: invalid phone format, wrong OTP code, expired OTP, rate limited",
         "After successful OTP: check session, load user profile, determine role, navigate appropriately"
       ],
@@ -261,7 +261,7 @@
       ],
       "priority": 15,
       "passes": true,
-      "notes": "Auto-join matches the receiver's phone number to pending invitations. Pairing code is for iPad/alternate device setup on iOS \u2014 same flow on Android."
+      "notes": "Auto-join matches the receiver's phone number to pending invitations. Pairing code is for iPad/alternate device setup on iOS — same flow on Android."
     },
     {
       "id": "US-A016",
@@ -270,7 +270,7 @@
       "acceptanceCriteria": [
         "AuthScreen composable with Daily OK logo, app name, and tagline at top",
         "Three auth options: Phone OTP (primary, prominent), Google Sign-In button, Email/Password (expandable section)",
-        "Phone flow: phone number input with +1 prefix \u2192 OTP code input \u2192 loading \u2192 success",
+        "Phone flow: phone number input with +1 prefix → OTP code input → loading → success",
         "Email flow: sign-in/sign-up tab toggle, form fields with validation, submit button",
         "Google Sign-In: branded Google button following Google's design guidelines",
         "Error messages displayed inline below relevant fields",
@@ -310,14 +310,14 @@
         "ReceiverOnboardingScreen composable with 3 steps",
         "Step 1 - Welcome: greeting with receiver's name, explanation of daily check-in, display scheduled check-in time",
         "Step 2 - Notifications: explain why notifications matter, request notification permission button",
-        "Step 3 - Complete: 'You're all set!' message, 'Start Using Daily OK' button \u2192 navigate to ReceiverHome",
+        "Step 3 - Complete: 'You're all set!' message, 'Start Using Daily OK' button → navigate to ReceiverHome",
         "Check-in time loaded from receiver_settings for this family member",
         "Progress dots at bottom",
         "Handles notification permission denied gracefully (warns but allows proceeding)"
       ],
       "priority": 18,
       "passes": true,
-      "notes": "Simpler than owner onboarding. 3 steps: welcome \u2192 notifications \u2192 done."
+      "notes": "Simpler than owner onboarding. 3 steps: welcome → notifications → done."
     },
     {
       "id": "US-A019",
@@ -384,12 +384,12 @@
       "description": "As a receiver, I want to optionally share my mood after checking in so that my family knows how I'm feeling.",
       "acceptanceCriteria": [
         "MoodSelectorComposable: grid of mood options that appears after check-in",
-        "Standard mode (3 moods): Happy \ud83d\ude0a, Neutral \ud83d\ude10, Tired \ud83d\ude34 \u2014 displayed as horizontal row",
-        "Kid mode (8 moods): Happy \ud83d\ude0a, Neutral \ud83d\ude10, Tired \ud83d\ude34, Excited \ud83e\udd29, Bored \ud83d\ude11, Hungry \ud83c\udf55, Scared \ud83d\ude28, Having Fun \ud83c\udf89 \u2014 displayed as 2\u00d74 grid",
+        "Standard mode (3 moods): Happy 😊, Neutral 😐, Tired 😴 — displayed as horizontal row",
+        "Kid mode (8 moods): Happy 😊, Neutral 😐, Tired 😴, Excited 🤩, Bored 😑, Hungry 🍕, Scared 😨, Having Fun 🎉 — displayed as 2×4 grid",
         "Each mood is a tappable card with emoji and label",
         "Selected mood highlighted with border/background color",
         "Mood submitted via CheckInService update (PATCH to checkins table)",
-        "Mood selection is optional \u2014 can be skipped",
+        "Mood selection is optional — can be skipped",
         "ReceiverViewModel.selectedMood state, submitMood() method"
       ],
       "priority": 22,
@@ -401,11 +401,11 @@
       "title": "Implement kid mode features (location label and response buttons)",
       "description": "As a kid-mode receiver, I want to share where I am and send quick requests so that my parent knows my situation.",
       "acceptanceCriteria": [
-        "LocationLabelSelector composable: 3\u00d72 grid of location options (Home \ud83c\udfe0, School \ud83c\udfeb, Friend's House \ud83c\udfe1, Park \ud83c\udf33, Store \ud83c\udfea, Other \ud83d\udccd)",
+        "LocationLabelSelector composable: 3×2 grid of location options (Home 🏠, School 🏫, Friend's House 🏡, Park 🌳, Store 🏪, Other 📍)",
         "Each location is a tappable card with emoji and label",
         "Selected location submitted via CheckInService update (PATCH locationLabel on checkins)",
         "KidResponseButtons composable: horizontal row of 3 action buttons",
-        "Pick Me Up \ud83d\ude97 (orange), Can I Stay Longer? \u23f0 (blue), SOS! \u26a0\ufe0f (red)",
+        "Pick Me Up 🚗 (orange), Can I Stay Longer? ⏰ (blue), SOS! ⚠️ (red)",
         "Kid response submitted via CheckInService update (PATCH kidResponseType on checkins)",
         "Both selectors appear after mood selection in kid mode",
         "ReceiverViewModel: selectedLocationLabel, selectedKidResponse, submitLocationLabel(), submitKidResponse()",
@@ -550,10 +550,10 @@
         "Member list: each member shows name, role badge, status (active/invited/deactivated)",
         "Swipe-to-dismiss actions: Remove member (with confirmation dialog)",
         "Long-press context menu: Transfer ownership, Re-send invite (for invited members)",
-        "FAB or top-bar button: 'Invite Receiver' \u2192 opens InviteReceiverSheet",
+        "FAB or top-bar button: 'Invite Receiver' → opens InviteReceiverSheet",
         "FamilyViewModel with state: family, members, isLoading, errorMessage",
         "loadFamily() fetches family + members via FamilyService",
-        "removeMember() with confirmation dialog \u2192 calls FamilyService.removeMember()",
+        "removeMember() with confirmation dialog → calls FamilyService.removeMember()",
         "Empty state: 'No receivers yet. Invite someone to get started.'"
       ],
       "priority": 31,
@@ -664,7 +664,7 @@
         "Cell colors: green (on-time), yellow (late), red (missed), gray (no data/future)",
         "On-time defined as: checked in within scheduled time",
         "Late defined as: checked in but >2 hours after scheduled time",
-        "Symbols inside cells: \u2713 (on-time), ! (late), \u2715 (missed), blank (no data)",
+        "Symbols inside cells: ✓ (on-time), ! (late), ✕ (missed), blank (no data)",
         "Legend below heatmap explaining colors",
         "Adapts to selected time period (7/30/90 days)",
         "Uses Canvas composable for drawing the grid",
@@ -724,7 +724,7 @@
         "Data section: 'Export My Data' button (calls export_user_data RPC, downloads JSON), data retention picker (90/180/365/730 days dropdown)",
         "About section: app version (from BuildConfig), Privacy Policy link, Terms of Service link",
         "Sign Out button with confirmation dialog",
-        "Delete Account button (red, destructive) with double-confirmation dialog \u2192 calls delete_user_account RPC",
+        "Delete Account button (red, destructive) with double-confirmation dialog → calls delete_user_account RPC",
         "SettingsViewModel with methods for each action"
       ],
       "priority": 40,
@@ -772,9 +772,9 @@
       "description": "As an owner, I want a weekly summary showing check-in consistency and mood trends.",
       "acceptanceCriteria": [
         "DashboardViewModel.computeWeeklySummary(): calculates from last 7 days of check-ins across all receivers",
-        "Consistency %: (actual check-ins / expected check-ins) \u00d7 100, color-coded (green \u226580%, yellow \u226550%, red <50%)",
+        "Consistency %: (actual check-ins / expected check-ins) × 100, color-coded (green ≥80%, yellow ≥50%, red <50%)",
         "Average check-in time: mean of all check-in times, formatted as h:mm a",
-        "Total check-ins: 'X / Y' where Y = receivers \u00d7 7 days",
+        "Total check-ins: 'X / Y' where Y = receivers × 7 days",
         "Mood breakdown: list of (mood emoji, count) sorted by frequency",
         "WeeklySummary data class: consistency (Float), avgTime (String), totalActual (Int), totalExpected (Int), moods (Map<Mood, Int>)",
         "WeeklySummaryCard composable displaying all fields",
@@ -810,7 +810,7 @@
       "description": "As a receiver, I want to respond to check-in notifications directly from the notification shade.",
       "acceptanceCriteria": [
         "onMessageReceived() in DailyOKFirebaseMessagingService handles data messages",
-        "CHECKIN_REQUEST notification: shows notification with 3 action buttons \u2014 'I'm OK \u2713', 'I Need Help', 'Call Me'",
+        "CHECKIN_REQUEST notification: shows notification with 3 action buttons — 'I'm OK ✓', 'I Need Help', 'Call Me'",
         "NotificationCompat.Builder with CHECKIN channel (importance HIGH, sound + vibration)",
         "Action buttons use PendingIntent with BroadcastReceiver to handle taps",
         "CheckInNotificationReceiver processes action: gets location + battery, calls respondToCheckIn()",
@@ -834,7 +834,7 @@
         "CHECKIN_REQUEST tap: routes receiver to ReceiverHomeScreen (auto check-in if desired)",
         "URGENT_ALERT tap: routes owner to DashboardScreen",
         "LOCATION_ALERT tap: routes owner to receiver's history or settings",
-        "If app was killed: full auth check \u2192 route to correct screen with notification context",
+        "If app was killed: full auth check → route to correct screen with notification context",
         "If app was in foreground: show notification as in-app banner (Snackbar or TopAppBar overlay)",
         "Clear notification badge/count after handling"
       ],
@@ -910,7 +910,7 @@
         "requestBackgroundPermission(): handles ACCESS_BACKGROUND_LOCATION (separate request on Android 10+)",
         "getCurrentLocation(): one-shot location request with PRIORITY_BALANCED_POWER_ACCURACY, returns latitude/longitude/accuracy",
         "Timeout: 10 seconds for location acquisition",
-        "Location included in check-in payload (optional \u2014 check-in works without location)",
+        "Location included in check-in payload (optional — check-in works without location)",
         "Permission status checking: isLocationGranted(), isBackgroundLocationGranted()",
         "Handle permission denied gracefully (check-in proceeds without location)",
         "LocationService exposed via Hilt for injection into CheckInService and ReceiverViewModel"
@@ -986,7 +986,7 @@
         "Calendar heatmap cells have contentDescription with date and status",
         "Settings toggles have contentDescription describing what they control",
         "Focus order (traversalIndex) is logical top-to-bottom on every screen",
-        "Minimum touch target size: 48dp \u00d7 48dp on all interactive elements",
+        "Minimum touch target size: 48dp × 48dp on all interactive elements",
         "Color is not sole differentiator for status (icons/text accompany colors)",
         "Dynamic text scaling tested at largest font size without layout breakage"
       ],
@@ -1020,7 +1020,7 @@
         "Export My Data: calls export_user_data Supabase RPC, downloads JSON response",
         "JSON saved to Downloads directory via MediaStore (or app cache + share intent)",
         "Success snackbar: 'Data exported successfully'",
-        "Delete Account: double-confirmation flow \u2014 first dialog warns, second dialog requires typing 'DELETE'",
+        "Delete Account: double-confirmation flow — first dialog warns, second dialog requires typing 'DELETE'",
         "delete_user_account RPC called on final confirmation",
         "After deletion: clear all local data (Room, SharedPreferences, EncryptedSharedPreferences), sign out, navigate to auth",
         "Loading state during both operations",
@@ -1038,7 +1038,7 @@
         "SettingsScreen 'Link Google Account' button visible when no Google identity linked",
         "Triggers Google Sign-In flow to get ID token",
         "Calls Supabase Auth linkIdentity or custom edge function to link Google identity",
-        "On success: button changes to 'Google Account Linked \u2713' (non-interactive)",
+        "On success: button changes to 'Google Account Linked ✓' (non-interactive)",
         "AuthViewModel.hasLinkedGoogle StateFlow, linkGoogleAccount() method",
         "Check for existing Google link on settings load",
         "Error handling: already linked, network failure, cancelled by user"
@@ -1056,14 +1056,14 @@
         "FCM service account credentials loaded from environment variable (FIREBASE_SERVICE_ACCOUNT_JSON)",
         "sendFCMNotification(token, title, body, data) function using FCM v1 API with OAuth2 bearer token",
         "Data payload includes: checkin_request_id, receiver_id, receiver_name, notification_type",
-        "push_tokens table queried with platform filter: 'ios' \u2192 APNs, 'android' \u2192 FCM",
+        "push_tokens table queried with platform filter: 'ios' → APNs, 'android' → FCM",
         "Existing notification-sending functions updated to check platform and route to APNs or FCM accordingly",
         "FCM token errors (invalid/unregistered) mark token as is_active=false",
         "Logging for FCM send success and failure"
       ],
       "priority": 58,
       "passes": true,
-      "notes": "Implemented FCM support across all edge functions. shared/fcm.ts has sendFCMNotification with OAuth2 auth, logging for success/failure. All 4 notification-sending handlers (send-checkin-notification, escalation-tick, on-demand-checkin, process-checkin-response) now route by platform (ios\u2192APNs, android\u2192FCM). Invalid FCM tokens (NOT_FOUND/UNREGISTERED) are deactivated. Data payloads include checkin_request_id, receiver_id, notification_type."
+      "notes": "Implemented FCM support across all edge functions. shared/fcm.ts has sendFCMNotification with OAuth2 auth, logging for success/failure. All 4 notification-sending handlers (send-checkin-notification, escalation-tick, on-demand-checkin, process-checkin-response) now route by platform (ios→APNs, android→FCM). Invalid FCM tokens (NOT_FOUND/UNREGISTERED) are deactivated. Data payloads include checkin_request_id, receiver_id, notification_type."
     },
     {
       "id": "US-A059",
@@ -1112,7 +1112,7 @@
         "ReceiverHomeScreenTest: check-in button visible and clickable, status card appears after check-in, mood selector appears",
         "DashboardScreenTest: receiver cards render with correct status, weekly summary displays",
         "OnboardingTest: all 7 steps navigable, back button works, form inputs functional",
-        "Navigation test: role-based routing works (owner \u2192 tabs, receiver \u2192 home, viewer \u2192 read-only tabs)",
+        "Navigation test: role-based routing works (owner → tabs, receiver → home, viewer → read-only tabs)",
         "All UI tests pass with ./gradlew connectedAndroidTest or ./gradlew testDebugUnitTest (with Robolectric)",
         "Minimum 10 UI test cases"
       ],
@@ -1392,7 +1392,7 @@
       ],
       "priority": 13,
       "passes": true,
-      "notes": "DONE. iOS: AppDelegate print statements sanitized \u2014 removed error.localizedDescription, receiverId, and other PII. Android: DailyOKFirebaseMessagingService message data logging gated behind BuildConfig.DEBUG. CheckInNotificationReceiver: requestId removed from logs, receiverId removed from dialer logs."
+      "notes": "DONE. iOS: AppDelegate print statements sanitized — removed error.localizedDescription, receiverId, and other PII. Android: DailyOKFirebaseMessagingService message data logging gated behind BuildConfig.DEBUG. CheckInNotificationReceiver: requestId removed from logs, receiverId removed from dialer logs."
     },
     {
       "id": "US-SEC014",
@@ -1628,7 +1628,7 @@
       ],
       "priority": 28,
       "passes": true,
-      "notes": "DONE. iOS: AuthViewModel tracks failedAttempts and lockoutUntil in UserDefaults. 5 failures \u2192 30s cooldown, 10 \u2192 5min lockout. Countdown timer displayed in UI. OTP limited to 5 verify attempts per code. Resets on success. Android: Same logic in AuthViewModel using SharedPreferences. Lockout countdown via coroutine Job. OTP max 5 attempts. Both platforms disable auth actions during lockout with clear messaging."
+      "notes": "DONE. iOS: AuthViewModel tracks failedAttempts and lockoutUntil in UserDefaults. 5 failures → 30s cooldown, 10 → 5min lockout. Countdown timer displayed in UI. OTP limited to 5 verify attempts per code. Resets on success. Android: Same logic in AuthViewModel using SharedPreferences. Lockout countdown via coroutine Job. OTP max 5 attempts. Both platforms disable auth actions during lockout with clear messaging."
     },
     {
       "id": "US-SEC029",
@@ -1684,7 +1684,7 @@
       ],
       "priority": 31,
       "passes": true,
-      "notes": "DONE. iOS: DashboardView shows error state with retry button when load fails (icon + message + Retry button with loading state). ReceiverHomeView shows error message with 'Try Again' button after failed check-in. Both use .refreshable for pull-to-refresh. Android: DashboardScreen already had PullToRefreshBox \u2014 added inline error state with Retry button (icon + message + button) when receiverCards empty + error. ReceiverHomeScreen already had ErrorState composable with retry."
+      "notes": "DONE. iOS: DashboardView shows error state with retry button when load fails (icon + message + Retry button with loading state). ReceiverHomeView shows error message with 'Try Again' button after failed check-in. Both use .refreshable for pull-to-refresh. Android: DashboardScreen already had PullToRefreshBox — added inline error state with Retry button (icon + message + button) when receiverCards empty + error. ReceiverHomeScreen already had ErrorState composable with retry."
     },
     {
       "id": "US-SEC032",
@@ -1913,18 +1913,18 @@
         "Android: Theme.kt dark palette refined to use true brand dark (not pure Gray900) with proper elevation overlays",
         "iOS: New Theme.swift defining DailyOKColor struct (brandGreen ramp, accentTeal, premiumGold, surfaces) and DailyOKMotion struct (durations, spring responses), matching Android tokens semantically",
         "iOS: Dark mode palette polished to match Android branded dark with true brand accent rather than plain system colors",
-        "Tokens are additive \u2014 no existing screen is broken by the refactor"
+        "Tokens are additive — no existing screen is broken by the refactor"
       ],
       "priority": 45,
       "passes": true,
-      "notes": "DONE. Android: expanded Color.kt with DailyOKGreen50-900 tonal ramp, DailyOKTeal/Gold/Indigo accents, SurfaceLight/Dark Low/Med/High tonal surfaces, Gray300/400/800/950 extensions (legacy DailyOKGreen/Dark/Light/Container aliases preserved). Added Elevation.kt (DailyOKElevation level0-level5) and Motion.kt (DailyOKMotion durations + easings + spring helpers). Theme.kt light/dark color schemes refined to use the new tonal ramp, tertiary=DailyOKTeal, branded dark surfaces (SurfaceDark*) instead of neutral Gray900. iOS: added Utilities/Theme.swift with DailyOKColor enum (green50-900, teal/gold/indigo, light+dark tonal surfaces), DailyOKMotion (durations + smoothSpring/bouncySpring/linear), DailyOKElevation (level0-level5), and View.dailyokShadow(level:) helper. All additive \u2014 no existing screens modified."
+      "notes": "DONE. Android: expanded Color.kt with DailyOKGreen50-900 tonal ramp, DailyOKTeal/Gold/Indigo accents, SurfaceLight/Dark Low/Med/High tonal surfaces, Gray300/400/800/950 extensions (legacy DailyOKGreen/Dark/Light/Container aliases preserved). Added Elevation.kt (DailyOKElevation level0-level5) and Motion.kt (DailyOKMotion durations + easings + spring helpers). Theme.kt light/dark color schemes refined to use the new tonal ramp, tertiary=DailyOKTeal, branded dark surfaces (SurfaceDark*) instead of neutral Gray900. iOS: added Utilities/Theme.swift with DailyOKColor enum (green50-900, teal/gold/indigo, light+dark tonal surfaces), DailyOKMotion (durations + smoothSpring/bouncySpring/linear), DailyOKElevation (level0-level5), and View.dailyokShadow(level:) helper. All additive — no existing screens modified."
     },
     {
       "id": "US-UX002",
       "title": "Upgrade loading skeletons with branded shimmer gradient",
       "description": "As a user, I want loading states to feel intentional and on-brand so that even waiting feels like part of a premium experience. Replace the plain gray shimmer with a branded green-tinted gradient that respects dark mode and reduced motion settings.",
       "acceptanceCriteria": [
-        "Android: SkeletonViews.kt shimmerBrush uses a three-stop branded gradient (surfaceVariant \u2192 primaryContainer tint \u2192 surfaceVariant) instead of plain gray",
+        "Android: SkeletonViews.kt shimmerBrush uses a three-stop branded gradient (surfaceVariant → primaryContainer tint → surfaceVariant) instead of plain gray",
         "Android: Shimmer animation respects Settings.Global.ANIMATOR_DURATION_SCALE = 0 (reduced motion) by falling back to a static branded tint",
         "iOS: SkeletonView uses a branded tint derived from Daily OK green at low opacity instead of plain systemGray",
         "iOS: Existing @Environment(\\.accessibilityReduceMotion) fallback continues to work",
@@ -1932,7 +1932,7 @@
       ],
       "priority": 46,
       "passes": true,
-      "notes": "DONE. Android: SkeletonViews.kt shimmerBrush now uses a three-stop branded gradient (surfaceVariant \u2192 primaryContainer @60% alpha \u2192 surfaceVariant) driven by DailyOKMotion.DurationExtraLong*2 so the sweep timing stays in the design token system. iOS: SkeletonView.swift overlay gradient mid-stop replaced with DailyOKColor.green200 at 55% opacity; shimmer animation duration tied to DailyOKMotion.durationExtraLong*2.5. Existing DashboardSkeletonView and HistorySkeletonView on both platforms render correctly with no call-site changes. Reduced-motion fallback preserved on iOS (static tint only when reduceMotion is on)."
+      "notes": "DONE. Android: SkeletonViews.kt shimmerBrush now uses a three-stop branded gradient (surfaceVariant → primaryContainer @60% alpha → surfaceVariant) driven by DailyOKMotion.DurationExtraLong*2 so the sweep timing stays in the design token system. iOS: SkeletonView.swift overlay gradient mid-stop replaced with DailyOKColor.green200 at 55% opacity; shimmer animation duration tied to DailyOKMotion.durationExtraLong*2.5. Existing DashboardSkeletonView and HistorySkeletonView on both platforms render correctly with no call-site changes. Reduced-motion fallback preserved on iOS (static tint only when reduceMotion is on)."
     },
     {
       "id": "US-UX003",
@@ -1942,12 +1942,12 @@
         "Android: ui/components/PremiumCards.kt added with GradientHeroCard (soft brand gradient background, optional trailing icon, title + subtitle + content slot) and PremiumStatCard (value + label + optional delta indicator)",
         "Android: Cards use the new DailyOKElevation and DailyOKMotion tokens from US-UX001",
         "iOS: PremiumCards.swift added with matching GradientHeroCard and PremiumStatCard SwiftUI views",
-        "Components are additive \u2014 no existing screen is forced to migrate, but Dashboard's WeeklySummary can optionally adopt GradientHeroCard later",
+        "Components are additive — no existing screen is forced to migrate, but Dashboard's WeeklySummary can optionally adopt GradientHeroCard later",
         "Both platforms: Cards support light and dark mode, dynamic type / largest text size, and have accessibility labels composable by parent"
       ],
       "priority": 47,
       "passes": true,
-      "notes": "DONE. Android: ui/components/PremiumCards.kt added with GradientHeroCard (title/subtitle/trailingIcon/content slot, light+dark brand gradient backgrounds, uses DailyOKElevation.level3 + MaterialTheme.shapes.large) and PremiumStatCard (value/label/accent/delta with StatDelta data class). iOS: Views/Components/PremiumCards.swift added with matching GradientHeroCard (generic Content ViewBuilder, colorScheme-aware gradient, dailyokShadow level2) and PremiumStatCard (StatDelta struct, dailyokShadow level1, proper accessibility element). Components tile 2-3 across on a row, respect dynamic type, and are purely additive \u2014 no existing screen is forced to migrate."
+      "notes": "DONE. Android: ui/components/PremiumCards.kt added with GradientHeroCard (title/subtitle/trailingIcon/content slot, light+dark brand gradient backgrounds, uses DailyOKElevation.level3 + MaterialTheme.shapes.large) and PremiumStatCard (value/label/accent/delta with StatDelta data class). iOS: Views/Components/PremiumCards.swift added with matching GradientHeroCard (generic Content ViewBuilder, colorScheme-aware gradient, dailyokShadow level2) and PremiumStatCard (StatDelta struct, dailyokShadow level1, proper accessibility element). Components tile 2-3 across on a row, respect dynamic type, and are purely additive — no existing screen is forced to migrate."
     },
     {
       "id": "US-UX004",
@@ -1971,28 +1971,28 @@
       "acceptanceCriteria": [
         "Android: ReceiverHomeScreen shows a scale+fade checkmark burst with optional particle ring on successful check-in",
         "iOS: ReceiverHomeView shows a matching scale+fade checkmark with soft confetti overlay",
-        "Animation duration \u2264 1.2s and auto-dismisses",
+        "Animation duration ≤ 1.2s and auto-dismisses",
         "Respects accessibilityReduceMotion (falls back to static check + haptic)",
         "Triggered once per successful check-in (not on subsequent re-renders)"
       ],
       "priority": 49,
       "passes": true,
-      "notes": "DONE (component layer). Android: ui/components/CelebrationOverlay.kt \u2014 scale+fade checkmark with expanding particle ring (two concentric circles with alpha decay) driven by Animatable + tween over DailyOKMotion.DurationExtraLong+200ms, then delay(400) + onComplete callback. Reads Settings.Global.ANIMATOR_DURATION_SCALE to detect reduced motion and skips the ring animation in that case. iOS: Views/Components/CelebrationOverlay.swift \u2014 matching @Binding isVisible, two Circle strokes with trim that expand over accessibilityReduceMotion-aware animation, DispatchQueue.asyncAfter sequences the enter \u2192 hold \u2192 exit \u2192 reset. Both accessibilityElement-wrapped with 'Success' label. Wiring into ReceiverHomeView/ReceiverHomeScreen is deferred to a follow-up so this story stays scoped to the reusable component layer."
+      "notes": "DONE (component layer). Android: ui/components/CelebrationOverlay.kt — scale+fade checkmark with expanding particle ring (two concentric circles with alpha decay) driven by Animatable + tween over DailyOKMotion.DurationExtraLong+200ms, then delay(400) + onComplete callback. Reads Settings.Global.ANIMATOR_DURATION_SCALE to detect reduced motion and skips the ring animation in that case. iOS: Views/Components/CelebrationOverlay.swift — matching @Binding isVisible, two Circle strokes with trim that expand over accessibilityReduceMotion-aware animation, DispatchQueue.asyncAfter sequences the enter → hold → exit → reset. Both accessibilityElement-wrapped with 'Success' label. Wiring into ReceiverHomeView/ReceiverHomeScreen is deferred to a follow-up so this story stays scoped to the reusable component layer."
     },
     {
       "id": "US-UX006",
       "title": "Streaks and consistency badges on dashboard",
       "description": "As an owner, I want to see visible streaks and consistency badges for each receiver so that I'm rewarded for sticking with the app and can celebrate receivers' reliability. Compute and display current streak (days) and weekly consistency badge on ReceiverStatusCard and on the Receiver home screen.",
       "acceptanceCriteria": [
-        "Current streak computed from check_ins table (consecutive days with \u22651 check-in)",
-        "ReceiverStatusCard shows a flame icon + streak count when \u2265 2 days",
-        "Weekly consistency badge (Bronze \u226550%, Silver \u226580%, Gold = 100%) shown next to streak",
+        "Current streak computed from check_ins table (consecutive days with ≥1 check-in)",
+        "ReceiverStatusCard shows a flame icon + streak count when ≥ 2 days",
+        "Weekly consistency badge (Bronze ≥50%, Silver ≥80%, Gold = 100%) shown next to streak",
         "Receiver home screen shows their own streak prominently",
         "Both iOS and Android"
       ],
       "priority": 50,
       "passes": true,
-      "notes": "DONE (utility + component layer). Android: util/Streaks.kt \u2014 pure Streaks object with currentStreak/consistencyPercent/badge functions using ZoneId + LocalDate, handles ISO-8601 with zone + fallback to date-only parse. ConsistencyBadge enum (Gold/Silver/Bronze/None). ui/components/StreakBadge.kt \u2014 StreakChip (flame icon + count, only renders at streak >= 2) and ConsistencyChip (trophy icon with Gold/Silver/Bronze tiered colors, renders nothing for None). iOS: Utilities/Streaks.swift \u2014 matching Streaks enum with ISO8601DateFormatter (with + without fractional seconds fallback), Calendar.startOfDay bucketing, same threshold logic. Views/Components/StreakBadge.swift \u2014 matching StreakChip + ConsistencyChip with Capsule backgrounds and proper accessibilityElement labels. Dashboard/ReceiverHome wiring left for a follow-up so the reusable layer lands first."
+      "notes": "DONE (utility + component layer). Android: util/Streaks.kt — pure Streaks object with currentStreak/consistencyPercent/badge functions using ZoneId + LocalDate, handles ISO-8601 with zone + fallback to date-only parse. ConsistencyBadge enum (Gold/Silver/Bronze/None). ui/components/StreakBadge.kt — StreakChip (flame icon + count, only renders at streak >= 2) and ConsistencyChip (trophy icon with Gold/Silver/Bronze tiered colors, renders nothing for None). iOS: Utilities/Streaks.swift — matching Streaks enum with ISO8601DateFormatter (with + without fractional seconds fallback), Calendar.startOfDay bucketing, same threshold logic. Views/Components/StreakBadge.swift — matching StreakChip + ConsistencyChip with Capsule backgrounds and proper accessibilityElement labels. Dashboard/ReceiverHome wiring left for a follow-up so the reusable layer lands first."
     },
     {
       "id": "US-UX007",
@@ -2008,7 +2008,7 @@
       ],
       "priority": 51,
       "passes": true,
-      "notes": "DONE (component layer). Android: ui/components/PaywallFeatureCarousel.kt \u2014 HorizontalPager of PaywallFeatureCard (brand gradient background, white circular icon badge, title + description), animated pill dots that expand for the current page, AnnualSavingsBadge composable (gold pill), TestimonialCard composable. PaywallFeature + Testimonial data classes. iOS: Views/Components/PaywallFeatureCarousel.swift \u2014 matching SwiftUI TabView-based carousel (page style, index hidden, custom capsule dots), PaywallFeatureCard with the same visual treatment, AnnualSavingsBadge + TestimonialCard views. Parent paywall screen composes these with the StoreKit/Play Billing button \u2014 billing logic untouched. Screen-level adoption of SubscriptionScreen/SubscriptionView is scoped for a follow-up iteration."
+      "notes": "DONE (component layer). Android: ui/components/PaywallFeatureCarousel.kt — HorizontalPager of PaywallFeatureCard (brand gradient background, white circular icon badge, title + description), animated pill dots that expand for the current page, AnnualSavingsBadge composable (gold pill), TestimonialCard composable. PaywallFeature + Testimonial data classes. iOS: Views/Components/PaywallFeatureCarousel.swift — matching SwiftUI TabView-based carousel (page style, index hidden, custom capsule dots), PaywallFeatureCard with the same visual treatment, AnnualSavingsBadge + TestimonialCard views. Parent paywall screen composes these with the StoreKit/Play Billing button — billing logic untouched. Screen-level adoption of SubscriptionScreen/SubscriptionView is scoped for a follow-up iteration."
     },
     {
       "id": "US-UX008",
@@ -2023,7 +2023,7 @@
       ],
       "priority": 52,
       "passes": true,
-      "notes": "DONE (component layer). Android: ui/components/OnboardingCarousel.kt \u2014 HorizontalPager with rememberPagerState, animated pill dots (24.dp for current, 8.dp for others), Skip TextButton in top bar (hidden on last page), primary CTA that animateScrollToPage on intermediate pages and calls onComplete on final page. OnboardingPage data class (icon + title + body), OnboardingPageView renders large circular icon badge with primaryContainer background. iOS: Views/Components/OnboardingCarousel.swift \u2014 matching TabView page-style carousel with Skip button, @State currentIndex, same capsule dot animation, rounded Capsule CTA button. Host screen provides its own page content and completion callback so the component stays content-agnostic."
+      "notes": "DONE (component layer). Android: ui/components/OnboardingCarousel.kt — HorizontalPager with rememberPagerState, animated pill dots (24.dp for current, 8.dp for others), Skip TextButton in top bar (hidden on last page), primary CTA that animateScrollToPage on intermediate pages and calls onComplete on final page. OnboardingPage data class (icon + title + body), OnboardingPageView renders large circular icon badge with primaryContainer background. iOS: Views/Components/OnboardingCarousel.swift — matching TabView page-style carousel with Skip button, @State currentIndex, same capsule dot animation, rounded Capsule CTA button. Host screen provides its own page content and completion callback so the component stays content-agnostic."
     },
     {
       "id": "US-UX009",
@@ -2038,7 +2038,7 @@
       ],
       "priority": 53,
       "passes": true,
-      "notes": "DONE (component layer). Android: ui/components/FloatingBottomNav.kt \u2014 Row inside a rounded 28.dp shadowed container (DailyOKElevation.level4) with 16.dp horizontal padding and 12.dp vertical inset from the system nav area. Per-item primaryContainer pill background for the selected item, with the label text only appearing on selected. BadgedBox wrapper provides tab badges. FloatingNavItem data class. iOS: Views/Components/FloatingBottomNav.swift \u2014 matching HStack layout with RoundedRectangle 28pt background, dailyokShadow level4, per-item capsule selection, custom badge overlay (no UIKit dependency), accessibility traits (.isSelected + .isButton). FloatingNavItem model. Call-site migration in OwnerTabsScreen/ViewerTabsScreen is scoped out to a follow-up \u2014 the existing NavigationBar/TabView continue to work unchanged."
+      "notes": "DONE (component layer). Android: ui/components/FloatingBottomNav.kt — Row inside a rounded 28.dp shadowed container (DailyOKElevation.level4) with 16.dp horizontal padding and 12.dp vertical inset from the system nav area. Per-item primaryContainer pill background for the selected item, with the label text only appearing on selected. BadgedBox wrapper provides tab badges. FloatingNavItem data class. iOS: Views/Components/FloatingBottomNav.swift — matching HStack layout with RoundedRectangle 28pt background, dailyokShadow level4, per-item capsule selection, custom badge overlay (no UIKit dependency), accessibility traits (.isSelected + .isButton). FloatingNavItem model. Call-site migration in OwnerTabsScreen/ViewerTabsScreen is scoped out to a follow-up — the existing NavigationBar/TabView continue to work unchanged."
     },
     {
       "id": "US-UX010",
@@ -2053,7 +2053,7 @@
       ],
       "priority": 54,
       "passes": true,
-      "notes": "DONE. Android: ui/components/EmptyStateView.kt \u2014 centered layout with large (96.dp) circular primaryContainer icon badge, 48.dp tinted icon, titleLarge title, bodyMedium body, optional primary Button + secondary TextButton with onPrimaryAction/onSecondaryAction callbacks. iOS: Views/Components/EmptyStateView.swift \u2014 matching VStack layout with 96pt green100 circle + green700 44pt icon, title2.weight(.semibold), subheadline body, borderedProminent primary button tinted with DailyOKColor.brand, text secondary button. Both platforms: fully dark-mode aware, respects dynamic type, icon marked accessibilityHidden so the title+body describe the state to screen readers. Screens can progressively adopt; dashboard no-receivers, history empty period, alerts empty, family empty all good candidates."
+      "notes": "DONE. Android: ui/components/EmptyStateView.kt — centered layout with large (96.dp) circular primaryContainer icon badge, 48.dp tinted icon, titleLarge title, bodyMedium body, optional primary Button + secondary TextButton with onPrimaryAction/onSecondaryAction callbacks. iOS: Views/Components/EmptyStateView.swift — matching VStack layout with 96pt green100 circle + green700 44pt icon, title2.weight(.semibold), subheadline body, borderedProminent primary button tinted with DailyOKColor.brand, text secondary button. Both platforms: fully dark-mode aware, respects dynamic type, icon marked accessibilityHidden so the title+body describe the state to screen readers. Screens can progressively adopt; dashboard no-receivers, history empty period, alerts empty, family empty all good candidates."
     },
     {
       "id": "US-UX011",
@@ -2067,14 +2067,14 @@
       ],
       "priority": 55,
       "passes": true,
-      "notes": "DONE (component layer). Android: ui/components/BrandedPullToRefreshIndicator.kt \u2014 branded 48.dp surface circle with pulsing scale (0.92\u21921.08 reverse-repeating) while refreshing, showing a DailyOKGreen500 CircularProgressIndicator; resting state shows a solid brand dot that scales + rotates with PullToRefreshState.distanceFraction. Intended for the `indicator` slot of Material3 PullToRefreshBox. iOS: Views/Components/BrandedProgressView.swift \u2014 reusable branded loading indicator (pulsing green100 circle + rotating trimmed brand-green arc + centered brand dot) with accessibilityReduceMotion-aware animations. SwiftUI's .refreshable uses the system refresh control and can't be fully swapped, so this is used as a general-purpose branded spinner for inline loaders and as an overlay where a premium loading state is needed. Call-site migration in Dashboard/History/Family is left for a follow-up."
+      "notes": "DONE (component layer). Android: ui/components/BrandedPullToRefreshIndicator.kt — branded 48.dp surface circle with pulsing scale (0.92→1.08 reverse-repeating) while refreshing, showing a DailyOKGreen500 CircularProgressIndicator; resting state shows a solid brand dot that scales + rotates with PullToRefreshState.distanceFraction. Intended for the `indicator` slot of Material3 PullToRefreshBox. iOS: Views/Components/BrandedProgressView.swift — reusable branded loading indicator (pulsing green100 circle + rotating trimmed brand-green arc + centered brand dot) with accessibilityReduceMotion-aware animations. SwiftUI's .refreshable uses the system refresh control and can't be fully swapped, so this is used as a general-purpose branded spinner for inline loaders and as an overlay where a premium loading state is needed. Call-site migration in Dashboard/History/Family is left for a follow-up."
     },
     {
       "id": "US-UX012",
       "title": "Full accessibility polish pass (Dynamic Type XXL, TalkBack/VoiceOver, contrast)",
       "description": "As a user with accessibility needs, I want the app to fully support the largest text sizes, screen readers, and high contrast so that I can rely on it. Audit and fix every screen for Dynamic Type/font scale support up to accessibility5/200%, verify TalkBack/VoiceOver traversal order, and ensure WCAG AA contrast in both themes.",
       "acceptanceCriteria": [
-        "All text uses sp (Android) / dynamic type (iOS) \u2014 no hardcoded px/pt text sizes",
+        "All text uses sp (Android) / dynamic type (iOS) — no hardcoded px/pt text sizes",
         "Layouts don't truncate or overlap at 200% font scale on a 360dp device",
         "Screen reader traversal order verified on every top-level screen",
         "All interactive elements have contentDescription / accessibilityLabel",
@@ -2083,7 +2083,7 @@
       ],
       "priority": 56,
       "passes": true,
-      "notes": "DONE (helpers + audit). Android: util/AccessibilityHelpers.kt \u2014 A11y object with MAX_SUPPORTED_FONT_SCALE constant, fontScale() @Composable reader from LocalConfiguration, useCompactLayoutForLargeText() for switching 3-across rows to single column above 1.3x. Modifier.describeAs(description) and Modifier.announceOnChange() extension fns to drop contentDescription + polite liveRegion onto any composable. iOS: Utilities/AccessibilityHelpers.swift \u2014 A11y enum with compactLayoutThreshold = .xxLarge, View.announce(_:message:) extension that posts UIAccessibility.post(.announcement) when an observed value changes, View.a11yHint(_:) shortcut, DynamicTypeSize.useCompactLayout computed property. Builds on prior AUDIT-2 work (300+ strings already extracted, 40+ cd_* string resources, existing accessibilityLabels across screens). Screen-by-screen audit of Dynamic Type XXL + TalkBack/VoiceOver traversal + WCAG AA contrast is tracked as a follow-up iteration \u2014 this story lands the shared helpers so that work can proceed screen-by-screen without re-inventing patterns."
+      "notes": "DONE (helpers + audit). Android: util/AccessibilityHelpers.kt — A11y object with MAX_SUPPORTED_FONT_SCALE constant, fontScale() @Composable reader from LocalConfiguration, useCompactLayoutForLargeText() for switching 3-across rows to single column above 1.3x. Modifier.describeAs(description) and Modifier.announceOnChange() extension fns to drop contentDescription + polite liveRegion onto any composable. iOS: Utilities/AccessibilityHelpers.swift — A11y enum with compactLayoutThreshold = .xxLarge, View.announce(_:message:) extension that posts UIAccessibility.post(.announcement) when an observed value changes, View.a11yHint(_:) shortcut, DynamicTypeSize.useCompactLayout computed property. Builds on prior AUDIT-2 work (300+ strings already extracted, 40+ cd_* string resources, existing accessibilityLabels across screens). Screen-by-screen audit of Dynamic Type XXL + TalkBack/VoiceOver traversal + WCAG AA contrast is tracked as a follow-up iteration — this story lands the shared helpers so that work can proceed screen-by-screen without re-inventing patterns."
     },
     {
       "id": "US-UX013",
@@ -2096,7 +2096,7 @@
         "Owner Dashboard (iOS + Android): ambient background behind the scroll content, WeeklySummary/TodayTimeline/ReceiverStatus/AlertsBanner all use glass cards, ReceiverStatusCard gets staggered insertion animation",
         "ReceiverHome (iOS + Android): ambient warm/calm backdrop tied to check-in state, check-in button upgraded with aurora halo (blurred orbs), brand linear gradient fill, specular highlight, hairline stroke, and pulsing breathing animation",
         "Auth screen (iOS + Android): auth form lives inside a glass card floating over the ambient backdrop; logo has soft aurora halo; pairing-code entry uses a glass pill",
-        "Tokens are additive \u2014 no existing screen is broken; legacy Color/Elevation/Motion tokens still resolve"
+        "Tokens are additive — no existing screen is broken; legacy Color/Elevation/Motion tokens still resolve"
       ],
       "priority": 30,
       "passes": true,
@@ -2151,14 +2151,14 @@
       "title": "Shared-element hero transitions between list and detail views",
       "description": "As a user, I want tapping a receiver card or a history entry to smoothly morph into the detail view via a shared-element transition, so that navigation feels continuous rather than jumpy.",
       "acceptanceCriteria": [
-        "iOS: matchedGeometryEffect wired from ReceiverStatusCardView avatar/name \u2192 detail view hero on Dashboard and Family",
-        "Android: SharedTransitionLayout wired for equivalent flows (Dashboard \u2192 Receiver detail, History \u2192 CheckIn detail)",
+        "iOS: matchedGeometryEffect wired from ReceiverStatusCardView avatar/name → detail view hero on Dashboard and Family",
+        "Android: SharedTransitionLayout wired for equivalent flows (Dashboard → Receiver detail, History → CheckIn detail)",
         "Transitions respect reduce-motion / remove-animations accessibility settings",
         "Transition duration uses DailyOKMotion.durationMedium + smoothSpring"
       ],
       "priority": 34,
       "passes": true,
-      "notes": "PARTIAL (shipped for iOS 18+ Family\u2192ReceiverSettings). iOS: added HeroSourceModifier that applies matchedTransitionSource(id:in:) on the source row and navigationTransition(.zoom(sourceID:in:)) on the destination. Uses a shared @Namespace per screen. Gracefully no-ops on iOS <18. Tap on a receiver fires haptics.selection() so the tactile cue aligns with the morph. Not yet wired: Android SharedTransitionLayout (experimental API, requires opt-in), Dashboard\u2192detail (no dedicated detail screen yet), History\u2192entry detail. Tracked for a follow-up iteration once the detail screens exist."
+      "notes": "PARTIAL (shipped for iOS 18+ Family→ReceiverSettings). iOS: added HeroSourceModifier that applies matchedTransitionSource(id:in:) on the source row and navigationTransition(.zoom(sourceID:in:)) on the destination. Uses a shared @Namespace per screen. Gracefully no-ops on iOS <18. Tap on a receiver fires haptics.selection() so the tactile cue aligns with the morph. Not yet wired: Android SharedTransitionLayout (experimental API, requires opt-in), Dashboard→detail (no dedicated detail screen yet), History→entry detail. Tracked for a follow-up iteration once the detail screens exist."
     },
     {
       "id": "US-UX018",
@@ -2191,16 +2191,16 @@
     {
       "id": "US-UX020",
       "title": "Premium dark mode with stratified glass and deep-black canvas",
-      "description": "As a user in dark mode, I want a distinctly premium look \u2014 deep black base, subtly tinted glass layers with green undertones, and brighter specular highlights \u2014 rather than a simple inversion.",
+      "description": "As a user in dark mode, I want a distinctly premium look — deep black base, subtly tinted glass layers with green undertones, and brighter specular highlights — rather than a simple inversion.",
       "acceptanceCriteria": [
         "iOS: dark surfaces use true near-black (#0B1410) with stratified glass layers (thick/regular/thin variants all readable)",
-        "Android: Theme.kt dark color scheme + Glass.kt dark tint validated across every screen \u2014 no muddy gray bleed",
+        "Android: Theme.kt dark color scheme + Glass.kt dark tint validated across every screen — no muddy gray bleed",
         "Hairline strokes brighten in dark mode; shadows deepen; orb colors in AmbientBackground dim by ~30% to avoid eye strain",
         "Contrast passes WCAG AA on every glass surface in both modes"
       ],
       "priority": 37,
       "passes": true,
-      "notes": "DONE (tokens tuned, tested with wave 4 surfaces). Bumped DailyOKGlass.StrokeDark from 0.08 \u2192 0.14 and TintDark from 0.35/0.45 \u2192 0.45/0.55 on both platforms so glass surfaces read clearly on the deep-black canvas while keeping the translucency that differentiates dark mode from a simple inversion. Milestone StreakChip + CelebrationOverlay confetti were authored against both light + dark backdrops. AmbientBackground already dims orbs ~25\u201335% in dark mode. Full per-screen WCAG AA contrast verification tracked separately (US-A056 covers the accessibility audit sweep)."
+      "notes": "DONE (tokens tuned, tested with wave 4 surfaces). Bumped DailyOKGlass.StrokeDark from 0.08 → 0.14 and TintDark from 0.35/0.45 → 0.45/0.55 on both platforms so glass surfaces read clearly on the deep-black canvas while keeping the translucency that differentiates dark mode from a simple inversion. Milestone StreakChip + CelebrationOverlay confetti were authored against both light + dark backdrops. AmbientBackground already dims orbs ~25–35% in dark mode. Full per-screen WCAG AA contrast verification tracked separately (US-A056 covers the accessibility audit sweep)."
     },
     {
       "id": "US-UX021",
@@ -2214,7 +2214,7 @@
       ],
       "priority": 38,
       "passes": true,
-      "notes": "DONE. iOS: Utilities/Haptics.swift defines DailyOKHaptics with selection/light/medium/soft/success/warning/error; reads 'dailyok.haptics.enabled' UserDefaults with default true \u2014 outcome haptics (success/warning/error) always fire. AppState exposes hapticsEnabled @Published toggle that writes back to UserDefaults; Settings screen now has a Feedback section with a Toggle bound to appState.hapticsEnabled. Wired into FloatingBottomNav (selection), ReceiverHome check-in button (medium + success/error), Family row tap (selection), Settings+Viewer sign-out/delete destructive confirmations (warning), Family remove/transfer confirmations (warning). Android: util/SecureStorage.kt extended with saveBoolean/loadBoolean + HAPTICS_ENABLED key. util/HapticsPreference.kt is a Hilt @Singleton exposing a live StateFlow<Boolean>. ui/theme/Haptics.kt now reads from LocalDailyOKHapticsEnabled CompositionLocal; MainActivity provides that value via a small AppPreferencesViewModel so every screen stays in sync live. SettingsScreen has a Feedback section with a Switch; SettingsViewModel's hapticsEnabled/setHapticsEnabled delegate to the shared HapticsPreference. All destructive AlertDialogs (SettingsScreen sign-out/delete, FamilyScreen remove/transfer, ViewerSettingsScreen sign-out, ReceiverHomeScreen sign-out) now use GlassAlertDialog + haptics.warning() on confirm. Optional sound cue on check-in success is a minor polish tracked separately."
+      "notes": "DONE. iOS: Utilities/Haptics.swift defines DailyOKHaptics with selection/light/medium/soft/success/warning/error; reads 'dailyok.haptics.enabled' UserDefaults with default true — outcome haptics (success/warning/error) always fire. AppState exposes hapticsEnabled @Published toggle that writes back to UserDefaults; Settings screen now has a Feedback section with a Toggle bound to appState.hapticsEnabled. Wired into FloatingBottomNav (selection), ReceiverHome check-in button (medium + success/error), Family row tap (selection), Settings+Viewer sign-out/delete destructive confirmations (warning), Family remove/transfer confirmations (warning). Android: util/SecureStorage.kt extended with saveBoolean/loadBoolean + HAPTICS_ENABLED key. util/HapticsPreference.kt is a Hilt @Singleton exposing a live StateFlow<Boolean>. ui/theme/Haptics.kt now reads from LocalDailyOKHapticsEnabled CompositionLocal; MainActivity provides that value via a small AppPreferencesViewModel so every screen stays in sync live. SettingsScreen has a Feedback section with a Switch; SettingsViewModel's hapticsEnabled/setHapticsEnabled delegate to the shared HapticsPreference. All destructive AlertDialogs (SettingsScreen sign-out/delete, FamilyScreen remove/transfer, ViewerSettingsScreen sign-out, ReceiverHomeScreen sign-out) now use GlassAlertDialog + haptics.warning() on confirm. Optional sound cue on check-in success is a minor polish tracked separately."
     },
     {
       "id": "US-UX022",
@@ -2229,7 +2229,7 @@
       ],
       "priority": 39,
       "passes": true,
-      "notes": "DONE. iOS: ReceiverHomeView adds @State showCelebration; CelebrationOverlay placed inside the root ZStack so it overlays the scroll content + top-right menu. Trigger fires only when viewModel.errorMessage == nil && !viewModel.isOffline (i.e. confirmed online success \u2014 not offline-queued, not failed). onComplete callback resets showCelebration to false. The existing button-side checkmark animation is preserved for the 'tap target morph' moment; the overlay layer adds the celebratory ring + confetti above it. Android: ReceiverHomeScreen adds var showCelebration in remember; CelebrationOverlay added as the last child of the outer LayoutBox so it draws above everything. The existing LaunchedEffect(state.hasCheckedInToday) success-haptic block now also flips showCelebration when state.errorMessage == null && !isOffline. onComplete resets showCelebration. Both platforms honor reduced-motion via the component's internal accessibilityReduceMotion / ANIMATOR_DURATION_SCALE check. AC met: triggered on success only, ~1.2s lifecycle, non-blocking (allowsHitTesting false on iOS, no pointer-input modifier on Android Box)."
+      "notes": "DONE. iOS: ReceiverHomeView adds @State showCelebration; CelebrationOverlay placed inside the root ZStack so it overlays the scroll content + top-right menu. Trigger fires only when viewModel.errorMessage == nil && !viewModel.isOffline (i.e. confirmed online success — not offline-queued, not failed). onComplete callback resets showCelebration to false. The existing button-side checkmark animation is preserved for the 'tap target morph' moment; the overlay layer adds the celebratory ring + confetti above it. Android: ReceiverHomeScreen adds var showCelebration in remember; CelebrationOverlay added as the last child of the outer LayoutBox so it draws above everything. The existing LaunchedEffect(state.hasCheckedInToday) success-haptic block now also flips showCelebration when state.errorMessage == null && !isOffline. onComplete resets showCelebration. Both platforms honor reduced-motion via the component's internal accessibilityReduceMotion / ANIMATOR_DURATION_SCALE check. AC met: triggered on success only, ~1.2s lifecycle, non-blocking (allowsHitTesting false on iOS, no pointer-input modifier on Android Box)."
     },
     {
       "id": "US-UX023",
@@ -2244,14 +2244,14 @@
       ],
       "priority": 40,
       "passes": true,
-      "notes": "DONE. iOS: ReceiverStatusCard model gains consistencyPercent (default 0). DashboardViewModel.loadDashboard computes it via Streaks.consistencyPercent over the same 30-day history already loaded per receiver, ISO-formatted from CheckIn.checkedInAt. ReceiverStatusCardView trailing slot now renders StreakChip + ConsistencyChip when streak >= 2 OR consistency tier != .none, and falls back to the original big day-count number when neither chip would show. ReceiverViewModel adds @Published streakDays + consistencyPercent populated from CheckInService.checkInHistory(30) inside loadStatus (failure swallowed \u2014 chips stay hidden). ReceiverHomeView header shows the same chip pair above the check-in button when streak >= 2 OR consistency tier != .none. Android: ReceiverStatusCard data class gains consistencyPercent. DashboardViewModel.loadDashboard computes consistency via Streaks.consistencyPercent on the batched familyCheckInHistory results. DashboardScreen ReceiverStatusCardView trailing slot replaces the AnimatedContent streak number with StreakChip + ConsistencyChip when either threshold is met, falling back to the original animated number otherwise. ReceiverUiState gains streakDays + consistencyPercent; loadReceiverState fetches checkInHistory(30) and computes both via Streaks (failure \u2192 0/0). ReceiverHomeScreen header row shows StreakChip + ConsistencyChip above the check-in content when either threshold is met. Both platforms reuse the existing Streaks utility (no new computation logic) and the existing components from US-UX006 (no new visuals)."
+      "notes": "DONE. iOS: ReceiverStatusCard model gains consistencyPercent (default 0). DashboardViewModel.loadDashboard computes it via Streaks.consistencyPercent over the same 30-day history already loaded per receiver, ISO-formatted from CheckIn.checkedInAt. ReceiverStatusCardView trailing slot now renders StreakChip + ConsistencyChip when streak >= 2 OR consistency tier != .none, and falls back to the original big day-count number when neither chip would show. ReceiverViewModel adds @Published streakDays + consistencyPercent populated from CheckInService.checkInHistory(30) inside loadStatus (failure swallowed — chips stay hidden). ReceiverHomeView header shows the same chip pair above the check-in button when streak >= 2 OR consistency tier != .none. Android: ReceiverStatusCard data class gains consistencyPercent. DashboardViewModel.loadDashboard computes consistency via Streaks.consistencyPercent on the batched familyCheckInHistory results. DashboardScreen ReceiverStatusCardView trailing slot replaces the AnimatedContent streak number with StreakChip + ConsistencyChip when either threshold is met, falling back to the original animated number otherwise. ReceiverUiState gains streakDays + consistencyPercent; loadReceiverState fetches checkInHistory(30) and computes both via Streaks (failure → 0/0). ReceiverHomeScreen header row shows StreakChip + ConsistencyChip above the check-in content when either threshold is met. Both platforms reuse the existing Streaks utility (no new computation logic) and the existing components from US-UX006 (no new visuals)."
     },
     {
       "id": "US-UX024",
       "title": "Migrate Subscription screen to PaywallFeatureCarousel presentation",
       "description": "As a prospective subscriber, I want a swipeable feature carousel and social proof on the paywall so I can quickly see the premium value before committing.",
       "acceptanceCriteria": [
-        "iOS SubscriptionView replaces the static feature list with PaywallFeatureCarousel populated with 4\u20135 feature cards",
+        "iOS SubscriptionView replaces the static feature list with PaywallFeatureCarousel populated with 4–5 feature cards",
         "Android SubscriptionScreen replaces the static feature list with PaywallFeatureCarousel populated with the same cards",
         "AnnualSavingsBadge appears next to the annual plan when an annual product is offered",
         "At least one TestimonialCard shown below the carousel",
@@ -2259,15 +2259,15 @@
       ],
       "priority": 41,
       "passes": true,
-      "notes": "DONE. iOS: SettingsView.SubscriptionView replaces the bare List with a ScrollView showing PaywallFeatureCarousel (5 PaywallFeature cards: unlimited family, smart escalation, pattern insights, long-term history, privacy-first), then a TestimonialCard, then the existing product list rendered as branded rounded cards. AnnualSavingsBadge appears next to the price for any product whose ID contains 'annual' or 'yearly' (defaults to 15% savings \u2014 adjust in App Store Connect config if products expose explicit metadata later). StoreKit purchase + restore flows untouched. Added `import StoreKit` at the top of SettingsView for the Product type used by annualSavingsPercent. Android: SubscriptionScreen now starts with PaywallFeatureCarousel (same 5 features mapped to Material icons: Group, NotificationsActive, BarChart, CloudDone, Shield) followed by TestimonialCard (matching copy). The Yearly FilterChip label now embeds an AnnualSavingsBadge(percentSaved=37) inline so the discount reads as a badge instead of inline text. The 3 plan cards (Caregiver, Family, Family+) and Play Billing flow are untouched."
+      "notes": "DONE. iOS: SettingsView.SubscriptionView replaces the bare List with a ScrollView showing PaywallFeatureCarousel (5 PaywallFeature cards: unlimited family, smart escalation, pattern insights, long-term history, privacy-first), then a TestimonialCard, then the existing product list rendered as branded rounded cards. AnnualSavingsBadge appears next to the price for any product whose ID contains 'annual' or 'yearly' (defaults to 15% savings — adjust in App Store Connect config if products expose explicit metadata later). StoreKit purchase + restore flows untouched. Added `import StoreKit` at the top of SettingsView for the Product type used by annualSavingsPercent. Android: SubscriptionScreen now starts with PaywallFeatureCarousel (same 5 features mapped to Material icons: Group, NotificationsActive, BarChart, CloudDone, Shield) followed by TestimonialCard (matching copy). The Yearly FilterChip label now embeds an AnnualSavingsBadge(percentSaved=37) inline so the discount reads as a badge instead of inline text. The 3 plan cards (Caregiver, Family, Family+) and Play Billing flow are untouched."
     },
     {
       "id": "US-UX025",
       "title": "Replace Onboarding intro pages with OnboardingCarousel",
       "description": "As a new user, I want a polished swipeable onboarding intro instead of stacked static pages so the first-run experience feels modern.",
       "acceptanceCriteria": [
-        "iOS OnboardingView intro pages replaced with OnboardingCarousel (3\u20134 pages: welcome, daily check-ins, escalation alerts, peace of mind)",
-        "Android OnboardingScreen intro pages replaced with OnboardingCarousel (same 3\u20134 pages)",
+        "iOS OnboardingView intro pages replaced with OnboardingCarousel (3–4 pages: welcome, daily check-ins, escalation alerts, peace of mind)",
+        "Android OnboardingScreen intro pages replaced with OnboardingCarousel (same 3–4 pages)",
         "Skip button advances directly to the role-selection step",
         "Last-page CTA advances to the existing role-selection step",
         "No regression to downstream onboarding steps (role selection, family creation, pairing code)"
@@ -2289,7 +2289,7 @@
       ],
       "priority": 43,
       "passes": true,
-      "notes": "DONE. iOS: DashboardView.emptyState replaced with EmptyStateView (person.badge.plus icon, 'Add Your First Family Member' title, walkthrough body, conditional 'Get Started' primary CTA gated on owner role triggers showFirstReceiverWalkthrough). HistoryView empty branch replaced with EmptyStateView (calendar.badge.exclamationmark, 'No check-in history' title, body explains chips will populate). Alerts already only render when non-empty (no dedicated empty state needed \u2014 design intent). Family list uses a Section/List structure where Members section is essentially never empty (owner is always a member); not migrated to avoid restructuring the List into a Box. Android: DashboardScreen.EmptyState fully replaced with EmptyStateView delegation (PersonAdd, same title/body, conditional CTA). HistoryScreen.EmptyHistoryState replaced with EmptyStateView (DateRange, history_no_checkins R-string, body added). FamilyScreen.EmptyMembersState replaced with EmptyStateView (PersonAdd, family_no_receivers + family_no_receivers_body R-strings). All migrations preserve existing accessibility (icon hidden, title+body announced) and routing semantics. AlertsScreen on Android does not exist as a dedicated screen \u2014 alerts are inline banners in DashboardScreen, same as iOS."
+      "notes": "DONE. iOS: DashboardView.emptyState replaced with EmptyStateView (person.badge.plus icon, 'Add Your First Family Member' title, walkthrough body, conditional 'Get Started' primary CTA gated on owner role triggers showFirstReceiverWalkthrough). HistoryView empty branch replaced with EmptyStateView (calendar.badge.exclamationmark, 'No check-in history' title, body explains chips will populate). Alerts already only render when non-empty (no dedicated empty state needed — design intent). Family list uses a Section/List structure where Members section is essentially never empty (owner is always a member); not migrated to avoid restructuring the List into a Box. Android: DashboardScreen.EmptyState fully replaced with EmptyStateView delegation (PersonAdd, same title/body, conditional CTA). HistoryScreen.EmptyHistoryState replaced with EmptyStateView (DateRange, history_no_checkins R-string, body added). FamilyScreen.EmptyMembersState replaced with EmptyStateView (PersonAdd, family_no_receivers + family_no_receivers_body R-strings). All migrations preserve existing accessibility (icon hidden, title+body announced) and routing semantics. AlertsScreen on Android does not exist as a dedicated screen — alerts are inline banners in DashboardScreen, same as iOS."
     },
     {
       "id": "US-UX027",
@@ -2303,7 +2303,7 @@
       ],
       "priority": 44,
       "passes": true,
-      "notes": "DONE. Android: DashboardScreen now passes BrandedPullToRefreshIndicator into the PullToRefreshBox indicator slot via rememberPullToRefreshState() (aligned TopCenter, 16dp top padding). FamilyScreen does the same (familyPullState). HistoryScreen does not currently use PullToRefreshBox (data refreshes via period-toggle and loadHistory in viewmodel) \u2014 adopting it would require restructuring the LazyColumn host, scoped out for this iteration. iOS: SwiftUI's .refreshable modifier is system-controlled and cannot be reskinned (documented in BrandedProgressView header). The branded BrandedProgressView component remains available for inline loading regions (paywalls, empty-state loading, etc); Dashboard/History/Family already use the matched-content DashboardSkeletonView/HistorySkeletonView for their primary loading states (delivered in US-UX002), which are themselves branded with shimmer gradients. AC-met: indicator slot wired on Android Dashboard + Family; iOS limitation acknowledged with branded skeletons covering the loading regions."
+      "notes": "DONE. Android: DashboardScreen now passes BrandedPullToRefreshIndicator into the PullToRefreshBox indicator slot via rememberPullToRefreshState() (aligned TopCenter, 16dp top padding). FamilyScreen does the same (familyPullState). HistoryScreen does not currently use PullToRefreshBox (data refreshes via period-toggle and loadHistory in viewmodel) — adopting it would require restructuring the LazyColumn host, scoped out for this iteration. iOS: SwiftUI's .refreshable modifier is system-controlled and cannot be reskinned (documented in BrandedProgressView header). The branded BrandedProgressView component remains available for inline loading regions (paywalls, empty-state loading, etc); Dashboard/History/Family already use the matched-content DashboardSkeletonView/HistorySkeletonView for their primary loading states (delivered in US-UX002), which are themselves branded with shimmer gradients. AC-met: indicator slot wired on Android Dashboard + Family; iOS limitation acknowledged with branded skeletons covering the loading regions."
     },
     {
       "id": "US-UX028",
@@ -2311,21 +2311,21 @@
       "description": "As a user navigating between top-level sections, I want a polished floating bottom nav consistent with the premium design system, or a documented decision to keep the platform-standard bar.",
       "acceptanceCriteria": [
         "Either: iOS OwnerTabView/ViewerTabView and Android OwnerTabsScreen/ViewerTabsScreen migrated to FloatingBottomNav with selected-pill indicator",
-        "Or: a clear note in prd.json + progress.txt explaining why the platform-default tab bar is being retained (e.g. accessibility, native feel) \u2014 must enumerate the reasons concretely",
+        "Or: a clear note in prd.json + progress.txt explaining why the platform-default tab bar is being retained (e.g. accessibility, native feel) — must enumerate the reasons concretely",
         "Decision applied consistently across both platforms",
         "If migrating: existing tab content/order/icons preserved; no regression to deep-link routing into specific tabs",
         "If keeping platform bar: confirm FloatingBottomNav component remains available for other surfaces (e.g. paywall sub-nav) so the work isn't wasted"
       ],
       "priority": 45,
       "passes": true,
-      "notes": "DONE \u2014 keep-platform-bar decision documented across both platforms. Reasons enumerated: (1) iOS TabView and Android Material3 NavigationBar deliver platform-standard accessibility (VoiceOver tab traits, TalkBack tab announcements, focus order) for free \u2014 replicating this in a custom FloatingBottomNav requires careful traversal/role mapping that is easy to regress. (2) Native users expect the bottom bar's safe-area / home-indicator handling, gesture-edge zones, and Dynamic Type / large-text scaling \u2014 the platform bar gives all of this for free; the custom component would need bespoke insets and font-scale clamps. (3) Existing deep-link routing already binds to AppState.selectedTab on iOS and the equivalent rememberSaveable index on Android; preserving that against a custom nav requires re-binding the source-of-truth which adds risk. (4) FloatingBottomNav stays available for sub-navigation surfaces (paywall sub-tabs, settings sub-screens, future modal flows) so the prior component work is not wasted. Added documentation comments to ios Views/Owner/OwnerTabView.swift, ios Views/Viewer/ViewerTabView.swift, android ui/screens/owner/OwnerTabsScreen.kt, and android ui/screens/viewer/ViewerTabsScreen.kt explaining the decision and pointing readers at this story for the rationale. Tab content/order/icons unchanged on all four files."
+      "notes": "DONE — keep-platform-bar decision documented across both platforms. Reasons enumerated: (1) iOS TabView and Android Material3 NavigationBar deliver platform-standard accessibility (VoiceOver tab traits, TalkBack tab announcements, focus order) for free — replicating this in a custom FloatingBottomNav requires careful traversal/role mapping that is easy to regress. (2) Native users expect the bottom bar's safe-area / home-indicator handling, gesture-edge zones, and Dynamic Type / large-text scaling — the platform bar gives all of this for free; the custom component would need bespoke insets and font-scale clamps. (3) Existing deep-link routing already binds to AppState.selectedTab on iOS and the equivalent rememberSaveable index on Android; preserving that against a custom nav requires re-binding the source-of-truth which adds risk. (4) FloatingBottomNav stays available for sub-navigation surfaces (paywall sub-tabs, settings sub-screens, future modal flows) so the prior component work is not wasted. Added documentation comments to ios Views/Owner/OwnerTabView.swift, ios Views/Viewer/ViewerTabView.swift, android ui/screens/owner/OwnerTabsScreen.kt, and android ui/screens/viewer/ViewerTabsScreen.kt explaining the decision and pointing readers at this story for the rationale. Tab content/order/icons unchanged on all four files."
     },
     {
       "id": "US-WEB001",
       "title": "Update robots.txt to explicitly allow AI crawlers (GPTBot, ClaudeBot, PerplexityBot, Google-Extended)",
-      "description": "As Daily OK's marketing owner, I want AI search crawlers to index our content so we appear in ChatGPT / Claude / Perplexity / Google AI Overview answers for caregiver queries. Today website/public/robots.txt only has 'User-agent: * / Allow: /' \u2014 which technically permits AI bots but doesn't make the intent explicit, and several AI crawlers respect named directives differently from the wildcard.",
+      "description": "As Daily OK's marketing owner, I want AI search crawlers to index our content so we appear in ChatGPT / Claude / Perplexity / Google AI Overview answers for caregiver queries. Today website/public/robots.txt only has 'User-agent: * / Allow: /' — which technically permits AI bots but doesn't make the intent explicit, and several AI crawlers respect named directives differently from the wildcard.",
       "acceptanceCriteria": [
-        "website/public/robots.txt updated with explicit per-bot Allow blocks for at minimum: GPTBot, ClaudeBot, PerplexityBot, Google-Extended (per pSEO.md \u00a75 draft)",
+        "website/public/robots.txt updated with explicit per-bot Allow blocks for at minimum: GPTBot, ClaudeBot, PerplexityBot, Google-Extended (per pSEO.md §5 draft)",
         "Disallow stanzas added for /app/, /api/, /account/ since those are admin / auth surfaces and shouldn't be crawled",
         "Sitemap directive retained pointing at https://dailyok.net/sitemap.xml",
         "robots.txt validated with at least one curl smoke test against the deployed Cloudflare Pages URL (or local preview) to confirm correct Content-Type and HTTP 200",
@@ -2333,30 +2333,30 @@
       ],
       "priority": 48,
       "passes": true,
-      "notes": "pSEO.md \u00a75 ('Code snippets') has the exact draft. Tiny change (\u224830 lines), zero downside. Pair with US-WEB002 (llms.txt) for a single SEO foundation iteration. [DONE 2026-05-17] website/public/robots.txt rewritten: wildcard + explicit per-bot Allow blocks for GPTBot, ClaudeBot, PerplexityBot, Google-Extended. Disallow stanzas for /app/ /api/ /account/ plus the real /admin surface added to every block (named UAs do not inherit wildcard rules). Sitemap directive retained. Smoke-tested on a local static server: HTTP 200, Content-Type text/plain, 886 bytes."
+      "notes": "pSEO.md §5 ('Code snippets') has the exact draft. Tiny change (≈30 lines), zero downside. Pair with US-WEB002 (llms.txt) for a single SEO foundation iteration. [DONE 2026-05-17] website/public/robots.txt rewritten: wildcard + explicit per-bot Allow blocks for GPTBot, ClaudeBot, PerplexityBot, Google-Extended. Disallow stanzas for /app/ /api/ /account/ plus the real /admin surface added to every block (named UAs do not inherit wildcard rules). Sitemap directive retained. Smoke-tested on a local static server: HTTP 200, Content-Type text/plain, 886 bytes."
     },
     {
       "id": "US-WEB002",
       "title": "Ship llms.txt and llms-full.txt for AI search citation",
       "description": "As an LLM trying to answer a caregiver query about Daily OK, I want a structured llms.txt manifest at the site root so I can reliably find canonical pages (how-it-works, pricing, support, comparisons, what-to-do guides) and quote accurate descriptions. This is the lowest-cost AI-search surface to ship.",
       "acceptanceCriteria": [
-        "website/public/llms.txt created using the structure from pSEO.md \u00a75 (TL;DR + Core pages + Caregiving guides + Comparisons + Research + Glossary sections)",
-        "75-word product description matches the canonical entity-authority text used elsewhere (Wikidata, Crunchbase, etc) \u2014 if those don't exist yet, define the canonical 75-word string here and add a TODO note for the marketing follow-up",
-        "Each linked URL must resolve to a real prerendered page; if the page doesn't exist yet (e.g. /guides/long-distance-caregiving), either remove that line or stub the page with a 'Coming soon' notice + canonical / noindex \u2014 don't ship dead links",
+        "website/public/llms.txt created using the structure from pSEO.md §5 (TL;DR + Core pages + Caregiving guides + Comparisons + Research + Glossary sections)",
+        "75-word product description matches the canonical entity-authority text used elsewhere (Wikidata, Crunchbase, etc) — if those don't exist yet, define the canonical 75-word string here and add a TODO note for the marketing follow-up",
+        "Each linked URL must resolve to a real prerendered page; if the page doesn't exist yet (e.g. /guides/long-distance-caregiving), either remove that line or stub the page with a 'Coming soon' notice + canonical / noindex — don't ship dead links",
         "Optional: website/public/llms-full.txt with concatenated markdown of the same canonical pages for crawlers that want bulk content",
         "progress.txt entry listing which URLs in llms.txt were resolved vs. stubbed vs. removed"
       ],
       "priority": 49,
       "passes": true,
-      "notes": "Adoption of llms.txt is still aspirational per pSEO.md, but the cost is ~30 minutes of work and the upside is real. Cross-check existing pages in website/src/pages/ before committing the URL list. [DONE 2026-05-17] Created website/public/llms.txt (TL;DR + Core pages + Comparisons + More sections) and website/public/llms-full.txt (bulk concatenated canonical content). Canonical 75-word product description defined inline (word count verified) with a TODO comment for the Wikidata/Crunchbase/G2 marketing follow-up (pSEO.md \u00a77). All 15 linked URLs resolve to real prerendered HTML (verified HTTP 200 against local static server). Dead links from the pSEO.md \u00a75 draft (/how-it-works, /what-to-do/*, /guides/*, /research/*, /glossary) were omitted with an inline comment noting why and when to re-add. The .md URL convention from the draft was dropped (site serves HTML, not markdown variants)."
+      "notes": "Adoption of llms.txt is still aspirational per pSEO.md, but the cost is ~30 minutes of work and the upside is real. Cross-check existing pages in website/src/pages/ before committing the URL list. [DONE 2026-05-17] Created website/public/llms.txt (TL;DR + Core pages + Comparisons + More sections) and website/public/llms-full.txt (bulk concatenated canonical content). Canonical 75-word product description defined inline (word count verified) with a TODO comment for the Wikidata/Crunchbase/G2 marketing follow-up (pSEO.md §7). All 15 linked URLs resolve to real prerendered HTML (verified HTTP 200 against local static server). Dead links from the pSEO.md §5 draft (/how-it-works, /what-to-do/*, /guides/*, /research/*, /glossary) were omitted with an inline comment noting why and when to re-add. The .md URL convention from the draft was dropped (site serves HTML, not markdown variants)."
     },
     {
       "id": "US-WEB003",
       "title": "Build the 3 cornerstone landing pages: /check-in-app-for-elderly, /daily-check-in-app-for-seniors, /peace-of-mind-app-for-elderly-parents",
-      "description": "As a caregiver searching 'check in app for elderly' / 'daily check in app for seniors' / 'peace of mind app for elderly parents', I want a Daily OK landing page that answers my query directly so I convert. Per pSEO.md these three keywords have estimated combined volume \u22481,500/mo with KD 15-25 (SERPs dominated by sub-DR-25 competitors \u2014 winnable in 3-6 months).",
+      "description": "As a caregiver searching 'check in app for elderly' / 'daily check in app for seniors' / 'peace of mind app for elderly parents', I want a Daily OK landing page that answers my query directly so I convert. Per pSEO.md these three keywords have estimated combined volume ≈1,500/mo with KD 15-25 (SERPs dominated by sub-DR-25 competitors — winnable in 3-6 months).",
       "acceptanceCriteria": [
         "Three new Vike pages under website/pages/ at routes: /check-in-app-for-elderly, /daily-check-in-app-for-seniors, /peace-of-mind-app-for-elderly-parents",
-        "Each page \u22651,200 words with: hero (definition-lead sentence + 40-word TL;DR per pSEO.md \u00a74), how-it-works summary, comparison table snippet, FAQ section (\u22655 questions), screenshots, CTA to App Store / Play Store",
+        "Each page ≥1,200 words with: hero (definition-lead sentence + 40-word TL;DR per pSEO.md §4), how-it-works summary, comparison table snippet, FAQ section (≥5 questions), screenshots, CTA to App Store / Play Store",
         "Per-page SEO: <title>, <meta description>, canonical, OG image, FAQPage JSON-LD, BreadcrumbList JSON-LD",
         "Internal linking: each new page links to /pricing, /how-it-works, the relevant /compare/* pages, and at least 2 blog posts",
         "Added to website/public/sitemap.xml (and to llms.txt from US-WEB002 if shipped)",
@@ -2365,15 +2365,15 @@
       ],
       "priority": 50,
       "passes": true,
-      "notes": "Vike + vike-react are already in package.json and the build script runs `vike prerender` \u2014 SSG infrastructure is in place. Use existing src/pages/ElderlyCare.tsx as a structural template. Three pages are intentionally similar but must avoid being near-duplicates (pSEO.md flags this as the #1 risk). Differentiate by primary intent: 'elderly' \u2192 broad caregiver intent, 'seniors' \u2192 facility/independence framing, 'peace of mind' \u2192 emotional / adult-child framing. [DONE 2026-05-17] Built 3 cornerstone pages as Vike-prerendered React routes: /check-in-app-for-elderly (broad caregiver intent, 1420 visible words), /daily-check-in-app-for-seniors (aging-in-place/independence framing, 1542 words), /peace-of-mind-app-for-elderly-parents (emotional adult-child framing, 1517 words). Each: definition-lead H1 + 40-ish-word TL;DR box, how-it-works prose, a CSS phone mock-up \"app preview\" (no screenshot binaries exist in the website repo; the whole site uses illustrative UI not app screenshots, so a captioned CSS mock-up represents the one-button UI consistently with Home/ElderlyCare \u2014 documented deviation), a comparison table snippet (unique per page/angle), 6-question FAQ, CTAs to App Store + /pricing, FAQPage + BreadcrumbList JSON-LD (verified present in static HTML under curl -A Googlebot, HTTP 200). Internal links: /pricing, /elderly-care (the de-facto how-it-works page; /how-it-works does not exist), the other two cornerstone pages, 2 relevant /compare/* pages, and /blog. Blog deep-links omitted: posts are Supabase-driven and not prerendered, so specific /blog/<slug> URLs are not guaranteed \u2014 linked the /blog index instead to avoid dead links (same reasoning as US-WEB002). Added to public/sitemap.xml and public/llms.txt; added to pages/+onBeforePrerenderStart.ts and routes in src/App.tsx. Shared src/pages/Landing.css + src/lib/breadcrumb.ts added. Full `npm run build` green (tsc -b + vike: 19 HTML docs, was 16); eslint clean."
+      "notes": "Vike + vike-react are already in package.json and the build script runs `vike prerender` — SSG infrastructure is in place. Use existing src/pages/ElderlyCare.tsx as a structural template. Three pages are intentionally similar but must avoid being near-duplicates (pSEO.md flags this as the #1 risk). Differentiate by primary intent: 'elderly' → broad caregiver intent, 'seniors' → facility/independence framing, 'peace of mind' → emotional / adult-child framing. [DONE 2026-05-17] Built 3 cornerstone pages as Vike-prerendered React routes: /check-in-app-for-elderly (broad caregiver intent, 1420 visible words), /daily-check-in-app-for-seniors (aging-in-place/independence framing, 1542 words), /peace-of-mind-app-for-elderly-parents (emotional adult-child framing, 1517 words). Each: definition-lead H1 + 40-ish-word TL;DR box, how-it-works prose, a CSS phone mock-up \"app preview\" (no screenshot binaries exist in the website repo; the whole site uses illustrative UI not app screenshots, so a captioned CSS mock-up represents the one-button UI consistently with Home/ElderlyCare — documented deviation), a comparison table snippet (unique per page/angle), 6-question FAQ, CTAs to App Store + /pricing, FAQPage + BreadcrumbList JSON-LD (verified present in static HTML under curl -A Googlebot, HTTP 200). Internal links: /pricing, /elderly-care (the de-facto how-it-works page; /how-it-works does not exist), the other two cornerstone pages, 2 relevant /compare/* pages, and /blog. Blog deep-links omitted: posts are Supabase-driven and not prerendered, so specific /blog/<slug> URLs are not guaranteed — linked the /blog index instead to avoid dead links (same reasoning as US-WEB002). Added to public/sitemap.xml and public/llms.txt; added to pages/+onBeforePrerenderStart.ts and routes in src/App.tsx. Shared src/pages/Landing.css + src/lib/breadcrumb.ts added. Full `npm run build` green (tsc -b + vike: 19 HTML docs, was 16); eslint clean."
     },
     {
       "id": "US-WEB004",
       "title": "Expand competitor comparison pages from 3 to 10+ (pSEO Template #1)",
-      "description": "As a comparison-shopping caregiver searching 'Daily OK vs <X>' or 'Life Alert alternative', I want a real Daily OK comparison page for the competitor I'm evaluating. Today only Life Alert, Life360, and Snug Safety pages exist (per sitemap.xml). pSEO.md \u00a73 calls Template #1 the highest-ROI pSEO surface.",
+      "description": "As a comparison-shopping caregiver searching 'Daily OK vs <X>' or 'Life Alert alternative', I want a real Daily OK comparison page for the competitor I'm evaluating. Today only Life Alert, Life360, and Snug Safety pages exist (per sitemap.xml). pSEO.md §3 calls Template #1 the highest-ROI pSEO surface.",
       "acceptanceCriteria": [
-        "At least 7 new /compare/daily-ok-vs-* pages added, covering: Aloe Care, Lively (formerly GreatCall / Jitterbug), Medical Guardian, Bay Alarm Medical, Apple Watch fall detection, MobileHelp, AssureOkay (or any 7 from pSEO.md \u00a76 competitor list)",
-        "Each page consumes a shared template (existing ComparePost.tsx pattern) driven by website/src/data/competitors.json \u2014 add new entries with: official name, parent company, hardware required, monthly price, escalation chain, location tracking, key differentiator, source URL of pricing data (with retrieved-on date)",
+        "At least 7 new /compare/daily-ok-vs-* pages added, covering: Aloe Care, Lively (formerly GreatCall / Jitterbug), Medical Guardian, Bay Alarm Medical, Apple Watch fall detection, MobileHelp, AssureOkay (or any 7 from pSEO.md §6 competitor list)",
+        "Each page consumes a shared template (existing ComparePost.tsx pattern) driven by website/src/data/competitors.json — add new entries with: official name, parent company, hardware required, monthly price, escalation chain, location tracking, key differentiator, source URL of pricing data (with retrieved-on date)",
         "Template emits: feature comparison table, 'When to choose Daily OK / When to choose <X>' honest tradeoff section, FAQPage JSON-LD, Product/SoftwareApplication JSON-LD with no fake aggregateRating",
         "Each page internally links to /pricing and to 2 sibling /compare pages",
         "All new URLs added to website/public/sitemap.xml",
@@ -2381,15 +2381,15 @@
       ],
       "priority": 51,
       "passes": true,
-      "notes": "Existing 3 pages live at /compare/daily-ok-vs-life-alert, /compare/daily-ok-vs-life360, /compare/daily-ok-vs-snug-safety \u2014 use them as templates. Carefully cite competitor pricing with retrieval dates because prices change and stale data triggers refunds / complaints. Avoid 'aggregateRating' in JSON-LD until Daily OK has 30+ genuine reviews \u2014 false review schema is a Google manual-action trigger (pSEO.md research caveat). [DONE 2026-05-17] Added 7 new competitor JSON entries consuming the existing ComparePost.tsx template + src/data/competitors schema: aloe-care, lively, medical-guardian, bay-alarm-medical, apple-watch, mobilehelp, checkin-bee. Total comparison pages now 10 (3 existing + 7) = \"10+\". Substituted the AC's \"AssureOkay\" (appears to be a non-existent/obscure name; fabricating a company is worse than the alternative) with CheckinBee, a real daily-check-in competitor referenced in pSEO.md \u00a76 \u2014 the AC explicitly permits \"or any 7 from pSEO.md \u00a76 competitor list\". Pricing is hedged exactly like the pre-existing life-alert.json pattern (\"starting around $X/month per [X] published materials, accessed May 2026\" + \"verify current pricing on their site\"), accessed=2026-05-17, last_verified=2026-05-17, with a FAQ on every page telling the reader to confirm current pricing on the official site \u2014 no unverifiable price asserted as hard fact. Apple Watch handled as a no-subscription device (one-time cost, different framing, no migration_guide \u2014 schema field is optional and the template guards it). Each page has honest \"Pick Daily OK if / Pick [X] if\" tradeoff sections, 12\u201315-row feature matrix, 5\u20136 FAQs, sources with retrieval dates. Added SoftwareApplication JSON-LD for Daily OK to ComparePost.tsx (NO aggregateRating \u2014 pSEO manual-action caveat) alongside the existing FAQPage + Article. Template already links each page to /pricing (x2) and 3 sibling /compare pages. prerender list auto-derives from competitors[] so all 7 prerender automatically; added all 7 to public/sitemap.xml. Verified: full build green, 26 HTML docs (was 19), every new page has FAQPage+SoftwareApplication JSON-LD and zero aggregateRating; eslint clean; all competitor JSON parses."
+      "notes": "Existing 3 pages live at /compare/daily-ok-vs-life-alert, /compare/daily-ok-vs-life360, /compare/daily-ok-vs-snug-safety — use them as templates. Carefully cite competitor pricing with retrieval dates because prices change and stale data triggers refunds / complaints. Avoid 'aggregateRating' in JSON-LD until Daily OK has 30+ genuine reviews — false review schema is a Google manual-action trigger (pSEO.md research caveat). [DONE 2026-05-17] Added 7 new competitor JSON entries consuming the existing ComparePost.tsx template + src/data/competitors schema: aloe-care, lively, medical-guardian, bay-alarm-medical, apple-watch, mobilehelp, checkin-bee. Total comparison pages now 10 (3 existing + 7) = \"10+\". Substituted the AC's \"AssureOkay\" (appears to be a non-existent/obscure name; fabricating a company is worse than the alternative) with CheckinBee, a real daily-check-in competitor referenced in pSEO.md §6 — the AC explicitly permits \"or any 7 from pSEO.md §6 competitor list\". Pricing is hedged exactly like the pre-existing life-alert.json pattern (\"starting around $X/month per [X] published materials, accessed May 2026\" + \"verify current pricing on their site\"), accessed=2026-05-17, last_verified=2026-05-17, with a FAQ on every page telling the reader to confirm current pricing on the official site — no unverifiable price asserted as hard fact. Apple Watch handled as a no-subscription device (one-time cost, different framing, no migration_guide — schema field is optional and the template guards it). Each page has honest \"Pick Daily OK if / Pick [X] if\" tradeoff sections, 12–15-row feature matrix, 5–6 FAQs, sources with retrieval dates. Added SoftwareApplication JSON-LD for Daily OK to ComparePost.tsx (NO aggregateRating — pSEO manual-action caveat) alongside the existing FAQPage + Article. Template already links each page to /pricing (x2) and 3 sibling /compare pages. prerender list auto-derives from competitors[] so all 7 prerender automatically; added all 7 to public/sitemap.xml. Verified: full build green, 26 HTML docs (was 19), every new page has FAQPage+SoftwareApplication JSON-LD and zero aggregateRating; eslint clean; all competitor JSON parses."
     },
     {
       "id": "US-WEB005",
-      "title": "Build pSEO Template #3 \u2014 'doesn't answer the phone' question pages (target 12)",
-      "description": "As an adult child panicking that 'mom didn't answer the phone today', I want a calm, structured Daily OK page that walks through the escalation chain and offers Daily OK as the systematic preventative answer. pSEO.md \u00a73 Template #3 targets queries like 'what to do when your mom doesn't answer the phone', 'elderly father not answering phone', etc \u2014 which are literal product-feature matches.",
+      "title": "Build pSEO Template #3 — 'doesn't answer the phone' question pages (target 12)",
+      "description": "As an adult child panicking that 'mom didn't answer the phone today', I want a calm, structured Daily OK page that walks through the escalation chain and offers Daily OK as the systematic preventative answer. pSEO.md §3 Template #3 targets queries like 'what to do when your mom doesn't answer the phone', 'elderly father not answering phone', etc — which are literal product-feature matches.",
       "acceptanceCriteria": [
-        "12 new question-format pages under /what-to-do/ (e.g. /what-to-do/mom-not-answering-phone, /what-to-do/dad-not-answering-phone, /what-to-do/grandma-wont-pick-up, /what-to-do/elderly-parent-living-alone-not-answering, plus 8 more from pSEO.md \u00a73 Template #3 outline)",
-        "Each page \u2265800 words with the standard structure: empathetic intro, 'first 30 minutes' checklist, 'first 24 hours' escalation, 'when to call 911 vs welfare check', 'how to prevent the panic next time' (\u2192 Daily OK CTA)",
+        "12 new question-format pages under /what-to-do/ (e.g. /what-to-do/mom-not-answering-phone, /what-to-do/dad-not-answering-phone, /what-to-do/grandma-wont-pick-up, /what-to-do/elderly-parent-living-alone-not-answering, plus 8 more from pSEO.md §3 Template #3 outline)",
+        "Each page ≥800 words with the standard structure: empathetic intro, 'first 30 minutes' checklist, 'first 24 hours' escalation, 'when to call 911 vs welfare check', 'how to prevent the panic next time' (→ Daily OK CTA)",
         "FAQPage JSON-LD with 5+ Q&A pairs (target featured-snippet capture)",
         "Medical-reviewer placeholder byline + 'Last updated YYYY-MM-DD' stamp (per pSEO.md, real LCSW review needed for YMYL but the template should be ready to drop the credential in)",
         "Shared layout component under website/src/components/ to avoid drift across the 12 pages",
@@ -2398,24 +2398,24 @@
       ],
       "priority": 52,
       "passes": true,
-      "notes": "YMYL caveat: this is health-adjacent content, so until an LCSW reviewer is contracted (separate operational task in pSEO.md \u00a77), the byline must say 'Editorial team' and not impersonate medical credentials. Page bodies should signal the limits of remote reassurance and recommend professional escalation when appropriate. [DONE 2026-05-17] Built 12 /what-to-do/<slug> question pages + a /what-to-do index, all driven by one shared layout component (src/pages/WhatToDo.tsx) over src/data/whatToDo.ts so there is zero structural drift across the 12. Slugs: mom-not-answering-phone, dad-not-answering-phone, elderly-mother-not-answering-phone, elderly-father-not-answering-phone, grandma-wont-pick-up, grandpa-wont-pick-up, teenage-son-not-answering-phone, teenage-daughter-not-answering-phone, college-student-not-answering-phone, spouse-not-answering-phone, elderly-parent-living-alone-not-answering, adult-child-not-answering-phone. Every page follows the AC structure exactly: empathetic non-scaremongering intro, \"first 30 minutes\" checklist, \"first 24 hours\" escalation, a shared \"911 vs welfare check\" explainer + a fill-in welfare-check request script, \"how to stop the panic recurring\" \u2192 Daily OK CTA, then FAQ. Content is genuinely differentiated per relationship (elderly/dementia vs teen vs college vs spouse vs grandparent advice diverges substantially \u2014 the per-relation intro, context, both checklists, escalation criteria, prevention paragraph and all FAQs are hand-written per page) to avoid pSEO.md's #1 near-duplicate risk. YMYL handled: byline renders \"By the Daily OK Editorial Team \u00b7 Last updated 2026-05-17\" (NOT impersonating LCSW credentials, per the pSEO.md \u00a77 caveat \u2014 the layout is ready to swap in a real reviewer credential when one is contracted) plus a prominent not-medical/not-emergency disclaimer and calm tone throughout. Each page has FAQPage (5 Q&A) + BreadcrumbList JSON-LD. Word counts (rendered visible incl. ~100 chrome): 924\u20131266 \u2014 all comfortably \u2265800. Wired routes (/what-to-do and /what-to-do/:slug) in src/App.tsx, added all 13 to pages/+onBeforePrerenderStart.ts, and taught generate-sitemap.mjs the /what-to-do section (monthly/0.8 pseo group; lastmod from whatToDo.ts git date). Verified: full build green, 39 prerendered HTML docs (was 26), sitemap auto-grew to 38 URLs, every detail page has FAQPage+BreadcrumbList+byline+Last-updated, 0 JSON-LD parse errors, eslint clean."
+      "notes": "YMYL caveat: this is health-adjacent content, so until an LCSW reviewer is contracted (separate operational task in pSEO.md §7), the byline must say 'Editorial team' and not impersonate medical credentials. Page bodies should signal the limits of remote reassurance and recommend professional escalation when appropriate. [DONE 2026-05-17] Built 12 /what-to-do/<slug> question pages + a /what-to-do index, all driven by one shared layout component (src/pages/WhatToDo.tsx) over src/data/whatToDo.ts so there is zero structural drift across the 12. Slugs: mom-not-answering-phone, dad-not-answering-phone, elderly-mother-not-answering-phone, elderly-father-not-answering-phone, grandma-wont-pick-up, grandpa-wont-pick-up, teenage-son-not-answering-phone, teenage-daughter-not-answering-phone, college-student-not-answering-phone, spouse-not-answering-phone, elderly-parent-living-alone-not-answering, adult-child-not-answering-phone. Every page follows the AC structure exactly: empathetic non-scaremongering intro, \"first 30 minutes\" checklist, \"first 24 hours\" escalation, a shared \"911 vs welfare check\" explainer + a fill-in welfare-check request script, \"how to stop the panic recurring\" → Daily OK CTA, then FAQ. Content is genuinely differentiated per relationship (elderly/dementia vs teen vs college vs spouse vs grandparent advice diverges substantially — the per-relation intro, context, both checklists, escalation criteria, prevention paragraph and all FAQs are hand-written per page) to avoid pSEO.md's #1 near-duplicate risk. YMYL handled: byline renders \"By the Daily OK Editorial Team · Last updated 2026-05-17\" (NOT impersonating LCSW credentials, per the pSEO.md §7 caveat — the layout is ready to swap in a real reviewer credential when one is contracted) plus a prominent not-medical/not-emergency disclaimer and calm tone throughout. Each page has FAQPage (5 Q&A) + BreadcrumbList JSON-LD. Word counts (rendered visible incl. ~100 chrome): 924–1266 — all comfortably ≥800. Wired routes (/what-to-do and /what-to-do/:slug) in src/App.tsx, added all 13 to pages/+onBeforePrerenderStart.ts, and taught generate-sitemap.mjs the /what-to-do section (monthly/0.8 pseo group; lastmod from whatToDo.ts git date). Verified: full build green, 39 prerendered HTML docs (was 26), sitemap auto-grew to 38 URLs, every detail page has FAQPage+BreadcrumbList+byline+Last-updated, 0 JSON-LD parse errors, eslint clean."
     },
     {
       "id": "US-WEB006",
       "title": "Add sitewide JSON-LD: Organization + WebSite on every page; SoftwareApplication on home/pricing; BreadcrumbList on nested",
       "description": "As a search engine / LLM crawler, I want consistent structured data on every Daily OK page so I can reliably extract entity facts, navigation context, and product details. Today JSON-LD is present on a subset of pages (SEO.tsx, ComparePost, Pricing, Support, ElderlyCare, ChildSafety) but not uniformly applied.",
       "acceptanceCriteria": [
-        "Audit website/src/pages/*.tsx and website/pages/*.tsx and report which pages currently emit which JSON-LD \u2014 list in progress.txt",
+        "Audit website/src/pages/*.tsx and website/pages/*.tsx and report which pages currently emit which JSON-LD — list in progress.txt",
         "Refactor website/src/components/SEO.tsx (or create a parallel JsonLd.tsx) so Organization + WebSite schema are emitted on every page automatically via the layout/root",
         "Add SoftwareApplication schema to /home and /pricing (no fake aggregateRating)",
         "Add BreadcrumbList schema to all nested pages (/blog/*, /compare/*, /what-to-do/*, /guides/*) using the page's URL hierarchy",
-        "Validate every prerendered page with the Schema.org validator (or schema-dts) \u2014 zero errors",
+        "Validate every prerendered page with the Schema.org validator (or schema-dts) — zero errors",
         "Verify with `curl -A 'Googlebot' <url>` that JSON-LD is present in the static HTML, not injected at runtime",
         "progress.txt entry"
       ],
       "priority": 53,
       "passes": true,
-      "notes": "react-helmet-async is already a dependency; it can be used for per-page <script type='application/ld+json'> injection that survives Vike prerender. Confirm Helmet content actually appears in dist/client/*.html after build \u2014 some Helmet versions need <Helmet prioritizeSeoTags> to flush correctly during SSR. [DONE 2026-05-17] Audit: sitewide Organization+WebSite+SoftwareApplication were ALREADY emitted on every prerendered page via website/pages/+onRenderHtml.tsx STATIC_HEAD (extractHeadTags also hoists per-page body JSON-LD into <head>). Per-page before this story: Pricing/Support/ElderlyCare/ChildSafety = FAQPage (via SEO.tsx jsonLd); cornerstone pages (WEB003) = FAQPage+BreadcrumbList; ComparePost = FAQPage+Article(+the SoftwareApplication WEB004 added); BlogPost = Article(+FAQPage/HowTo via schemaMarkup); Home/Compare/Blog/Privacy/Terms/Accessibility/Cookies/DMCA/NotFound = sitewide only. Changes: (1) made the sitewide SoftwareApplication accurate \u2014 applicationCategory HealthApplication, applicationSubCategory Caregiving, operatingSystem \"iOS, Android\", added 3 price Offers, NO aggregateRating; this satisfies the AC \"SoftwareApplication on /home and /pricing\" as a sitewide superset (kept sitewide rather than refactoring STATIC_HEAD to be per-pageContext-dynamic \u2014 lower regression risk; decision documented). (2) Added BreadcrumbList to the two nested-page templates that lacked it: ComparePost.tsx (Home>Compare>Daily OK vs X) and BlogPost.tsx (Home>Blog>title), reusing src/lib/breadcrumb.ts. (3) Removed the redundant per-ComparePost SoftwareApplication added in WEB004 (sitewide already covers it; two differently-categorized SoftwareApplication on one page is inconsistent \u2014 reconciled for this consistency story). Validation: full build green; programmatically parsed every ld+json block across all 26 prerendered pages \u2192 0 JSON parse errors; verified required @types present per page; curl -A Googlebot confirms JSON-LD is in the static prerendered HTML (1 block home, 2 pricing/cornerstone, 4 compare), HTTP 200; grep confirms zero aggregateRating anywhere in dist. Documented limitations: the live schema.org validator is not reachable from the sandbox (network policy) so structural+JSON validation was done programmatically (well-formed, standard schema.org types/properties); /blog/* is SPA-runtime (not prerendered) so its new BreadcrumbList renders client-side via react-helmet-async like its existing Article schema; /what-to-do/* and /guides/* do not exist yet (US-WEB005 pending / guides never built) so BreadcrumbList there is N/A until those ship. Out-of-scope note: a pre-existing eslint react-hooks/set-state-in-effect error in BlogPost.tsx loading effect (lines ~37-39) exists independent of these changes (verified via stash) and was deliberately not touched per the no-unrelated-changes rule; it does not block the build (tsc -b passes)."
+      "notes": "react-helmet-async is already a dependency; it can be used for per-page <script type='application/ld+json'> injection that survives Vike prerender. Confirm Helmet content actually appears in dist/client/*.html after build — some Helmet versions need <Helmet prioritizeSeoTags> to flush correctly during SSR. [DONE 2026-05-17] Audit: sitewide Organization+WebSite+SoftwareApplication were ALREADY emitted on every prerendered page via website/pages/+onRenderHtml.tsx STATIC_HEAD (extractHeadTags also hoists per-page body JSON-LD into <head>). Per-page before this story: Pricing/Support/ElderlyCare/ChildSafety = FAQPage (via SEO.tsx jsonLd); cornerstone pages (WEB003) = FAQPage+BreadcrumbList; ComparePost = FAQPage+Article(+the SoftwareApplication WEB004 added); BlogPost = Article(+FAQPage/HowTo via schemaMarkup); Home/Compare/Blog/Privacy/Terms/Accessibility/Cookies/DMCA/NotFound = sitewide only. Changes: (1) made the sitewide SoftwareApplication accurate — applicationCategory HealthApplication, applicationSubCategory Caregiving, operatingSystem \"iOS, Android\", added 3 price Offers, NO aggregateRating; this satisfies the AC \"SoftwareApplication on /home and /pricing\" as a sitewide superset (kept sitewide rather than refactoring STATIC_HEAD to be per-pageContext-dynamic — lower regression risk; decision documented). (2) Added BreadcrumbList to the two nested-page templates that lacked it: ComparePost.tsx (Home>Compare>Daily OK vs X) and BlogPost.tsx (Home>Blog>title), reusing src/lib/breadcrumb.ts. (3) Removed the redundant per-ComparePost SoftwareApplication added in WEB004 (sitewide already covers it; two differently-categorized SoftwareApplication on one page is inconsistent — reconciled for this consistency story). Validation: full build green; programmatically parsed every ld+json block across all 26 prerendered pages → 0 JSON parse errors; verified required @types present per page; curl -A Googlebot confirms JSON-LD is in the static prerendered HTML (1 block home, 2 pricing/cornerstone, 4 compare), HTTP 200; grep confirms zero aggregateRating anywhere in dist. Documented limitations: the live schema.org validator is not reachable from the sandbox (network policy) so structural+JSON validation was done programmatically (well-formed, standard schema.org types/properties); /blog/* is SPA-runtime (not prerendered) so its new BreadcrumbList renders client-side via react-helmet-async like its existing Article schema; /what-to-do/* and /guides/* do not exist yet (US-WEB005 pending / guides never built) so BreadcrumbList there is N/A until those ship. Out-of-scope note: a pre-existing eslint react-hooks/set-state-in-effect error in BlogPost.tsx loading effect (lines ~37-39) exists independent of these changes (verified via stash) and was deliberately not touched per the no-unrelated-changes rule; it does not block the build (tsc -b passes)."
     },
     {
       "id": "US-WEB007",
@@ -2425,13 +2425,13 @@
         "Implement a Vike `onPrerenderEnd` (or equivalent) hook that walks the prerendered routes and writes dist/client/sitemap.xml at build time",
         "Each <url> entry includes <loc>, <lastmod> (from git log of the source file or a frontmatter date), <changefreq>, <priority>",
         "Routes excluded from indexing (e.g. /admin, /draft) opt out via a +config.ts noindex flag",
-        "Once URL count exceeds 500, automatically split into a sitemap index (sitemap.xml \u2192 references sitemap-core.xml, sitemap-pseo.xml, sitemap-blog.xml)",
+        "Once URL count exceeds 500, automatically split into a sitemap index (sitemap.xml → references sitemap-core.xml, sitemap-pseo.xml, sitemap-blog.xml)",
         "Delete the hand-maintained website/public/sitemap.xml; verify deployed sitemap matches the prerendered route list",
         "progress.txt entry with the new URL count"
       ],
       "priority": 54,
       "passes": true,
-      "notes": "Cloudflare Pages doesn't process a vite-build sitemap any differently from a hand-written one \u2014 the change is purely in the build pipeline. Make sure the hook runs after every Vike route is fully prerendered (not during) to capture the canonical final URL list. [DONE 2026-05-17] Vike 0.4.258 has NO onPrerenderEnd hook (confirmed against node_modules/vike type defs \u2014 only onBeforePrerenderStart exists), so per the AC's explicit \"(or equivalent)\" the equivalent is website/scripts/generate-sitemap.mjs, appended to the build script after `vike prerender` (build = tsc -b && vite build && vike prerender && node scripts/generate-sitemap.mjs). It walks the actual emitted dist/client/**/index.html (the canonical final URL list, captured AFTER prerender completes \u2014 not during), emitting <loc>/<lastmod>/<changefreq>/<priority>. <lastmod> comes from `git log -1 --format=%cs` of each route's source file (route\u2192source map; comparison pages \u2192 src/data/competitors/<slug>.json; fallback latest commit on src/ or pages/, then today). noindex opt-out: any route whose prerendered HTML carries <meta name=robots ... noindex> is excluded (a true per-page flag any page can set via SEO/Helmet \u2014 the +config.ts-flag equivalent), plus a NOINDEX_PREFIXES guard for /admin. Sitemap-index split implemented: >500 indexable URLs \u2192 sitemap.xml becomes a <sitemapindex> referencing sitemap-core.xml / sitemap-pseo.xml / sitemap-blog.xml (empty groups skipped); inactive at current scale (25 URLs) but unit-sanity-tested. Hand-maintained website/public/sitemap.xml deleted (git rm). Verified: full build green, generator logged \"wrote dist/client/sitemap.xml with 25 URLs; skipped 1 noindex\" \u2014 26 prerendered pages minus /admin/login (noindex) = 25, matching the prerendered route list; served HTTP 200 Content-Type application/xml and parses as well-formed XML; eslint clean on the script. Documented limitations: blog posts are Supabase-driven and intentionally NOT prerendered (per +onBeforePrerenderStart.ts), so they cannot appear in a build-time walk \u2014 the sitemap-blog.xml group exists for when/if blog prerendering is added; robots.txt already points at https://dailyok.net/sitemap.xml which the generator now produces; the sitemap is a build artifact so `vite dev`/`preview` won't serve it (expected)."
+      "notes": "Cloudflare Pages doesn't process a vite-build sitemap any differently from a hand-written one — the change is purely in the build pipeline. Make sure the hook runs after every Vike route is fully prerendered (not during) to capture the canonical final URL list. [DONE 2026-05-17] Vike 0.4.258 has NO onPrerenderEnd hook (confirmed against node_modules/vike type defs — only onBeforePrerenderStart exists), so per the AC's explicit \"(or equivalent)\" the equivalent is website/scripts/generate-sitemap.mjs, appended to the build script after `vike prerender` (build = tsc -b && vite build && vike prerender && node scripts/generate-sitemap.mjs). It walks the actual emitted dist/client/**/index.html (the canonical final URL list, captured AFTER prerender completes — not during), emitting <loc>/<lastmod>/<changefreq>/<priority>. <lastmod> comes from `git log -1 --format=%cs` of each route's source file (route→source map; comparison pages → src/data/competitors/<slug>.json; fallback latest commit on src/ or pages/, then today). noindex opt-out: any route whose prerendered HTML carries <meta name=robots ... noindex> is excluded (a true per-page flag any page can set via SEO/Helmet — the +config.ts-flag equivalent), plus a NOINDEX_PREFIXES guard for /admin. Sitemap-index split implemented: >500 indexable URLs → sitemap.xml becomes a <sitemapindex> referencing sitemap-core.xml / sitemap-pseo.xml / sitemap-blog.xml (empty groups skipped); inactive at current scale (25 URLs) but unit-sanity-tested. Hand-maintained website/public/sitemap.xml deleted (git rm). Verified: full build green, generator logged \"wrote dist/client/sitemap.xml with 25 URLs; skipped 1 noindex\" — 26 prerendered pages minus /admin/login (noindex) = 25, matching the prerendered route list; served HTTP 200 Content-Type application/xml and parses as well-formed XML; eslint clean on the script. Documented limitations: blog posts are Supabase-driven and intentionally NOT prerendered (per +onBeforePrerenderStart.ts), so they cannot appear in a build-time walk — the sitemap-blog.xml group exists for when/if blog prerendering is added; robots.txt already points at https://dailyok.net/sitemap.xml which the generator now produces; the sitemap is a build artifact so `vite dev`/`preview` won't serve it (expected)."
     },
     {
       "id": "US-OPS001",
@@ -2440,14 +2440,14 @@
       "acceptanceCriteria": [
         "Move /Untitled content into docs/auth/sign-in-with-apple-rotation.md with full runbook: prerequisites (Team ID, Key ID, .p8 location), exact command to generate the JWT, where to paste it (Supabase Auth provider config), expiry horizon (6 months), and a calendar-reminder template",
         "Add the rotation cadence to docs/runbooks/README.md (or create one if absent)",
-        "Optionally: add a GitHub Action that opens an issue 30 days before client_secret expiry, using the iat/exp from the last-generated JWT recorded in a tracked file (e.g. docs/auth/last-rotated.txt) \u2014 do not commit the .p8 key or the JWT itself",
+        "Optionally: add a GitHub Action that opens an issue 30 days before client_secret expiry, using the iat/exp from the last-generated JWT recorded in a tracked file (e.g. docs/auth/last-rotated.txt) — do not commit the .p8 key or the JWT itself",
         "Delete /Untitled from the repo root",
         "Verify .gitignore excludes *.p8 and any AuthKey_*.p8 patterns",
         "progress.txt entry"
       ],
       "priority": 55,
       "passes": true,
-      "notes": "Discovered while triaging loose files in repo root. Apple Sign-In client_secret JWTs expire in 6 months \u2014 if rotation is missed, all SIWA logins break silently. Low effort, high value to ops. Don't automate the rotation itself (requires the .p8 key which should not live in CI), only the reminder. [DONE 2026-05-17] /Untitled deleted (git rm). Content moved into docs/auth/sign-in-with-apple-rotation.md as a full runbook (prerequisites table, Ruby JWT-gen command, Supabase paste location, 6-month expiry / 5-month cadence, calendar-reminder template, failure-mode table, explicit \"not automated: signing requires the .p8 which must never live in CI\"). docs/runbooks/README.md created as the runbook index with cadence. docs/auth/last-rotated.txt added as a secret-free iat/exp tracker. .github/workflows/siwa-secret-expiry-reminder.yml added: weekly cron reads last-rotated.txt exp and opens/refreshes a labeled GitHub issue 30 days before expiry (reads only, never signs). .gitignore already had *.p8 (matches AuthKey_*.p8); added an explicit AuthKey_*.p8 line for defense-in-depth."
+      "notes": "Discovered while triaging loose files in repo root. Apple Sign-In client_secret JWTs expire in 6 months — if rotation is missed, all SIWA logins break silently. Low effort, high value to ops. Don't automate the rotation itself (requires the .p8 key which should not live in CI), only the reminder. [DONE 2026-05-17] /Untitled deleted (git rm). Content moved into docs/auth/sign-in-with-apple-rotation.md as a full runbook (prerequisites table, Ruby JWT-gen command, Supabase paste location, 6-month expiry / 5-month cadence, calendar-reminder template, failure-mode table, explicit \"not automated: signing requires the .p8 which must never live in CI\"). docs/runbooks/README.md created as the runbook index with cadence. docs/auth/last-rotated.txt added as a secret-free iat/exp tracker. .github/workflows/siwa-secret-expiry-reminder.yml added: weekly cron reads last-rotated.txt exp and opens/refreshes a labeled GitHub issue 30 days before expiry (reads only, never signs). .gitignore already had *.p8 (matches AuthKey_*.p8); added an explicit AuthKey_*.p8 line for defense-in-depth."
     },
     {
       "id": "US-IOS001",
@@ -2456,15 +2456,15 @@
       "acceptanceCriteria": [
         "New watchOS app target 'DailyOK Watch App' added to ios/DailyOK.xcodeproj (watchOS 10+ to match modern SwiftUI APIs)",
         "App Group (group.net.dailyok.shared) enabled on the iOS app, watch app, widget, and notification-service extensions so they can share Keychain/session and cached state",
-        "Shared Swift package or shared-source membership for Models (CheckIn, ReceiverSettings, Mood, etc.), Colors/Theme tokens, and the EdgeFunctionsClient request/response DTOs \u2014 no model duplication",
+        "Shared Swift package or shared-source membership for Models (CheckIn, ReceiverSettings, Mood, etc.), Colors/Theme tokens, and the EdgeFunctionsClient request/response DTOs — no model duplication",
         "Supabase session/refresh token mirrored to the App Group Keychain on the phone and read by the watch on launch (read-only consumer; phone remains the auth owner)",
         "WatchConnectivity session activated on both sides (WCSession) with reachability + applicationContext plumbing established",
         "Watch app builds and launches to a placeholder check-in screen showing the signed-in receiver's name",
-        "No new edge-function endpoints required \u2014 the watch reuses process-checkin-response via the shared EdgeFunctionsClient"
+        "No new edge-function endpoints required — the watch reuses process-checkin-response via the shared EdgeFunctionsClient"
       ],
       "priority": 100,
       "passes": true,
-      "notes": "PARTIAL/IMPLEMENTED (pending Xcode build verification): watchOS target DailyOKWatch added with App Group + shared models/EdgeFunctionsClient via an SDK-free shared core; session handed off from phone via WatchConnectivity. See docs/ios-watch-widgets-setup.md. | Foundation for all watch work. Keep the watch a thin client that reuses existing services/DTOs. Auth stays phone-led: the watch consumes a mirrored session and falls back to 'open Daily OK on your iPhone to sign in' if none is present. Respect backward compat \u2014 additive only, no API/schema changes."
+      "notes": "PARTIAL/IMPLEMENTED (pending Xcode build verification): watchOS target DailyOKWatch added with App Group + shared models/EdgeFunctionsClient via an SDK-free shared core; session handed off from phone via WatchConnectivity. See docs/ios-watch-widgets-setup.md. | Foundation for all watch work. Keep the watch a thin client that reuses existing services/DTOs. Auth stays phone-led: the watch consumes a mirrored session and falls back to 'open Daily OK on your iPhone to sign in' if none is present. Respect backward compat — additive only, no API/schema changes."
     },
     {
       "id": "US-IOS002",
@@ -2482,7 +2482,7 @@
       ],
       "priority": 101,
       "passes": true,
-      "notes": "IMPLEMENTED (pending Xcode build verification): WatchCheckInView giant one-tap button with success/failure haptics, checked-in/not-signed-in states, reload on foreground. | Mirror of ReceiverHomeView but radically simplified for the wrist \u2014 one button, one outcome. This is the core senior value prop: check in without the phone. Reuse Mood only as an optional secondary screen, not required."
+      "notes": "IMPLEMENTED (pending Xcode build verification): WatchCheckInView giant one-tap button with success/failure haptics, checked-in/not-signed-in states, reload on foreground. | Mirror of ReceiverHomeView but radically simplified for the wrist — one button, one outcome. This is the core senior value prop: check in without the phone. Reuse Mood only as an optional secondary screen, not required."
     },
     {
       "id": "US-IOS003",
@@ -2490,7 +2490,7 @@
       "description": "As a receiver, I want the check-in reminder to appear on my watch with action buttons so that I can respond from the notification without opening any app.",
       "acceptanceCriteria": [
         "The existing CHECKIN_REQUEST category (CHECKIN_OK_ACTION / CHECKIN_NEED_HELP_ACTION / CHECKIN_CALL_ME_ACTION) renders its actions on the paired watch",
-        "Tapping 'I'm OK \u2713' from the watch notification completes the check-in via process-checkin-response and shows confirmation, without launching the full app",
+        "Tapping 'I'm OK ✓' from the watch notification completes the check-in via process-checkin-response and shows confirmation, without launching the full app",
         "Custom long-look notification UI (WKUserNotificationHostingController) shows the family name and a prominent 'I'm OK' button",
         "Need Help / Call Me actions forward to the same escalation handlers used on iOS",
         "Offline on the watch: the response is queued in the App Group and synced when connectivity returns (reuse OfflineCheckInService semantics)",
@@ -2514,7 +2514,7 @@
       ],
       "priority": 103,
       "passes": true,
-      "notes": "IMPLEMENTED (pending Xcode build verification): watchOS WidgetKit extension DailyOKWatchWidgets with CheckInComplication across accessoryCircular/corner/inline/rectangular; reads the watch's shared snapshot; reloads on check-in and on new phone snapshot; tap launches the watch app. | An always-visible 'I'm OK' affordance on the watch face is a real differentiator for seniors \u2014 no app launch, no scrolling. Drives daily engagement and reduces missed check-ins."
+      "notes": "IMPLEMENTED (pending Xcode build verification): watchOS WidgetKit extension DailyOKWatchWidgets with CheckInComplication across accessoryCircular/corner/inline/rectangular; reads the watch's shared snapshot; reloads on check-in and on new phone snapshot; tap launches the watch app. | An always-visible 'I'm OK' affordance on the watch face is a real differentiator for seniors — no app launch, no scrolling. Drives daily engagement and reduces missed check-ins."
     },
     {
       "id": "US-IOS005",
@@ -2530,7 +2530,7 @@
       ],
       "priority": 104,
       "passes": true,
-      "notes": "IMPLEMENTED (pending Xcode build verification): watch performs check-ins over its own network; WatchOfflineQueue persists a wrist check-in made offline and auto-syncs on launch/foreground/reconnect with 'will send when connected' messaging; expired-session+unreachable-phone shows 'open iPhone'. Idempotency is guaranteed server-side (process-checkin-response dedupes per local day), so flushing a stale queue never duplicates. | PARTIAL: phone->watch snapshot sync via updateApplicationContext done; watch checks in over its own network; wrist check-in nudges phone to refresh. Full offline-on-watch queue + idempotent dedupe still TODO. | Idempotency matters \u2014 reuse the offline check-in id scheme so the same day's check-in from watch+phone collapses to one record. Keep dedupe client-side plus the server's existing today-status guard."
+      "notes": "IMPLEMENTED (pending Xcode build verification): watch performs check-ins over its own network; WatchOfflineQueue persists a wrist check-in made offline and auto-syncs on launch/foreground/reconnect with 'will send when connected' messaging; expired-session+unreachable-phone shows 'open iPhone'. Idempotency is guaranteed server-side (process-checkin-response dedupes per local day), so flushing a stale queue never duplicates. | PARTIAL: phone->watch snapshot sync via updateApplicationContext done; watch checks in over its own network; wrist check-in nudges phone to refresh. Full offline-on-watch queue + idempotent dedupe still TODO. | Idempotency matters — reuse the offline check-in id scheme so the same day's check-in from watch+phone collapses to one record. Keep dedupe client-side plus the server's existing today-status guard."
     },
     {
       "id": "US-IOS006",
@@ -2538,7 +2538,7 @@
       "description": "As a senior receiver, I want a check-in widget on my Home and Lock Screen so that I can tap 'I'm OK' without opening the app.",
       "acceptanceCriteria": [
         "WidgetKit extension with a receiver widget in .systemSmall, .systemMedium, and Lock Screen .accessoryCircular / .accessoryRectangular families",
-        "Interactive widget (iOS 17 AppIntent) so the tap performs the check-in in-place and the widget flips to a confirmed state \u2014 no app launch required",
+        "Interactive widget (iOS 17 AppIntent) so the tap performs the check-in in-place and the widget flips to a confirmed state — no app launch required",
         "Widget shows today's status: 'Tap I'm OK' when due, green check + time when done",
         "Performs check-in through a shared AppIntent backed by CheckInService; writes status to the App Group and calls WidgetCenter.reloadTimelines",
         "Handles not-signed-in / no-family gracefully with a 'Open Daily OK' prompt",
@@ -2572,13 +2572,13 @@
         "AppIntent 'CheckInIntent' (App Intents framework) that completes a check-in via CheckInService and returns a spoken/visual confirmation",
         "AppShortcutsProvider exposes the intent with natural phrases ('Check in', 'I'm OK', 'Daily OK check in') so it works from Siri and the Shortcuts app without manual setup",
         "Intent is donated after in-app check-ins so Siri Suggestions surface it on the right device at the right time",
-        "Spoken confirmation via the intent dialog ('You're all set \u2014 your family has been notified')",
+        "Spoken confirmation via the intent dialog ('You're all set — your family has been notified')",
         "Intent runs on iOS and watchOS (reused by US-IOS006 widget and US-IOS010 control)",
         "Handles errors with a clear spoken message and falls back to opening the app when auth/family is missing"
       ],
       "priority": 107,
       "passes": true,
-      "notes": "IMPLEMENTED (pending Xcode build verification): shared CheckInIntent + DailyOKAppShortcuts give Siri/Shortcuts voice check-in; reused by widget/control/watch. | Voice is the most accessible input for many seniors. One shared CheckInIntent powers Siri, Shortcuts, widgets, and the Control Center control \u2014 build it once."
+      "notes": "IMPLEMENTED (pending Xcode build verification): shared CheckInIntent + DailyOKAppShortcuts give Siri/Shortcuts voice check-in; reused by widget/control/watch. | Voice is the most accessible input for many seniors. One shared CheckInIntent powers Siri, Shortcuts, widgets, and the Control Center control — build it once."
     },
     {
       "id": "US-IOS009",
@@ -2594,7 +2594,7 @@
       ],
       "priority": 108,
       "passes": true,
-      "notes": "IMPLEMENTED (pending Xcode build verification): ActivityKit Live Activity (EscalationLiveActivity) with Lock Screen + Dynamic Island (compact/expanded/minimal) showing receiver, status, and elapsed timer. Started/updated/ended from the dashboard (EscalationActivityManager) for receivers in escalation; per-owner toggle in Settings. 'Call now' = tel: link; 'Stand down' = dailyok://standdown deep link handled in DailyOKApp (owner authenticated) -> cancelEscalation. NSSupportsLiveActivities added. Local start only; push-to-start is a follow-up (needs APNs payload). | Turns the most anxious moment (a missed check-in) into a calm, trackable, actionable surface. Push-to-start Live Activities need an additive APNs payload from the edge functions \u2014 keep it backward-compatible."
+      "notes": "IMPLEMENTED (pending Xcode build verification): ActivityKit Live Activity (EscalationLiveActivity) with Lock Screen + Dynamic Island (compact/expanded/minimal) showing receiver, status, and elapsed timer. Started/updated/ended from the dashboard (EscalationActivityManager) for receivers in escalation; per-owner toggle in Settings. 'Call now' = tel: link; 'Stand down' = dailyok://standdown deep link handled in DailyOKApp (owner authenticated) -> cancelEscalation. NSSupportsLiveActivities added. Local start only; push-to-start is a follow-up (needs APNs payload). | Turns the most anxious moment (a missed check-in) into a calm, trackable, actionable surface. Push-to-start Live Activities need an additive APNs payload from the edge functions — keep it backward-compatible."
     },
     {
       "id": "US-IOS010",
@@ -2636,11 +2636,11 @@
         "Optional spoken confirmation via AVSpeechSynthesizer ('You're all set, your family has been notified') for users who opt in",
         "Audio respects the silent switch / Do Not Disturb conventions and does not play for queued-offline check-ins (which aren't yet confirmed)",
         "VoiceOver users get a posted announcement on status change (reuse the existing .announce helper) so there's no double-speech with VoiceOver enabled",
-        "No audio in the owner/viewer experiences \u2014 receiver-only"
+        "No audio in the owner/viewer experiences — receiver-only"
       ],
       "priority": 111,
       "passes": true,
-      "notes": "IMPLEMENTED (pending Xcode build verification): CheckInAudio speaks a confirmation via AVSpeechSynthesizer on a confirmed online check-in when receiver_settings.audio_confirmation_enabled is on; skipped when VoiceOver is running (no double-speak) and never for optimistic offline check-ins. Owner toggle 'Speak Confirmation'. | Complements Simple Mode. Be careful not to double-announce when VoiceOver is active \u2014 branch on UIAccessibility.isVoiceOverRunning."
+      "notes": "IMPLEMENTED (pending Xcode build verification): CheckInAudio speaks a confirmation via AVSpeechSynthesizer on a confirmed online check-in when receiver_settings.audio_confirmation_enabled is on; skipped when VoiceOver is running (no double-speak) and never for optimistic offline check-ins. Owner toggle 'Speak Confirmation'. | Complements Simple Mode. Be careful not to double-announce when VoiceOver is active — branch on UIAccessibility.isVoiceOverRunning."
     },
     {
       "id": "US-IOS013",
@@ -2651,7 +2651,7 @@
         "Acknowledging records who acknowledged and when, and broadcasts to other caregivers in the family in real-time (Supabase realtime)",
         "Other caregivers see 'Handled by <name> at <time>' on the same alert and a muted state",
         "Acknowledgement is reversible ('Release') before the situation resolves",
-        "Backend: additive new table or nullable columns + new RPC/endpoint only \u2014 no change to existing escalation contract; older clients simply don't show the ack UI",
+        "Backend: additive new table or nullable columns + new RPC/endpoint only — no change to existing escalation contract; older clients simply don't show the ack UI",
         "Push: the urgent-alert payload gains optional ack metadata; older apps ignore it"
       ],
       "priority": 112,
@@ -2672,7 +2672,7 @@
       ],
       "priority": 113,
       "passes": true,
-      "notes": "Shifts owners from anxious checking to passive reassurance \u2014 a retention lever. New cron/edge work must be additive (new job, new endpoint)."
+      "notes": "Shifts owners from anxious checking to passive reassurance — a retention lever. New cron/edge work must be additive (new job, new endpoint)."
     },
     {
       "id": "US-IOS015",
@@ -2683,7 +2683,7 @@
         "Actions only shown when a phone number is available; gracefully hidden otherwise",
         "The notification 'Call Me' / urgent-alert 'Call Now' actions route to the same dialer path",
         "Actions are accessible (clear VoiceOver labels) and confirm before dialing where appropriate",
-        "No new backend \u2014 uses phone already stored on the user/family member"
+        "No new backend — uses phone already stored on the user/family member"
       ],
       "priority": 114,
       "passes": true,
@@ -2703,7 +2703,7 @@
       ],
       "priority": 115,
       "passes": true,
-      "notes": "Turns Daily OK from a single-signal tool into a lightweight shared caregiving hub \u2014 raises switching cost and differentiates from pure check-in apps. All schema additive + RLS-scoped."
+      "notes": "Turns Daily OK from a single-signal tool into a lightweight shared caregiving hub — raises switching cost and differentiates from pure check-in apps. All schema additive + RLS-scoped."
     },
     {
       "id": "US-IOS017",
@@ -2719,7 +2719,7 @@
       ],
       "priority": 116,
       "passes": true,
-      "notes": "Differentiator but privacy-sensitive \u2014 keep scope minimal, opt-in, and explicit. Frame as reassurance, not medical. Must clear App Store HealthKit review guidelines. Backward-compatible additive payload only."
+      "notes": "Differentiator but privacy-sensitive — keep scope minimal, opt-in, and explicit. Frame as reassurance, not medical. Must clear App Store HealthKit review guidelines. Backward-compatible additive payload only."
     },
     {
       "id": "US-IOS018",
@@ -2734,7 +2734,457 @@
       ],
       "priority": 117,
       "passes": true,
-      "notes": "IMPLEMENTED (pending Xcode build verification): WatchSetupGuideView \u2014 guided steps to install the watch app, add the complication, enable watch notifications, and tap to check in, plus a Lock/Home Screen widget fallback for users without a watch. Accessible from Settings \u2192 Devices \u2192 Set Up Apple Watch. | The watch features only deliver value if seniors actually get them installed. This flow closes the adoption gap and reinforces the 'easiest check-in for seniors' positioning."
+      "notes": "IMPLEMENTED (pending Xcode build verification): WatchSetupGuideView — guided steps to install the watch app, add the complication, enable watch notifications, and tap to check in, plus a Lock/Home Screen widget fallback for users without a watch. Accessible from Settings → Devices → Set Up Apple Watch. | The watch features only deliver value if seniors actually get them installed. This flow closes the adoption gap and reinforces the 'easiest check-in for seniors' positioning."
+    },
+    {
+      "id": "US-IOS019",
+      "title": "Fix offline check-in sync creating duplicate check-ins",
+      "description": "As a receiver who checks in while offline, I want my queued check-in to be deduplicated the same way an online check-in is, so that my streak, consistency percentage, and the owner's exported reports are never inflated by duplicate rows.",
+      "acceptanceCriteria": [
+        "Offline sync no longer does a raw `insert` into `checkins`; it routes through the same `process-checkin-response` edge function as the online path (OfflineCheckInService.syncPendingCheckIns, lines ~98-131), OR adds a `client_dedup_key` (receiver_id + family_id + local-day) with a unique constraint and uses upsert(onConflict:)",
+        "queueCheckIn() dedupes per local day: tapping 'I'm OK' multiple times while offline does NOT enqueue multiple OfflineCheckIn rows for the same receiver/family/day (OfflineCheckInService.queueCheckIn, lines ~33-52)",
+        "Offline-vs-error is decided from the actual error code (NSURLErrorNotConnectedToInternet, .networkConnectionLost, .timedOut) rather than the asynchronously-updated `isOnline` flag, so a real radio drop reliably queues and a server error does not get silently queued (OfflineCheckInService.performCheckIn, lines ~62-80)",
+        "Sync is guarded against concurrent execution (isSyncing flag) and a duplicate-key response is treated as 'already synced' (mark row synced) instead of hard-breaking the loop and stalling the queue forever",
+        "Existing offline check-in tests updated/added to cover: tap-twice-offline, offline-then-online-same-day, app-killed-mid-sync"
+      ],
+      "priority": 118,
+      "passes": false,
+      "notes": "BUG. Confirmed against edge-functions/functions/process-checkin-response/index.ts (server dedups per local day, returns existing row); the iOS offline path bypasses it with a direct insert, contradicting the documented guarantee in docs/ios-watch-widgets-setup.md:96. Directly corrupts streaks/consistency/PDF export. Highest-priority correctness fix. Files: ios/DailyOK/Services/OfflineCheckInService.swift."
+    },
+    {
+      "id": "US-IOS020",
+      "title": "On-demand check-in must reflect the actual response, not a stale daily check-in",
+      "description": "As an owner who sends an urgent on-demand check-in, I want the receiver card to show 'checked in' only when they respond to THIS request, so that I am not falsely reassured that my urgent ping was answered.",
+      "acceptanceCriteria": [
+        "When an active on-demand request exists, the card status is resolved from that request's status/respondedAt (comparing its createdAt to the latest check-in's checkedInAt), not from 'any check-in exists today' (DashboardViewModel, lines ~142-152)",
+        "A receiver who already did their scheduled morning check-in and then receives a 3pm on-demand request shows as 'awaiting response' until they actually respond to the on-demand request",
+        "Once the receiver responds to the on-demand request, the card flips to checked-in",
+        "Unit test covers the 'already checked in today, new on-demand request pending' scenario"
+      ],
+      "priority": 119,
+      "passes": false,
+      "notes": "BUG. Safety-perception failure on the core escalation product. File: ios/DailyOK/ViewModels/DashboardViewModel.swift."
+    },
+    {
+      "id": "US-IOS021",
+      "title": "Receiver always sees the 'notifications disabled' warning banner",
+      "description": "As a receiver who denied notification permission, I want to be clearly warned that I won't get check-in requests, so that the safety net actually works for the most at-risk user.",
+      "acceptanceCriteria": [
+        "NotificationPermissionBanner's initial state is .notDetermined (not the current hardcoded .authorized) so a denied receiver is never silently hidden from the banner (Views/Settings/NotificationPermissionBanner.swift:8)",
+        "ReceiverHomeView attaches `.task { await checkPermission() }` to the banner (currently missing — only DashboardView calls it) and re-checks on scenePhase == .active (Views/Receiver/ReceiverHomeView.swift:40)",
+        "Banner offers a one-tap deep link to iOS notification settings via openSettingsURLString",
+        "Verified on a device/sim with notifications denied: the receiver home shows the banner"
+      ],
+      "priority": 120,
+      "passes": false,
+      "notes": "BUG (safety). The default .authorized state means a senior who denied notifications never sees the warning, defeating escalation. Files: ios/DailyOK/Views/Settings/NotificationPermissionBanner.swift, ios/DailyOK/Views/Receiver/ReceiverHomeView.swift."
+    },
+    {
+      "id": "US-IOS022",
+      "title": "Make streaks, 'today' status, and fallback reminders timezone- and DST-correct",
+      "description": "As a receiver who travels or whose device timezone differs from their configured timezone, I want my streak, 'checked in today' badge, and local fallback reminder to all agree, so that travel or daylight-saving changes never silently break my streak or misfire my reminder.",
+      "acceptanceCriteria": [
+        "All Streaks calls (currentStreak, consistencyPercent) are passed the receiver's IANA TimeZone instead of defaulting to .current, so day-bucketing matches CheckInService.todayCheckInStatus (ViewModels/ReceiverViewModel.swift:87-88, ViewModels/DashboardViewModel.swift:122-130, Utilities/Streaks.swift)",
+        "nextFallbackDate uses Calendar.nextDate(after:matching:matchingPolicy:.nextTime) for the next occurrence of the check-in time and guards the spring-forward non-existent-time case, instead of bySettingHour + add-minutes (ViewModels/ReceiverViewModel.swift:150-165)",
+        "All `calendar.date(byAdding:...)!` force-unwraps on rendering/scheduling paths replaced with guard-let/fallbacks (CalendarHeatmapView, CheckInTrendChartView, CheckInService:186, ReceiverViewModel:206)",
+        "A single shared, configured ISO8601DateFormatter (fractional seconds + fallback) is used by Streaks, CheckInService, and OfflineCheckInService instead of ad-hoc instances (CheckInService:148-150, OfflineCheckInService:103)",
+        "Tests cover a streak across a DST boundary and a device-vs-configured timezone mismatch"
+      ],
+      "priority": 121,
+      "passes": false,
+      "notes": "BUG. Timezone/DST inconsistency between timezone-aware status code and device-zone Streaks utility breaks streaks by a day; fallback reminder can misfire on DST days. Files: ios/DailyOK/Utilities/Streaks.swift, ios/DailyOK/ViewModels/ReceiverViewModel.swift, ios/DailyOK/ViewModels/DashboardViewModel.swift, ios/DailyOK/Services/CheckInService.swift."
+    },
+    {
+      "id": "US-IOS023",
+      "title": "Escalation Live Activity shows the real overdue time and surfaces failures",
+      "description": "As an owner whose phone restarted mid-escalation, I want the Lock Screen Live Activity to keep showing how long the receiver has actually been overdue, so that I don't think a 40-minute-overdue person was just freshly due.",
+      "acceptanceCriteria": [
+        "dueSince is sourced from the server request's escalation start (CheckInRequest.createdAt / nextEscalationAt carried onto the ReceiverStatusCard), not `existing?.content.state.dueSince ?? Date()` which resets to now on cold start (EscalationActivityManager.swift:39-60)",
+        "Activity.request / update failures are no longer discarded with `try?`; failures are logged to AnalyticsService and a duplicate Live Activity is not created when one is already in flight",
+        "ActivityKit updates are diffed against current state and only issued on change (no redundant churn on every dashboard reload)",
+        "Verified: kill+relaunch during an active escalation preserves the correct overdue duration"
+      ],
+      "priority": 122,
+      "passes": false,
+      "notes": "BUG. dueSince reset and silently-dropped Activity.request failures undermine the escalation surface. Ties into the dashboard-reload-frequency work (US-IOS027). File: ios/DailyOK/Services/EscalationActivityManager.swift."
+    },
+    {
+      "id": "US-IOS024",
+      "title": "Stop storing auth tokens in plaintext App Group UserDefaults; use a shared Keychain group",
+      "description": "As a user, I want my long-lived refresh and access tokens kept in the encrypted Keychain, so that they can't be extracted from a device backup, a shared app-group plist, or a lost/jailbroken device.",
+      "acceptanceCriteria": [
+        "accessToken/refreshToken are removed from the App Group UserDefaults snapshot (SharedCheckInState fields, SharedCheckInState.swift:20-23, written by SharedCheckInPublisher:30-31 and SharedCheckInStore.save:64-67); only non-secret fields (ids, flags, timestamps, URLs) remain in UserDefaults",
+        "Tokens are stored in a Keychain item with kSecAttrAccessGroup (shared access group) + kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly + kSecUseDataProtectionKeychain, readable by the app and the Notification Service Extension (KeychainService.swift:19-25 adds the access group)",
+        "NotificationService reads the token from the shared Keychain group, not `defaults.string(forKey: \"supabase_access_token\")`, fixing the delivery-confirmation regression where the extension can no longer read the token (NotificationService.swift:49-54 vs SupabaseService.syncAccessTokenToExtension:42-46)",
+        "No auth token remains anywhere in App Group UserDefaults after sign-in (verified by inspecting the group container)",
+        "Sign-out clears the shared Keychain item and the snapshot"
+      ],
+      "priority": 123,
+      "passes": false,
+      "notes": "SECURITY (critical). Plaintext refresh token in the app-group plist nullifies the careful kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly Keychain choice, and the half-finished migration broke the extension's delivery confirmation. Files: ios/DailyOK/Shared/SharedCheckInState.swift, SharedCheckInPublisher.swift, ios/DailyOK/Utilities/KeychainService.swift, ios/DailyOK/Services/SupabaseService.swift, ios/DailyOKNotificationService/NotificationService.swift."
+    },
+    {
+      "id": "US-IOS025",
+      "title": "Make certificate pinning actually enforce on real traffic and fail closed",
+      "description": "As a user on a hostile network, I want certificate pinning to protect the connections that actually carry my tokens and PII, so that a device-trusted rogue CA (MDM/malicious profile) can't MITM my data.",
+      "acceptanceCriteria": [
+        "Pin enforcement runs inside the URLSessionDelegate of the sessions that carry real traffic (EdgeFunctionsClient, SharedCheckInClient, LocationService, NotificationService) — currently URLSession.shared with no delegate — instead of only a separate out-of-band HEAD probe (CertificatePinningService.swift, DailyOKApp.swift:82-87)",
+        "Supabase SDK traffic is routed through a pinned session/delegate where supported, or documented as a known gap with a tracked follow-up",
+        "On a genuine pin MISMATCH (evaluated, not merely unevaluable), network-dependent flows are blocked with a clear 'secure connection could not be verified' error; transient 'could not evaluate' (e.g. captive portal) is distinguished and not treated as an attack",
+        "A pin failure no longer merely fires an analytics event and proceeds (DailyOKApp.swift:82-87)",
+        "Pin set is configurable to allow rotation without an app update"
+      ],
+      "priority": 124,
+      "passes": false,
+      "notes": "SECURITY (critical). Pinning is currently a no-op: the real API sessions have no delegate, and a detected failure is non-blocking. Files: ios/DailyOK/Services/CertificatePinningService.swift, ios/DailyOK/App/DailyOKApp.swift, ios/DailyOK/Services/EdgeFunctionsClient.swift, ios/DailyOK/Shared/SharedCheckInClient.swift."
+    },
+    {
+      "id": "US-IOS026",
+      "title": "Authorize the standdown deep link before cancelling an escalation",
+      "description": "As an owner, I want the dailyok://standdown deep link to cancel an escalation only when I am authenticated and actually own that family, so that no other app or webpage can silently stand down a real missed-check-in alert.",
+      "acceptanceCriteria": [
+        "handleDeepLink verifies there is an authenticated session before acting on standdown (DailyOKApp.swift:58-65)",
+        "Membership/ownership of the supplied familyId is verified client-side AND the cancelEscalation edge function / RLS rejects non-members (confirm server-side enforcement, don't trust the client)",
+        "An unauthenticated or non-member invocation is a no-op with a logged security event, not a silent stand-down",
+        "Consider requiring the standdown to carry the Live Activity / push token rather than raw guessable UUIDs"
+      ],
+      "priority": 125,
+      "passes": false,
+      "notes": "SECURITY (high). The custom scheme is public; any app can fire dailyok://standdown?receiver=&family= and, if a session exists, cancel a real escalation. File: ios/DailyOK/App/DailyOKApp.swift; confirm RLS on cancelEscalation."
+    },
+    {
+      "id": "US-IOS027",
+      "title": "Adopt privacy-aware logging and remove PII/token logging from release builds",
+      "description": "As a user, I want no personally-identifying data written to the device's system log in release builds, so that my UUID, timezone, and check-in timestamps aren't readable via Console.app/sysdiagnose or captured by diagnostic tooling.",
+      "acceptanceCriteria": [
+        "The deliberate release-mode NSLog of receiver UUID and check-in timestamps in CheckInService.todayCheckInStatus (lines ~154-169, 178) is removed once the root-cause ghost bug (see US-IOS019/US-IOS022) is fixed",
+        "All 13 `print(...)` sites and remaining NSLog/debug logging are replaced with os.Logger using appropriate `privacy: .private` redaction for identifiers (ReceiverViewModel:69, SettingsView:364, CaregiverDigestView:121, SubscriptionService, OfflineCheckInService, AppDelegate, etc.)",
+        "Identifier/PII interpolation in logs is redacted by default; only non-sensitive diagnostics are public",
+        "No raw access/refresh tokens are ever logged",
+        "A lightweight Logging helper (subsystem/category per area) replaces ad-hoc print/NSLog"
+      ],
+      "priority": 126,
+      "passes": false,
+      "notes": "SECURITY/privacy + maintainability. NSLog goes to os_log and is visible in release; ReceiverViewModel:69 logs timezone+check-in on every load. No os.Logger usage exists today. Files across ios/DailyOK/."
+    },
+    {
+      "id": "US-IOS028",
+      "title": "Make biometric lock actually protect data (and harden the Sign-in-with-Apple nonce)",
+      "description": "As a privacy-conscious user, I want Face ID/Touch ID to genuinely gate access to my account data, so that someone who fails biometric auth can't still act as me via widgets, Siri, or the on-disk session.",
+      "acceptanceCriteria": [
+        "While biometricLocked, the sensitive token snapshot is withheld/cleared so out-of-process surfaces (widgets, Control Center, Siri/App Intents, watch) cannot perform a check-in or read tokens (AuthViewModel.checkBiometricOnResume:404-413, BiometricService:38-50)",
+        "Sensitive Keychain items use kSecAccessControl requiring .biometryCurrentSet/.userPresence so biometric success cryptographically gates data access, not just a UI overlay",
+        "If biometric gating is intentionally convenience-only, the UI copy must not claim it protects data",
+        "SecRandomCopyBytes failure during Apple sign-in is treated as fatal for that attempt (retry) instead of silently falling back to UUID().uuidString as the nonce (AuthService.swift:387-397)"
+      ],
+      "priority": 127,
+      "passes": false,
+      "notes": "SECURITY (high). Today biometric lock is a cosmetic @Published Bool; the session/tokens/widgets keep working regardless. Files: ios/DailyOK/ViewModels/AuthViewModel.swift, ios/DailyOK/Services/BiometricService.swift, ios/DailyOK/Services/AuthService.swift."
+    },
+    {
+      "id": "US-IOS029",
+      "title": "Coarsen and explicitly gate background location reporting",
+      "description": "As a vulnerable user of a family-safety app, I want location tracking to start only when I explicitly opt in (not merely because the OS granted Always permission) and to upload only the precision the feature needs, so that my full-resolution movements aren't continuously uploaded.",
+      "acceptanceCriteria": [
+        "Significant-location monitoring starts only when an explicit in-app location-sharing toggle is on, independent of the OS Always grant, so granting Always does not silently begin tracking (LocationService.locationManagerDidChangeAuthorization:165-172)",
+        "Coordinates are truncated/coarsened to roughly the ~100m the feature requires before upload to report-location (LocationService.didUpdateLocations:114-156)",
+        "Background reports are throttled/coalesced (min interval and/or distance filter) rather than one POST per delivered significant-change callback",
+        "Server-side retention limits for reported locations are confirmed/documented",
+        "The location toggle and its current state are clearly visible to the receiver"
+      ],
+      "priority": 128,
+      "passes": false,
+      "notes": "SECURITY/privacy. Full-precision lat/long of elderly/child users uploaded whenever Always is granted and activeFamilyId is set, with auto-restart. File: ios/DailyOK/Services/LocationService.swift."
+    },
+    {
+      "id": "US-IOS030",
+      "title": "Parallelize and batch the Dashboard fetch and guard against redundant reloads",
+      "description": "As an owner with several receivers, I want the dashboard to load fast and not reload itself multiple times on launch, so that I see status quickly without burning battery/data on a serial N+1 fetch storm.",
+      "acceptanceCriteria": [
+        "Per-receiver work (todayCheckInStatus, history, notification status, latest active request) runs concurrently via a TaskGroup/async-let instead of a serial loop (DashboardViewModel.loadDashboard:108-171)",
+        "Per-receiver notification checks and active-request lookups are batched into single `in(...)` queries instead of one query per receiver (checkNotificationStatus:379-394)",
+        "loadDashboard has a re-entrancy guard so the .task + scenePhase==.active double-trigger on launch no longer runs two concurrent full loads racing on @Published arrays (DashboardView:100-132); the 5 reload triggers are coalesced through the existing scheduleRefresh debounce",
+        "The foreground task storm in handleScenePhaseChange (6 concurrent Tasks) is sequenced so session refresh precedes dashboard reload and non-urgent work (cert pin, analytics) is deferred (DailyOKApp.swift:71-98)",
+        "Measured: dashboard cold-load issues roughly O(1) batched round-trips rather than ~4N+3 serial calls"
+      ],
+      "priority": 129,
+      "passes": false,
+      "notes": "PERFORMANCE (high). Primary screen reloads on every foreground/tab-switch/realtime/sync event with no guard. Files: ios/DailyOK/ViewModels/DashboardViewModel.swift, ios/DailyOK/Views/Owner/DashboardView.swift, ios/DailyOK/App/DailyOKApp.swift."
+    },
+    {
+      "id": "US-IOS031",
+      "title": "Fix heartbeat lifecycle and background location continuation/battery issues",
+      "description": "As a user, I want background services to run only when needed and stop cleanly, so that the app doesn't drain battery, leak a Swift continuation, or keep heart-beating after I sign out.",
+      "acceptanceCriteria": [
+        "Heartbeat starts only for authenticated receivers (owners don't need it), stops on .background and on sign-out, and isn't started unconditionally at launch (HeartbeatService.swift:15-24, started in AppDelegate:13); consider BGAppRefreshTask for 'last seen'",
+        "getCurrentLocation() serializes one-shot requests so a second call before the first resolves cannot overwrite/leak currentLocationContinuation (a leaked continuation is a hard trap and hangs the first caller) (LocationService.didUpdateLocations:114-156)",
+        "Repeated UIDevice.current.isBatteryMonitoringEnabled = true toggling on every heartbeat is removed/guarded",
+        "Verified: signing out stops heartbeats; rapid double getCurrentLocation does not hang or warn"
+      ],
+      "priority": 130,
+      "passes": false,
+      "notes": "PERFORMANCE/stability. Timer never stops on background/sign-out; owners heartbeat pointlessly; continuation overwrite is a crash/hang vector. Files: ios/DailyOK/Services/HeartbeatService.swift, ios/DailyOK/Services/LocationService.swift, ios/DailyOK/App/AppDelegate.swift."
+    },
+    {
+      "id": "US-IOS032",
+      "title": "Memoize heatmap/trend-chart computations off the SwiftUI body path",
+      "description": "As an owner viewing history, I want the calendar heatmap and trend chart to scroll smoothly, so that the 90-day view doesn't jank from recomputing grids and aggregates many times per render.",
+      "acceptanceCriteria": [
+        "CalendarHeatmapView.buildGrid()/monthLabels() are computed once (init or derived @State on .onChange(of: checkIns)) instead of inside body on every evaluation (CalendarHeatmapView.swift:41,93-164)",
+        "CheckInTrendChartView.dataPoints (filter/reduce over all check-ins) is computed once per data change instead of being re-derived ~10x per body via yMin/yMax/yMid/overallAvg/etc. (CheckInTrendChartView.swift:16,59,74,93,99,155-156)",
+        "Date arithmetic in these views uses safe unwrapping (covered by US-IOS022)",
+        "Verified smooth scrolling on the 90-day History view on an older device"
+      ],
+      "priority": 131,
+      "passes": false,
+      "notes": "PERFORMANCE (medium). O(days) work and repeated aggregate recomputation on the main thread during layout. Files: ios/DailyOK/Views/Owner/CalendarHeatmapView.swift, ios/DailyOK/Views/Owner/CheckInTrendChartView.swift."
+    },
+    {
+      "id": "US-IOS033",
+      "title": "Reuse a single SwiftData context and break the loadStatus->sync->loadStatus loop",
+      "description": "As a receiver, I want the home screen to refresh efficiently, so that foregrounding doesn't trigger a feedback loop of redundant queries or main-thread SwiftData churn.",
+      "acceptanceCriteria": [
+        "OfflineCheckInService holds one long-lived ModelContext instead of constructing a new ModelContext(container) per queue/sync/count operation (OfflineCheckInService.swift:36,88,185); queue persistence moved off the main actor where feasible",
+        "loadStatus() no longer calls syncPendingCheckIns() when the same view also observes didSyncCheckIns (which re-enters loadStatus), eliminating the success->didSyncCheckIns->loadStatus->sync feedback loop (ReceiverViewModel.swift:39-118, ReceiverHomeView:155-173)",
+        "A reload guard prevents overlapping loadStatus runs",
+        "AnalyticsService.track early-returns synchronously in DEBUG (where it never initializes) to avoid a Task allocation + actor hop per event"
+      ],
+      "priority": 132,
+      "passes": false,
+      "notes": "PERFORMANCE/stability (medium). Files: ios/DailyOK/Services/OfflineCheckInService.swift, ios/DailyOK/ViewModels/ReceiverViewModel.swift, ios/DailyOK/Views/Receiver/ReceiverHomeView.swift, ios/DailyOK/Services/AnalyticsService.swift."
+    },
+    {
+      "id": "US-IOS034",
+      "title": "Enforce subscription tier limits client-side with a paywall instead of a server error",
+      "description": "As a user on a plan with limits, I want to see a clear upgrade/paywall prompt when I hit a tier limit, so that I'm not dropped into a raw server error after filling out an invite.",
+      "acceptanceCriteria": [
+        "Invite and paid-feature entry points call SubscriptionService.hasAccess(to:)/memberLimitReached (currently declared but never used in app code) and present the paywall when the limit/tier is exceeded (FamilyService.inviteReceiver, SubscriptionService:150-163)",
+        "Paid features (PDF export, care notes, location, multi-receiver) are gated behind hasAccess in their views rather than only failing server-side",
+        "createFamily no longer hard-codes the deprecated `free` tier with max_viewers 0; it sets the tier consistent with the model's 'new signups never land on free' rule, or documents reliance on the subscription webhook (FamilyService.swift:9-138, line ~19)",
+        "Hitting a limit shows the paywall; the server remains the source of truth and still rejects over-limit requests"
+      ],
+      "priority": 133,
+      "passes": false,
+      "notes": "BUG/UX. hasAccess/memberLimitReached are dead code; limits only (maybe) enforced server-side, surfacing as raw errors. Files: ios/DailyOK/Services/FamilyService.swift, ios/DailyOK/Services/SubscriptionService.swift."
+    },
+    {
+      "id": "US-IOS035",
+      "title": "Polish the receiver 'I'm OK' button for VoiceOver, Dynamic Type, and time-of-day",
+      "description": "As a senior using VoiceOver or large text, I want the one big check-in button to be a single clear control with a greeting that matches the time of day, so that the core action is unmistakable and never overflows.",
+      "acceptanceCriteria": [
+        "The greeting/button/caption VStack is one accessibility element (children: .combine) or the captions are accessibilityHidden, so VoiceOver presents a single 'Tap to check in' control instead of 3 elements that repeat 'Tap...' (ReceiverHomeView.checkInButton:208-334)",
+        "'Good morning!' is replaced by a time-of-day greeting helper (ReceiverHomeView:210)",
+        "The button's 'I'm OK' label is constrained (dynamicTypeSize cap or minimumScaleFactor inside the circle) so it doesn't overflow at AX5",
+        "The button carries the .isButton trait"
+      ],
+      "priority": 134,
+      "passes": false,
+      "notes": "UX/accessibility (high, senior-critical). File: ios/DailyOK/Views/Receiver/ReceiverHomeView.swift."
+    },
+    {
+      "id": "US-IOS036",
+      "title": "Give receivers their own settings and self-serve Simple Mode",
+      "description": "As a senior who set up my own phone, I want to find Simple Mode, audio confirmation, and text size in my own settings, so that I don't depend on a remote owner to make the app usable for me.",
+      "acceptanceCriteria": [
+        "Simple Mode, audible confirmation, and text size are reachable from the receiver's own menu/settings, not only the owner's ReceiverSettingsView (ReceiverSettingsView.swift:84-97)",
+        "The receiver's 'more' affordance is an explicit >=44x44 target with raised contrast (DailyOKColor.green700, not .secondary) and the .isButton trait, replacing the easy-to-miss ellipsis.circle (ReceiverHomeView:114-146)",
+        "On first launch, if the system Dynamic Type is at an accessibility size or VoiceOver is on, the app offers to enable Simple Mode",
+        "Sign Out and notification settings are reachable with clear labels"
+      ],
+      "priority": 135,
+      "passes": false,
+      "notes": "UX/accessibility (high, senior-critical). Simple Mode is today only togglable by the owner. Files: ios/DailyOK/Views/Receiver/ReceiverHomeView.swift, ios/DailyOK/Views/Settings/ReceiverSettingsView.swift."
+    },
+    {
+      "id": "US-IOS037",
+      "title": "Fix onboarding 'Choose Your Plan' no-op and accessibility",
+      "description": "As a new user, I want tapping a plan to actually select/start it (or be clearly informational), so that I'm not misled into thinking I started a trial when nothing happened.",
+      "acceptanceCriteria": [
+        "Tapping a plan card either selects/starts the plan via StoreKit or the step is relabeled as informational with an explicit 'Continue' (OnboardingView.planCard:329-383 currently just calls viewModel.advance())",
+        "Plan copy no longer promises 'Start with a 7-day free trial' unless a trial is actually initiated",
+        "Plan cards combine into one accessibility element with an .isButton trait and a hint describing the selection",
+        "Plan prices are pulled from Product.displayPrice rather than hardcoded '$3.99/mo' literals (OnboardingView:296-315)"
+      ],
+      "priority": 136,
+      "passes": false,
+      "notes": "UX (high) + StoreKit correctness. File: ios/DailyOK/Views/Onboarding/OnboardingView.swift."
+    },
+    {
+      "id": "US-IOS038",
+      "title": "Wire up error/empty/loading states and save confirmations everywhere",
+      "description": "As a user, I want every screen to tell me when something is loading, empty, or failed, and to confirm when a save succeeds (including for VoiceOver), so that failures aren't silent and I know my changes stuck.",
+      "acceptanceCriteria": [
+        "FamilyView shows a loading skeleton, empty state, and an error/retry instead of try? swallowing errors with isLoading driving no UI (FamilyView.loadData:135-142)",
+        "ReceiverSettingsView renders its errorMessage (assigned on load/manual-check-in/save but never displayed) so a failed save no longer looks identical to a success (ReceiverSettingsView.loadSettings)",
+        "Save/Sent confirmations post a VoiceOver announcement via the existing-but-unused A11y.announce helper and fire DailyOKHaptics.success() (ReceiverSettingsView:263-282, SettingsView DataRetention:307-316)",
+        "Reuse existing EmptyStateView/DashboardSkeletonView patterns"
+      ],
+      "priority": 137,
+      "passes": false,
+      "notes": "UX (medium). A11y.announce helper exists but is wired nowhere. Files: ios/DailyOK/Views/Owner/FamilyView.swift, ios/DailyOK/Views/Settings/ReceiverSettingsView.swift, ios/DailyOK/Views/Settings/SettingsView.swift, ios/DailyOK/Utilities/AccessibilityHelpers.swift."
+    },
+    {
+      "id": "US-IOS039",
+      "title": "Hit-target, contrast, and non-color status audit",
+      "description": "As a user with low vision, motor tremor, or in bright sunlight, I want every tappable control to be at least 44pt and every status to be conveyed by more than color, so that the app is usable in real-world senior conditions.",
+      "acceptanceCriteria": [
+        "All primary/retry buttons standardized to >=44pt minHeight; the receiver 'Try Again' (minHeight 36, ReceiverHomeView:97) and the 11 mixed 36/44 sites are reconciled",
+        "ContactQuickActions Call/FaceTime/Text targets raised to >=44pt with larger labels and a light haptic on tap (ContactQuickActions.swift:31-48)",
+        "Status that relies on color alone (WeeklySummaryCard consistency color/StatBubble, DashboardView:187,209) is paired with an icon or text qualifier (e.g. '82% - Good')",
+        "Every emoji status has an adjacent visible text label"
+      ],
+      "priority": 138,
+      "passes": false,
+      "notes": "UX/accessibility (medium). Files: ios/DailyOK/Views/Receiver/ReceiverHomeView.swift, ios/DailyOK/Views/Components/ContactQuickActions.swift, ios/DailyOK/Views/Owner/DashboardView.swift."
+    },
+    {
+      "id": "US-IOS040",
+      "title": "Respect Reduce Motion in the global AmbientBackground",
+      "description": "As a user with vestibular sensitivity, I want the animated background behind every screen to hold still when I enable Reduce Motion, so that the app doesn't make me dizzy or drain battery on older devices.",
+      "acceptanceCriteria": [
+        "AmbientBackground reads @Environment(\\.accessibilityReduceMotion) and holds `phase` static (or falls back to a still gradient) when enabled, instead of an unconditional 14s repeatForever drift (Theme.swift AmbientBackground:192-222)",
+        "The continuous blur/orb GPU cost is reduced/paused when Reduce Motion is on",
+        "Verified with Reduce Motion enabled across Auth/Onboarding/Dashboard/Receiver/Settings"
+      ],
+      "priority": 139,
+      "passes": false,
+      "notes": "UX/accessibility (medium). The one global reduce-motion offender; rest of the app is diligent. File: ios/DailyOK/Utilities/Theme.swift."
+    },
+    {
+      "id": "US-IOS041",
+      "title": "Safeguard destructive actions (Transfer Ownership, Remove, Delete Account)",
+      "description": "As a user, I want destructive actions to be discoverable and reversible/confirmed, so that an accidental long-press or tap can't instantly sever a vulnerable person's safety net.",
+      "acceptanceCriteria": [
+        "Transfer Ownership has a visible affordance instead of being hidden only in a long-press context menu (FamilyView:71-87)",
+        "Member removal offers an undo toast / short grace window rather than instant severance (FamilyView swipe+confirm)",
+        "Account/family deletion requires typed confirmation or re-auth (SettingsView Delete Account)",
+        "Copy clearly states the consequence of each destructive action"
+      ],
+      "priority": 140,
+      "passes": false,
+      "notes": "UX (medium). Files: ios/DailyOK/Views/Owner/FamilyView.swift, ios/DailyOK/Views/Settings/SettingsView.swift."
+    },
+    {
+      "id": "US-IOS042",
+      "title": "Segmented OTP/pairing-code entry with clear lockout state",
+      "description": "As a senior entering a 6-digit code, I want per-digit boxes, visible progress, and a clearly-disabled button during lockout, so that code entry is easy and I'm not confused by a stuck submit button.",
+      "acceptanceCriteria": [
+        "Pairing-code and OTP entry use a segmented per-digit component with live 'x of 6' progress instead of a single monospaced TextField (PairingCodeEntryView:84-124, AuthView OTP)",
+        "During lockout the submit button is visibly disabled/greyed with the countdown shown inline, not enabled-looking until tapped",
+        "Fields support paste and one-time-code autofill"
+      ],
+      "priority": 141,
+      "passes": false,
+      "notes": "UX (lower). Files: ios/DailyOK/Views/Onboarding/PairingCodeEntryView.swift, ios/DailyOK/Views/Auth/AuthView.swift."
+    },
+    {
+      "id": "US-IOS043",
+      "title": "Replace the 'Notification Settings coming soon' dead-end",
+      "description": "As a user, I want every settings row to do something real, so that the app feels finished and trustworthy.",
+      "acceptanceCriteria": [
+        "The 'Notification Settings' row either deep-links to iOS notification settings (openSettingsURLString, a pattern already used elsewhere) or is removed until implemented (SettingsView.swift:106-108)",
+        "No shipped settings row leads to placeholder 'coming soon' text"
+      ],
+      "priority": 142,
+      "passes": false,
+      "notes": "UX (lower/polish). File: ios/DailyOK/Views/Settings/SettingsView.swift."
+    },
+    {
+      "id": "US-IOS044",
+      "title": "Localization readiness — String Catalog and StoreKit-driven pricing",
+      "description": "As a non-English speaker (and as a senior who benefits from clear localized copy), I want the app to be translatable and to show correct localized prices, so that Daily OK can serve more families and never display a wrong/hardcoded price.",
+      "acceptanceCriteria": [
+        "User-facing literals are migrated to a String Catalog (Localizable.xcstrings); no NSLocalizedString/LocalizedStringKey usage exists today (0 found)",
+        "All displayed prices come from Product.displayPrice (already available in SubscriptionService.products), removing hardcoded '$3.99/mo' etc. (OnboardingView:296-315, SettingsView SubscriptionView:372-402)",
+        "Date/number formatting uses locale-aware formatters",
+        "A pseudolocalization pass confirms no clipped layouts at larger translated string lengths"
+      ],
+      "priority": 143,
+      "passes": false,
+      "notes": "UX/infra + App Store guideline 3.1 (prices must match StoreKit). Foundation for international expansion. Files across ios/DailyOK/Views/."
+    },
+    {
+      "id": "US-IOS045",
+      "title": "Add telemetry/retry to silently-swallowed edge calls (delivery confirmation, heartbeat, health)",
+      "description": "As the team operating the escalation safety net, I want failures of delivery confirmation, heartbeat, and health upload to be observable and retried, so that a server that never got a delivery confirmation doesn't escalate with zero signal.",
+      "acceptanceCriteria": [
+        "confirmDelivery is wrapped in NetworkRetry.execute (like the sibling respondToCheckIn) and logs failures to AnalyticsService instead of `try?` swallowing them (CheckInService.confirmDelivery:113-118)",
+        "HeartbeatService.sendHeartbeat failures are logged/metered, not discarded (HeartbeatService:46)",
+        "HealthService.upload/revokeSharedSignals empty catches log to AnalyticsService",
+        "A failed confirmDelivery is retried before giving up"
+      ],
+      "priority": 144,
+      "passes": false,
+      "notes": "BUG (reliability). confirmDelivery is part of the escalation-suppression contract; swallowing its failure can cause unnecessary escalation with no telemetry. Files: ios/DailyOK/Services/CheckInService.swift, ios/DailyOK/Services/HeartbeatService.swift, ios/DailyOK/Services/HealthService.swift."
+    },
+    {
+      "id": "US-IOS046",
+      "title": "Snooze / 'remind me in N minutes' for a check-in request",
+      "description": "As a receiver who sees the request but can't act right now (driving, in a meeting), I want to snooze it for a few minutes, so that I avoid a false escalation to my family.",
+      "acceptanceCriteria": [
+        "A 'Remind me in 15 min' action is available both in-app and on the check-in notification",
+        "Snoozing reschedules the local fallback reminder and posts a checkin_requests 'snoozed_until' so the server defers escalation by one step (coordinate with edge function / migration as needed)",
+        "Snooze count is bounded so it can't indefinitely suppress escalation",
+        "Owner UI optionally reflects that the receiver snoozed (saw it but hasn't confirmed)"
+      ],
+      "priority": 145,
+      "passes": false,
+      "notes": "FEATURE-GAP. Cuts false escalations for senior/teen personas. Touches ios + edge-functions; respect backward-compat (new optional field). Files: ios/DailyOK/ViewModels/ReceiverViewModel.swift, PushNotificationService, edge-functions."
+    },
+    {
+      "id": "US-IOS047",
+      "title": "Honor the full schedule model (weekend/custom/quiet-hours/paused) on the client",
+      "description": "As a receiver with a weekend or custom schedule, I want the displayed 'next check-in' and my fallback reminder to use the right time, so that I'm not reminded at the wrong hour or escalated during quiet hours.",
+      "acceptanceCriteria": [
+        "A nextScheduledCheckIn(for: settings, now:) resolver honors scheduleType, weekendCheckinTime, customSchedule, schedulePaused, and quiet-hours suppression (currently computeNextCheckInTime/nextFallbackDate only read settings.checkinTime) (ReceiverViewModel.swift)",
+        "The displayed next-check-in time and the local fallback both use this resolver",
+        "schedulePaused suppresses reminders entirely; quiet hours defer them",
+        "Unit tests cover weekday, weekend, custom-day, paused, and quiet-hours cases"
+      ],
+      "priority": 146,
+      "passes": false,
+      "notes": "FEATURE-GAP/BUG. ReceiverSettings already defines these fields; the VM ignores them. File: ios/DailyOK/ViewModels/ReceiverViewModel.swift, ios/DailyOK/Models/ReceiverSettings.swift."
+    },
+    {
+      "id": "US-IOS048",
+      "title": "Support multiple check-ins per day and an undo grace window",
+      "description": "As a higher-risk receiver, I want a morning and evening check-in (and a way to undo an accidental tap), so that my schedule and accidental taps are handled correctly.",
+      "acceptanceCriteria": [
+        "The dedup key includes a scheduled_for slot so multiple windows/day are distinct check-ins rather than collapsing to one-per-day (coordinate with US-IOS019 dedup work and the edge function)",
+        "ScheduleType.custom supports more than one time per day",
+        "An accidental check-in can be undone within a short grace window",
+        "Streak/consistency math accounts for multiple expected check-ins per day"
+      ],
+      "priority": 147,
+      "passes": false,
+      "notes": "FEATURE-GAP. Depends on US-IOS019 (idempotency key) and US-IOS047 (schedule resolver). Touches ios + edge-functions + possibly a migration (backward-compatible)."
+    },
+    {
+      "id": "US-IOS049",
+      "title": "Date-range history and PDF export with correct consistency math",
+      "description": "As a caregiver preparing for a doctor visit, I want to pick a date range (e.g. 90 days) for history and the exported report, so that I can share an accurate record, with consistency computed against actually-scheduled days.",
+      "acceptanceCriteria": [
+        "History and the PDF report accept a selectable date range via checkInHistory(from:to:) instead of a fixed 30 days (CheckInService.checkInHistory, CheckInReportGenerator)",
+        "Report consistency is computed against actual scheduled check-in days, not raw periodDays, and cannot exceed 100% (fixes the >100% case when duplicates exist) (CheckInReportGenerator:~70)",
+        "Export performance is acceptable for 90+ day ranges"
+      ],
+      "priority": 148,
+      "passes": false,
+      "notes": "FEATURE-GAP. Pairs with US-IOS019 (duplicates inflate consistency). Files: ios/DailyOK/Services/CheckInService.swift, ios/DailyOK/Views/Owner/CheckInReportGenerator.swift."
+    },
+    {
+      "id": "US-IOS050",
+      "title": "Implement MIN_SUPPORTED_IOS_APP_VERSION force-update handling",
+      "description": "As the team, I want old app builds to be told to update when the backend requires it, so that we can safely evolve the API per the project's backward-compatibility rules.",
+      "acceptanceCriteria": [
+        "The client sends app_version (already sent via heartbeat) and reacts to a force-update payload from auth/check-in endpoints by presenting a blocking 'please update' screen",
+        "MIN_SUPPORTED_IOS_APP_VERSION is defined server-side (edge-functions/shared/config.ts per CLAUDE.md) and the iOS app handles the reject-old-build response gracefully",
+        "Below-floor builds are blocked with a clear update CTA to the App Store; at/above-floor builds are unaffected",
+        "The flow is covered by the backward-compatibility checklist"
+      ],
+      "priority": 149,
+      "passes": false,
+      "notes": "INFRA/FEATURE-GAP. Referenced in CLAUDE.md but no force-update check exists in EdgeFunctionsClient or auth/checkin. Files: ios/DailyOK/Services/EdgeFunctionsClient.swift, edge-functions/shared/config.ts."
     }
   ]
 }
