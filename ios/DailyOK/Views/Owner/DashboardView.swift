@@ -2,7 +2,6 @@ import SwiftUI
 
 struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
-    @State private var notificationBanner = NotificationPermissionBanner()
     @State private var showFirstReceiverWalkthrough = false
     @EnvironmentObject var appState: AppState
     @Environment(\.scenePhase) private var scenePhase
@@ -50,9 +49,9 @@ struct DashboardView: View {
                     emptyState
                 } else {
                     LazyVStack(spacing: 16) {
-                        // Notification permission banner
+                        // Notification permission banner — self-contained; it
+                        // checks permission on appear and on foreground.
                         NotificationPermissionBanner()
-                            .task { await notificationBanner.checkPermission() }
 
                         // Pattern Alerts
                         if !viewModel.alerts.isEmpty {

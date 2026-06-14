@@ -5,14 +5,38 @@ import UserNotifications
 /// Dismissable for 7 days. Links to iOS Settings.
 struct NotificationPermissionBanner: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
-    @State private var permissionStatus: UNAuthorizationStatus = .authorized
+    @Environment(\.scenePhase) private var scenePhase
+    // Start as `.notDetermined`, NOT `.authorized`. The previous default meant a
+    // receiver who denied notifications was never shown the banner unless a host
+    // happened to call `checkPermission()` — defeating the safety net for the
+    // most at-risk user. The banner now drives its own permission check below,
+    // so it works regardless of where it's placed.
+    @State private var permissionStatus: UNAuthorizationStatus = .notDetermined
     @State private var isDismissed = false
 
     private let dismissKey = "notificationBannerDismissedAt"
 
     var body: some View {
-        if shouldShow {
-            VStack(spacing: 8) {
+        // A `Group` adds no layout footprint when its content is empty (unlike a
+        // clear placeholder), yet the `.task`/`.onChange` stay attached so the
+        // banner detects a denied state even while currently hidden.
+        Group {
+            if shouldShow {
+                bannerContent
+            }
+        }
+        .task { await checkPermission() }
+        .onChange(of: scenePhase) { _, newPhase in
+            // Re-check on foreground — the user may have toggled notifications in
+            // iOS Settings while the app was backgrounded.
+            if newPhase == .active {
+                Task { await checkPermission() }
+            }
+        }
+    }
+
+    private var bannerContent: some View {
+        VStack(spacing: 8) {
                 HStack(spacing: 10) {
                     Image(systemName: "bell.slash.fill")
                         .font(.title3)
@@ -62,7 +86,6 @@ struct NotificationPermissionBanner: View {
             .cornerRadius(12)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Notifications are disabled. Enable them in Settings to receive check-in alerts.")
-        }
     }
 
     private var shouldShow: Bool {
