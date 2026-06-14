@@ -183,7 +183,8 @@ struct WeeklySummaryCard: View {
                 StatBubble(
                     value: "\(Int(summary.consistencyPercentage))%",
                     label: "Consistency",
-                    color: summary.consistencyPercentage >= 80 ? .green : summary.consistencyPercentage >= 50 ? .yellow : .red
+                    color: summary.consistencyPercentage >= 80 ? .green : summary.consistencyPercentage >= 50 ? .yellow : .red,
+                    qualifier: summary.consistencyPercentage >= 80 ? "Good" : summary.consistencyPercentage >= 50 ? "Fair" : "Low"
                 )
 
                 StatBubble(
@@ -226,6 +227,10 @@ struct StatBubble: View {
     let value: String
     let label: String
     let color: Color
+    /// Optional plain-language qualifier (e.g. "Good"/"Fair"/"Low") so status
+    /// isn't conveyed by color alone — important for color-blind users and in
+    /// bright sunlight.
+    var qualifier: String? = nil
 
     var body: some View {
         VStack(spacing: 4) {
@@ -238,10 +243,15 @@ struct StatBubble: View {
             Text(label)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+            if let qualifier {
+                Text(qualifier)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(color)
+            }
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(label): \(value)")
+        .accessibilityLabel(qualifier == nil ? "\(label): \(value)" : "\(label): \(value), \(qualifier!)")
     }
 }
 

@@ -3034,8 +3034,8 @@
         "Every emoji status has an adjacent visible text label"
       ],
       "priority": 138,
-      "passes": false,
-      "notes": "UX/accessibility (medium). Files: ios/DailyOK/Views/Receiver/ReceiverHomeView.swift, ios/DailyOK/Views/Components/ContactQuickActions.swift, ios/DailyOK/Views/Owner/DashboardView.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): ReceiverHome Try Again button raised from minHeight 36 to 44. ContactQuickActions Call/FaceTime/Text raised to minHeight 44 with a larger caption label and a light haptic on tap. WeeklySummary consistency StatBubble now pairs its green/yellow/red color with a plain-language qualifier (Good/Fair/Low) so status is not color-only (also folded into the VoiceOver label). Mood chips already carry text accessibility labels and use shape-distinct emoji. | UX/accessibility (medium). Files: ios/DailyOK/Views/Receiver/ReceiverHomeView.swift, ios/DailyOK/Views/Components/ContactQuickActions.swift, ios/DailyOK/Views/Owner/DashboardView.swift."
     },
     {
       "id": "US-IOS040",

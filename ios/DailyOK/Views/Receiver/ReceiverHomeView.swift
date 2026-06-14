@@ -104,7 +104,7 @@ struct ReceiverHomeView: View {
                                     Text("Try Again")
                                 }
                                 .font(.subheadline.weight(.semibold))
-                                .frame(minWidth: 120, minHeight: 36)
+                                .frame(minWidth: 120, minHeight: 44)
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(.green)
