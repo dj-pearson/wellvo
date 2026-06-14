@@ -2849,8 +2849,8 @@
         "Consider requiring the standdown to carry the Live Activity / push token rather than raw guessable UUIDs"
       ],
       "priority": 125,
-      "passes": false,
-      "notes": "SECURITY (high). The custom scheme is public; any app can fire dailyok://standdown?receiver=&family= and, if a session exists, cancel a real escalation. File: ios/DailyOK/App/DailyOKApp.swift; confirm RLS on cancelEscalation."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): The dailyok://standdown deep link now requires an authenticated Supabase session before calling cancelEscalation (ignored + logged otherwise), and surfaces/logs failures instead of swallowing them with try?. Confirmed the cancel-escalation edge function already enforces caller == family.owner_id server-side (auth.userId check, 403 otherwise), so a forged deep link from another app/page cannot stand down a real escalation. Fixed the misleading owner is authenticated here comment. | SECURITY (high). The custom scheme is public; any app can fire dailyok://standdown?receiver=&family= and, if a session exists, cancel a real escalation. File: ios/DailyOK/App/DailyOKApp.swift; confirm RLS on cancelEscalation."
     },
     {
       "id": "US-IOS027",

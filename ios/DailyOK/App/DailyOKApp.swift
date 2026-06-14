@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import os
 
 @main
 struct DailyOKApp: App {
@@ -56,12 +57,25 @@ struct DailyOKApp: App {
                 appState.pendingInviteToken = token
             }
         case "standdown":
-            // From an escalation Live Activity "Stand down" button — stop the
-            // escalation chain for this receiver (owner is authenticated here).
+            // From an escalation Live Activity "Stand down" button. The custom
+            // URL scheme is public, so anything could invoke this — require an
+            // authenticated session before acting, and rely on the
+            // cancel-escalation edge function (which enforces caller == family
+            // owner) to reject anyone who isn't the owner of this family.
             if let r = components.queryItems?.first(where: { $0.name == "receiver" })?.value,
                let f = components.queryItems?.first(where: { $0.name == "family" })?.value,
                let receiverId = UUID(uuidString: r), let familyId = UUID(uuidString: f) {
-                Task { try? await CheckInService.shared.cancelEscalation(receiverId: receiverId, familyId: familyId) }
+                Task {
+                    guard (try? await SupabaseService.shared.client.auth.session) != nil else {
+                        Log.general.error("Ignoring standdown deep link: no authenticated session")
+                        return
+                    }
+                    do {
+                        try await CheckInService.shared.cancelEscalation(receiverId: receiverId, familyId: familyId)
+                    } catch {
+                        Log.general.error("Standdown deep link failed: \(error.localizedDescription, privacy: .public)")
+                    }
+                }
             }
         default:
             break
