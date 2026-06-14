@@ -10,8 +10,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         registerNotificationCategories()
-        UIDevice.current.isBatteryMonitoringEnabled = true
-        HeartbeatService.shared.start()
+        // Heartbeat is started/stopped with the authenticated session lifecycle
+        // (see AuthViewModel.checkSession / signOut and the scene background
+        // handler) rather than unconditionally at launch, so a signed-out user
+        // doesn't keep heart-beating.
 
         // Activate the Apple Watch session so the wrist app receives the latest
         // check-in snapshot and can report wrist check-ins back to the phone.

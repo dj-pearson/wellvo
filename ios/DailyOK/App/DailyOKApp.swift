@@ -90,6 +90,9 @@ struct DailyOKApp: App {
                 }
             }
         case .background:
+            // Stop the foreground heartbeat timer when backgrounded (it can't
+            // fire while suspended anyway); checkSession restarts it on resume.
+            HeartbeatService.shared.stop()
             Task { await AnalyticsService.shared.track(.appBackgrounded) }
             break
         case .inactive:

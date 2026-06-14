@@ -72,6 +72,14 @@ class LocationService: NSObject, CLLocationManagerDelegate {
         }
 
         let location: CLLocation? = await withCheckedContinuation { continuation in
+            // Guard against a second call arriving before the first resolves:
+            // overwriting `currentLocationContinuation` would leak the pending
+            // one (a hard runtime trap) and hang the first caller forever. If a
+            // request is already in flight, bail out for this caller instead.
+            if currentLocationContinuation != nil {
+                continuation.resume(returning: nil)
+                return
+            }
             currentLocationContinuation = continuation
             locationManager.requestLocation()
         }

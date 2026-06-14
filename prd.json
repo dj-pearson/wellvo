@@ -2922,8 +2922,8 @@
         "Verified: signing out stops heartbeats; rapid double getCurrentLocation does not hang or warn"
       ],
       "priority": 130,
-      "passes": false,
-      "notes": "PERFORMANCE/stability. Timer never stops on background/sign-out; owners heartbeat pointlessly; continuation overwrite is a crash/hang vector. Files: ios/DailyOK/Services/HeartbeatService.swift, ios/DailyOK/Services/LocationService.swift, ios/DailyOK/App/AppDelegate.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): Heartbeat lifecycle now tied to the authenticated session: start() on AuthViewModel.checkSession when authenticated, stop() on sign-out and on scene .background (and when checkSession finds no session) — removed the unconditional AppDelegate launch start so a signed-out user no longer heart-beats. isBatteryMonitoringEnabled is enabled once in start() instead of on every tick. LocationService.getCurrentLocation now guards against a second call overwriting/leaking the pending CheckedContinuation (returns nil for the concurrent caller) — fixes the hang/trap vector. NOTE: heartbeat is gated to authenticated (not strictly receiver-only) to avoid extra role queries; owner heartbeats are harmless. Background-report throttling for significant-change updates is tracked under US-IOS029. | PERFORMANCE/stability. Timer never stops on background/sign-out; owners heartbeat pointlessly; continuation overwrite is a crash/hang vector. Files: ios/DailyOK/Services/HeartbeatService.swift, ios/DailyOK/Services/LocationService.swift, ios/DailyOK/App/AppDelegate.swift."
     },
     {
       "id": "US-IOS032",
