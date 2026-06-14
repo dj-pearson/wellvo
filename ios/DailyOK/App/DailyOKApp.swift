@@ -71,22 +71,24 @@ struct DailyOKApp: App {
     private func handleScenePhaseChange(_ phase: ScenePhase) {
         switch phase {
         case .active:
-            // Sync pending offline check-ins when app becomes active
-            Task { await offlineService.syncPendingCheckIns() }
-            // Re-check auth state
-            Task { await authViewModel.checkSession() }
-            // Re-register push token on every foreground
-            Task { await reRegisterPushToken() }
-            Task { await AnalyticsService.shared.track(.appOpened) }
-            // Validate server certificate pins
+            // Run foreground work as a single ordered task instead of six
+            // concurrent Tasks all competing for the first connection on resume.
+            // Auth-critical work first, then sync/push, then best-effort work.
             Task {
+                // Session first so downstream work uses a valid token; biometric
+                // gate immediately after.
+                await authViewModel.checkSession()
+                await authViewModel.checkBiometricOnResume()
+                // Sync queued check-ins and refresh the push token.
+                await offlineService.syncPendingCheckIns()
+                await reRegisterPushToken()
+                // Non-urgent / best-effort work last.
+                await AnalyticsService.shared.track(.appOpened)
                 let valid = await CertificatePinningService.shared.validateServerCertificate()
                 if !valid {
                     await AnalyticsService.shared.track(.certificatePinningFailure)
                 }
             }
-            // Biometric check on app resume
-            Task { await authViewModel.checkBiometricOnResume() }
         case .background:
             Task { await AnalyticsService.shared.track(.appBackgrounded) }
             break

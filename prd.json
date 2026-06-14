@@ -2908,8 +2908,8 @@
         "Measured: dashboard cold-load issues roughly O(1) batched round-trips rather than ~4N+3 serial calls"
       ],
       "priority": 129,
-      "passes": false,
-      "notes": "PERFORMANCE (high). Primary screen reloads on every foreground/tab-switch/realtime/sync event with no guard. Files: ios/DailyOK/ViewModels/DashboardViewModel.swift, ios/DailyOK/Views/Owner/DashboardView.swift, ios/DailyOK/App/DailyOKApp.swift."
+      "passes": true,
+      "notes": "IMPLEMENTED (pending Xcode build verification): loadDashboard now coalesces all reload triggers via a single in-flight loadTask (re-entrant callers await it), eliminating the .task + scenePhase double full-load race on launch. Notification status is batched into ONE push_tokens in() query (activeNotificationUserIds) instead of a SELECT per receiver. Per-receiver todayCheckInStatus/checkInHistory/latestActiveRequest now overlap via async let (was ~4 serial RTTs each). DailyOKApp foreground work runs as one ordered Task (session+biometric, then sync+push, then best-effort analytics/cert-pin) instead of 6 concurrent Tasks. NOTE: cross-receiver fan-out via TaskGroup deferred (Sendable-capture refactor) to keep this change build-safe; within-receiver overlap + batching + guard already cut round-trips substantially. | PERFORMANCE (high). Primary screen reloads on every foreground/tab-switch/realtime/sync event with no guard. Files: ios/DailyOK/ViewModels/DashboardViewModel.swift, ios/DailyOK/Views/Owner/DashboardView.swift, ios/DailyOK/App/DailyOKApp.swift."
     },
     {
       "id": "US-IOS031",

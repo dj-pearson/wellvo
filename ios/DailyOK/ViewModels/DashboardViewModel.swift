@@ -91,8 +91,24 @@ final class DashboardViewModel: ObservableObject {
     private var realtimeFamilyId: UUID?
     private var realtimeListenerTask: Task<Void, Never>?
     private var pendingRefreshTask: Task<Void, Never>?
+    private var loadTask: Task<Void, Never>?
 
+    /// Coalesce the many reload triggers (`.task`, `scenePhase == .active`, tab
+    /// switch, realtime, offline-sync, pull-to-refresh). Without this, `.task`
+    /// and `scenePhase == .active` both fire on launch and kick off two
+    /// concurrent full loads that race on the `@Published` arrays. Re-entrant
+    /// callers await the in-flight load instead of starting a new one.
     func loadDashboard() async {
+        if let loadTask {
+            return await loadTask.value
+        }
+        let task = Task { await performLoad() }
+        loadTask = task
+        await task.value
+        loadTask = nil
+    }
+
+    private func performLoad() async {
         isLoading = true
         errorMessage = nil
 
@@ -106,22 +122,40 @@ final class DashboardViewModel: ObservableObject {
             let members = try await FamilyService.shared.getFamilyMembers(familyId: family.id)
             let receivers = members.filter { $0.role == .receiver && $0.status == .active }
 
+            // Batch notification status into ONE query for all receivers instead
+            // of a separate push_tokens SELECT per receiver.
+            let notifiedUserIds = await activeNotificationUserIds(userIds: receivers.map(\.userId))
+
             var cards: [ReceiverStatusCard] = []
             var weeklyCheckIns: [CheckIn] = []
 
             for receiver in receivers {
                 let receiverTz = receiver.user?.timezone
-                let todayCheckIn = try await CheckInService.shared.todayCheckInStatus(
+
+                // Overlap the three independent reads for this receiver instead
+                // of awaiting them serially (was ~4 serial round-trips each).
+                async let todayCheckInResult = CheckInService.shared.todayCheckInStatus(
                     receiverId: receiver.userId,
                     familyId: family.id,
                     timezone: receiverTz
                 )
-
-                let history = try await CheckInService.shared.checkInHistory(
+                async let historyResult = CheckInService.shared.checkInHistory(
                     receiverId: receiver.userId,
                     familyId: family.id,
                     days: 30
                 )
+                async let activeRequestResult = latestActiveRequest(
+                    receiverId: receiver.userId,
+                    familyId: family.id
+                )
+
+                let todayCheckIn = try await todayCheckInResult
+                let history = try await historyResult
+                // We must ALWAYS resolve against the latest active (pending/missed)
+                // request — not only when there's no check-in today — otherwise an
+                // on-demand request sent after a routine morning check-in would be
+                // masked by "checked in today" and falsely reassure the owner.
+                let activeRequest = await activeRequestResult
 
                 let streak = calculateStreak(from: history, timezone: receiverTz)
 
@@ -139,19 +173,13 @@ final class DashboardViewModel: ObservableObject {
                     calendar: .forTimezone(receiverTz)
                 )
 
-                // Check notification status — look for active push tokens
-                let hasNotifications = await checkNotificationStatus(userId: receiver.userId)
+                let hasNotifications = notifiedUserIds.contains(receiver.userId)
 
                 // Collect last 7 days for weekly summary
-                let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
+                let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date())
+                    ?? Date().addingTimeInterval(-7 * 86_400)
                 weeklyCheckIns.append(contentsOf: history.filter { $0.checkedInAt >= sevenDaysAgo })
 
-                // Resolve live status. We must ALWAYS look for the latest active
-                // (pending/missed) request — not only when there's no check-in
-                // today — otherwise an on-demand request sent after a routine
-                // morning check-in would be masked by "checked in today" and the
-                // owner would be falsely reassured their urgent ping was answered.
-                let activeRequest = await latestActiveRequest(receiverId: receiver.userId, familyId: family.id)
                 let resolved = Self.resolveStatus(todayCheckIn: todayCheckIn, activeRequest: activeRequest)
                 let status = resolved.status
 
@@ -410,20 +438,21 @@ final class DashboardViewModel: ObservableObject {
         return streak
     }
 
-    private func checkNotificationStatus(userId: UUID) async -> Bool {
+    /// Which of the given users have at least one active push token — fetched in
+    /// a single `in(...)` query rather than one SELECT per receiver.
+    private func activeNotificationUserIds(userIds: [UUID]) async -> Set<UUID> {
+        guard !userIds.isEmpty else { return [] }
         do {
-            let tokens: [PushTokenRecord] = try await SupabaseService.shared.client
+            let rows: [PushTokenRecord] = try await SupabaseService.shared.client
                 .from("push_tokens")
-                .select("id")
-                .eq("user_id", value: userId.uuidString)
+                .select("user_id")
+                .in("user_id", values: userIds.map { $0.uuidString })
                 .eq("is_active", value: true)
-                .limit(1)
                 .execute()
                 .value
-
-            return !tokens.isEmpty
+            return Set(rows.compactMap { UUID(uuidString: $0.user_id) })
         } catch {
-            return false // Assume no if can't check
+            return [] // Assume none if we can't check
         }
     }
 
@@ -561,5 +590,5 @@ final class DashboardViewModel: ObservableObject {
 
 /// Minimal struct to decode push_token existence check
 private struct PushTokenRecord: Codable {
-    let id: UUID
+    let user_id: String
 }
