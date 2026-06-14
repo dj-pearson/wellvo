@@ -136,20 +136,14 @@ final class DashboardViewModel: ObservableObject {
                 let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
                 weeklyCheckIns.append(contentsOf: history.filter { $0.checkedInAt >= sevenDaysAgo })
 
-                // Resolve live status from the latest active request: if they've
-                // checked in we show that; otherwise reflect a missed or
-                // in-progress (escalating) pending request.
-                let activeRequest = todayCheckIn == nil
-                    ? await latestActiveRequest(receiverId: receiver.userId, familyId: family.id)
-                    : nil
-                let status: ReceiverCheckInStatus
-                if todayCheckIn != nil {
-                    status = .checkedIn
-                } else if activeRequest?.status == .missed {
-                    status = .missed
-                } else {
-                    status = .pending
-                }
+                // Resolve live status. We must ALWAYS look for the latest active
+                // (pending/missed) request — not only when there's no check-in
+                // today — otherwise an on-demand request sent after a routine
+                // morning check-in would be masked by "checked in today" and the
+                // owner would be falsely reassured their urgent ping was answered.
+                let activeRequest = await latestActiveRequest(receiverId: receiver.userId, familyId: family.id)
+                let resolved = Self.resolveStatus(todayCheckIn: todayCheckIn, activeRequest: activeRequest)
+                let status = resolved.status
 
                 cards.append(ReceiverStatusCard(
                     id: receiver.userId,
@@ -166,7 +160,7 @@ final class DashboardViewModel: ObservableObject {
                     checkedInTime: todayCheckIn?.checkedInAt,
                     locationLabel: todayCheckIn?.locationLabel,
                     kidResponseType: todayCheckIn?.kidResponseType,
-                    escalationStep: activeRequest?.escalationStep ?? 0
+                    escalationStep: resolved.escalationStep
                 ))
             }
 
@@ -224,6 +218,36 @@ final class DashboardViewModel: ObservableObject {
 
     /// Latest pending/missed request for a receiver, used to surface escalation
     /// progress on the owner dashboard.
+    /// Pure status resolution, extracted so it can be unit-tested.
+    ///
+    /// Responding to a check-in request marks it `checked_in` server-side, so an
+    /// active (pending/missed) request that was created AFTER the most recent
+    /// check-in means the receiver has NOT yet responded to *that* request — even
+    /// if they did a routine check-in earlier in the day. In that case we surface
+    /// the request (and its escalation step) instead of a stale "checked in".
+    nonisolated static func resolveStatus(
+        todayCheckIn: CheckIn?,
+        activeRequest: CheckInRequest?
+    ) -> (status: ReceiverCheckInStatus, escalationStep: Int) {
+        let unanswered: CheckInRequest?
+        if let req = activeRequest,
+           !(todayCheckIn.map { $0.checkedInAt >= req.createdAt } ?? false) {
+            unanswered = req
+        } else {
+            unanswered = nil
+        }
+
+        let status: ReceiverCheckInStatus
+        if let req = unanswered {
+            status = req.status == .missed ? .missed : .pending
+        } else if todayCheckIn != nil {
+            status = .checkedIn
+        } else {
+            status = .pending
+        }
+        return (status, unanswered?.escalationStep ?? 0)
+    }
+
     private func latestActiveRequest(receiverId: UUID, familyId: UUID) async -> CheckInRequest? {
         let requests: [CheckInRequest]? = try? await SupabaseService.shared.client
             .from("checkin_requests")

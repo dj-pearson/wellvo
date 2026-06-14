@@ -163,6 +163,43 @@ struct CheckIn: Codable, Identifiable {
         case locationLabel = "location_label"
         case kidResponseType = "kid_response_type"
     }
+
+    // Explicit memberwise initializer with defaults for the optional fields.
+    // (Decodable's `init(from:)` is still synthesized separately.) This keeps
+    // call sites that only care about the core fields — tests, widgets, and the
+    // shared snapshot — concise instead of having to pass every location/response
+    // field as nil.
+    init(
+        id: UUID,
+        receiverId: UUID,
+        familyId: UUID,
+        checkedInAt: Date,
+        mood: Mood? = nil,
+        source: CheckInSource,
+        scheduledFor: Date? = nil,
+        responseType: CheckInResponseType? = nil,
+        latitude: Double? = nil,
+        longitude: Double? = nil,
+        locationAccuracyMeters: Double? = nil,
+        distanceFromHomeMeters: Double? = nil,
+        locationLabel: String? = nil,
+        kidResponseType: String? = nil
+    ) {
+        self.id = id
+        self.receiverId = receiverId
+        self.familyId = familyId
+        self.checkedInAt = checkedInAt
+        self.mood = mood
+        self.source = source
+        self.scheduledFor = scheduledFor
+        self.responseType = responseType
+        self.latitude = latitude
+        self.longitude = longitude
+        self.locationAccuracyMeters = locationAccuracyMeters
+        self.distanceFromHomeMeters = distanceFromHomeMeters
+        self.locationLabel = locationLabel
+        self.kidResponseType = kidResponseType
+    }
 }
 
 struct CheckInRequest: Codable, Identifiable {
