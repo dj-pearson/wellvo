@@ -37,6 +37,8 @@
 	<string>Daily OK uses notifications to deliver check-in reminders and to alert your family group if a check-in is missed. You can change notification settings at any time.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>If you choose to share activity, Daily OK reads only your step count to show your family a simple “Active today” note. Your health data never leaves your phone — only the yes/no is shared. This is optional and you can turn it off any time.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Daily OK writes a “Active today” note derived from your step count when you share health data with your family group. No other health data is modified. This is optional and you can turn it off any time.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
