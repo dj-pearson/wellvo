@@ -57,6 +57,9 @@ jobs:
           BUILD_CERTIFICATE_BASE64: ${{ env.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ env.P12_PASSWORD }}
           PROVISIONING_PROFILE_BASE64: ${{ env.PROVISIONING_PROFILE_BASE64 }}
+          PROVISIONING_PROFILE_WIDGETS_BASE64: ${{ env.PROVISIONING_PROFILE_WIDGETS_BASE64 }}
+          PROVISIONING_PROFILE_WATCH_BASE64: ${{ env.PROVISIONING_PROFILE_WATCH_BASE64 }}
+          PROVISIONING_PROFILE_WATCH_WIDGETS_BASE64: ${{ env.PROVISIONING_PROFILE_WATCH_WIDGETS_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ env.KEYCHAIN_PASSWORD }}
         run: |
           # Create variables
@@ -64,9 +67,8 @@ jobs:
           PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
-          # Import certificate and provisioning profile from secrets
+          # Import certificate from secrets
           echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-          echo -n "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o $PP_PATH
 
           # Create temporary keychain
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
@@ -78,9 +80,16 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security list-keychain -d user -s $KEYCHAIN_PATH
 
-          # Apply provisioning profile
+          # Install all provisioning profiles
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+          echo -n "$PROVISIONING_PROFILE_BASE64"              | base64 --decode -o $RUNNER_TEMP/pp_main.mobileprovision
+          echo -n "$PROVISIONING_PROFILE_WIDGETS_BASE64"      | base64 --decode -o $RUNNER_TEMP/pp_widgets.mobileprovision
+          echo -n "$PROVISIONING_PROFILE_WATCH_BASE64"        | base64 --decode -o $RUNNER_TEMP/pp_watch.mobileprovision
+          echo -n "$PROVISIONING_PROFILE_WATCH_WIDGETS_BASE64" | base64 --decode -o $RUNNER_TEMP/pp_watch_widgets.mobileprovision
+          cp $RUNNER_TEMP/pp_main.mobileprovision              ~/Library/MobileDevice/Provisioning\ Profiles/
+          cp $RUNNER_TEMP/pp_widgets.mobileprovision           ~/Library/MobileDevice/Provisioning\ Profiles/
+          cp $RUNNER_TEMP/pp_watch.mobileprovision             ~/Library/MobileDevice/Provisioning\ Profiles/
+          cp $RUNNER_TEMP/pp_watch_widgets.mobileprovision     ~/Library/MobileDevice/Provisioning\ Profiles/
 
       - name: Resolve Swift Package dependencies
         working-directory: ios
