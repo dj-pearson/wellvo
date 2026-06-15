@@ -183,6 +183,7 @@ jobs:
             DEVELOPMENT_TEAM="${{ env.APPLE_TEAM_ID }}" \
             MARKETING_VERSION="${{ env.APP_VERSION }}" \
             CURRENT_PROJECT_VERSION="${{ env.BUILD_NUMBER }}" \
+            VALIDATE_PRODUCT=NO \
             | xcbeautify
 
           # Verify archive was created
