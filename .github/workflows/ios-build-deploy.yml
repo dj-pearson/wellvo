@@ -91,13 +91,13 @@ jobs:
 
       - name: Inject build configuration
         run: |
-          # Write code signing config to xcconfig (these values are safe for xcconfig)
+          # Only write non-signing config to xcconfig.
+          # CODE_SIGN_STYLE / DEVELOPMENT_TEAM / PROVISIONING_PROFILE_SPECIFIER are
+          # passed as xcodebuild build-setting overrides so they apply to ALL targets
+          # (Watch, WatchWidgets, Widgets) — not just the main app target that
+          # references this xcconfig.
           {
             echo "// Daily OK Build Configuration (CI-generated)"
-            echo "CODE_SIGN_STYLE = Manual"
-            echo "CODE_SIGN_IDENTITY = Apple Distribution"
-            echo "DEVELOPMENT_TEAM = ${{ env.APPLE_TEAM_ID }}"
-            echo "PROVISIONING_PROFILE_SPECIFIER = ${{ env.PROVISIONING_PROFILE_NAME }}"
             echo "PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios"
           } > ios/DailyOK/BuildConfig.xcconfig
 
@@ -124,16 +124,34 @@ jobs:
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
           echo "🏷️ Version: $VERSION ($BUILD_NUMBER)"
 
+      - name: Setup App Store Connect API key
+        run: |
+          mkdir -p ~/.private_keys
+          KEY_FILE=~/.private_keys/AuthKey_${{ env.ASC_KEY_ID }}.p8
+          echo -n "${{ env.ASC_PRIVATE_KEY }}" | sed 's/\\n/\n/g' > "$KEY_FILE"
+          # Verify the key file looks like a valid PEM
+          echo "Key file first line: $(head -1 "$KEY_FILE")"
+          echo "Key file line count: $(wc -l < "$KEY_FILE")"
+
       - name: Build and archive
         working-directory: ios
         run: |
           set -o pipefail
+          # -allowProvisioningUpdates lets Xcode auto-provision ALL targets
+          # (Watch, WatchWidgets, Widgets) using the ASC API key, eliminating
+          # the need to manually install per-target provisioning profiles in CI.
           xcodebuild archive \
             -project DailyOK.xcodeproj \
             -scheme DailyOK \
             -configuration Release \
             -archivePath $RUNNER_TEMP/DailyOK.xcarchive \
             -destination "generic/platform=iOS" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.private_keys/AuthKey_${{ env.ASC_KEY_ID }}.p8 \
+            -authenticationKeyID ${{ env.ASC_KEY_ID }} \
+            -authenticationKeyIssuerID ${{ env.ASC_ISSUER_ID }} \
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM="${{ env.APPLE_TEAM_ID }}" \
             MARKETING_VERSION="${{ env.APP_VERSION }}" \
             CURRENT_PROJECT_VERSION="${{ env.BUILD_NUMBER }}" \
             | xcbeautify
@@ -162,24 +180,12 @@ jobs:
               <key>destination</key>
               <string>upload</string>
               <key>signingStyle</key>
-              <string>manual</string>
-              <key>provisioningProfiles</key>
-              <dict>
-                  <key>com.wellvo.ios</key>
-                  <string>${{ env.PROVISIONING_PROFILE_NAME }}</string>
-              </dict>
+              <string>automatic</string>
+              <key>manageAppVersionAndBuildNumber</key>
+              <false/>
           </dict>
           </plist>
           EOF
-
-      - name: Setup App Store Connect API key
-        run: |
-          mkdir -p ~/.private_keys
-          KEY_FILE=~/.private_keys/AuthKey_${{ env.ASC_KEY_ID }}.p8
-          echo -n "${{ env.ASC_PRIVATE_KEY }}" | sed 's/\\n/\n/g' > "$KEY_FILE"
-          # Verify the key file looks like a valid PEM
-          echo "Key file first line: $(head -1 "$KEY_FILE")"
-          echo "Key file line count: $(wc -l < "$KEY_FILE")"
 
       - name: Export IPA
         run: |
