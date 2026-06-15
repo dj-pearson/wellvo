@@ -183,7 +183,6 @@ jobs:
             DEVELOPMENT_TEAM="${{ env.APPLE_TEAM_ID }}" \
             MARKETING_VERSION="${{ env.APP_VERSION }}" \
             CURRENT_PROJECT_VERSION="${{ env.BUILD_NUMBER }}" \
-            VALIDATE_PRODUCT=NO \
             | xcbeautify
 
           # Verify archive was created
@@ -219,7 +218,7 @@ jobs:
                   <string>${{ env.WIDGETS_PROFILE_UUID }}</string>
                   <key>com.wellvo.ios.watchkitapp</key>
                   <string>${{ env.WATCH_PROFILE_UUID }}</string>
-                  <key>com.wellvo.ios.DailyOKWatchWidgets</key>
+                  <key>com.wellvo.ios.watchkitapp.DailyOKWatchWidgets</key>
                   <string>${{ env.WATCH_WIDGETS_PROFILE_UUID }}</string>
               </dict>
           </dict>
