@@ -13,7 +13,7 @@ export default function Privacy() {
       <div className="container">
         <div className="legal-content">
           <h1>Privacy Policy</h1>
-          <p className="legal-updated">Last updated: April 13, 2026</p>
+          <p className="legal-updated">Last updated: June 15, 2026</p>
 
           <section>
             <h2>Introduction</h2>
@@ -126,8 +126,9 @@ export default function Privacy() {
             <h2>SMS Messaging (A2P 10DLC)</h2>
             <p>
               Daily OK uses SMS for two purposes only. We do not use phone numbers
-              for marketing, and we do not share or sell phone numbers or opt-in
-              information with third parties for promotional purposes.
+              for marketing. Mobile opt-in data, phone numbers, and SMS consent
+              information will never be shared with or sold to any third party
+              for any purpose.
             </p>
             <h3>Message types and consent</h3>
             <ul>

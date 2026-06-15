@@ -228,7 +228,7 @@ struct ReceiverSettingsView: View {
             } header: {
                 Text("SMS Escalation")
             } footer: {
-                Text("Send an SMS to you and viewers if push notifications fail during escalation. Requires a phone number on your account.")
+                Text("When enabled, an SMS alert is sent to you and viewers if push notifications fail during escalation. Requires a phone number on your account. Msg & data rates may apply. Reply STOP to any message to opt out, or HELP for assistance.")
             }
 
             // Mood Tracking
