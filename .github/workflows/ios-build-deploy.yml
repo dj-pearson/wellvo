@@ -146,22 +146,18 @@ jobs:
         working-directory: ios
         run: |
           set -o pipefail
-          # Manual signing with Apple Distribution certificate applies to ALL targets
-          # via xcodebuild build-setting overrides (xcconfig only reaches main app).
-          # -allowProvisioningUpdates downloads existing Distribution profiles for
-          # extension targets (Watch, WatchWidgets, Widgets) without registering new
-          # App IDs or creating Development certificates.
+          # All targets use Automatic signing in project.pbxproj. We override the
+          # identity to Apple Distribution (so Xcode picks Distribution profiles, not
+          # Development) and skip -allowProvisioningUpdates so Xcode never contacts
+          # Apple's servers (which would try to create/revoke Development certs).
+          # The four .mobileprovision files installed above are all Xcode needs.
           xcodebuild archive \
             -project DailyOK.xcodeproj \
             -scheme DailyOK \
             -configuration Release \
             -archivePath $RUNNER_TEMP/DailyOK.xcarchive \
             -destination "generic/platform=iOS" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/.private_keys/AuthKey_${{ env.ASC_KEY_ID }}.p8 \
-            -authenticationKeyID ${{ env.ASC_KEY_ID }} \
-            -authenticationKeyIssuerID ${{ env.ASC_ISSUER_ID }} \
-            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_STYLE=Automatic \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             DEVELOPMENT_TEAM="${{ env.APPLE_TEAM_ID }}" \
             MARKETING_VERSION="${{ env.APP_VERSION }}" \
@@ -192,12 +188,7 @@ jobs:
               <key>destination</key>
               <string>upload</string>
               <key>signingStyle</key>
-              <string>manual</string>
-              <key>provisioningProfiles</key>
-              <dict>
-                  <key>com.wellvo.ios</key>
-                  <string>${{ env.PROVISIONING_PROFILE_NAME }}</string>
-              </dict>
+              <string>automatic</string>
           </dict>
           </plist>
           EOF
