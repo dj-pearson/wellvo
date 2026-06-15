@@ -15,7 +15,7 @@ const APNS_HOST =
     ? "https://api.push.apple.com"
     : "https://api.sandbox.push.apple.com";
 
-const BUNDLE_ID = "com.dailyok.ios";
+const BUNDLE_ID = Deno.env.get("APPLE_BUNDLE_ID") || "com.wellvo.ios";
 
 interface APNsPayload {
   aps: {
