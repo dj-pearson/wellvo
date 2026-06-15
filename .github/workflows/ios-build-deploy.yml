@@ -91,6 +91,103 @@ jobs:
           cp $RUNNER_TEMP/pp_watch.mobileprovision             ~/Library/MobileDevice/Provisioning\ Profiles/
           cp $RUNNER_TEMP/pp_watch_widgets.mobileprovision     ~/Library/MobileDevice/Provisioning\ Profiles/
 
+      - name: Patch project for manual Distribution signing
+        working-directory: ios
+        run: |
+          # Extract the UUID stored inside each provisioning profile.
+          # security cms -D decodes the CMS-signed plist; grep finds the UUID entry.
+          extract_uuid() {
+            security cms -D -i "$1" 2>/dev/null \
+              | grep -A1 '<key>UUID</key>' | tail -1 \
+              | sed 's/.*<string>\(.*\)<\/string>.*/\1/'
+          }
+          MAIN_UUID=$(extract_uuid $RUNNER_TEMP/pp_main.mobileprovision)
+          WIDGETS_UUID=$(extract_uuid $RUNNER_TEMP/pp_widgets.mobileprovision)
+          WATCH_UUID=$(extract_uuid $RUNNER_TEMP/pp_watch.mobileprovision)
+          WATCH_WIDGETS_UUID=$(extract_uuid $RUNNER_TEMP/pp_watch_widgets.mobileprovision)
+          echo "Profile UUIDs → main:$MAIN_UUID widgets:$WIDGETS_UUID watch:$WATCH_UUID watchwidgets:$WATCH_WIDGETS_UUID"
+
+          # Persist UUIDs so the ExportOptions step can reference them.
+          echo "MAIN_PROFILE_UUID=$MAIN_UUID"                   >> $GITHUB_ENV
+          echo "WIDGETS_PROFILE_UUID=$WIDGETS_UUID"             >> $GITHUB_ENV
+          echo "WATCH_PROFILE_UUID=$WATCH_UUID"                 >> $GITHUB_ENV
+          echo "WATCH_WIDGETS_PROFILE_UUID=$WATCH_WIDGETS_UUID" >> $GITHUB_ENV
+
+          # Patch the four app-target Release build configurations in project.pbxproj
+          # (BC000004 = DailyOK, BC000010 = DailyOKWidgets, BC000012 = DailyOKWatch,
+          # BC000014 = DailyOKWatchWidgets) to use Manual signing + Apple Distribution
+          # + the per-target profile UUID.  SPM package targets live in DerivedData and
+          # are NOT in project.pbxproj, so they keep their own Automatic (Development)
+          # signing and never conflict with the Distribution identity override.
+          cat > /tmp/patch_signing.py << 'PYEOF'
+import sys
+
+config_profiles = {
+    'BC000004': sys.argv[1],   # DailyOK (main app)
+    'BC000010': sys.argv[2],   # DailyOKWidgets
+    'BC000012': sys.argv[3],   # DailyOKWatch
+    'BC000014': sys.argv[4],   # DailyOKWatchWidgets
+}
+
+with open('DailyOK.xcodeproj/project.pbxproj', 'r') as f:
+    lines = f.readlines()
+
+result = []
+current_config = None
+in_build_settings = False
+injected = False
+
+for line in lines:
+    stripped = line.strip()
+
+    # Detect entering a Release config we want to patch.
+    if not current_config:
+        for config_id in config_profiles:
+            if f'{config_id} /* Release */' in line:
+                current_config = config_id
+                in_build_settings = False
+                injected = False
+                break
+
+    skip = False
+    if current_config and in_build_settings:
+        s = stripped
+        # Remove existing signing settings we are about to inject explicitly.
+        # Guard CODE_SIGN_IDENTITY check so we don't accidentally drop CODE_SIGN_ENTITLEMENTS.
+        if (s.startswith('CODE_SIGN_STYLE =') or
+                s.startswith('PROVISIONING_PROFILE_SPECIFIER =') or
+                (s.startswith('CODE_SIGN_IDENTITY =') and 'ENTITLEMENTS' not in s)):
+            skip = True
+        # Exit the buildSettings dict on its closing brace.
+        if s == '};':
+            in_build_settings = False
+
+    if not skip:
+        result.append(line)
+
+    if current_config:
+        # Right after buildSettings = {, inject our per-target signing triple.
+        if stripped == 'buildSettings = {':
+            in_build_settings = True
+            if not injected:
+                uuid = config_profiles[current_config]
+                t = '\t\t\t\t'
+                result.append(f'{t}CODE_SIGN_IDENTITY = "Apple Distribution";\n')
+                result.append(f'{t}CODE_SIGN_STYLE = Manual;\n')
+                result.append(f'{t}PROVISIONING_PROFILE_SPECIFIER = "{uuid}";\n')
+                injected = True
+        # Exit this configuration object after its name property.
+        if stripped == 'name = Release;':
+            current_config = None
+            in_build_settings = False
+
+with open('DailyOK.xcodeproj/project.pbxproj', 'w') as f:
+    f.writelines(result)
+
+print('Patched project.pbxproj with per-target manual Distribution signing')
+PYEOF
+          python3 /tmp/patch_signing.py "$MAIN_UUID" "$WIDGETS_UUID" "$WATCH_UUID" "$WATCH_WIDGETS_UUID"
+
       - name: Resolve Swift Package dependencies
         working-directory: ios
         run: |
@@ -146,19 +243,18 @@ jobs:
         working-directory: ios
         run: |
           set -o pipefail
-          # All targets use Automatic signing in project.pbxproj. We override the
-          # identity to Apple Distribution (so Xcode picks Distribution profiles, not
-          # Development) and skip -allowProvisioningUpdates so Xcode never contacts
-          # Apple's servers (which would try to create/revoke Development certs).
-          # The four .mobileprovision files installed above are all Xcode needs.
+          # The patch step above wrote CODE_SIGN_STYLE=Manual, CODE_SIGN_IDENTITY=
+          # "Apple Distribution", and PROVISIONING_PROFILE_SPECIFIER=<UUID> into the
+          # four app-target Release configs in project.pbxproj.  SPM package targets
+          # are not in that file, so they keep their own Automatic (Development) signing
+          # and are never affected by the Distribution identity.  No global signing
+          # overrides are needed here.
           xcodebuild archive \
             -project DailyOK.xcodeproj \
             -scheme DailyOK \
             -configuration Release \
             -archivePath $RUNNER_TEMP/DailyOK.xcarchive \
             -destination "generic/platform=iOS" \
-            CODE_SIGN_STYLE=Automatic \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
             DEVELOPMENT_TEAM="${{ env.APPLE_TEAM_ID }}" \
             MARKETING_VERSION="${{ env.APP_VERSION }}" \
             CURRENT_PROJECT_VERSION="${{ env.BUILD_NUMBER }}" \
@@ -188,7 +284,18 @@ jobs:
               <key>destination</key>
               <string>upload</string>
               <key>signingStyle</key>
-              <string>automatic</string>
+              <string>manual</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>com.wellvo.ios</key>
+                  <string>${{ env.MAIN_PROFILE_UUID }}</string>
+                  <key>com.wellvo.ios.DailyOKWidgets</key>
+                  <string>${{ env.WIDGETS_PROFILE_UUID }}</string>
+                  <key>com.wellvo.ios.watchkitapp</key>
+                  <string>${{ env.WATCH_PROFILE_UUID }}</string>
+                  <key>com.wellvo.ios.DailyOKWatchWidgets</key>
+                  <string>${{ env.WATCH_WIDGETS_PROFILE_UUID }}</string>
+              </dict>
           </dict>
           </plist>
           EOF
