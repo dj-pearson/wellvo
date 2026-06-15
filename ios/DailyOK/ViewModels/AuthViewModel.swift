@@ -266,8 +266,8 @@ final class AuthViewModel: ObservableObject {
             clearFormFields()
             await checkBiometricSetupPrompt()
         } catch {
-            // Don't reveal if email exists — use generic message for sign-in failures
-            errorMessage = "Invalid email or password. Please try again."
+            // Temporary: surface real error for debugging — revert before shipping
+            errorMessage = "Sign-in error: \(error)"
             password = "" // Clear password on failure
             recordFailedAttempt()
         }
