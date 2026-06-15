@@ -419,6 +419,12 @@ struct InviteReceiverSheet: View {
                         Text("You can customize the schedule later (weekday/weekend, per-day, pause, etc.) from their settings.")
                     }
 
+                    Section {
+                        Text("By tapping Send Invite, you confirm you have this person's consent to receive a one-time SMS from Daily OK with a link to download the app. Msg & data rates may apply. They can reply STOP to opt out or HELP for assistance. See our Privacy Policy (dailyok.net/privacy) and Terms of Use (dailyok.net/terms).")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
                     if let error = errorMessage {
                         Section {
                             Text(error)
