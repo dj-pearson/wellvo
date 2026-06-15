@@ -20,6 +20,8 @@ enum DailyOKColor {
 
     /// Primary brand color, resolves to green500.
     static let brand = green500
+    /// Alias for green500 — use for simple tint/foreground callers.
+    static let green = green500
 
     // MARK: Premium accents
     static let teal = Color(red: 0.078, green: 0.722, blue: 0.651)       // #14B8A6
