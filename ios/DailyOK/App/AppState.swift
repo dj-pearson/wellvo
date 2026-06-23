@@ -9,6 +9,11 @@ final class AppState: ObservableObject {
     @Published var isOnboarding: Bool = false
     @Published var showPairingCodeEntry: Bool = false
 
+    /// Set when the launch/resume pin probe finds a genuine certificate
+    /// mismatch (a device-trusted but un-pinned CA — possible MITM). Drives a
+    /// blocking overlay; transient "couldn't evaluate" states never set this.
+    @Published var secureConnectionFailed: Bool = false
+
     /// Non-essential haptics (selection, light, medium). Outcome haptics
     /// (success/warning/error) always fire so users don't miss a failure.
     @Published var hapticsEnabled: Bool {

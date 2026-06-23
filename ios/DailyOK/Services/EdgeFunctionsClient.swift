@@ -80,7 +80,7 @@ enum EdgeFunctionsClient {
             request.httpBody = Data("{}".utf8)
         }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await PinnedURLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw DailyOKError.unknown(NSError(domain: "EdgeFunctions", code: -2))
         }

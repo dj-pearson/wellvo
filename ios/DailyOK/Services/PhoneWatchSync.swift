@@ -22,12 +22,23 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
 
     /// Mirror the current shared snapshot to the watch. Sending empty data tells
     /// the watch to clear its copy (e.g. on sign-out).
+    ///
+    /// The session tokens no longer live in the App Group plist, so they're sent
+    /// alongside the snapshot under a separate key. WatchConnectivity is an
+    /// encrypted, device-to-device channel; the watch stores the tokens in its
+    /// own Keychain (not its plist) on receipt.
     func sync() {
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
         guard session.activationState == .activated else { return }
         let data = SharedAppGroup.defaults?.data(forKey: SharedAppGroup.Key.checkInState) ?? Data()
-        try? session.updateApplicationContext(["checkin_state": data])
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let tokenData = SharedKeychain.loadTokens().flatMap { try? encoder.encode($0) } ?? Data()
+        try? session.updateApplicationContext([
+            "checkin_state": data,
+            "auth_tokens": tokenData,
+        ])
     }
 
     // MARK: WCSessionDelegate

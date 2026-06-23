@@ -17,8 +17,10 @@ actor AuthService {
     /// Generate a cryptographic nonce for Apple Sign-In (prevents replay attacks).
     /// Call this before presenting the Apple Sign-In sheet, and pass the raw nonce
     /// into the ASAuthorizationAppleIDRequest.
-    func generateNonce() -> String {
-        let nonce = randomNonceString(length: 32)
+    func generateNonce() throws -> String {
+        guard let nonce = randomNonceString(length: 32) else {
+            throw AuthError.missingNonce
+        }
         currentNonce = nonce
         return nonce
     }
@@ -384,14 +386,15 @@ actor AuthService {
 
     // MARK: - Nonce Generation
 
-    private func randomNonceString(length: Int = 32) -> String {
+    /// Cryptographically-random nonce, or `nil` if the system CSPRNG fails.
+    /// Never falls back to a non-cryptographic value (e.g. `UUID()`), which would
+    /// undermine Apple Sign-In's replay protection. Callers must treat `nil` as a
+    /// failed attempt and retry.
+    private func randomNonceString(length: Int = 32) -> String? {
         precondition(length > 0)
         var randomBytes = [UInt8](repeating: 0, count: length)
         let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
-        guard errorCode == errSecSuccess else {
-            // Fallback to UUID-based nonce
-            return UUID().uuidString.replacingOccurrences(of: "-", with: "")
-        }
+        guard errorCode == errSecSuccess else { return nil }
         let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
         return String(randomBytes.map { charset[Int($0) % charset.count] })
     }

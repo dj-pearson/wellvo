@@ -133,9 +133,16 @@ final class AuthViewModel: ObservableObject {
     /// Prepare the Apple Sign-In request.
     /// Call this from the SignInWithAppleButton's `onRequest` closure.
     func configureAppleSignInRequest(_ request: ASAuthorizationAppleIDRequest) {
-        let rawNonce = Self.randomNonceString()
-        currentRawNonce = rawNonce
         request.requestedScopes = [.fullName, .email]
+        guard let rawNonce = Self.randomNonceString() else {
+            // CSPRNG failed: abort this attempt rather than fall back to a
+            // non-cryptographic UUID nonce. Leaving currentRawNonce nil makes the
+            // result handler reject the credential and ask the user to retry.
+            currentRawNonce = nil
+            errorMessage = "Couldn't start a secure sign-in. Please try again."
+            return
+        }
+        currentRawNonce = rawNonce
         request.nonce = Self.sha256(rawNonce)
     }
 
@@ -147,12 +154,14 @@ final class AuthViewModel: ObservableObject {
         return hash.compactMap { String(format: "%02x", $0) }.joined()
     }
 
-    private static func randomNonceString(length: Int = 32) -> String {
+    /// Returns a cryptographically-random nonce, or `nil` if the system CSPRNG
+    /// fails. Callers must treat `nil` as a fatal-for-this-attempt error and
+    /// retry — never substitute a non-cryptographic value (a UUID nonce would
+    /// weaken the replay protection Apple Sign-In relies on).
+    private static func randomNonceString(length: Int = 32) -> String? {
         var randomBytes = [UInt8](repeating: 0, count: length)
         let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
-        guard errorCode == errSecSuccess else {
-            return UUID().uuidString.replacingOccurrences(of: "-", with: "")
-        }
+        guard errorCode == errSecSuccess else { return nil }
         let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
         return String(randomBytes.map { charset[Int($0) % charset.count] })
     }
@@ -206,9 +215,13 @@ final class AuthViewModel: ObservableObject {
 
     /// Configure an Apple Sign-In request for identity linking (reuses nonce logic).
     func configureAppleLinkRequest(_ request: ASAuthorizationAppleIDRequest) {
-        let rawNonce = Self.randomNonceString()
-        currentRawNonce = rawNonce
         request.requestedScopes = [.email]
+        guard let rawNonce = Self.randomNonceString() else {
+            currentRawNonce = nil
+            linkAppleMessage = "Couldn't start a secure sign-in. Please try again."
+            return
+        }
+        currentRawNonce = rawNonce
         request.nonce = Self.sha256(rawNonce)
     }
 
@@ -413,8 +426,23 @@ final class AuthViewModel: ObservableObject {
         guard await biometric.isEnabled, await biometric.isBiometricAvailable() else { return }
 
         biometricLocked = true
-        let success = await biometric.authenticate()
+        // Withhold the mirrored session from every out-of-process surface while
+        // locked, so a widget / Siri / watch tap can't act as the user until
+        // biometric auth succeeds. (Belt-and-suspenders with the background
+        // withholding in DailyOKApp.)
+        SharedCheckInPublisher.withholdTokens()
+        await attemptBiometricUnlock()
+    }
+
+    /// Run the biometric prompt; on success, lift the lock and restore the
+    /// mirrored session for out-of-process surfaces. Called on resume and from
+    /// the lock screen's retry button.
+    func attemptBiometricUnlock() async {
+        let success = await BiometricService.shared.authenticate()
         biometricLocked = !success
+        if success {
+            await SharedCheckInPublisher.republishTokensFromSession()
+        }
     }
 
     /// After first successful sign-in, check if we should offer biometric setup.

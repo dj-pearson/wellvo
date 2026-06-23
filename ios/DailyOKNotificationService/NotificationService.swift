@@ -1,5 +1,6 @@
 import UserNotifications
 import Foundation
+import Security
 
 /// Notification Service Extension that intercepts push notifications before display.
 /// This runs even when the app is in the background or killed, allowing us to:
@@ -44,10 +45,11 @@ class NotificationService: UNNotificationServiceExtension {
     // MARK: - Delivery Confirmation
 
     private func confirmDelivery(checkinRequestId: String, completion: @escaping () -> Void) {
-        // Read Supabase config from shared App Group UserDefaults
-        // The main app writes these values on launch
+        // Read the access token from the shared (encrypted) Keychain group — the
+        // main app no longer mirrors it into the plaintext App Group plist. The
+        // non-secret edge/supabase URLs still come from the App Group defaults.
         guard let defaults = UserDefaults(suiteName: "group.com.wellvo.ios"),
-              let accessToken = defaults.string(forKey: "supabase_access_token"),
+              let accessToken = Self.sharedAccessToken(),
               !accessToken.isEmpty else {
             completion()
             return
@@ -84,5 +86,63 @@ class NotificationService: UNNotificationServiceExtension {
             completion()
         }
         task.resume()
+    }
+
+    // MARK: - Shared Keychain access
+
+    /// Reads the mirrored Supabase access token from the shared Keychain group.
+    /// Inlined here (rather than sharing `SharedKeychain`) because this extension
+    /// target compiles standalone. Must stay in sync with `SharedKeychain`:
+    /// service `com.wellvo.ios.shared`, account `auth_tokens`, an ISO-8601
+    /// JSON-encoded `{ accessToken, refreshToken, expiresAt }`.
+    private static func sharedAccessToken() -> String? {
+        let service = "com.wellvo.ios.shared"
+        let account = "auth_tokens"
+
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecUseDataProtectionKeychain as String: true,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        if let group = resolveAccessGroup() {
+            query[kSecAttrAccessGroup as String] = group
+        }
+
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+
+        struct Tokens: Decodable { let accessToken: String }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return (try? decoder.decode(Tokens.self, from: data))?.accessToken
+    }
+
+    private static func resolveAccessGroup() -> String? {
+        let base: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "com.wellvo.ios.shared",
+            kSecAttrAccount as String: "dailyok.keychain.probe",
+            kSecUseDataProtectionKeychain as String: true,
+        ]
+        var query = base
+        query[kSecReturnAttributes as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+
+        var result: AnyObject?
+        var status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound {
+            var addQuery = base
+            addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            addQuery[kSecReturnAttributes as String] = true
+            status = SecItemAdd(addQuery as CFDictionary, &result)
+        }
+        guard status == errSecSuccess,
+              let attrs = result as? [String: Any],
+              let group = attrs[kSecAttrAccessGroup as String] as? String else { return nil }
+        return group
     }
 }

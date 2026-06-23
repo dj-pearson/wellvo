@@ -2820,7 +2820,7 @@
         "Sign-out clears the shared Keychain item and the snapshot"
       ],
       "priority": 123,
-      "passes": false,
+      "passes": true,
       "notes": "SECURITY (critical). Plaintext refresh token in the app-group plist nullifies the careful kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly Keychain choice, and the half-finished migration broke the extension's delivery confirmation. Files: ios/DailyOK/Shared/SharedCheckInState.swift, SharedCheckInPublisher.swift, ios/DailyOK/Utilities/KeychainService.swift, ios/DailyOK/Services/SupabaseService.swift, ios/DailyOKNotificationService/NotificationService.swift."
     },
     {
@@ -2835,7 +2835,7 @@
         "Pin set is configurable to allow rotation without an app update"
       ],
       "priority": 124,
-      "passes": false,
+      "passes": true,
       "notes": "SECURITY (critical). Pinning is currently a no-op: the real API sessions have no delegate, and a detected failure is non-blocking. Files: ios/DailyOK/Services/CertificatePinningService.swift, ios/DailyOK/App/DailyOKApp.swift, ios/DailyOK/Services/EdgeFunctionsClient.swift, ios/DailyOK/Shared/SharedCheckInClient.swift."
     },
     {
@@ -2878,7 +2878,7 @@
         "SecRandomCopyBytes failure during Apple sign-in is treated as fatal for that attempt (retry) instead of silently falling back to UUID().uuidString as the nonce (AuthService.swift:387-397)"
       ],
       "priority": 127,
-      "passes": false,
+      "passes": true,
       "notes": "SECURITY (high). Today biometric lock is a cosmetic @Published Bool; the session/tokens/widgets keep working regardless. Files: ios/DailyOK/ViewModels/AuthViewModel.swift, ios/DailyOK/Services/BiometricService.swift, ios/DailyOK/Services/AuthService.swift."
     },
     {

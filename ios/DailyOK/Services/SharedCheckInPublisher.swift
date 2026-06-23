@@ -27,9 +27,6 @@ enum SharedCheckInPublisher {
             familyId: familyId.uuidString.lowercased(),
             displayName: displayName,
             isKidMode: isKidMode,
-            accessToken: session.accessToken,
-            refreshToken: session.refreshToken,
-            expiresAt: Date(timeIntervalSince1970: session.expiresAt),
             supabaseURL: Configuration.supabaseURL,
             anonKey: Configuration.supabaseAnonKey,
             edgeFunctionsURL: Configuration.edgeFunctionsURL,
@@ -39,6 +36,36 @@ enum SharedCheckInPublisher {
             updatedAt: Date()
         )
         SharedCheckInStore.save(state)
+        // Secrets go to the encrypted Keychain, never the App Group plist.
+        SharedKeychain.saveTokens(SharedAuthTokens(
+            accessToken: session.accessToken,
+            refreshToken: session.refreshToken,
+            expiresAt: Date(timeIntervalSince1970: session.expiresAt)
+        ))
+        WidgetCenter.shared.reloadAllTimelines()
+        PhoneWatchSync.shared.sync()
+    }
+
+    /// Re-mirror just the session tokens to the shared Keychain (and the watch)
+    /// without rebuilding the whole snapshot — used after a biometric unlock to
+    /// restore out-of-process check-in once the user has proven presence.
+    static func republishTokensFromSession() async {
+        guard let session = try? await SupabaseService.shared.client.auth.session else { return }
+        SharedKeychain.saveTokens(SharedAuthTokens(
+            accessToken: session.accessToken,
+            refreshToken: session.refreshToken,
+            expiresAt: Date(timeIntervalSince1970: session.expiresAt)
+        ))
+        WidgetCenter.shared.reloadAllTimelines()
+        PhoneWatchSync.shared.sync()
+    }
+
+    /// Withhold the session tokens from every out-of-process surface (Keychain
+    /// + watch) while the app is biometrically locked, so a widget / Siri / watch
+    /// tap can't act as the user until biometric auth succeeds. Non-secret
+    /// glanceable state is left in place. Reversed by `republishTokensFromSession()`.
+    static func withholdTokens() {
+        SharedKeychain.clearTokens()
         WidgetCenter.shared.reloadAllTimelines()
         PhoneWatchSync.shared.sync()
     }
@@ -56,6 +83,7 @@ enum SharedCheckInPublisher {
 
     static func clear() {
         SharedCheckInStore.clear()
+        SharedKeychain.clearTokens()
         WidgetCenter.shared.reloadAllTimelines()
         PhoneWatchSync.shared.sync()
     }
