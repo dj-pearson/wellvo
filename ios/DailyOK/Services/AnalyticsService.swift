@@ -23,6 +23,7 @@ actor AnalyticsService {
         case checkIn = "checkin.completed"
         case checkInOffline = "checkin.offline_queued"
         case checkInOfflineSynced = "checkin.offline_synced"
+        case checkInSnoozed = "checkin.snoozed"
         case moodSubmitted = "checkin.mood_submitted"
 
         // Owner actions

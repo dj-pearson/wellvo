@@ -3128,7 +3128,7 @@
         "Owner UI optionally reflects that the receiver snoozed (saw it but hasn't confirmed)"
       ],
       "priority": 145,
-      "passes": false,
+      "passes": true,
       "notes": "FEATURE-GAP. Cuts false escalations for senior/teen personas. Touches ios + edge-functions; respect backward-compat (new optional field). Files: ios/DailyOK/ViewModels/ReceiverViewModel.swift, PushNotificationService, edge-functions."
     },
     {

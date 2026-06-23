@@ -23,8 +23,19 @@ final class ReceiverViewModel: ObservableObject {
     /// True when the family is actively waiting on a response (a pending
     /// checkin_request exists) and the receiver hasn't checked in yet.
     @Published var hasPendingRequest = false
+    /// The pending request's id (for snoozing), and whether the receiver can
+    /// still snooze it (server caps the count at 3).
+    @Published var pendingRequestId: UUID?
+    @Published var canSnooze = false
+    @Published var isSnoozing = false
+    /// Set after a successful snooze so the UI can confirm ("Snoozed for 15 min").
+    @Published var snoozeConfirmation: String?
     /// Mood the receiver picked after checking in (optional, post-check-in).
     @Published var selectedMood: Mood?
+
+    /// Minutes a snooze defers the request, and the server-side snooze cap.
+    static let snoozeMinutes = 15
+    private static let maxSnoozes = 3
 
     private let offlineService = OfflineCheckInService.shared
     private var loadTask: Task<Void, Never>?
@@ -148,7 +159,44 @@ final class ReceiverViewModel: ObservableObject {
             .limit(1)
             .execute()
             .value
-        hasPendingRequest = !(requests?.isEmpty ?? true)
+        let pending = requests?.first
+        hasPendingRequest = pending != nil
+        pendingRequestId = pending?.id
+        // Receiver can snooze while a request is pending and the server cap
+        // hasn't been hit (nil count = older backend = allow).
+        canSnooze = pending != nil && (pending?.snoozeCount ?? 0) < Self.maxSnoozes
+    }
+
+    /// Snooze the pending request: defer escalation server-side and re-arm the
+    /// local fallback reminder for `snoozeMinutes` from now. Best-effort — if the
+    /// network call fails, the local reminder still fires and the server
+    /// escalation proceeds normally (snooze is a deferral, not a guarantee).
+    func snoozePendingRequest() async {
+        guard let requestId = pendingRequestId, !isSnoozing else { return }
+        isSnoozing = true
+        snoozeConfirmation = nil
+        defer { isSnoozing = false }
+
+        do {
+            let updated = try await CheckInService.shared.snoozeCheckIn(
+                requestId: requestId, minutes: Self.snoozeMinutes
+            )
+            canSnooze = (updated.snoozeCount ?? Self.maxSnoozes) < Self.maxSnoozes
+            snoozeConfirmation = "Snoozed for \(Self.snoozeMinutes) minutes."
+            await PushNotificationService.shared.scheduleLocalCheckinFallback(
+                at: Date().addingTimeInterval(TimeInterval(Self.snoozeMinutes * 60)),
+                isKidMode: receiverMode == .kid
+            )
+            await AnalyticsService.shared.track(.checkInSnoozed)
+        } catch {
+            // Surface the most useful message (e.g. snooze limit reached) but
+            // still defer the local reminder so the receiver isn't nagged early.
+            errorMessage = (error as NSError).localizedDescription
+            await PushNotificationService.shared.scheduleLocalCheckinFallback(
+                at: Date().addingTimeInterval(TimeInterval(Self.snoozeMinutes * 60)),
+                isKidMode: receiverMode == .kid
+            )
+        }
     }
 
     /// Schedule a one-shot local reminder as a safety net against a missed

@@ -90,6 +90,17 @@ struct ReceiverHomeView: View {
                             pendingRequestBanner.padding(.horizontal)
                         }
                         checkInButton
+                        if viewModel.hasPendingRequest && viewModel.canSnooze {
+                            snoozeButton.padding(.horizontal)
+                        }
+                        if let snoozeConfirmation = viewModel.snoozeConfirmation {
+                            Text(snoozeConfirmation)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                                .transition(.opacity)
+                        }
                     }
 
                     if let errorMessage = viewModel.errorMessage {
@@ -250,6 +261,30 @@ struct ReceiverHomeView: View {
         .glassPill(style: .thin)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Your family is waiting for you to check in.")
+    }
+
+    /// Lets a receiver who can't act right now defer escalation by 15 minutes
+    /// instead of triggering a false alarm to their family.
+    private var snoozeButton: some View {
+        Button {
+            Task { await viewModel.snoozePendingRequest() }
+        } label: {
+            HStack(spacing: 8) {
+                if viewModel.isSnoozing {
+                    ProgressView()
+                } else {
+                    Image(systemName: "clock.arrow.circlepath")
+                }
+                Text("Remind me in \(ReceiverViewModel.snoozeMinutes) min")
+                    .fontWeight(.medium)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+        }
+        .buttonStyle(.bordered)
+        .tint(.secondary)
+        .disabled(viewModel.isSnoozing)
+        .accessibilityLabel("Remind me in \(ReceiverViewModel.snoozeMinutes) minutes. Defers the alert to your family.")
     }
 
     private var checkInButton: some View {

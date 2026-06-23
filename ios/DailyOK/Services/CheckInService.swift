@@ -138,6 +138,25 @@ actor CheckInService {
         )
     }
 
+    private struct SnoozeParams: Encodable {
+        let p_request_id: String
+        let p_minutes: Int
+    }
+
+    /// Receiver snoozes their own pending request, deferring escalation by
+    /// `minutes`. Bounded server-side (max 3 snoozes); throws if the limit is
+    /// reached or the request is no longer pending. Returns the updated request
+    /// so callers can read the new `snoozeCount` / `snoozedUntil`.
+    @discardableResult
+    func snoozeCheckIn(requestId: UUID, minutes: Int = 15) async throws -> CheckInRequest {
+        try await supabase
+            .rpc("snooze_checkin_request",
+                 params: SnoozeParams(p_request_id: requestId.uuidString, p_minutes: minutes))
+            .single()
+            .execute()
+            .value
+    }
+
     /// Fetch today's check-in status for a receiver.
     /// `timezone` is the receiver's IANA zone (from `users.timezone`). "Today"
     /// must be evaluated in the receiver's zone — not the viewer's device zone

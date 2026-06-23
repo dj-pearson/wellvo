@@ -1186,3 +1186,18 @@ US-IOS028 — Biometric lock that actually withholds data + Apple nonce hardenin
   - Nonce: randomNonceString (both the AuthViewModel live path and the AuthService copy) no longer falls back to UUID().uuidString on SecRandomCopyBytes failure — it returns nil and the attempt is treated as fatal/retryable (configureAppleSignInRequest/LinkRequest leave currentRawNonce nil so the result handler rejects the credential and asks the user to retry; AuthService.generateNonce throws AuthError.missingNonce).
 
 prd.json: US-IOS024/025/028 passes:true. Remaining iOS backlog (passes:false): US-IOS044 (localization/StoreKit pricing), US-IOS046 (snooze), US-IOS048 (multiple check-ins + undo), US-IOS050 (MIN_SUPPORTED_IOS_APP_VERSION force-update).
+
+--- Iteration SEC/FEAT-046: US-IOS046 snooze / "remind me in 15 min" (2026-06-23) ---
+Receiver who can't act right now (driving, meeting) can defer the check-in by 15 min instead of triggering a false escalation. Backend-first, all additive/backward-compatible per CLAUDE.md.
+Backend: supabase/migrations/00043_checkin_snooze.sql
+  - checkin_requests += snoozed_until TIMESTAMPTZ (null) and snooze_count INT NOT NULL DEFAULT 0 — additive, older clients ignore them.
+  - escalation_tick() recreated (supersedes 00036; verbatim copy + one guard line "AND (cr.snoozed_until IS NULL OR cr.snoozed_until <= NOW())"). Non-snoozed requests behave exactly as before.
+  - NEW SECURITY DEFINER RPC snooze_checkin_request(p_request_id, p_minutes default 15): authorizes auth.uid() == receiver, requires status='pending', clamps minutes to 1..60, enforces snooze_count < 3 (bounded so escalation can't be suppressed forever), sets snoozed_until + pushes next_escalation_at forward (GREATEST) + increments snooze_count, RETURNS the row. GRANT EXECUTE to authenticated. No edge-function change needed.
+iOS:
+  - Models/CheckIn.swift: CheckInRequest += optional snoozedUntil/snoozeCount (decodeIfPresent-safe).
+  - Services/CheckInService.swift: snoozeCheckIn(requestId:minutes:) via .rpc (same pattern as acknowledge_alert), returns the updated request.
+  - ViewModels/ReceiverViewModel.swift: loadPendingRequest now captures pendingRequestId + canSnooze (snoozeCount < 3); snoozePendingRequest() calls the RPC, re-arms the local fallback reminder for +15 min, and is best-effort (local reminder still fires + server escalation proceeds if the POST fails). snoozeMinutes=15 / maxSnoozes=3 constants. analytics checkin.snoozed.
+  - App/AppDelegate.swift: CHECKIN_SNOOZE_ACTION ("Remind me in 15 min", background/no-foreground) added to the CHECKIN_REQUEST category; handler snoozes via RPC and re-arms the local fallback. Both in-app and on-notification per the AC.
+  - Views/Receiver/ReceiverHomeView.swift: bordered "Remind me in 15 min" button shown under the check-in button while a request is pending and canSnooze; confirmation text on success.
+Owner UI reflection: AC marks it optional; intentionally skipped this slice (data is available on checkin_requests.snoozed_until/snooze_count for a future owner-dashboard chip).
+Verification: source-level only (Linux container: no Deno/Postgres/Xcode). SQL hand-reviewed against the 00036 escalation_tick it supersedes (copied verbatim + 1 guard) and the acknowledge_alert RPC pattern; Swift mirrors existing .rpc()/UNNotificationAction/fallback-reminder conventions.

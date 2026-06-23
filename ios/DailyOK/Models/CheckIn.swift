@@ -213,6 +213,11 @@ struct CheckInRequest: Codable, Identifiable {
     var respondedAt: Date?
     var escalationStep: Int
     var nextEscalationAt: Date?
+    /// When set and in the future, the receiver has snoozed this request and
+    /// escalation is deferred until then. `decodeIfPresent`-safe for older
+    /// backends without the column.
+    var snoozedUntil: Date?
+    var snoozeCount: Int?
 
     enum CodingKeys: String, CodingKey {
         case id, type, status
@@ -223,5 +228,7 @@ struct CheckInRequest: Codable, Identifiable {
         case respondedAt = "responded_at"
         case escalationStep = "escalation_step"
         case nextEscalationAt = "next_escalation_at"
+        case snoozedUntil = "snoozed_until"
+        case snoozeCount = "snooze_count"
     }
 }
