@@ -29,6 +29,7 @@ import { isBelowMinimum, forceUpdatePayload } from "./shared/config.ts";
 // Import function handlers
 import { handleSendCheckinNotification } from "./functions/send-checkin-notification/index.ts";
 import { handleProcessCheckinResponse } from "./functions/process-checkin-response/index.ts";
+import { handleUndoCheckin } from "./functions/undo-checkin/index.ts";
 import { handleEscalationTick } from "./functions/escalation-tick/index.ts";
 import { handleOnDemandCheckin } from "./functions/on-demand-checkin/index.ts";
 import { handleCancelEscalation } from "./functions/cancel-escalation/index.ts";
@@ -71,6 +72,7 @@ const webhookSecretRoutes: Record<string, string> = {
 const routes: Record<string, FunctionHandler> = {
   "/send-checkin-notification": handleSendCheckinNotification,
   "/process-checkin-response": handleProcessCheckinResponse,
+  "/undo-checkin": handleUndoCheckin,
   "/escalation-tick": handleEscalationTick,
   "/on-demand-checkin": handleOnDemandCheckin,
   "/cancel-escalation": handleCancelEscalation,

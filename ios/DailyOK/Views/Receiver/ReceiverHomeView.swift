@@ -458,6 +458,31 @@ struct ReceiverHomeView: View {
                 .foregroundStyle(.secondary)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
 
+            // Undo grace window for an accidental tap (US-IOS048). Visible only
+            // while the server-side window is open; clears itself when it lapses.
+            if viewModel.undoableUntil != nil {
+                Button {
+                    DailyOKHaptics.light()
+                    Task { await viewModel.undoCheckIn() }
+                } label: {
+                    HStack(spacing: 6) {
+                        if viewModel.isUndoing {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "arrow.uturn.backward")
+                        }
+                        Text(isKidMode ? "Oops, undo" : "Undo")
+                    }
+                    .font(.subheadline.weight(.medium))
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+                }
+                .buttonStyle(.bordered)
+                .tint(.secondary)
+                .disabled(viewModel.isUndoing)
+                .padding(.top, 4)
+                .accessibilityHint("Reverses your check-in if you tapped by mistake")
+            }
+
             if let mood = viewModel.selectedMood {
                 HStack(spacing: 6) {
                     // Simple Mode is an emoji-free, text-only presentation.

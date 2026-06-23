@@ -1223,3 +1223,20 @@ iOS:
   - Registered ForceUpdateState.swift in the app target (F1C00026/B1C00026).
 Backward-compat: additive only. Older builds don't send the header → fail open. Only builds shipping with this handling can render the block, so the first such build is the effective baseline; future floors should be >= it (documented in config.ts). NOTE: pure GoTrue sign-in doesn't traverse the edge server, so the gate engages on the first edge call after launch (heartbeat/dashboard/checkin) — which blocks an old build as soon as it talks to the backend.
 Verification: source-level only (no Deno/Xcode here). pbxproj balance + id counts checked.
+
+--- Iteration FEAT-048: US-IOS048 multiple check-ins/day + undo grace window (2026-06-23) ---
+Full story across edge-functions + a migration + iOS. Backward-compatible (CLAUDE.md §A/B/C). NOT build/DB/device-verified (no Xcode/Deno/Supabase here) — source-level only.
+AC1 slot-aware dedup:
+  - NEW supabase/migrations/00044_checkin_slots.sql: nullable checkins.slot_key; DROP idx_checkins_unique_daily, CREATE idx_checkins_unique_daily_slot keyed on (receiver,family,UTC-day,COALESCE(slot_key,'')). Strictly looser — NULL-slot rows (all shipped clients, single-window receivers, offline syncs) keep one-per-day; only distinct slot_keys coexist same day.
+  - process-checkin-response: accepts slot_key (truncated 20), dedups per-slot, and now uses order+limit(1).maybeSingle (a slotted day legitimately holds >1 row, which would make a day-wide maybeSingle error). Inserts slot_key when present.
+AC2 multi-time custom schedule:
+  - DaySchedule: additive multiTimes:[day:[HH:mm]] (defaulted nil so memberwise init stays source-compatible). Dual-read times(forDayKey:) prefers the array, falls back to the single field; old clients ignore the unknown JSON key.
+  - ReceiverSettingsView custom editor: dayTimes is now [String:[Date]]; per-day add/remove (cap 4). buildCustomSchedule dual-writes earliest into the legacy single field and sets multiTimes only when >1 (single-time payloads stay byte-identical).
+  - Resolver: scheduledTimes/slotsCount/currentSlotKey added; nextScheduledCheckIn iterates every window in a day.
+AC3 undo:
+  - NEW edge-functions/functions/undo-checkin + server.ts route. Authz: receiver-or-service. UNDO_GRACE_SECONDS=180 (config.ts, env-overridable). Deletes the row, its alerts (data->>checkin_id), reopens requests it closed (responded_at >= checked_in_at-60s). Returns 409 once the window lapses.
+  - CheckInService.undoLastCheckIn(familyId:); ReceiverViewModel.undoCheckIn()/undoableUntil (150s client window, auto-clears); Undo button in ReceiverHomeView's checked-in card; checkin.undone analytics event.
+AC4 streak/consistency:
+  - Streaks.currentStreak/consistencyPercent gain expectedPerDay overloads (day complete only when all expected windows hit; consistency denom = expectedPerDay*windowDays, per-day capped). expectedPerDay<=1 delegates to the legacy functions. ReceiverViewModel passes slotsCount(for:); streak block moved after settings load so the count is available.
+Tests: ScheduleResolverTests (multi-window earliest/second slot, slotsCount, currentSlotKey nearest + nil-for-single); StreaksTimezoneTests (expectedPerDay 1-of-2=50%, 2-of-2=100%, per-day cap, streak-requires-all, parity at expectedPerDay=1). Appended to existing target files (no pbxproj change).
+KNOWN SCOPE LIMIT: server-side scheduled-request/escalation generation still keys off the primary checkin_time. Extra custom windows feed the app's next-check-in display, slot dedup, and streak math but do NOT yet generate independent escalation requests — follow-up. Offline-queued check-ins carry no slot_key (avoids a SwiftData migration); a late-synced offline check-in resolves to day-level.

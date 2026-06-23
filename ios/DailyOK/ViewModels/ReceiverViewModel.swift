@@ -32,10 +32,19 @@ final class ReceiverViewModel: ObservableObject {
     @Published var snoozeConfirmation: String?
     /// Mood the receiver picked after checking in (optional, post-check-in).
     @Published var selectedMood: Mood?
+    /// While set (and in the future), the just-recorded check-in can still be
+    /// undone (US-IOS048). Cleared when the grace window lapses or undo runs.
+    @Published var undoableUntil: Date?
+    /// True while an undo network call is in flight.
+    @Published var isUndoing = false
 
     /// Minutes a snooze defers the request, and the server-side snooze cap.
     static let snoozeMinutes = 15
     private static let maxSnoozes = 3
+
+    /// How long after checking in the receiver may undo an accidental tap.
+    /// Kept just under the server-side grace so an in-window tap won't 409.
+    static let undoGraceSeconds: TimeInterval = 150
 
     private let offlineService = OfflineCheckInService.shared
     private var loadTask: Task<Void, Never>?
@@ -103,6 +112,8 @@ final class ReceiverViewModel: ObservableObject {
         // the prompt reappears only if today's row genuinely has no mood yet.
         selectedMood = todayCheckIn?.mood
 
+        await loadReceiverSettings(userId: session.user.id, familyId: family.id)
+
         // Load 30-day history for streak + consistency badges on the home header.
         // Failures here are non-fatal — the chips just stay hidden.
         if let history = try? await CheckInService.shared.checkInHistory(
@@ -116,11 +127,15 @@ final class ReceiverViewModel: ObservableObject {
             // Use the receiver's configured timezone so the streak/consistency
             // chips bucket days the same way `todayCheckInStatus` does.
             let cal = Calendar.forTimezone(tzRow?.timezone)
-            streakDays = Streaks.currentStreak(isoTimestamps: isoTimestamps, calendar: cal)
-            consistencyPercent = Streaks.consistencyPercent(isoTimestamps: isoTimestamps, windowDays: 7, calendar: cal)
+            // A receiver with multiple windows/day must hit all of them for a
+            // day to count toward the streak (US-IOS048). settings is loaded
+            // above; default to 1/day if unavailable.
+            let expectedPerDay = receiverSettings.map { Self.slotsCount(for: $0, calendar: cal) } ?? 1
+            streakDays = Streaks.currentStreak(
+                isoTimestamps: isoTimestamps, expectedPerDay: expectedPerDay, calendar: cal)
+            consistencyPercent = Streaks.consistencyPercent(
+                isoTimestamps: isoTimestamps, expectedPerDay: expectedPerDay, windowDays: 7, calendar: cal)
         }
-
-        await loadReceiverSettings(userId: session.user.id, familyId: family.id)
 
         // Surface whether the family is currently waiting on a response, but only
         // when the receiver hasn't already checked in today.
@@ -244,51 +259,95 @@ final class ReceiverViewModel: ObservableObject {
         guard !settings.schedulePaused else { return nil }
 
         // Scan today + a full week for the earliest scheduled slot after `now`.
+        // A custom day may have multiple windows (US-IOS048), so consider every
+        // time scheduled that day, in order.
         for dayOffset in 0...7 {
-            guard let day = calendar.date(byAdding: .day, value: dayOffset, to: now),
-                  let timeString = scheduledTime(for: settings, on: day, calendar: calendar),
-                  let (hour, minute) = parseCheckinTime(timeString) else { continue }
+            guard let day = calendar.date(byAdding: .day, value: dayOffset, to: now) else { continue }
+            for timeString in scheduledTimes(for: settings, on: day, calendar: calendar) {
+                guard let (hour, minute) = parseCheckinTime(timeString) else { continue }
 
-            var comps = calendar.dateComponents([.year, .month, .day], from: day)
-            comps.hour = hour
-            comps.minute = minute
-            comps.second = 0
-            guard let rawTarget = calendar.date(from: comps) else { continue }
+                var comps = calendar.dateComponents([.year, .month, .day], from: day)
+                comps.hour = hour
+                comps.minute = minute
+                comps.second = 0
+                guard let rawTarget = calendar.date(from: comps) else { continue }
 
-            let target = deferPastQuietHours(rawTarget, settings: settings, calendar: calendar)
-            if target > now { return target }
+                let target = deferPastQuietHours(rawTarget, settings: settings, calendar: calendar)
+                if target > now { return target }
+            }
         }
         return nil
     }
 
-    /// The "HH:mm" time scheduled for the given day, or nil if no check-in is
-    /// scheduled that day (custom schedule with an empty day).
-    nonisolated private static func scheduledTime(
+    /// The day-of-week key ("mon".."sun") for a date.
+    nonisolated private static func dayKey(for day: Date, calendar: Calendar) -> String {
+        switch calendar.component(.weekday, from: day) {
+        case 1: return "sun"
+        case 2: return "mon"
+        case 3: return "tue"
+        case 4: return "wed"
+        case 5: return "thu"
+        case 6: return "fri"
+        case 7: return "sat"
+        default: return "mon"
+        }
+    }
+
+    /// All "HH:mm" times scheduled for the given day, sorted ascending. Empty if
+    /// no check-in is scheduled that day. For daily/weekday-weekend schedules
+    /// this is a single time; custom schedules may return several (US-IOS048).
+    nonisolated static func scheduledTimes(
         for settings: ReceiverSettings,
         on day: Date,
         calendar: Calendar
-    ) -> String? {
+    ) -> [String] {
         let weekday = calendar.component(.weekday, from: day) // 1 = Sun ... 7 = Sat
         let isWeekend = (weekday == 1 || weekday == 7)
 
         switch settings.scheduleType {
         case .daily:
-            return settings.checkinTime
+            return [settings.checkinTime]
         case .weekdayWeekend:
-            return isWeekend ? (settings.weekendCheckinTime ?? settings.checkinTime) : settings.checkinTime
+            return [isWeekend ? (settings.weekendCheckinTime ?? settings.checkinTime) : settings.checkinTime]
         case .custom:
-            guard let custom = settings.customSchedule else { return settings.checkinTime }
-            switch weekday {
-            case 1: return custom.sun
-            case 2: return custom.mon
-            case 3: return custom.tue
-            case 4: return custom.wed
-            case 5: return custom.thu
-            case 6: return custom.fri
-            case 7: return custom.sat
-            default: return nil
+            guard let custom = settings.customSchedule else { return [settings.checkinTime] }
+            return custom.times(forDayKey: dayKey(for: day, calendar: calendar))
+        }
+    }
+
+    /// Number of check-in windows scheduled for `day` — the "expected per day"
+    /// count used by streak/consistency math (US-IOS048).
+    nonisolated static func slotsCount(
+        for settings: ReceiverSettings,
+        on day: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Int {
+        max(1, scheduledTimes(for: settings, on: day, calendar: calendar).count)
+    }
+
+    /// The slot key to attach to a check-in happening at `now`. Returns nil when
+    /// the day has at most one window (legacy day-level dedup is preserved).
+    /// Otherwise returns the "HH:mm" of the window this check-in is responding
+    /// to — the scheduled time closest to `now` — so multiple windows in a day
+    /// stay distinct server-side.
+    nonisolated static func currentSlotKey(
+        for settings: ReceiverSettings,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> String? {
+        let times = scheduledTimes(for: settings, on: now, calendar: calendar)
+        guard times.count > 1 else { return nil }
+
+        let nowMinutes = calendar.component(.hour, from: now) * 60 + calendar.component(.minute, from: now)
+        var best: (time: String, distance: Int)?
+        for time in times {
+            guard let (h, m) = parseCheckinTime(time) else { continue }
+            let distance = abs(h * 60 + m - nowMinutes)
+            if best == nil || distance < best!.distance {
+                best = (time, distance)
             }
         }
+        return best?.time
     }
 
     /// If `date` falls inside the receiver's quiet hours, defer it to the end of
@@ -396,11 +455,17 @@ final class ReceiverViewModel: ObservableObject {
         isCheckingIn = true
         errorMessage = nil
 
+        // Tag the check-in with the window it satisfies so a receiver with
+        // multiple windows/day (US-IOS048) doesn't collapse to one row. nil for
+        // single-window receivers preserves legacy one-per-day dedup.
+        let slotKey = receiverSettings.flatMap { Self.currentSlotKey(for: $0) }
+
         do {
             let checkIn = try await offlineService.performCheckIn(
                 familyId: familyId,
                 mood: nil,
-                source: .app
+                source: .app,
+                slotKey: slotKey
             )
 
             if let checkIn {
@@ -409,6 +474,9 @@ final class ReceiverViewModel: ObservableObject {
             hasCheckedInToday = true
             hasPendingRequest = false
             selectedMood = nil
+            // Open the undo grace window for an accidental tap. Only for an
+            // online check-in — an offline-queued one has no server row to undo.
+            startUndoWindow()
             // Keep the shared snapshot (widget/Siri/watch) in sync immediately.
             SharedCheckInPublisher.markCheckedIn(at: checkIn?.checkedInAt ?? Date())
             // The server push did its job (or wasn't needed) — drop the local
@@ -431,6 +499,45 @@ final class ReceiverViewModel: ObservableObject {
         }
 
         isCheckingIn = false
+    }
+
+    /// Open the post-check-in undo window and auto-close it when the grace
+    /// period lapses so the button can't linger past the server-side limit.
+    private func startUndoWindow() {
+        let deadline = Date().addingTimeInterval(Self.undoGraceSeconds)
+        undoableUntil = deadline
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(Self.undoGraceSeconds))
+            guard let self else { return }
+            // Only clear if it's still the same window we opened (a later
+            // check-in may have re-opened it).
+            if self.undoableUntil == deadline { self.undoableUntil = nil }
+        }
+    }
+
+    /// Undo the just-recorded check-in (US-IOS048). Reverses the server row,
+    /// re-opens any requests it closed, and returns the UI to the pre-check-in
+    /// state. No-op once the grace window has lapsed.
+    func undoCheckIn() async {
+        guard let familyId, let until = undoableUntil, until > Date(), !isUndoing else { return }
+        isUndoing = true
+        defer { isUndoing = false }
+        do {
+            try await CheckInService.shared.undoLastCheckIn(familyId: familyId)
+            // Roll the UI back to "not yet checked in".
+            hasCheckedInToday = false
+            lastCheckIn = nil
+            selectedMood = nil
+            undoableUntil = nil
+            SharedCheckInPublisher.clear()
+            // Re-evaluate the pending request and fallback reminder, since the
+            // server may have re-opened a request the undo restored.
+            await loadStatus()
+            DailyOKHaptics.warning()
+            Task { await AnalyticsService.shared.track(.checkInUndone) }
+        } catch {
+            errorMessage = DailyOKError.network(error).localizedDescription
+        }
     }
 
     /// Attach an optional mood to today's check-in row after the fact. Updates

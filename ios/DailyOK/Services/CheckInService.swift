@@ -16,7 +16,8 @@ actor CheckInService {
         location: CheckInLocation? = nil,
         batteryLevel: Double? = nil,
         locationLabel: String? = nil,
-        kidResponseType: String? = nil
+        kidResponseType: String? = nil,
+        slotKey: String? = nil
     ) async throws -> CheckIn {
         guard let session = try? await supabase.auth.session else {
             throw CheckInError.notAuthenticated
@@ -29,6 +30,9 @@ actor CheckInService {
             "response_type": responseType.rawValue,
         ]
 
+        // US-IOS048: which scheduled window this check-in satisfies. Absent for
+        // single-window receivers (preserves legacy one-per-day dedup).
+        if let slotKey { body["slot_key"] = slotKey }
         if let mood = mood { body["mood"] = mood.rawValue }
         if let loc = location {
             // Validate location bounds before sending
@@ -125,6 +129,22 @@ actor CheckInService {
         } catch {
             Log.checkIn.error("confirmDelivery failed: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    /// Undo the receiver's most recent check-in within the server grace window
+    /// (US-IOS048). Reverses the check-in row, deletes any alert it created, and
+    /// re-opens the requests it closed. Throws if the grace window has lapsed.
+    func undoLastCheckIn(familyId: UUID) async throws {
+        guard let session = try? await supabase.auth.session else {
+            throw CheckInError.notAuthenticated
+        }
+        try await EdgeFunctionsClient.invoke(
+            "undo-checkin",
+            body: [
+                "receiver_id": session.user.id.uuidString.lowercased(),
+                "family_id": familyId.uuidString.lowercased(),
+            ]
+        )
     }
 
     /// Owner sends on-demand check-in request

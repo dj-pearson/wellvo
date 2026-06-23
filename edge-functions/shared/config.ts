@@ -73,3 +73,13 @@ export function forceUpdatePayload(platform: string | null | undefined): Record<
     update_url: isAndroid ? ANDROID_STORE_URL : IOS_APP_STORE_URL,
   };
 }
+
+/**
+ * How long after a check-in a receiver may undo an accidental tap (US-IOS048).
+ * Kept short so an undo can't silently erase a check-in the owner has already
+ * acted on. Env-overridable for tuning without a deploy.
+ */
+export const UNDO_GRACE_SECONDS = (() => {
+  const raw = parseInt(Deno.env.get("CHECKIN_UNDO_GRACE_SECONDS") ?? "", 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : 180;
+})();

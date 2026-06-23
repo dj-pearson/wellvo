@@ -32,7 +32,11 @@ struct ReceiverSettingsView: View {
     @State private var dayEnabled: [String: Bool] = [
         "mon": true, "tue": true, "wed": true, "thu": true, "fri": true, "sat": true, "sun": true
     ]
-    @State private var dayTimes: [String: Date] = [:]
+    /// One or more check-in times per day key (US-IOS048). A day with more than
+    /// one entry produces multiple scheduled windows.
+    @State private var dayTimes: [String: [Date]] = [:]
+    /// Upper bound on windows per day to keep the schedule sane.
+    private let maxTimesPerDay = 4
 
     // Manual check-in
     @State private var isSendingManual = false
@@ -318,32 +322,76 @@ struct ReceiverSettingsView: View {
     private var customScheduleSection: some View {
         Section {
             ForEach(DaySchedule.allDays, id: \.key) { day in
-                HStack {
+                VStack(spacing: 8) {
                     Toggle(isOn: Binding(
                         get: { dayEnabled[day.key] ?? true },
-                        set: { dayEnabled[day.key] = $0 }
+                        set: { isOn in
+                            dayEnabled[day.key] = isOn
+                            // Ensure an enabled day always has at least one time.
+                            if isOn && (dayTimes[day.key]?.isEmpty ?? true) {
+                                dayTimes[day.key] = [defaultTimeDate()]
+                            }
+                        }
                     )) {
                         Text(day.label)
                             .font(.subheadline)
                     }
 
                     if dayEnabled[day.key] ?? true {
-                        Spacer()
-                        DatePicker(
-                            "",
-                            selection: Binding(
-                                get: { dayTimes[day.key] ?? defaultTimeDate() },
-                                set: { dayTimes[day.key] = $0 }
-                            ),
-                            displayedComponents: .hourAndMinute
-                        )
-                        .labelsHidden()
-                        .frame(width: 100)
+                        let times = dayTimes[day.key] ?? [defaultTimeDate()]
+                        ForEach(Array(times.enumerated()), id: \.offset) { idx, _ in
+                            HStack {
+                                Spacer()
+                                DatePicker(
+                                    "",
+                                    selection: Binding(
+                                        get: {
+                                            let arr = dayTimes[day.key] ?? []
+                                            return idx < arr.count ? arr[idx] : defaultTimeDate()
+                                        },
+                                        set: { newVal in
+                                            var arr = dayTimes[day.key] ?? []
+                                            if idx < arr.count { arr[idx] = newVal }
+                                            dayTimes[day.key] = arr
+                                        }
+                                    ),
+                                    displayedComponents: .hourAndMinute
+                                )
+                                .labelsHidden()
+                                .frame(width: 100)
+
+                                if times.count > 1 {
+                                    Button {
+                                        var arr = dayTimes[day.key] ?? []
+                                        if idx < arr.count { arr.remove(at: idx) }
+                                        dayTimes[day.key] = arr
+                                    } label: {
+                                        Image(systemName: "minus.circle.fill")
+                                            .foregroundStyle(.red)
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .accessibilityLabel("Remove this time")
+                                }
+                            }
+                        }
+
+                        if times.count < maxTimesPerDay {
+                            Button {
+                                var arr = dayTimes[day.key] ?? []
+                                arr.append(defaultTimeDate())
+                                dayTimes[day.key] = arr
+                            } label: {
+                                Label("Add time", systemImage: "plus.circle")
+                                    .font(.subheadline)
+                            }
+                            .buttonStyle(.borderless)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                        }
                     }
                 }
             }
         } footer: {
-            Text("Toggle off days where no check-in is needed. Set individual times for each active day.")
+            Text("Toggle off days where no check-in is needed. Add more than one time for days that need several check-ins.")
         }
     }
 
@@ -413,17 +461,17 @@ struct ReceiverSettingsView: View {
                 }
             }
 
-            // Load custom schedule
+            // Load custom schedule. Dual-read each day's times (multiTimes,
+            // falling back to the legacy single field) via DaySchedule.times.
             if let custom = loaded.customSchedule {
                 customSchedule = custom
+                formatter.dateFormat = "HH:mm"
                 for day in DaySchedule.allDays {
-                    let timeStr = custom[keyPath: day.keyPath]
-                    dayEnabled[day.key] = timeStr != nil
-                    if let timeStr {
-                        formatter.dateFormat = "HH:mm"
-                        if let date = formatter.date(from: timeStr) {
-                            dayTimes[day.key] = date
-                        }
+                    let timeStrings = custom.times(forDayKey: day.key)
+                    dayEnabled[day.key] = !timeStrings.isEmpty
+                    let dates = timeStrings.compactMap { formatter.date(from: $0) }
+                    if !dates.isEmpty {
+                        dayTimes[day.key] = dates
                     }
                 }
             }
@@ -513,14 +561,26 @@ struct ReceiverSettingsView: View {
 
     private func buildCustomSchedule() -> DaySchedule {
         var schedule = DaySchedule()
+        var multi: [String: [String]] = [:]
         for day in DaySchedule.allDays {
-            if dayEnabled[day.key] ?? false {
-                let time = dayTimes[day.key] ?? defaultTimeDate()
-                schedule[keyPath: day.keyPath] = timeFormatter.string(from: time)
-            } else {
+            guard dayEnabled[day.key] ?? false else {
                 schedule[keyPath: day.keyPath] = nil
+                continue
+            }
+            // Sorted, de-duplicated "HH:mm" times for the day.
+            let times = (dayTimes[day.key] ?? [defaultTimeDate()])
+                .map { timeFormatter.string(from: $0) }
+            let unique = Array(Set(times)).sorted()
+            // Dual-write: legacy single field = earliest time (so old clients
+            // still read a valid single time); multiTimes only when there's
+            // genuinely more than one window, keeping single-time payloads
+            // byte-identical to the previous format.
+            schedule[keyPath: day.keyPath] = unique.first
+            if unique.count > 1 {
+                multi[day.key] = unique
             }
         }
+        schedule.multiTimes = multi.isEmpty ? nil : multi
         return schedule
     }
 

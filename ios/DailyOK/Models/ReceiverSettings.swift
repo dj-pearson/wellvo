@@ -23,7 +23,16 @@ enum ScheduleType: String, Codable, CaseIterable {
     }
 }
 
-/// Per-day schedule for custom schedule type
+/// Per-day schedule for custom schedule type.
+///
+/// The legacy `mon`..`sun` fields hold a single "HH:mm" time per day. US-IOS048
+/// adds `multiTimes` (keyed "mon".."sun" → ["08:00","20:00"]) so a day can have
+/// more than one check-in window. This is additive and backward-compatible:
+///   * Old clients ignore the unknown `multiTimes` JSON key (Decodable drops
+///     extras) and keep reading the single-time fields.
+///   * New clients dual-read via `times(forDayKey:)` (prefer the array, fall
+///     back to the single field) and dual-write the legacy field (= earliest
+///     time) so old clients still see a valid single time.
 struct DaySchedule: Codable, Equatable {
     var mon: String?
     var tue: String?
@@ -32,6 +41,12 @@ struct DaySchedule: Codable, Equatable {
     var fri: String?
     var sat: String?
     var sun: String?
+
+    /// Multiple times per day, keyed by day ("mon".."sun"). When a day is
+    /// present here it supersedes that day's single-time field.
+    // Defaulted so the synthesized memberwise init stays source-compatible with
+    // existing `DaySchedule(mon:…sun:)` call sites.
+    var multiTimes: [String: [String]]? = nil
 
     static let weekdays: [WritableKeyPath<DaySchedule, String?>] = [\.mon, \.tue, \.wed, \.thu, \.fri]
     static let weekend: [WritableKeyPath<DaySchedule, String?>] = [\.sat, \.sun]
@@ -44,6 +59,33 @@ struct DaySchedule: Codable, Equatable {
         ("sat", "Saturday", \.sat),
         ("sun", "Sunday", \.sun),
     ]
+
+    /// The legacy single-time field for a day key.
+    func legacyTime(forDayKey key: String) -> String? {
+        switch key {
+        case "mon": return mon
+        case "tue": return tue
+        case "wed": return wed
+        case "thu": return thu
+        case "fri": return fri
+        case "sat": return sat
+        case "sun": return sun
+        default: return nil
+        }
+    }
+
+    /// All scheduled "HH:mm" times for a day, sorted ascending. Dual-read:
+    /// prefers `multiTimes`, falls back to the single legacy field. Empty when
+    /// no check-in is scheduled that day.
+    func times(forDayKey key: String) -> [String] {
+        if let multi = multiTimes?[key], !multi.isEmpty {
+            return multi.sorted()
+        }
+        if let single = legacyTime(forDayKey: key) {
+            return [single]
+        }
+        return []
+    }
 
     static func defaultSchedule(time: String = "08:00") -> DaySchedule {
         DaySchedule(mon: time, tue: time, wed: time, thu: time, fri: time, sat: time, sun: time)
