@@ -30,6 +30,7 @@
 		B1C00005 /* OfflineCheckInService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00005; };
 		B1C00006 /* PushNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00006; };
 		B1C00007 /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00007; };
+		B1C00026 /* ForceUpdateState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00026; };
 		B1C00008 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00008; };
 		/* Utilities */
 		B1D00001 /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00001; };
@@ -203,6 +204,7 @@
 		F1C00005 /* OfflineCheckInService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineCheckInService.swift; sourceTree = "<group>"; };
 		F1C00006 /* PushNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationService.swift; sourceTree = "<group>"; };
 		F1C00007 /* SubscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionService.swift; sourceTree = "<group>"; };
+		F1C00026 /* ForceUpdateState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForceUpdateState.swift; sourceTree = "<group>"; };
 		F1C00008 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
 		F1C00009 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		F1C0000A /* HeartbeatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartbeatService.swift; sourceTree = "<group>"; };
@@ -641,6 +643,7 @@
 				F1C00024 /* SharedOwnerPublisher.swift */,
 				F1C00025 /* EscalationActivityManager.swift */,
 				F1C00007 /* SubscriptionService.swift */,
+				F1C00026 /* ForceUpdateState.swift */,
 				F1C00008 /* SupabaseService.swift */,
 			);
 			path = Services;
@@ -983,6 +986,7 @@
 				B1C00005 /* OfflineCheckInService.swift in Sources */,
 				B1C00006 /* PushNotificationService.swift in Sources */,
 				B1C00007 /* SubscriptionService.swift in Sources */,
+				B1C00026 /* ForceUpdateState.swift in Sources */,
 				B1C00008 /* SupabaseService.swift in Sources */,
 				B1D00001 /* Configuration.swift in Sources */,
 				B1D00002 /* KeychainService.swift in Sources */,

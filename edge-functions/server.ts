@@ -24,6 +24,7 @@ const PORT = parseInt(Deno.env.get("PORT") || "9000"); // Optional, defaults to 
 import { verifyRequest, type AuthResult } from "./shared/auth.ts";
 import { checkRateLimit, checkServiceRoleRateLimit } from "./shared/rate-limiter.ts";
 import { logInfo, logError, withRequestLogging } from "./shared/logger.ts";
+import { isBelowMinimum, forceUpdatePayload } from "./shared/config.ts";
 
 // Import function handlers
 import { handleSendCheckinNotification } from "./functions/send-checkin-notification/index.ts";
@@ -102,7 +103,7 @@ function corsHeaders(req?: Request): Record<string, string> {
     return {
       "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
       "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-App-Version, X-App-Platform",
     };
   }
   // Disallowed origin — return empty CORS headers (browser will block the response)
@@ -222,6 +223,23 @@ async function handler(req: Request): Promise<Response> {
       return jsonWithCors({ error: "Too many requests" }, 429, req, {
         "Retry-After": String(rateLimitResult.retryAfterSeconds),
       });
+    }
+  }
+
+  // Force-update gate: a client build below the platform floor (CLAUDE.md
+  // MIN_SUPPORTED_*_APP_VERSION) is told to update with a 426 instead of being
+  // served. Only applies to authenticated client (JWT) traffic — never service
+  // role or webhook calls. Fails open when the version header is absent (older
+  // builds) or the floor is disabled, so nothing breaks until a floor is set.
+  if (!auth.isServiceRole && !secretEnvVar) {
+    const clientVersion = req.headers.get("X-App-Version");
+    const clientPlatform = req.headers.get("X-App-Platform");
+    if (isBelowMinimum(clientPlatform, clientVersion)) {
+      logInfo("Rejecting below-floor client build", {
+        path,
+        userId: auth.userId,
+      });
+      return jsonWithCors(forceUpdatePayload(clientPlatform), 426, req);
     }
   }
 

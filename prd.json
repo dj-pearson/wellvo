@@ -3183,7 +3183,7 @@
         "The flow is covered by the backward-compatibility checklist"
       ],
       "priority": 149,
-      "passes": false,
+      "passes": true,
       "notes": "INFRA/FEATURE-GAP. Referenced in CLAUDE.md but no force-update check exists in EdgeFunctionsClient or auth/checkin. Files: ios/DailyOK/Services/EdgeFunctionsClient.swift, edge-functions/shared/config.ts."
     }
   ]

@@ -1209,3 +1209,17 @@ Per user direction, completed the high-value, shippable, App-Store-guideline-3.1
   - Swept the iOS tree: the only remaining user-facing hardcoded prices were these three cards; the one other "$3.99/mo" hit is a non-displayed code comment in Models/Family.swift (left as-is).
 STILL OPEN for US-IOS044 (needs Xcode to do/verify, hence not marked passes): migrate all user-facing literals to Localizable.xcstrings; audit app-wide date/number formatting for locale-awareness; pseudolocalization clipping pass.
 Verification: source-level only (no Xcode/StoreKit here). Matches existing SubscriptionService.shared @StateObject + loadProducts usage in SettingsView.
+
+--- Iteration INFRA-050: US-IOS050 MIN_SUPPORTED_IOS_APP_VERSION force-update (2026-06-23) ---
+Old builds can now be told to update so the API can evolve per CLAUDE.md's backward-compat rules. Backend-first, fails OPEN (dormant until a floor is set).
+Backend:
+  - NEW edge-functions/shared/config.ts: MIN_SUPPORTED_IOS_APP_VERSION / MIN_SUPPORTED_ANDROID_APP_VERSION (default "0.0.0" = blocks nothing; env-overridable to raise without a deploy), store URLs, compareVersions(), isBelowMinimum() (fails open on missing/unknown version or disabled floor), forceUpdatePayload().
+  - server.ts: after auth+rate-limit, for client (non-service-role, non-webhook) traffic, reads X-App-Version / X-App-Platform headers and returns 426 + force-update payload when below floor. Added the two headers to Access-Control-Allow-Headers.
+iOS:
+  - Utilities/Configuration.swift: appVersion (CFBundleShortVersionString) + appStoreURL fallback (id6760836697, from the website).
+  - Services/EdgeFunctionsClient.swift: sends X-App-Version + X-App-Platform: ios on every call; on a 426 it parses update_url, latches ForceUpdateState, and throws so the stale response isn't used.
+  - NEW Services/ForceUpdateState.swift: @MainActor one-way latch (never clears in-session).
+  - App/ContentView.swift: blocking ForceUpdateView (Update Now → App Store) shown whenever forceUpdate.required, layered with the existing biometric-lock / secure-connection overlays.
+  - Registered ForceUpdateState.swift in the app target (F1C00026/B1C00026).
+Backward-compat: additive only. Older builds don't send the header → fail open. Only builds shipping with this handling can render the block, so the first such build is the effective baseline; future floors should be >= it (documented in config.ts). NOTE: pure GoTrue sign-in doesn't traverse the edge server, so the gate engages on the first edge call after launch (heartbeat/dashboard/checkin) — which blocks an old build as soon as it talks to the backend.
+Verification: source-level only (no Deno/Xcode here). pbxproj balance + id counts checked.

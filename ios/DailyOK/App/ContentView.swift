@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var appState: AppState
+    @StateObject private var forceUpdate = ForceUpdateState.shared
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
@@ -40,6 +41,11 @@ struct ContentView: View {
             // Hard block when a possible MITM is detected on this network.
             if appState.secureConnectionFailed {
                 SecureConnectionBlockedView()
+                    .transition(.opacity)
+            }
+            // Hard block when the backend says this build is too old to talk to it.
+            if forceUpdate.required {
+                ForceUpdateView(updateURL: forceUpdate.updateURL)
                     .transition(.opacity)
             }
         }
@@ -152,6 +158,49 @@ struct SecureConnectionBlockedView: View {
             }
             .padding()
             .accessibilityElement(children: .combine)
+        }
+    }
+}
+
+/// Blocking screen shown when the backend rejects this build as below
+/// `MIN_SUPPORTED_IOS_APP_VERSION`. There's no dismiss — the only path forward
+/// is updating, so the app can't hit an API contract it no longer satisfies.
+struct ForceUpdateView: View {
+    let updateURL: URL?
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        ZStack {
+            Color(.systemBackground).ignoresSafeArea()
+            VStack(spacing: 16) {
+                Image(systemName: "arrow.up.circle.fill")
+                    .font(.system(size: 56))
+                    .foregroundStyle(.green)
+                    .accessibilityHidden(true)
+                Text("Update Daily OK")
+                    .font(.title2.weight(.semibold))
+                Text("This version of Daily OK is no longer supported. Please update to the latest version to keep your family's check-ins working.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                Button {
+                    if let updateURL { openURL(updateURL) }
+                } label: {
+                    Text("Update Now")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+                .padding(.horizontal, 40)
+                .padding(.top, 8)
+                .disabled(updateURL == nil)
+            }
+            .padding()
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Update required. This version of Daily OK is no longer supported. Update now.")
         }
     }
 }
