@@ -65,6 +65,32 @@ final class SubscriptionService: ObservableObject {
         isLoading = false
     }
 
+    // MARK: - Display Pricing (StoreKit-driven, App Store guideline 3.1)
+
+    /// The locale-aware display price for a product id (e.g. "$3.99", "3,99 €"),
+    /// or `nil` until `loadProducts()` has populated `products`. Never hardcode
+    /// prices — they must match what StoreKit will actually charge.
+    func displayPrice(for productID: String) -> String? {
+        products.first { $0.id == productID }?.displayPrice
+    }
+
+    /// Display price with the renewal period suffix derived from StoreKit, e.g.
+    /// "$3.99/mo". Returns `nil` until products load so callers can show a
+    /// placeholder rather than a stale hardcoded price.
+    func displayPriceWithPeriod(for productID: String) -> String? {
+        guard let product = products.first(where: { $0.id == productID }) else { return nil }
+        guard let period = product.subscription?.subscriptionPeriod else { return product.displayPrice }
+        let unit: String
+        switch period.unit {
+        case .day: unit = "day"
+        case .week: unit = "wk"
+        case .month: unit = "mo"
+        case .year: unit = "yr"
+        @unknown default: unit = ""
+        }
+        return unit.isEmpty ? product.displayPrice : "\(product.displayPrice)/\(unit)"
+    }
+
     // MARK: - Purchase
 
     func purchase(_ product: Product) async throws -> StoreKit.Transaction? {

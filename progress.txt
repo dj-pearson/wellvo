@@ -1201,3 +1201,11 @@ iOS:
   - Views/Receiver/ReceiverHomeView.swift: bordered "Remind me in 15 min" button shown under the check-in button while a request is pending and canSnooze; confirmation text on success.
 Owner UI reflection: AC marks it optional; intentionally skipped this slice (data is available on checkin_requests.snoozed_until/snooze_count for a future owner-dashboard chip).
 Verification: source-level only (Linux container: no Deno/Postgres/Xcode). SQL hand-reviewed against the 00036 escalation_tick it supersedes (copied verbatim + 1 guard) and the acknowledge_alert RPC pattern; Swift mirrors existing .rpc()/UNNotificationAction/fallback-reminder conventions.
+
+--- Iteration FEAT-044 (pricing slice): US-IOS044 StoreKit-driven pricing (2026-06-23) ---
+Per user direction, completed the high-value, shippable, App-Store-guideline-3.1 portion of US-IOS044 and left the full String-Catalog i18n as a tracked follow-up (US-IOS044 stays passes:false).
+  - Services/SubscriptionService.swift: added displayPrice(for:) and displayPriceWithPeriod(for:) — locale-aware Product.displayPrice + a StoreKit-derived period suffix ("/mo","/yr"). Returns nil until products load so callers show a placeholder, never a stale hardcoded price.
+  - Views/Onboarding/OnboardingView.swift: the three plan cards (Caregiver/Family/Family+) now read planPrice(productID) → displayPriceWithPeriod instead of the hardcoded "$3.99/mo"/"$6.99/mo"/"$9.99/mo". Loads products via .task; shows "—" while loading. (SettingsView's paywall already used product.displayPrice.)
+  - Swept the iOS tree: the only remaining user-facing hardcoded prices were these three cards; the one other "$3.99/mo" hit is a non-displayed code comment in Models/Family.swift (left as-is).
+STILL OPEN for US-IOS044 (needs Xcode to do/verify, hence not marked passes): migrate all user-facing literals to Localizable.xcstrings; audit app-wide date/number formatting for locale-awareness; pseudolocalization clipping pass.
+Verification: source-level only (no Xcode/StoreKit here). Matches existing SubscriptionService.shared @StateObject + loadProducts usage in SettingsView.

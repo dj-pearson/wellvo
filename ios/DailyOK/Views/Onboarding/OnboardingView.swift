@@ -2,6 +2,7 @@ import SwiftUI
 
 struct OnboardingView: View {
     @StateObject private var viewModel = OnboardingViewModel()
+    @StateObject private var subscriptionService = SubscriptionService.shared
     @EnvironmentObject var appState: AppState
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @ScaledMetric(relativeTo: .largeTitle) private var largeIconSize: CGFloat = 80
@@ -297,23 +298,24 @@ struct OnboardingView: View {
             VStack(spacing: 12) {
                 planCard(
                     title: "Caregiver",
-                    price: "$3.99/mo",
+                    price: planPrice(SubscriptionService.ProductIDs.caregiverMonthly),
                     features: ["1 Receiver", "3 Viewers", "Full escalation", "Pattern alerts"],
                     isHighlighted: true
                 )
                 planCard(
                     title: "Family",
-                    price: "$6.99/mo",
+                    price: planPrice(SubscriptionService.ProductIDs.familyMonthly),
                     features: ["3 Receivers", "5 Viewers", "Clinician PDF export", "Kid mode"],
                     isHighlighted: false
                 )
                 planCard(
                     title: "Family+",
-                    price: "$9.99/mo",
+                    price: planPrice(SubscriptionService.ProductIDs.familyPlusMonthly),
                     features: ["6 Receivers", "10 Viewers", "Critical Alerts", "Priority support"],
                     isHighlighted: false
                 )
             }
+            .task { await subscriptionService.loadProducts() }
 
             Button {
                 viewModel.advance()
@@ -331,6 +333,12 @@ struct OnboardingView: View {
                 .foregroundStyle(.secondary)
         }
         .padding()
+    }
+
+    /// StoreKit-driven price for a plan card. Never hardcoded (App Store
+    /// guideline 3.1) — shows a neutral placeholder until products load.
+    private func planPrice(_ productID: String) -> String {
+        subscriptionService.displayPriceWithPeriod(for: productID) ?? "—"
     }
 
     private func planCard(title: String, price: String, features: [String], isHighlighted: Bool) -> some View {

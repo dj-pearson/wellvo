@@ -3101,7 +3101,7 @@
       ],
       "priority": 143,
       "passes": false,
-      "notes": "UX/infra + App Store guideline 3.1 (prices must match StoreKit). Foundation for international expansion. Files across ios/DailyOK/Views/."
+      "notes": "UX/infra + App Store guideline 3.1 (prices must match StoreKit). Foundation for international expansion. Files across ios/DailyOK/Views/. [2026-06-23] PRICING SLICE DONE (App Store guideline 3.1): onboarding plan cards now use Product.displayPrice via SubscriptionService.displayPriceWithPeriod() instead of hardcoded $3.99/$6.99/$9.99; SettingsView already used product.displayPrice; price/period are StoreKit/locale-driven. STILL OPEN (kept passes:false): migrate all user-facing literals to Localizable.xcstrings String Catalog, audit date/number formatting for locale-awareness app-wide, and run a pseudolocalization clipping pass in Xcode."
     },
     {
       "id": "US-IOS045",
