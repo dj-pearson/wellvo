@@ -3225,8 +3225,8 @@
         "A failed/partial transfer surfaces a clear error and leaves the family in its original valid state"
       ],
       "priority": 152,
-      "passes": false,
-      "notes": "P1 data-integrity + stale-UI. ios/DailyOK/Views/Owner/FamilyView.swift:~231-262 does 3 non-atomic writes; appState.currentUserRole is never updated post-transfer. Needs an RPC (supabase/migrations) per CLAUDE.md 'new RPC is always safe'."
+      "passes": true,
+      "notes": "P1 data-integrity + stale-UI. ios/DailyOK/Views/Owner/FamilyView.swift:~231-262 does 3 non-atomic writes; appState.currentUserRole is never updated post-transfer. Needs an RPC (supabase/migrations) per CLAUDE.md 'new RPC is always safe'. [2026-06-24] DONE: Added migration 00045_transfer_ownership_rpc.sql (SECURITY DEFINER transfer_family_ownership(p_family_id, p_new_owner_user_id) — owner-only, locks the family row, validates the new owner is an active member, does all 3 writes atomically). FamilyView.transferOwnership now calls the RPC and sets appState.currentUserRole=.viewer so the UI re-routes to ViewerTabView immediately. Additive per CLAUDE.md (new RPC). Needs migration apply + QA."
     },
     {
       "id": "US-IOS054",

@@ -231,30 +231,20 @@ struct FamilyView: View {
     private func transferOwnership(to member: FamilyMember) async {
         guard let family else { return }
         do {
-            // Update family owner
+            // Single transactional RPC: families.owner_id + both role updates
+            // succeed or fail as a unit, and the server enforces that only the
+            // current owner can transfer (see migration 00045).
             try await SupabaseService.shared.client
-                .from("families")
-                .update(["owner_id": member.userId.uuidString])
-                .eq("id", value: family.id.uuidString)
+                .rpc("transfer_family_ownership",
+                     params: [
+                        "p_family_id": family.id.uuidString,
+                        "p_new_owner_user_id": member.userId.uuidString,
+                     ])
                 .execute()
 
-            // Update member roles
-            try await SupabaseService.shared.client
-                .from("family_members")
-                .update(["role": "owner"])
-                .eq("id", value: member.id.uuidString)
-                .execute()
-
-            // Demote current owner to viewer
-            if let session = try? await SupabaseService.shared.client.auth.session {
-                try await SupabaseService.shared.client
-                    .from("family_members")
-                    .update(["role": "viewer"])
-                    .eq("family_id", value: family.id.uuidString)
-                    .eq("user_id", value: session.user.id.uuidString)
-                    .execute()
-            }
-
+            // Reflect the demotion immediately so ContentView swaps OwnerTabView
+            // for ViewerTabView instead of leaving stale owner-only controls up.
+            appState.currentUserRole = .viewer
             await loadData()
         } catch {
             errorMessage = DailyOKError.network(error).localizedDescription
