@@ -3549,6 +3549,529 @@
       "priority": 175,
       "passes": true,
       "notes": "P3 edge cases. ios/DailyOK/App/ContentView.swift:~187-199 (button disabled when updateURL nil); AppState.swift:~8 (selectedTab shared across Owner/Viewer tab sets). [2026-06-24] DONE: ForceUpdateView now uses an effectiveURL with an App Store search fallback so the Update button is never permanently disabled/dead. ViewerTabView clamps a leftover .family selectedTab (owner-only tab) to .dashboard on appear, fixing the no-matching-tab state after an ownership transfer or deep link. Needs build + QA."
+    },
+    {
+      "id": "US-IOS077",
+      "title": "Align iOS subscription product IDs with the backend tier map",
+      "description": "As a paying iOS customer, I want my purchase to actually upgrade my family's plan on the server, so that I receive the receiver/viewer seats and paid features I paid for.",
+      "acceptanceCriteria": [
+        "iOS `SubscriptionService.ProductIDs` (ios/DailyOK/Services/SubscriptionService.swift:18-24) and the backend `TIER_MAP` + add-on checks (edge-functions/functions/subscription-webhook/index.ts:18-25,33,37) use ONE identical product-ID namespace",
+        "Whatever namespace App Store Connect actually has the products registered under is the source of truth; Android (android/.../services/SubscriptionService.kt:55-62, currently net.dailyok.*) and the backend must agree with iOS after the fix",
+        "All historical product IDs that any shipped/sandbox build may have sent remain recognized server-side (CLAUDE.md §E: never stop recognizing an ID a subscriber may hold), so add the new keys without deleting recognized old ones",
+        "ios/DailyOKTests/SubscriptionServiceTests.swift is updated to assert the corrected IDs (the test currently locks in the wrong namespace, so the bug passes CI)",
+        "Manual/sandbox verification: a purchase results in subscription_webhook returning 200 and the family row's subscription_tier / max_receivers / max_viewers being updated (no '400 Unknown product_id')"
+      ],
+      "priority": 176,
+      "passes": false,
+      "notes": "CRITICAL release-blocker, CONFIRMED by audit. iOS sends net.wellvo.* (e.g. net.wellvo.caregiver.monthly); the webhook TIER_MAP and addon branches only know net.dailyok.*, so every iOS purchase hits `if (!tierInfo)` -> 400 'Unknown product_id'. The iOS 3x retry then surfaces 'Subscription activated but sync pending' and the family is never upgraded: StoreKit entitlement is local-only, zero backend seats/features. Two independent audit agents flagged this; verified by grep of both files. Pick the namespace that matches the real ASC products (bundle id is com.wellvo.ios; Configuration.appStoreURL id6760836697)."
+    },
+    {
+      "id": "US-IOS078",
+      "title": "Send numeric request fields as JSON numbers instead of strings",
+      "description": "As a receiver checking in with location/battery (and any client reporting location), I want the edge functions to accept my request, so that location-bearing check-ins, background location reports, and heartbeats succeed instead of failing with HTTP 400.",
+      "acceptanceCriteria": [
+        "`EdgeFunctionsClient.invoke`/`rawInvoke` (ios/DailyOK/Services/EdgeFunctionsClient.swift:54-70) accepts heterogeneous JSON (e.g. `[String: Any]` or a JSONValue enum) and serializes latitude/longitude/battery_level/location_accuracy_meters as real numbers, not quoted strings",
+        "CheckInService.checkIn/respondToCheckIn (ios/DailyOK/Services/CheckInService.swift:39-49,80-89), LocationService.reportLocation (ios/DailyOK/Services/LocationService.swift:117-127,169-181), and HeartbeatService.sendHeartbeat (ios/DailyOK/Services/HeartbeatService.swift:42-48) stop wrapping numeric values in String(...)",
+        "After the fix, edge-functions/shared/validation.ts (typeof === 'number') accepts the values: report-location no longer returns '400 Invalid coordinates' and process-checkin-response no longer 400s when a check-in carries location/battery",
+        "Backward-compat: this is the client request shape only; confirm the server still tolerates string OR number (add Number()/parseFloat coercion server-side as a defensive secondary so older shipped builds that still send strings keep working) per CLAUDE.md §B",
+        "Add a unit test asserting the serialized body contains numeric (unquoted) lat/lng/battery"
+      ],
+      "priority": 177,
+      "passes": false,
+      "notes": "CRITICAL release-blocker, CONFIRMED. EdgeFunctionsClient.invoke only accepts [String: String], so the client sends {\"latitude\":\"37.77\"}. Server isValidLatitude/isValidBattery require typeof===number, so EVERY location-bearing check-in and EVERY background report-location call 400s; the check-in retry then exhausts and can leave a request falsely pending -> false escalation. Heartbeat battery_level is also sent as a string (same class). Prefer sending real numbers AND adding server coercion so in-flight old builds aren't broken."
+    },
+    {
+      "id": "US-IOS079",
+      "title": "Fix DailyOKAlert.data decoding so battery/heartbeat alerts aren't dropped",
+      "description": "As an owner, I want low-battery and stale-heartbeat safety alerts to appear on my dashboard, so that I'm not silently shown zero alerts when something is actually wrong.",
+      "acceptanceCriteria": [
+        "`DailyOKAlert.data` (ios/DailyOK/Models/DailyOKAlert.swift:10) no longer forces `[String: Double]?`; it decodes a heterogeneous JSON object (e.g. `[String: JSONValue]?` / an AnyCodable-style enum supporting string+number+bool)",
+        "A single alert whose `data` contains a string (e.g. low_battery / stale_heartbeat carry `last_seen_at` per supabase/migrations/00013_low_battery_and_background_safety.sql:51-54,140-143) decodes successfully",
+        "Decoding the alerts array is resilient: one malformed `data` payload does NOT make the whole `[DailyOKAlert]` decode throw and blank the list (DashboardViewModel.loadAlerts, DashboardViewModel.swift:446-461) — use a forgiving custom init or decodeIfPresent fallback to nil",
+        "Add a model test decoding a low_battery alert payload with a string last_seen_at and a numeric battery_level",
+        "Owner dashboard shows battery + heartbeat alerts alongside geofence/time-drift alerts"
+      ],
+      "priority": 178,
+      "passes": false,
+      "notes": "CRITICAL, CONFIRMED. The migration writes jsonb_build_object('battery_level', <num>, 'last_seen_at', <timestamp string>); decoding that into [String: Double]? throws a type mismatch, and because loadAlerts decodes the whole array at once, ONE such alert sets alerts=[] -> owner sees no alerts at all. geofence_breach/time_drift are all-numeric so they decode today, which makes this intermittent and easy to miss in testing."
+    },
+    {
+      "id": "US-IOS080",
+      "title": "Add the Notification Service Extension as a real build target so it ships",
+      "description": "As a user relying on push, I want rich/mutable push handling and server-side delivery confirmation to actually run, so that escalation-suppression and rich notifications work in production.",
+      "acceptanceCriteria": [
+        "ios/DailyOK.xcodeproj/project.pbxproj defines a `DailyOKNotificationService` app-extension target (it currently has ZERO references — the directory is dead code), with bundle id com.wellvo.ios.NotificationService, embedded in the DailyOK app",
+        "NotificationService.swift, its Info.plist, .entitlements, and PrivacyInfo.xcprivacy are members of the new target",
+        "CI ExportOptions/provisioning is updated (.github/workflows/ios-build-deploy.yml currently lists only 4 profiles: main/widgets/watch/watchwidgets) to include the extension's ASC provisioning profile",
+        "The extension's confirm-delivery network call is routed through the pinned session (NOT URLSession.shared) and fails closed on pin mismatch — see US-IOS086",
+        "Server push payloads that need it set `mutable-content: 1` (and apns-push-type alert) so the extension is actually invoked; OR, if rich/mutable push is out of scope for this release, the directory is deleted instead",
+        "Verify on a device/TestFlight build that the extension process launches on push receipt"
+      ],
+      "priority": 179,
+      "passes": false,
+      "notes": "CRITICAL, CONFIRMED via grep (0 occurrences of DailyOKNotificationService in project.pbxproj; only 6 targets exist). The whole NotificationService extension never builds into the IPA, so delivery-confirmation-from-the-extension and any mutable-content push silently no-op. Decide: wire it up properly (preferred, it's the documented escalation-suppression path) or remove it."
+    },
+    {
+      "id": "US-IOS081",
+      "title": "End the escalation Live Activity immediately on stand-down",
+      "description": "As an owner who just resolved an escalation, I want the Lock Screen / Dynamic Island Live Activity to disappear right away, so that I'm not staring at a running 'Overdue / Missed' timer for a situation I already handled.",
+      "acceptanceCriteria": [
+        "After a successful `cancelEscalation`, both the deep-link stand-down path (ios/DailyOK/App/DailyOKApp.swift:64-84, dailyok://standdown) and the in-app `standDownEscalation` (ios/DailyOK/ViewModels/DashboardViewModel.swift:285-295) immediately end the matching Live Activity — do not wait for the next dashboard reload",
+        "Add `EscalationActivityManager.end(receiverId:)` that iterates `Activity<EscalationActivityAttributes>.activities` and calls `await activity.end(nil, dismissalPolicy: .immediate)` for the matching receiver; call it from both paths",
+        "Live Activity content uses a non-nil `staleDate` (EscalationActivityManager.swift:56,68-71) — e.g. dueSince + escalation window — so the system marks a long-running activity stale instead of counting up forever",
+        "Manual verification: triggering stand-down from the Live Activity removes the activity within ~1s",
+        "If cancelEscalation fails, the activity is NOT ended and the failure is surfaced (ties into US-IOS083)"
+      ],
+      "priority": 180,
+      "passes": false,
+      "notes": "CRITICAL stale-safety-state bug, CONFIRMED (handleDeepLink case 'standdown' calls CheckInService.cancelEscalation directly and never touches EscalationActivityManager). For a safety app, a resolved escalation that keeps showing a live overdue timer on the Lock Screen is the worst stale state. Pairs with staleDate:nil which means it never visually goes stale."
+    },
+    {
+      "id": "US-IOS082",
+      "title": "Refresh phone state when a check-in arrives from the Apple Watch",
+      "description": "As a receiver who checks in from my wrist, I want my iPhone, its widgets, and escalation state to immediately reflect that I'm OK, so that the phone doesn't keep showing me as overdue or fire a redundant escalation.",
+      "acceptanceCriteria": [
+        "Something observes `PhoneWatchSync.didReceiveWatchCheckIn` (ios/DailyOK/Services/PhoneWatchSync.swift:12,64) — currently posted but observed NOWHERE (grep finds zero addObserver)",
+        "On that notification the app reloads check-in status, updates the shared snapshot (SharedCheckInPublisher.markCheckedIn / re-publish), and calls WidgetCenter.shared.reloadAllTimelines()",
+        "After a watch check-in, the phone's hasCheckedInToday flips true so the phone does not re-prompt or escalate, and the Home/Lock widgets update",
+        "The observer is registered for the app lifetime (e.g. AppDelegate or a long-lived coordinator), not tied to a transient view",
+        "Manual verification on paired devices: wrist check-in updates the phone UI + widgets without opening the app"
+      ],
+      "priority": 181,
+      "passes": false,
+      "notes": "CRITICAL, CONFIRMED via grep. The full transferUserInfo round-trip is wired (watch -> notifyPhoneOfCheckIn -> phone posts didReceiveWatchCheckIn) but nothing listens, so a wrist check-in is invisible to the phone and the phone's snapshot still says not-checked-in (can re-escalate)."
+    },
+    {
+      "id": "US-IOS083",
+      "title": "Surface Dashboard action failures instead of swallowing them",
+      "description": "As an owner, I want clear feedback when 'Check on', 'Stop alerts', acknowledge, or dismiss fails, so that I never believe I stopped an alert or sent a check-in when it actually failed.",
+      "acceptanceCriteria": [
+        "The Dashboard error surface is no longer gated on `errorMessage != nil && receiverCards.isEmpty` (ios/DailyOK/Views/Owner/DashboardView.swift:18); errors set during on-demand send, stand-down, dismiss-alert, acknowledge-alert, and refresh (DashboardViewModel.swift:259,280,293,357,387) are shown even when cards exist",
+        "Use a non-blocking `.alert` or a dismissible inline banner bound to `errorMessage` in the populated state",
+        "A failed stand-down does NOT clear the escalation UI / Live Activity as if it succeeded (coordinate with US-IOS081)",
+        "VoiceOver announces the error when it appears",
+        "Add/adjust a test or preview covering the populated-state error path"
+      ],
+      "priority": 182,
+      "passes": false,
+      "notes": "CRITICAL for a safety app: every owner action that can fail (check-on, stop-alerts/stand-down, acknowledge, dismiss) sets errorMessage but it's only rendered in the empty state, so with any receiver loaded the failure is invisible. A silently-failed stand-down that clears the banner is dangerous."
+    },
+    {
+      "id": "US-IOS084",
+      "title": "Re-sync the extension auth token on token refresh",
+      "description": "As a user, I want background surfaces (Notification Service Extension, widgets, Siri, watch) to keep a valid auth token after my session refreshes, so that delivery confirmation and background check-ins don't start failing with 401 after the first hour.",
+      "acceptanceCriteria": [
+        "The `.tokenRefreshed` auth event (ios/DailyOK/ViewModels/AuthViewModel.swift:122-123, currently `break`) calls `await SupabaseService.shared.syncAccessTokenToExtension()`",
+        "After a token refresh, the shared-Keychain mirrored access/refresh token matches the live session (its doc says 'Call after successful auth and on token refresh' — the refresh call was missing)",
+        "confirm-delivery and extension/widget check-in calls succeed after a session refresh (no 401)",
+        "Add coverage/manual test: force a token refresh and confirm the mirrored token updates"
+      ],
+      "priority": 183,
+      "passes": false,
+      "notes": "HIGH, CONFIRMED. syncAccessTokenToExtension is called once at launch but NOT on refresh; Supabase access tokens are ~1h, so after the first refresh the extension's mirrored token is stale -> 401 on confirm-delivery -> the exact escalation-suppression path degrades silently. Distinct from US-IOS045 (telemetry) which is already done."
+    },
+    {
+      "id": "US-IOS085",
+      "title": "Reconcile the iOS deployment target with the supported-OS floor",
+      "description": "As the product owner, I want a deliberate minimum iOS version, so that we don't accidentally exclude a large installed base of iOS 16/17 devices.",
+      "acceptanceCriteria": [
+        "Decide the intended floor. CLAUDE.md states 'iOS 16+', but all 8 app/extension configs set IPHONEOS_DEPLOYMENT_TARGET = 18.0 and ios/DailyOK/Package.swift pins .iOS(.v18)",
+        "If iOS 16 is intended: lower IPHONEOS_DEPLOYMENT_TARGET to 16.0 across targets and Package.swift to .v16, then gate every iOS 17/18-only API (Live Activity ContentState additions, Control Center control US-IOS010, App Intents donations, #Preview, observation APIs, etc.) behind `if #available`",
+        "If iOS 18 is intended: update CLAUDE.md and prd to record the deliberate floor and the reason",
+        "Project still builds and the test suite runs at the chosen floor",
+        "watchOS floor (currently 10.0) is reviewed the same way"
+      ],
+      "priority": 184,
+      "passes": false,
+      "notes": "HIGH, CONFIRMED via grep (8x IPHONEOS_DEPLOYMENT_TARGET = 18.0; Package.swift .v18). iOS 18.0 excludes all iOS 16/17 devices — a major, likely-unintended audience cut versus the documented 16+ contract. Needs a product decision either way."
+    },
+    {
+      "id": "US-IOS086",
+      "title": "Coarsen foreground/check-in location to match the privacy manifest",
+      "description": "As a privacy-conscious user, I want the precision of the location I share to match what the app declares to Apple and to me, so that the app isn't collecting precise location while declaring only coarse.",
+      "acceptanceCriteria": [
+        "The foreground/check-in location path coarsens coordinates the same way the background significant-change path already does (LocationService `coarsen()` ~110m) before upload — currently CheckInService.swift:39-49 and LocationService.reportLocation send `loc.coordinate.latitude/longitude` at full GPS resolution",
+        "EITHER keep the coarse-only declaration accurate by coarsening everywhere (preferred, matches stated design), OR add NSPrivacyCollectedDataTypePreciseLocation to ios/DailyOK/PrivacyInfo.xcprivacy (lines ~81-92) and update the App Store privacy answers",
+        "kCLLocationAccuracyHundredMeters is treated as a request, not a guarantee — the coarsening is applied explicitly in code",
+        "Add a test asserting uploaded coordinates are rounded to the declared precision"
+      ],
+      "priority": 185,
+      "passes": false,
+      "notes": "HIGH App Store privacy-accuracy risk. US-IOS029 (passes:true) coarsened only the BACKGROUND path; the foreground check-in path still uploads full precision while PrivacyInfo declares only Coarse Location — a data-use misrepresentation. Pick coarsen-everywhere or declare precise."
+    },
+    {
+      "id": "US-IOS087",
+      "title": "Make CheckIn enum decoding forgiving so a success isn't reported as a failure",
+      "description": "As a receiver, I want a successful check-in to be shown as success even if the server row carries a source/response_type my app version doesn't recognize, so that I don't see a scary error for a check-in that actually worked.",
+      "acceptanceCriteria": [
+        "`CheckInSource` and `CheckInResponseType` (ios/DailyOK/Models/CheckIn.swift:112-124,138-203) get defaulting `init(from:)` decoders (mirroring `Mood`), OR are decoded as String and mapped leniently, so an unknown value maps to a safe default instead of throwing",
+        "A `checkins` row containing a source/response_type written by Android, a future server source, or a notification action decodes without throwing in CheckInService.checkIn (CheckInService.swift:59-63) and offline sync (OfflineCheckInService.swift:177)",
+        "Add a model test decoding a CheckInResponse with an unknown `source` and unknown `response_type`",
+        "Backward-compat note recorded: these raw values are now a tolerant contract"
+      ],
+      "priority": 186,
+      "passes": false,
+      "notes": "HIGH. Unlike Mood (which defaults), these enums are non-defaulted; a single unknown value makes JSONDecoder throw dataCorrupted, surfacing as a thrown check-in error even though the server already recorded the check-in — and it stalls the offline sync loop (which breaks on error)."
+    },
+    {
+      "id": "US-IOS088",
+      "title": "Classify HTTP 4xx as non-retryable and honor Retry-After",
+      "description": "As a receiver tapping 'I'm OK', I want a deterministic server rejection to fail fast rather than spin through retries, so that the Lock Screen check-in feels instant and transient errors still retry correctly.",
+      "acceptanceCriteria": [
+        "NetworkRetry.isNonRetryable (ios/DailyOK/Utilities/NetworkRetry.swift:40-56) returns true for `EdgeFunctionsClient.HTTPError` with status in 400..<500, EXCEPT 408 and 429 (which remain retryable)",
+        "For 429 (and 503 with Retry-After), the backoff honors the Retry-After header instead of the fixed schedule",
+        "A deterministic 400/403/404 surfaces immediately on the check-in / confirm-delivery paths instead of after 3 backed-off attempts",
+        "Transient 5xx and URL connectivity errors still retry as today",
+        "Unit test: an HTTPError(400) is not retried; an HTTPError(429) is"
+      ],
+      "priority": 187,
+      "passes": false,
+      "notes": "HIGH, CONFIRMED. isNonRetryable only inspects NSURLErrorDomain, so HTTPError (any non-2xx) is treated as retryable: deterministic 400/403 get retried 3x with backoff (wasted ~3-7s on the 'I'm OK' path), while there's no Retry-After handling for 429."
+    },
+    {
+      "id": "US-IOS089",
+      "title": "Dispatch every custom-schedule window, or stop scoring un-prompted windows",
+      "description": "As a receiver with multiple daily check-in windows, I want the server to actually request each window and my consistency to be scored fairly, so that I'm not penalized for an evening check-in I was never reminded about.",
+      "acceptanceCriteria": [
+        "`dispatch_scheduled_checkins` iterates EVERY time in `multiTimes[current_dow]` (plus the legacy single field) and creates a request per window keyed by slot_key, matching the iOS slot model (the resolver/streak math already expects multiple windows: ReceiverViewModel.swift:146-150, Streaks expectedPerDay)",
+        "Server dispatch (supabase/migrations 00015/00035, which read only `custom_schedule->>current_dow`) is migrated forward-compatibly so single-window receivers and all shipped clients are unaffected",
+        "Escalation generation also honors each window (the known scope-limit noted in progress.txt for US-IOS048: extra windows feed display/dedup/streak but generate no independent escalation requests)",
+        "Until full server support ships, the client does NOT derive expectedPerDay from multiTimes in a way that perpetually caps a multi-window receiver's consistency at 50% for windows that were never prompted",
+        "Add coverage for a 2-window day producing 2 requests and correct consistency"
+      ],
+      "priority": 188,
+      "passes": false,
+      "notes": "HIGH, CONFIRMED (progress.txt for US-IOS048 explicitly records this scope limit; migration uses custom_schedule->>current_dow::time = one time/day). Client scores against windows the backend never prompts -> unfair penalty. Server-side dispatch fix is the correct resolution; spans edge-functions + a migration + iOS."
+    },
+    {
+      "id": "US-IOS090",
+      "title": "Only queue Watch check-ins on true transport errors and fix unflushable-queue messaging",
+      "description": "As a watch user, I want 'Saved — will send when connected' to mean it will really send, so that I'm not told a check-in is queued when it can never sync.",
+      "acceptanceCriteria": [
+        "WatchCheckInModel.checkIn (ios/DailyOKWatch/WatchCheckInModel.swift:54-70) queues offline ONLY on `SharedCheckInError.transport`; `.sessionExpired`/`.notSignedIn` show an 'open your iPhone' message and do NOT queue",
+        "WatchNotificationController's action handler (ios/DailyOKWatch/WatchCheckInModel.swift ~65-68) matches on the specific error like checkIn() does, instead of blanket-queueing on ANY error (which queues an un-flushable 'ok' when the session is truly expired)",
+        "WatchOfflineQueue stamps the queued marker with the local day and ignores/clears a marker whose day != today on reload (ios/DailyOKWatch/WatchOfflineQueue.swift:8-28, WatchCheckInModel.swift:22-26), so a stale un-flushed marker from a prior day doesn't show 'You're all set' today",
+        "WatchConnectivityProvider.notifyPhoneOfCheckIn guards transferUserInfo on `activationState == .activated` (WatchConnectivityProvider.swift:28-31)",
+        "Manual verification on watch: signed-out/expired state surfaces guidance, a true offline tap queues and flushes when connectivity returns"
+      ],
+      "priority": 189,
+      "passes": false,
+      "notes": "HIGH. A watch whose tokens never arrived (no keychain group; tokens only via WatchConnectivity) will permanently hold an unflushable queued check-in while telling the user it's saved, and a stale day-old marker makes today look done."
+    },
+    {
+      "id": "US-IOS091",
+      "title": "Handle widget and Control Center deep links",
+      "description": "As a user tapping a widget or control, I want the app to open to the right place, so that the not-signed-in receiver reaches setup and the owner reaches their dashboard.",
+      "acceptanceCriteria": [
+        "handleDeepLink (ios/DailyOK/App/DailyOKApp.swift:49-87) handles host `checkin` (route a not-signed-in user to onboarding/sign-in) and host `dashboard` (set appState.selectedTab to the dashboard)",
+        "The check-in widget's `dailyok://checkin` (ios/DailyOKWidgets/CheckInWidget.swift:41) and the owner widget's `dailyok://dashboard` (ios/DailyOKWidgets/OwnerStatusWidget.swift:13) now do what their comments claim instead of hitting `default: break`",
+        "Unknown hosts still fail safe (no crash)",
+        "Manual verification: tapping each widget in its relevant state lands on the correct screen"
+      ],
+      "priority": 190,
+      "passes": false,
+      "notes": "HIGH, CONFIRMED (handleDeepLink only switches invite/dailyok.net/standdown; checkin & dashboard fall through). The not-signed-in widget tap currently just opens to the last screen, so 'tap to finish setup' is unimplemented."
+    },
+    {
+      "id": "US-IOS092",
+      "title": "Run iOS tests on develop PRs and make UI tests + lint actually gate CI",
+      "description": "As a developer, I want CI to actually catch iOS regressions on feature PRs, so that broken check-in/escalation logic can't merge green.",
+      "acceptanceCriteria": [
+        "ios-e2e-tests.yml `pull_request` trigger includes `develop` (or drops the branch filter) so unit + UI tests run on feature PRs, matching android-build.yml which runs on all PRs (.github/workflows/ios-e2e-tests.yml:3-9)",
+        "`|| true` is removed from the UI-test run (line ~164) and the build-for-testing step (line ~147) so a failing UI test or broken compile fails the job (use set -o pipefail + xcbeautify exit code)",
+        "A SwiftLint (or swift-format --lint) step with a checked-in config runs in CI",
+        "Verify a deliberately-failing UI test turns CI red"
+      ],
+      "priority": 191,
+      "passes": false,
+      "notes": "HIGH, CONFIRMED. iOS tests only trigger on PRs into main, but features merge into develop -> feature PRs get zero iOS test coverage. And `xcodebuild ... || true` on both UI build-for-testing and UI run means failing UI tests are green. No lint/analyze on iOS at all."
+    },
+    {
+      "id": "US-IOS093",
+      "title": "Fail fast on missing Supabase config instead of shipping an empty base URL",
+      "description": "As the team, I want a build with missing Supabase config to be caught in CI/TestFlight rather than shipped, so that we never release an app that silently can't reach the backend.",
+      "acceptanceCriteria": [
+        "Configuration.supabaseURL/supabaseAnonKey (ios/DailyOK/Utilities/Configuration.swift:6-18,36-48) assert/fatalError (or surface a hard error screen) in release when empty, instead of returning \"\"",
+        "The CI inject step (.github/workflows/ios-build-deploy.yml:137-142) exits non-zero if the injected value is empty, and uses an Add-or-Set PlistBuddy approach so a missing key is a hard error, not a silent no-op",
+        "The contradictory `GENERATE_INFOPLIST_FILE = YES` + explicit `INFOPLIST_FILE` on the app target (project.pbxproj:1220-1221,1252-1253) is resolved to one unambiguous source of truth (keep the explicit file that CI edits)",
+        "A build with deliberately-blank config fails CI or shows the error screen, not a silent dead app"
+      ],
+      "priority": 192,
+      "passes": false,
+      "notes": "HIGH. Release branch returns \"\" on missing keys (no crash/log); combined with fragile PlistBuddy injection guarded only by an echo, a renamed/missing Info.plist key ships an app that builds, uploads, and can't reach the backend (every auth/check-in fails against an empty URL)."
+    },
+    {
+      "id": "US-IOS094",
+      "title": "Surface Settings action failures (Export, Delete Account, Data Retention)",
+      "description": "As a user, I want clear feedback when exporting data, deleting my account, or saving retention fails, so that I don't believe a destructive or important action succeeded when it didn't.",
+      "acceptanceCriteria": [
+        "An `.alert` (mirroring ReceiverSettingsView:305-315) is bound to `settingsError`, which is currently assigned on export failure, delete-account failure, and not-signed-in (ios/DailyOK/Views/Settings/SettingsView.swift:263,267,283,299) but never displayed",
+        "DataRetentionView gains a load-failed flag: a failed retention load shows a retry state and disables Save instead of silently falling back to the 365 default and then clobbering the real server value (SettingsView.swift:359-363,380)",
+        "Delete Account failure never leaves the user believing the account was deleted",
+        "VoiceOver announces these errors when shown"
+      ],
+      "priority": 193,
+      "passes": false,
+      "notes": "HIGH. settingsError is set in three places and rendered nowhere; a silently-failed Delete Account is serious. DataRetentionView swallows load errors and can overwrite real config with the default on save (ReceiverSettingsView already guards this exact case with hasLoaded/loadFailed)."
+    },
+    {
+      "id": "US-IOS095",
+      "title": "Reconcile subscription entitlements to the backend on launch and restore",
+      "description": "As a subscriber who reinstalls or whose purchase was interrupted, I want my plan to provision server-side without a fresh purchase, so that my seats/features come back automatically.",
+      "acceptanceCriteria": [
+        "syncSubscriptionToBackend runs BEFORE `transaction.finish()` in purchase() (ios/DailyOK/Services/SubscriptionService.swift:113-121,228-251), OR the app reconciles any verified-but-unsynced entitlement on launch via Transaction.currentEntitlements",
+        "updatePurchasedProducts (which today only updates local tier) drives a backend sync for verified entitlements that the server hasn't recorded",
+        "restorePurchases() (SubscriptionService.swift:158-167) iterates Transaction.currentEntitlements after AppStore.sync() and calls syncSubscriptionToBackend for each — currently restore never tells the backend, so a reinstalled user has local gating but no server seats",
+        "Errors during reconcile are retried/logged with telemetry, not swallowed",
+        "This work assumes US-IOS077 (correct product IDs) is in place"
+      ],
+      "priority": 194,
+      "passes": false,
+      "notes": "HIGH. finish() happens before backend sync, so a process kill mid-sync leaves StoreKit unable to redeliver (already finished) and the backend unupgraded until a manual restore — which ALSO never syncs. This is the only path that would have masked US-IOS077 in testing."
+    },
+    {
+      "id": "US-IOS096",
+      "title": "Reflect the active subscription tier across all plan rows",
+      "description": "As an existing subscriber, I want the paywall/settings to show which plan I'm on and frame the others as upgrade/switch, so that I'm not funneled into a confusing redundant second purchase.",
+      "acceptanceCriteria": [
+        "Resolve the active tier once; annotate every plan row as 'Current Plan' / 'Upgrade' / 'Switch' rather than only marking the exact owned product (ios/DailyOK/Views/Settings/SettingsView.swift:566-578 planRow)",
+        "Cross-tier rows are disabled or clearly differentiated when a plan is already owned",
+        "SubscriptionView doesn't show the same error both inline and in an alert simultaneously (SettingsView.swift:501,541-545) — split load-failed vs purchase-failed state",
+        "Consistent behavior between the onboarding paywall and the settings paywall"
+      ],
+      "priority": 195,
+      "passes": false,
+      "notes": "MEDIUM. planRow only shows 'Current Plan' for the exact owned product id, so a subscriber sees an enabled 'Subscribe' on every other tier with no 'you're on X' context."
+    },
+    {
+      "id": "US-IOS097",
+      "title": "Enforce the free-tier grandfather expiry",
+      "description": "As the business, I want grandfathered free families to be gated once their free window lapses, so that the free_tier_expires_at deadline we store and migrate actually means something.",
+      "acceptanceCriteria": [
+        "When currentTier == .free and `freeTierExpiresAt != nil && freeTierExpiresAt! < Date()`, paid features are gated and an upgrade prompt is shown (ios/DailyOK/Services/SubscriptionService.swift hasAccess:177-190; ios/DailyOK/Models/Family.swift:32 freeTierExpiresAt is decoded but never read)",
+        "A `Family.isFreeTierExpired` (or equivalent) computed property centralizes the check",
+        "Behavior matches the backend contract from migration 00019 and Android",
+        "Add a test for expired vs not-expired free tier"
+      ],
+      "priority": 196,
+      "passes": false,
+      "notes": "MEDIUM (product-intent dependent). Migration 00019 sets a 90-day grandfather deadline and the model carries it, but nothing compares it to now, so a grandfathered free family keeps full access forever on iOS."
+    },
+    {
+      "id": "US-IOS098",
+      "title": "Fix heartbeat lifecycle so last-seen doesn't drift in the background",
+      "description": "As an owner, I want a receiver's 'last seen' to update reliably, so that an active receiver isn't shown as inactive after the app is backgrounded.",
+      "acceptanceCriteria": [
+        "A heartbeat is sent when the app becomes active (scenePhase == .active), so foregrounding re-anchors last_seen_at (ios/DailyOK/Services/HeartbeatService.swift:16-29 uses a main-runloop Timer that is suspended while backgrounded)",
+        "Consider a BGAppRefreshTask for periodic background heartbeats",
+        "start() is safe to call more than once without racing a still-running initial heartbeat",
+        "battery_level is sent as a number (covered by US-IOS078) so the heartbeat endpoint accepts it",
+        "Verify last_seen_at updates after a background->foreground cycle"
+      ],
+      "priority": 197,
+      "passes": false,
+      "notes": "MEDIUM. Timer.scheduledTimer is suspended in the background and there's no foreground hook, so 'last seen' can lag by hours even though the receiver opened the app. US-IOS031 (passes:true) addressed other heartbeat/location issues but the service still uses a plain background-dying Timer."
+    },
+    {
+      "id": "US-IOS099",
+      "title": "Make offline check-in sync timezone-correct and resilient",
+      "description": "As a traveling receiver, I want my offline check-ins to dedup against the right day and not get permanently stuck behind one bad row, so that my streak is accurate and the queue always drains.",
+      "acceptanceCriteria": [
+        "Offline dedup computes its day window in the receiver's stored timezone (cache users.timezone locally), matching the server's process-checkin-response which dedups in users.timezone — currently OfflineCheckInService.swift:48-59 uses Calendar.current.startOfDay (device zone)",
+        "The sync loop (OfflineCheckInService.swift:161-193) distinguishes connectivity errors (break, retry later) from deterministic 4xx (mark the row failed/dead-letter and continue) and bounds attempts per row, so one permanently-failing row doesn't halt syncing of all newer queued rows",
+        "A duplicate-key / already-synced response marks the row synced rather than erroring",
+        "Tests cover: travel across a timezone boundary near midnight, and one poison row followed by a good row"
+      ],
+      "priority": 198,
+      "passes": false,
+      "notes": "MEDIUM. Device-zone dedup disagrees with the server's receiver-timezone boundary near local midnight (lost or double-counted check-in for travelers), and `break` on any error stalls the whole queue behind a single deterministic failure. Builds on US-IOS019 (passes:true) which fixed duplicate inserts but not these two."
+    },
+    {
+      "id": "US-IOS100",
+      "title": "Use the receiver's timezone in the PDF report and weekly summary cutoff",
+      "description": "As an owner in a different timezone from my receiver, I want exported reports and the weekly summary to bucket days the same way the dashboard does, so that numbers don't disagree by a day.",
+      "acceptanceCriteria": [
+        "CheckInReportGenerator threads the receiver's timezone (add `timezone: String?` to ReportData and build Calendar.forTimezone(...)) instead of Calendar.current throughout (ios/DailyOK/Views/Owner/CheckInReportGenerator.swift:80,86,198,224-227)",
+        "DashboardViewModel's 7-day recentCheckIns cutoff uses the receiver's calendar, not Calendar.current (DashboardViewModel.swift:198)",
+        "Report 'Days Checked In', streak, and average-time match the dashboard for an owner in a different zone",
+        "Add a test for an owner/receiver timezone mismatch"
+      ],
+      "priority": 199,
+      "passes": false,
+      "notes": "MEDIUM. US-IOS059 (passes:true) moved owner analytics to the receiver's timezone, but the PDF report and the weekly-summary cutoff still use Calendar.current, so they can disagree with the dashboard by a boundary day."
+    },
+    {
+      "id": "US-IOS101",
+      "title": "Fix calendar-heatmap window, month labels, and per-day late threshold",
+      "description": "As an owner reading the heatmap, I want it to show exactly the fetched window with correctly aligned month labels and per-day expectations, so that days aren't mislabeled 'missed' or 'late'.",
+      "acceptanceCriteria": [
+        "buildGrid renders exactly `days` cells aligned with the checkInHistory(days:) fetch window, not days+1 (ios/DailyOK/Views/Owner/CalendarHeatmapView.swift:108-163; CheckInService.swift:227-231) — the oldest column no longer shows 'missed' for a day whose check-ins weren't fetched",
+        "monthLabels() column widths use ceil(weekCount/7.0) (or count actual rendered week-columns) instead of integer division (CalendarHeatmapView.swift:190-219)",
+        "The 'late' threshold resolves the per-day scheduled time via the schedule resolver for weekday_weekend/custom receivers, instead of using the single weekday checkinTime for every day (CalendarHeatmapView.swift:122-123)",
+        "Mood unknown server values are not silently counted as neutral: add a `Mood.unknown` case excluded from moodBreakdown (ios/DailyOK/Models/CheckIn.swift:47-51; DashboardViewModel.swift:551-556)"
+      ],
+      "priority": 200,
+      "passes": false,
+      "notes": "MEDIUM analytics-correctness cluster. Off-by-one window, mis-sized month labels, single-time late threshold on multi-window/weekend days, and Mood->neutral coercion that skews wellness analytics when the server adds a mood value (the enum already grew once in 00014)."
+    },
+    {
+      "id": "US-IOS102",
+      "title": "Harden the Care Notes screen",
+      "description": "As a caregiver using shared care notes, I want safe deletes, honest error states, and a usable composer, so that I don't lose notes or get misled about what's there.",
+      "acceptanceCriteria": [
+        "Care-note delete is wrapped in a confirmationDialog/alert (ios/DailyOK/Views/Owner/CareNotesView.swift:107-111) like every other destructive action in the app",
+        "A care-notes load failure shows an error + retry, distinct from the 'No notes yet' empty state (CareNotesView.swift:27-33; CareNotesViewModel.swift:230-244 currently swallows the error and renders empty)",
+        "The composer is keyboard-safe: add `.scrollDismissesKeyboard(.interactively)` and ensure focusing it scrolls above the keyboard (CareNotesView.swift:104,129-158)",
+        "The Send button has a >=44pt hit target (CareNotesView.swift:133-140)"
+      ],
+      "priority": 201,
+      "passes": false,
+      "notes": "MEDIUM. Permanent server-side delete with no confirm; load failures masquerade as 'no notes'; bottom composer can hide behind the keyboard."
+    },
+    {
+      "id": "US-IOS103",
+      "title": "Add phone-OTP resend and make auth lockout visible",
+      "description": "As a user signing in, I want to resend a missing SMS code and to see when I'm locked out, so that I'm not stuck on a screen whose buttons silently do nothing.",
+      "acceptanceCriteria": [
+        "The awaiting-OTP state has a 'Resend code' button (re-calling sendPhoneOTP, with a cooldown) — currently the only escape is 'Use a different number' (ios/DailyOK/Views/Auth/AuthView.swift:120-150), while the VM tells users to 'request a new code' with no UI (AuthViewModel.swift:371)",
+        "When locked out, `authLockoutMessage` is rendered and Send/Verify are disabled while a lockout is active (AuthView.swift:129-142,162-175; AuthViewModel.swift:339-394 currently return early setting no errorMessage, so taps silently no-op)",
+        "The reset-password confirmation message is cleared when toggling between Sign In / Sign Up (AuthView.swift:276-281 clears errorMessage but not resetPasswordMessage)",
+        "VoiceOver announces auth errors/lockout when they appear"
+      ],
+      "priority": 202,
+      "passes": false,
+      "notes": "MEDIUM. No resend path for SMS; lockout state (authLockoutMessage) is published but never shown and buttons only disable on isLoading, so a locked-out user taps into the void. Distinct from US-IOS058 (lockout mechanism) — this is UI visibility."
+    },
+    {
+      "id": "US-IOS104",
+      "title": "Validate invite phone numbers and add form focus chaining",
+      "description": "As an owner inviting a receiver, I want bad phone numbers rejected before an SMS fires and smooth field-to-field navigation, so that invites reach real numbers and forms are easy to complete.",
+      "acceptanceCriteria": [
+        "Send Invite is gated on a plausible digit count (mirror OnboardingViewModel.canInviteReceiver >=10 digits) and the number is normalized before enabling, across all invite entry points (ios/DailyOK/Views/Owner/FamilyView.swift:463-465; ios/DailyOK/Views/Onboarding/FirstReceiverWalkthroughView.swift:333-334) — currently any non-empty string is accepted",
+        "Name/Phone invite fields use @FocusState chaining with .submitLabel(.next) / onSubmit (FamilyView.swift:460-465)",
+        "Create-family button disables on the TRIMMED name so a whitespace-only entry can't tap into a dead-end error (ios/DailyOK/Views/Onboarding/OnboardingView.swift:223; OnboardingViewModel.swift:46-56)",
+        "Custom-schedule time rows are keyed by a stable Identifiable id, not array offset, so removing a middle window doesn't shift DatePicker bindings to the wrong time (ios/DailyOK/Views/Settings/ReceiverSettingsView.swift:395-408)"
+      ],
+      "priority": 203,
+      "passes": false,
+      "notes": "MEDIUM. Invite validation is inconsistent (onboarding requires >=10 digits; FamilyView and the walkthrough accept 'abc'/'5' and fire an SMS to garbage). The ForEach-by-offset custom-schedule editor edits the wrong time after a removal."
+    },
+    {
+      "id": "US-IOS105",
+      "title": "Accessibility pass for data-viz and senior-facing surfaces",
+      "description": "As a low-vision or large-text user, I want charts, the mood picker, and the pairing-code field to scale and be VoiceOver-usable, so that the senior audience can actually operate the app.",
+      "acceptanceCriteria": [
+        "SegmentedCodeField uses @ScaledMetric box sizing, caps digit Dynamic Type, lets spacing shrink, and keeps the underlying TextField as the focusable accessibility element so VoiceOver treats it as editable (ios/DailyOK/Views/Components/SegmentedCodeField.swift:18-71)",
+        "Heatmap/trend/timeline replace hardcoded .system(size: 6/7/9) and fixed cellSize with relative styles + @ScaledMetric (CalendarHeatmapView.swift:19,46-50,65; CheckInTrendChartView.swift:44-53,110-121)",
+        "Mood picker chips get .frame(minHeight:44), label wrap/scale, and don't clip at accessibility sizes (ios/DailyOK/Views/Receiver/ReceiverHomeView.swift:528-548)",
+        "FloatingBottomNav unselected items get .frame(minHeight:44) (FloatingBottomNav.swift:60,90-91)",
+        "Snooze / manual-send success posts a VoiceOver .announcement and the manual-send success has a text label, not icon-only (ReceiverHomeView.swift:96-103; ReceiverSettingsView.swift:122-128) — the announce() helper in AccessibilityHelpers.swift already exists",
+        "Inline auth/onboarding/pairing error Text is announced to VoiceOver when it appears"
+      ],
+      "priority": 204,
+      "passes": false,
+      "notes": "MEDIUM accessibility cluster on the most senior-facing screens. Pairing-code boxes clip and aren't VoiceOver-editable; charts ignore Dynamic Type; success states are color/icon-only and unannounced. Distinct from the already-tracked FloatingBottomNav dynamic-type story (US-IOS069) — this is the 44pt hit target."
+    },
+    {
+      "id": "US-IOS106",
+      "title": "Honor increased-contrast across the fixed-RGB palette",
+      "description": "As a user with Increase Contrast enabled, I want status colors and badges to strengthen, so that on-time/late/missed and other states are distinguishable.",
+      "acceptanceCriteria": [
+        "Status chips, streak badge, account avatars, and heatmap cells respond to `\\.colorSchemeContrast == .increased` (the palette in ios/DailyOK/Utilities/Colors.swift / Theme.swift is almost entirely fixed RGB; only dailyokPrimary maps to an adaptive asset)",
+        "Heatmap on-time/late/missed is not color-only: strengthen the 7pt white in-cell symbol (especially white-on-yellow 'late') or add shape/pattern redundancy, and de-emphasize color in the legend (CalendarHeatmapView.swift:59-70,234-241)",
+        "Password-strength label text stays .primary/.secondary (not color-only) with .accessibilityLabel/.accessibilityValue (ios/DailyOK/Views/Auth/PasswordStrength.swift:21-28,100-105)",
+        "StreakBadge darkens flame/number under increased contrast (StreakBadge.swift:32-49)",
+        "Account-row avatar uses higher-contrast fill/text and .accessibilityElement(children:.combine) (SettingsView.swift:28-45; ViewerTabView.swift:51-68)"
+      ],
+      "priority": 205,
+      "passes": false,
+      "notes": "MEDIUM. Root cause of several contrast findings: the design tokens are fixed RGB and none honor increased-contrast. Heatmap is effectively color-only with a tiny low-contrast glyph."
+    },
+    {
+      "id": "US-IOS107",
+      "title": "Widget, complication, and intent-source polish",
+      "description": "As a user of widgets/complications and Siri, I want timely updates and correct attribution, so that the owner widget tracks an active escalation and check-in sources are distinguishable.",
+      "acceptanceCriteria": [
+        "OwnerStatusProvider shortens its reload interval when the most-relevant receiver is missed/pending instead of a flat 15 minutes (ios/DailyOKWidgets/OwnerStatusProvider.swift:27-30)",
+        "Watch complication reloads are debounced/coalesced — only reload when relevant fields (hasCheckedInToday/lastCheckInAt) change, not on every phone context push — to stay within the watchOS update budget (WatchConnectivityProvider.swift:56; ComplicationProvider.swift:33-38)",
+        "CheckInIntent reports a specific source ('widget'/'siri'/'control') rather than always 'app' (ios/DailyOK/Shared/CheckInIntent.swift:20), e.g. via distinct intent subclasses or a parameter",
+        "Confirm the foreground double confirm-delivery (NSE + AppDelegate.willPresent) is idempotent server-side, or dedupe (AppDelegate.swift:56-62,87-89)"
+      ],
+      "priority": 206,
+      "passes": false,
+      "notes": "MEDIUM/LOW widget cluster. Owner widget can lag an escalation by 15 min; per-context complication reloads can exhaust the daily budget (then the complication stops updating); all out-of-process check-ins report source 'app' so analytics can't tell widget/Siri/control apart."
+    },
+    {
+      "id": "US-IOS108",
+      "title": "Build, signing, and security-hardening hygiene",
+      "description": "As the team, I want correct per-config signing/push settings, pinned dependencies, and small security hardening, so that dev/QA builds behave and the app is robust.",
+      "acceptanceCriteria": [
+        "aps-environment is driven by build configuration (development for Debug/Xcode TestFlight, production for release) instead of hardcoded `production` in ios/DailyOK/DailyOK.entitlements:13-14",
+        "BiometricService uses .deviceOwnerAuthentication (passcode fallback) instead of .deviceOwnerAuthenticationWithBiometrics, so the 'Use Passcode' affordance works and biometric lockout can't permanently strand the user (ios/DailyOK/Services/BiometricService.swift:43-49); optionally gate the most sensitive keychain item with SecAccessControl .userPresence",
+        "KeychainService adds `kSecUseDataProtectionKeychain: true` to all queries for consistency with SharedKeychain (ios/DailyOK/Utilities/KeychainService.swift:8-29)",
+        "The Sign-in-with-Apple nonce alphabet typo is fixed (missing 'W' in ios/DailyOK/Services/AuthService.swift:398)",
+        "SPM dependencies are bounded (confirm Package.resolved is committed; consider .upToNextMinor for supabase-swift) (ios/DailyOK/Package.swift:8-9)",
+        "The unified-logging subsystem matches the bundle id (Log.swift:18 net.dailyok.app vs bundle com.wellvo.ios)"
+      ],
+      "priority": 207,
+      "passes": false,
+      "notes": "MEDIUM/LOW hygiene cluster. aps-environment hardcoded production breaks sandbox push in dev; biometrics-only policy risks permanent lockout (fallback button is dead); minor keychain/nonce/logging/SPM cleanups. US-IOS028 covered biometric data-gating + nonce CSPRNG but not the passcode-fallback policy."
+    },
+    {
+      "id": "US-IOS109",
+      "title": "App Store readiness: associated domains and entitlement justification",
+      "description": "As the team submitting to review, I want universal links and entitlements that match real usage, so that invite links open the app and review doesn't reject us.",
+      "acceptanceCriteria": [
+        "If web invite/auto-join links (dailyok.net) are meant to open the app, add `com.apple.developer.associated-domains` with `applinks:dailyok.net`, host the AASA file, and ensure the AASA appID uses the real App ID `<teamID>.com.wellvo.ios` (NOT a dailyok id) — currently only the custom scheme `dailyok://` exists (Info.plist:21-31) and invite-token handling must not trust the spoofable scheme as authenticated",
+        "Confirm the Critical Alerts entitlement (com.apple.developer.usernotifications.critical-alerts in DailyOK.entitlements:19-20; requested at PushNotificationService.swift:14) is actually granted for com.wellvo.ios and carried by the provisioning profile; if not granted, remove it and the .criticalAlert option and fall back to .timeSensitive until approval. Document the missed-check-in justification for review",
+        "Document the wellvo/dailyok brand-vs-identifier split prominently (bundle/app-group/keychain are com.wellvo.ios; display name/website/edge host/URL scheme are dailyok) so signing and AASA aren't misconfigured"
+      ],
+      "priority": 208,
+      "passes": false,
+      "notes": "MEDIUM App-Store-readiness. No associated-domains entitlement despite a real web domain and invite/auto-join links; Critical Alerts needs special Apple approval and a wrong/missing grant fails install or risks rejection; the wellvo/dailyok split is a real misconfiguration trap for AASA."
+    },
+    {
+      "id": "US-IOS110",
+      "title": "Expand iOS test coverage for safety-critical paths",
+      "description": "As a developer, I want unit tests around escalation, push routing, schedule DST, and the check-in service, so that a silent regression in the core safety promise is caught.",
+      "acceptanceCriteria": [
+        "ScheduleResolverTests adds DST-observing (e.g. America/New_York across spring-forward/fall-back) and non-UTC cases for next-occurrence and quiet-hours wrap — currently every fixture pins UTC (ios/DailyOKTests/ScheduleResolverTests.swift:10,34,119)",
+        "Add unit tests for EscalationActivityManager state transitions/timing and PushNotificationService payload routing (neither has any test today)",
+        "Add a CheckInService request/response test against a mockable EdgeFunctionsClient transport (e.g. verifying numeric body encoding from US-IOS078 and forgiving enum decoding from US-IOS087)",
+        "Add tests for SubscriptionService.displayPrice/displayPriceWithPeriod localization (the known-failing US-IOS044 area) covering the @unknown default and a non-.month period unit"
+      ],
+      "priority": 209,
+      "passes": false,
+      "notes": "MEDIUM. Of 19 services, only OfflineCheckInService/SubscriptionService(IDs only)/ReviewPromptService are covered; escalation + push (the core safety path) have zero unit tests, and ScheduleResolver tests are UTC-only (misses the twice-a-year DST class of bug). Relates to the still-failing US-IOS044."
+    },
+    {
+      "id": "US-IOS111",
+      "title": "Fix Health, Quiet Hours, and History view-state bugs",
+      "description": "As a receiver/owner, I want the Health toggle, quiet-hours validation, and receiver switching to behave correctly, so that I'm not misled by silent reverts or stale data.",
+      "acceptanceCriteria": [
+        "HealthService.setSharing reports success/failure and HealthSharingView surfaces a failure alert (pointing to Health permissions) instead of the toggle silently snapping back on permission denial/write failure (ios/DailyOK/Views/Receiver/HealthSharingView.swift:15-28)",
+        "Quiet Hours validates Start != End on save (and shows a hint/disables Save when equal), since startMin==endMin silently disables the feature (ios/DailyOK/Views/Settings/ReceiverSettingsView.swift:223-225,550-552; ReceiverViewModel.swift:387-393)",
+        "HistoryView clears checkIns=[] and receiverSettings=nil at the start of loadHistory() so switching receivers doesn't briefly show the previous receiver's data/schedule under the new name (ios/DailyOK/Views/Owner/HistoryView.swift:42-71,209-229)",
+        "CaregiverDigestView and DataRetentionView reload on foreground (onChange of scenePhase == .active) so a stale value isn't re-saved (CaregiverDigestView.swift:84; SettingsView.swift:356)"
+      ],
+      "priority": 210,
+      "passes": false,
+      "notes": "MEDIUM view-state cluster. Health toggle reverts with no explanation; quiet-hours Start==End silently no-ops; receiver switch shows stale data with the wrong schedule; settings views don't refresh on foreground and can re-save stale values."
+    },
+    {
+      "id": "US-IOS112",
+      "title": "Close misc UX dead-ends and add missing confirmations",
+      "description": "As a user, I want empty/edge states to guide me rather than show blank gaps or fabricated data, so that I'm never stuck or misinformed.",
+      "acceptanceCriteria": [
+        "ContactQuickActions shows an 'No phone number on file' else-branch instead of a blank gap when dialable is nil, and gates call/FaceTime/SMS on canOpenURL (only haptic-confirming on a successful open) (ios/DailyOK/Views/Components/ContactQuickActions.swift:20-29,47)",
+        "Onboarding/family carousels guard `!pages.isEmpty` (ForEach(0..<pages.count) underflows to -1 on empty) and expose 'Page X of N' to VoiceOver with the dots marked decorative (ios/DailyOK/Views/Components/OnboardingCarousel.swift:36-52; PaywallFeatureCarousel.swift:36)",
+        "Pairing/onboarding success screens stop asserting a fabricated '8:00 AM' check-in time when the server omits it; show generic copy ('We'll remind you each day') (ios/DailyOK/Views/Onboarding/PairingCodeEntryView.swift:12,157,221-223; ReceiverOnboardingView.swift:12,94)",
+        "EmptyStateView secondary action gets a clearer affordance (not color-only tappable text) (EmptyStateView.swift:51-58); Dashboard 'Release'/alert-dismiss and Care-notes Send small targets get 44pt min + contentShape (DashboardView.swift:705-748)",
+        "Onboarding step-indicator animations are gated on accessibilityReduceMotion (ReceiverOnboardingView.swift:31-44; FirstReceiverWalkthroughView.swift:45,64-77); BrandedProgressView also starts/stops animation on onChange(of: isActive) (BrandedProgressView.swift:40-48); core full-screen state icons use @ScaledMetric instead of fixed .system(size:56) (ContentView.swift:113,157,193,233)"
+      ],
+      "priority": 211,
+      "passes": false,
+      "notes": "LOW polish cluster: blank contact actions in an escalation moment, carousel empty-array underflow + missing page context, fabricated success-screen time, sub-44pt targets, ungated animations, and non-scaling state-screen icons. None block release individually; bundled for a polish pass."
     }
   ]
 }
