@@ -3535,7 +3535,7 @@
       ],
       "priority": 174,
       "passes": false,
-      "notes": "P3 correctness. ios/DailyOK/ViewModels/DashboardViewModel.swift:~459-462 (totalExpected = receiverCount*7), ~467 (avg tz); FamilyView.swift:~18-24 (count includes deactivated/invited)."
+      "notes": "P3 correctness. ios/DailyOK/ViewModels/DashboardViewModel.swift:~459-462 (totalExpected = receiverCount*7), ~467 (avg tz); FamilyView.swift:~18-24 (count includes deactivated/invited). [2026-06-24] PARTIAL: FamilyView.currentReceiverCount now excludes deactivated receivers so a removed member no longer consumes a paywall slot. STILL OPEN (kept passes:false): make weekly-summary/per-receiver consistency schedule-aware — both WeeklySummary (receiverCount*7) and Streaks.consistencyPercent assume 7 expected days/week, so weekday-only/custom/paused receivers are unfairly penalized. This needs each receivers schedule plumbed into the dashboard load + the Streaks utility, and build-time verification; deferred as P3."
     },
     {
       "id": "US-IOS076",

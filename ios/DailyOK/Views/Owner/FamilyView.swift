@@ -18,9 +18,11 @@ struct FamilyView: View {
     /// Transient success toast after a re-send.
     @State private var resendToast: String?
 
-    /// Receivers currently occupying a slot (active or pending invite).
+    /// Receivers currently occupying a slot (active or pending invite). Excludes
+    /// deactivated receivers so a removed member doesn't silently push the owner
+    /// to the paywall.
     private var currentReceiverCount: Int {
-        members.filter { $0.role == .receiver }.count
+        members.filter { $0.role == .receiver && $0.status != .deactivated }.count
     }
 
     private var receiverLimitReached: Bool {
