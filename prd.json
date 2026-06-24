@@ -3309,8 +3309,8 @@
         "Verified with an owner device timezone offset from the receiver: a check-in exactly at the scheduled time is not colored 'late'"
       ],
       "priority": 158,
-      "passes": false,
-      "notes": "P2 correctness. Heatmap ~98,126-127; CheckInTrendChartView ~155; DashboardViewModel weekly avg ~467 all use Calendar.current while resolveStatus already uses Calendar.forTimezone. Files under ios/DailyOK/Views/Owner."
+      "passes": true,
+      "notes": "P2 correctness. Heatmap ~98,126-127; CheckInTrendChartView ~155; DashboardViewModel weekly avg ~467 all use Calendar.current while resolveStatus already uses Calendar.forTimezone. Files under ios/DailyOK/Views/Owner. [2026-06-24] DONE: CalendarHeatmapView and CheckInTrendChartView now take a timezone and bucket days / judge on-time-vs-late / format labels using Calendar.forTimezone(receiver tz) instead of Calendar.current; HistoryView passes selectedReceiver.user.timezone. Family-wide WeeklySummary avg-time remains an aggregate on device tz (ill-defined across mixed-tz receivers) — see US-IOS075. Needs build + QA."
     },
     {
       "id": "US-IOS060",
@@ -3324,8 +3324,8 @@
         "Verified: a receiver added 5 days ago over a 30-day window shows ~25 'No data' cells, not 25 red 'Missed'"
       ],
       "priority": 159,
-      "passes": false,
-      "notes": "P2 false-alarm. ios/DailyOK/Views/Owner/CalendarHeatmapView.swift:~136-139 (unconditional Missed), ~189,198 (weeks: max(1, weekCount/7) integer-div label drift)."
+      "passes": true,
+      "notes": "P2 false-alarm. ios/DailyOK/Views/Owner/CalendarHeatmapView.swift:~136-139 (unconditional Missed), ~189,198 (weeks: max(1, weekCount/7) integer-div label drift). [2026-06-24] DONE: heatmap no longer paints pre-enrollment days (before joinedAt/invitedAt) or unscheduled/paused weekdays as red Missed — they render as No data; only enrolled+scheduled days with no response are Missed. scheduledWeekdays derived from receiver_settings (daily/weekday_weekend=all 7, custom=enabled days, paused=none). NOTE: per-day schedule history is approximated from the CURRENT schedule. Month-label integer-division alignment refinement still pending (cosmetic). Needs build + QA."
     },
     {
       "id": "US-IOS061",

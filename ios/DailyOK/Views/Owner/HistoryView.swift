@@ -10,6 +10,26 @@ struct HistoryView: View {
     @State private var showPDFShare = false
     @State private var pdfData: Data?
 
+    /// Calendar weekday numbers (1=Sun…7=Sat) the selected receiver is scheduled
+    /// to check in on, so the heatmap doesn't paint unscheduled/paused days as
+    /// "missed". Nil → treat every day as scheduled (legacy behavior).
+    private var scheduledWeekdays: Set<Int>? {
+        guard let settings = receiverSettings else { return nil }
+        if settings.schedulePaused { return [] }
+        switch settings.scheduleType {
+        case .daily, .weekdayWeekend:
+            return [1, 2, 3, 4, 5, 6, 7]
+        case .custom:
+            guard let custom = settings.customSchedule else { return nil }
+            let keyToWeekday: [String: Int] = ["sun": 1, "mon": 2, "tue": 3, "wed": 4, "thu": 5, "fri": 6, "sat": 7]
+            var set = Set<Int>()
+            for (key, weekday) in keyToWeekday where !custom.times(forDayKey: key).isEmpty {
+                set.insert(weekday)
+            }
+            return set
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -73,14 +93,18 @@ struct HistoryView: View {
                         CalendarHeatmapView(
                             checkIns: checkIns,
                             days: selectedDays,
-                            scheduledTime: receiverSettings?.checkinTime
+                            scheduledTime: receiverSettings?.checkinTime,
+                            timezone: selectedReceiver?.user?.timezone,
+                            enrolledSince: selectedReceiver?.joinedAt ?? selectedReceiver?.invitedAt,
+                            scheduledWeekdays: scheduledWeekdays
                         )
                         .padding(.horizontal)
 
                         // Trend Chart
                         CheckInTrendChartView(
                             checkIns: checkIns,
-                            days: selectedDays
+                            days: selectedDays,
+                            timezone: selectedReceiver?.user?.timezone
                         )
                         .padding(.horizontal)
 
