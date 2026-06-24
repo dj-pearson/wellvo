@@ -3295,8 +3295,8 @@
         "Verified: failing the limit, backing out, and returning keeps the user locked out"
       ],
       "priority": 157,
-      "passes": false,
-      "notes": "P2. ios/DailyOK/Views/Onboarding/PairingCodeEntryView.swift:~13-15,~184-200 (local @State lockout, sleep before isSubmitting); ios/DailyOK/Views/Components/SegmentedCodeField.swift:~41 (unconditional onAppear focus)."
+      "passes": true,
+      "notes": "P2. ios/DailyOK/Views/Onboarding/PairingCodeEntryView.swift:~13-15,~184-200 (local @State lockout, sleep before isSubmitting); ios/DailyOK/Views/Components/SegmentedCodeField.swift:~41 (unconditional onAppear focus). [2026-06-24] DONE: pairing lockout (failedAttempts + lockoutUntil) now persisted via @AppStorage so backing out/reopening keeps the 10-attempt/15-min lockout; a lapsed lockout resets the counter. isSubmitting is set BEFORE the exponential-backoff sleep so the spinner shows during the wait. SegmentedCodeField gained an autoFocus param; PairingCodeEntryView passes autoFocus:!isLockedOut so the keyboard does not pop when locked out. Needs build + QA."
     },
     {
       "id": "US-IOS059",
@@ -3381,7 +3381,7 @@
       ],
       "priority": 163,
       "passes": false,
-      "notes": "P2. ios/DailyOK/Views/Owner/HistoryView.swift:~138-144,~189-203; CheckInReportGenerator.swift:~17 (synchronous @MainActor UIGraphicsPDFRenderer)."
+      "notes": "P2. ios/DailyOK/Views/Owner/HistoryView.swift:~138-144,~189-203; CheckInReportGenerator.swift:~17 (synchronous @MainActor UIGraphicsPDFRenderer). [2026-06-24] PARTIAL: export now shows a progress spinner (toolbar) and is disabled while generating, yields so the spinner paints before rendering, and surfaces an error instead of presenting an empty share sheet for empty pdfData. STILL OPEN: move generation off the main actor (CheckInReportGenerator is @MainActor; UIKit PDF drawing off-main needs build-time verification) or chunk large datasets so a 90-day report never blocks the main actor."
     },
     {
       "id": "US-IOS065",

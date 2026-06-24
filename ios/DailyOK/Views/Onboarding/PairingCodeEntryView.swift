@@ -10,9 +10,18 @@ struct PairingCodeEntryView: View {
     @State private var errorMessage: String?
     @State private var joinedSuccessfully = false
     @State private var checkinTimeDisplay = "8:00 AM"
-    @State private var failedAttempts = 0
-    @State private var isLockedOut = false
-    @State private var lockoutEndTime: Date?
+    // Persist attempt/lockout state so backing out and reopening the screen can't
+    // reset the 10-attempt / 15-minute lockout (matches AuthViewModel's approach).
+    @AppStorage("dailyok.pairing.failedAttempts") private var failedAttempts = 0
+    @AppStorage("dailyok.pairing.lockoutUntil") private var lockoutUntilEpoch: Double = 0
+
+    private var lockoutUntil: Date? {
+        lockoutUntilEpoch > 0 ? Date(timeIntervalSince1970: lockoutUntilEpoch) : nil
+    }
+    private var isLockedOut: Bool {
+        if let until = lockoutUntil { return Date() < until }
+        return false
+    }
 
     var body: some View {
         ZStack {
@@ -81,9 +90,9 @@ struct PairingCodeEntryView: View {
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                 .padding(.horizontal, 32)
 
-            SegmentedCodeField(code: $code, length: 6) {
+            SegmentedCodeField(code: $code, length: 6, onComplete: {
                 Task { await submitCode() }
-            }
+            }, autoFocus: !isLockedOut)
             .disabled(isLockedOut || isSubmitting)
 
             Text("\(code.count) of 6")
@@ -170,24 +179,30 @@ struct PairingCodeEntryView: View {
     // MARK: - Submit
 
     private func submitCode() async {
-        guard code.count == 6, !isSubmitting, !isLockedOut else { return }
+        guard code.count == 6, !isSubmitting else { return }
 
-        // Check lockout
-        if let lockoutEnd = lockoutEndTime, Date() < lockoutEnd {
+        // Honor an active, persisted lockout.
+        if let lockoutEnd = lockoutUntil, Date() < lockoutEnd {
             let remaining = Int(lockoutEnd.timeIntervalSinceNow / 60) + 1
             errorMessage = "Too many failed attempts. Try again in \(remaining) minute\(remaining == 1 ? "" : "s")."
-            isLockedOut = true
             return
         }
+        // A lapsed lockout resets the counter for a fresh run of attempts.
+        if lockoutUntilEpoch > 0 {
+            lockoutUntilEpoch = 0
+            failedAttempts = 0
+        }
 
-        // Exponential backoff delay between attempts
+        // Set the submitting state BEFORE the backoff sleep so the spinner shows
+        // during the wait — otherwise the tap looks ignored and gets mashed.
+        isSubmitting = true
+        errorMessage = nil
+
+        // Exponential backoff delay between attempts.
         if failedAttempts > 0 {
             let delay = min(pow(2.0, Double(failedAttempts - 1)), 16.0)
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
         }
-
-        isSubmitting = true
-        errorMessage = nil
 
         do {
             let response = try await FamilyService.shared.redeemPairingCode(code)
@@ -195,14 +210,14 @@ struct PairingCodeEntryView: View {
             if let error = response.error {
                 failedAttempts += 1
                 if failedAttempts >= 10 {
-                    lockoutEndTime = Date().addingTimeInterval(15 * 60)
-                    isLockedOut = true
+                    lockoutUntilEpoch = Date().addingTimeInterval(15 * 60).timeIntervalSince1970
                     errorMessage = "Too many failed attempts. Try again in 15 minutes."
                 } else {
                     errorMessage = "\(error) (\(10 - failedAttempts) attempts remaining)"
                 }
             } else if response.success == true {
                 failedAttempts = 0
+                lockoutUntilEpoch = 0
                 if let time = response.checkinTime {
                     checkinTimeDisplay = formatCheckinTime(time)
                 }
