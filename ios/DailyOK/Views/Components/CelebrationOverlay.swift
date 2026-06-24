@@ -17,6 +17,9 @@ struct CelebrationOverlay: View {
     @State private var opacity: Double = 0
     @State private var confettiProgress: CGFloat = 0
     @State private var confettiPieces: [ConfettiPiece] = []
+    /// Drives the auto-dismiss so it can be cancelled if the parent hides the
+    /// overlay early (otherwise onComplete fires on a torn-down view).
+    @State private var dismissTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -56,6 +59,7 @@ struct CelebrationOverlay: View {
                     .opacity(opacity)
                 }
                 .accessibilityElement()
+                .accessibilityAddTraits(.isStaticText)
                 .accessibilityLabel("Success")
                 .onAppear {
                     if !reduceMotion {
@@ -73,19 +77,31 @@ struct CelebrationOverlay: View {
                             confettiProgress = 1.0
                         }
                     }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    // Announce for VoiceOver users, who may never have the element focused.
+                    UIAccessibility.post(notification: .announcement, argument: "Success")
+
+                    // Cancellable auto-dismiss: bail if the overlay was hidden early
+                    // so we don't mutate state or call onComplete on a torn-down view.
+                    dismissTask?.cancel()
+                    dismissTask = Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 1_000_000_000)
+                        guard !Task.isCancelled, isVisible else { return }
                         withAnimation(.easeIn(duration: DailyOKMotion.durationShort)) {
                             opacity = 0
                             scale = 1.2
                         }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + DailyOKMotion.durationShort) {
-                            ringProgress = 0
-                            scale = 0.4
-                            confettiProgress = 0
-                            confettiPieces = []
-                            onComplete()
-                        }
+                        try? await Task.sleep(nanoseconds: UInt64(DailyOKMotion.durationShort * 1_000_000_000))
+                        guard !Task.isCancelled, isVisible else { return }
+                        ringProgress = 0
+                        scale = 0.4
+                        confettiProgress = 0
+                        confettiPieces = []
+                        onComplete()
                     }
+                }
+                .onDisappear {
+                    dismissTask?.cancel()
+                    dismissTask = nil
                 }
             }
         }

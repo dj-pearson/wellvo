@@ -13,6 +13,10 @@ struct FamilyView: View {
     @State private var memberToRemove: FamilyMember?
     @State private var showRemoveConfirmation = false
     @State private var showPaywall = false
+    /// Member whose invite is currently being re-sent (drives row spinner / disable).
+    @State private var resendingMemberId: UUID?
+    /// Transient success toast after a re-send.
+    @State private var resendToast: String?
 
     /// Receivers currently occupying a slot (active or pending invite).
     private var currentReceiverCount: Int {
@@ -103,6 +107,7 @@ struct FamilyView: View {
                                     Task { await resendInvite(member) }
                                 }
                                 .tint(.blue)
+                                .disabled(resendingMemberId != nil)
                             }
                             // Surface Transfer Ownership as a visible swipe action
                             // (standard, discoverable gesture) — not only buried in
@@ -132,6 +137,7 @@ struct FamilyView: View {
                                 } label: {
                                     Label("Re-send Invite", systemImage: "arrow.clockwise")
                                 }
+                                .disabled(resendingMemberId != nil)
                             }
                         }
                     }
@@ -161,6 +167,19 @@ struct FamilyView: View {
             .scrollContentBackground(.hidden)
             .background(AmbientBackground(tone: .neutral))
             .navigationTitle("Family")
+            .overlay(alignment: .bottom) {
+                if let resendToast {
+                    Label(resendToast, systemImage: "checkmark.circle.fill")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(DailyOKColor.green600))
+                        .padding(.bottom, 24)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .accessibilityHidden(true) // announced via UIAccessibility.post
+                }
+            }
             .refreshable { await loadData() }
             .task { await loadData() }
             .sheet(isPresented: $showInviteSheet) {
@@ -218,14 +237,52 @@ struct FamilyView: View {
     }
 
     private func resendInvite(_ member: FamilyMember) async {
-        guard let family, member.status == .invited else { return }
-        // Re-invite with same details
-        try? await FamilyService.shared.inviteReceiver(
-            familyId: family.id,
-            name: member.user?.displayName ?? "Family Member",
-            phone: member.user?.phone ?? "",
-            checkinTime: "08:00"
-        )
+        guard let family, member.status == .invited, resendingMemberId == nil else { return }
+        resendingMemberId = member.id
+        errorMessage = nil
+        defer { resendingMemberId = nil }
+
+        // Preserve the receiver's actual configured check-in time instead of
+        // silently resetting it to a hardcoded 08:00 on every re-send.
+        let checkinTime = await currentCheckinTime(for: member)
+        do {
+            try await FamilyService.shared.inviteReceiver(
+                familyId: family.id,
+                name: member.user?.displayName ?? "Family Member",
+                phone: member.user?.phone ?? "",
+                checkinTime: checkinTime
+            )
+            DailyOKHaptics.success()
+            let name = member.user?.displayName ?? "them"
+            UIAccessibility.post(notification: .announcement, argument: "Invite re-sent to \(name)")
+            withAnimation { resendToast = "Invite re-sent to \(name)" }
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            withAnimation { resendToast = nil }
+        } catch {
+            DailyOKHaptics.error()
+            errorMessage = DailyOKError.network(error).localizedDescription
+        }
+    }
+
+    /// The receiver's current check-in time as "HH:mm", read from their
+    /// receiver_settings row. Falls back to "08:00" only if it can't be read.
+    private func currentCheckinTime(for member: FamilyMember) async -> String {
+        struct Row: Decodable { let checkin_time: String? }
+        do {
+            let row: Row = try await SupabaseService.shared.client
+                .from("receiver_settings")
+                .select("checkin_time")
+                .eq("family_member_id", value: member.id.uuidString)
+                .single()
+                .execute()
+                .value
+            if let t = row.checkin_time, t.count >= 5 {
+                return String(t.prefix(5)) // "HH:mm:ss" -> "HH:mm"
+            }
+        } catch {
+            // Fall through to default.
+        }
+        return "08:00"
     }
 
     private func transferOwnership(to member: FamilyMember) async {

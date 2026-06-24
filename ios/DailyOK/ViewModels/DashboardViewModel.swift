@@ -229,15 +229,21 @@ final class DashboardViewModel: ObservableObject {
         isLoading = false
     }
 
-    func sendOnDemandCheckIn(to receiverId: UUID) async {
-        guard let family else { return }
+    /// Returns true when the request was sent, so the card can show an accurate
+    /// "Request sent" confirmation (and stay silent on failure, which surfaces
+    /// via `errorMessage`).
+    @discardableResult
+    func sendOnDemandCheckIn(to receiverId: UUID) async -> Bool {
+        guard let family else { return false }
         do {
             try await CheckInService.shared.sendOnDemandCheckIn(
                 receiverId: receiverId,
                 familyId: family.id
             )
+            return true
         } catch {
             errorMessage = error.localizedDescription
+            return false
         }
     }
 

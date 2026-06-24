@@ -3338,8 +3338,8 @@
         "Both actions post VoiceOver announcements consistent with other dashboard actions"
       ],
       "priority": 160,
-      "passes": false,
-      "notes": "P2. ios/DailyOK/Views/Owner/DashboardView.swift:~537-553 (on-demand, no feedback), ~511 (stand-down, no confirm); DashboardViewModel ~232-242,~246."
+      "passes": true,
+      "notes": "P2. ios/DailyOK/Views/Owner/DashboardView.swift:~537-553 (on-demand, no feedback), ~511 (stand-down, no confirm); DashboardViewModel ~232-242,~246. [2026-06-24] DONE: ReceiverStatusCardView now shows Sending…/Request sent feedback (haptic + VoiceOver announcement) and disables the button to prevent duplicate on-demand pushes; sendOnDemandCheckIn returns Bool. Stand-down now requires a confirmationDialog before cancelling escalation, with warning haptic. Needs build + QA."
     },
     {
       "id": "US-IOS062",
@@ -3352,8 +3352,8 @@
         "Verified: a failed resend shows an error; a successful one shows confirmation"
       ],
       "priority": 161,
-      "passes": false,
-      "notes": "P2. ios/DailyOK/Views/Owner/FamilyView.swift:~220-229 (silent try?, hardcoded checkinTime '08:00')."
+      "passes": true,
+      "notes": "P2. ios/DailyOK/Views/Owner/FamilyView.swift:~220-229 (silent try?, hardcoded checkinTime '08:00'). [2026-06-24] DONE: resendInvite shows a loading/disable state, a success toast + haptic + VoiceOver announcement, and surfaces errors via errorMessage; it now reads the receiver real receiver_settings.checkin_time (HH:mm) instead of hardcoding 08:00. Needs build + QA."
     },
     {
       "id": "US-IOS063",
@@ -3450,8 +3450,8 @@
         "Badge counts are clamped (e.g. '99+') and included in the VoiceOver label/value (e.g. 'N new')"
       ],
       "priority": 168,
-      "passes": false,
-      "notes": "P2. ios/DailyOK/Views/Components/FloatingBottomNav.swift:~35-37 (motion), ~46 (hardcoded bottom pad), ~60-78 (label/bounce), ~61-69,102-104 (badge)."
+      "passes": true,
+      "notes": "P2. ios/DailyOK/Views/Components/FloatingBottomNav.swift:~35-37 (motion), ~46 (hardcoded bottom pad), ~60-78 (label/bounce), ~61-69,102-104 (badge). [2026-06-24] DONE (defensive): FloatingBottomNav now gates the tab-slide animation, symbol bounce, and label transition on Reduce Motion; clamps the selected label (lineLimit/minimumScaleFactor) and hides it at accessibility text sizes; clamps the badge to 99+ and exposes it via accessibilityValue. NOTE: the component is currently UNUSED — OwnerTabView/ViewerTabView use the system TabView (see US-UX028) — so the bottom-safe-area concern is moot until/unless it is adopted; left the bottom padding as-is for the host to manage."
     },
     {
       "id": "US-IOS070",
@@ -3464,8 +3464,8 @@
         "Verified: Call launches the dialer with the number prefilled"
       ],
       "priority": 169,
-      "passes": false,
-      "notes": "P2, escalation-critical. ios/DailyOK/Views/Components/ContactQuickActions.swift:~23-25 (tel:// malformed; sms: is fine)."
+      "passes": true,
+      "notes": "P2, escalation-critical. ios/DailyOK/Views/Components/ContactQuickActions.swift:~23-25 (tel:// malformed; sms: is fine). [2026-06-24] DONE: ContactQuickActions Call action now uses the standard tel: scheme instead of tel:// so dialing is reliable in the escalation path. sms: was already correct. Tints left as-is. Needs build + QA."
     },
     {
       "id": "US-IOS071",
@@ -3492,8 +3492,8 @@
         "Verified: dismissing before the timer elapses does not call onComplete"
       ],
       "priority": 171,
-      "passes": false,
-      "notes": "P2. ios/DailyOK/Views/Components/CelebrationOverlay.swift:~76-88 (DispatchQueue.main.asyncAfter, unconditional; no a11y announcement)."
+      "passes": true,
+      "notes": "P2. ios/DailyOK/Views/Components/CelebrationOverlay.swift:~76-88 (DispatchQueue.main.asyncAfter, unconditional; no a11y announcement). [2026-06-24] DONE: CelebrationOverlay auto-dismiss is now a cancellable @MainActor Task guarded on isVisible (cancelled in onDisappear) so onComplete/state mutations can not fire on a torn-down view; posts a VoiceOver Success announcement on appear and adds isStaticText trait. Needs build + QA."
     },
     {
       "id": "US-IOS073",
