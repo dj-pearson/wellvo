@@ -6,6 +6,15 @@ struct CalendarHeatmapView: View {
     let checkIns: [CheckIn]
     let days: Int
     let scheduledTime: String? // HH:mm format, used to determine "late"
+    /// IANA timezone of the receiver. Buckets days and judges on-time/late in
+    /// the receiver's zone, not the owner's device zone.
+    var timezone: String? = nil
+    /// Day the receiver joined. Days before this render as "no data", not "missed".
+    var enrolledSince: Date? = nil
+    /// Calendar weekday numbers (1=Sun…7=Sat) on which a check-in is scheduled.
+    /// Days off the schedule (weekend-only/custom/paused) render as "no data".
+    /// Nil means every day is scheduled (legacy behavior).
+    var scheduledWeekdays: Set<Int>? = nil
 
     private let cellSize: CGFloat = 14
     private let spacing: CGFloat = 3
@@ -95,9 +104,10 @@ struct CalendarHeatmapView: View {
     }
 
     private func buildGrid() -> [[DayEntry]] {
-        let calendar = Calendar.current
+        let calendar = Calendar.forTimezone(timezone)
         let today = calendar.startOfDay(for: Date())
         let startDate = calendar.date(byAdding: .day, value: -days, to: today) ?? today
+        let enrollDay = enrolledSince.map { calendar.startOfDay(for: $0) }
 
         // Build check-in lookup by day
         var checkInByDay: [Date: CheckIn] = [:]
@@ -133,6 +143,15 @@ struct CalendarHeatmapView: View {
                     status = .late
                     tooltip = "\(formatDate(current)): Late check-in at \(formatTime(checkIn.checkedInAt))"
                 }
+            } else if let enrollDay, current < enrollDay {
+                // Before the receiver joined — there was nothing to miss.
+                status = .noData
+                tooltip = ""
+            } else if let scheduledWeekdays,
+                      !scheduledWeekdays.contains(calendar.component(.weekday, from: current)) {
+                // No check-in was scheduled this day (weekend-only/custom/paused).
+                status = .noData
+                tooltip = ""
             } else {
                 status = .missed
                 tooltip = "\(formatDate(current)): Missed"
@@ -169,7 +188,7 @@ struct CalendarHeatmapView: View {
     }
 
     private func monthLabels() -> [(offset: Int, name: String, weeks: Int)] {
-        let calendar = Calendar.current
+        let calendar = Calendar.forTimezone(timezone)
         let today = calendar.startOfDay(for: Date())
         let startDate = calendar.date(byAdding: .day, value: -days, to: today) ?? today
 

@@ -143,11 +143,29 @@ extension View {
         style: DailyOKGlassStyle = .ultraThin,
         radius: CGFloat = 999
     ) -> some View {
-        background(style.material, in: Capsule())
+        modifier(GlassPillModifier(style: style))
+    }
+}
+
+private struct GlassPillModifier: ViewModifier {
+    let style: DailyOKGlassStyle
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                if reduceTransparency {
+                    Capsule().fill(Color(.secondarySystemBackground))
+                } else {
+                    Capsule().fill(style.material)
+                }
+            }
             .overlay(
                 Capsule()
                     .strokeBorder(DailyOKGlass.strokeLight, lineWidth: 0.75)
-                    .blendMode(.overlay)
+                    // The overlay blend makes the hairline vanish on light content;
+                    // use a normal blend when transparency is reduced for a visible edge.
+                    .blendMode(reduceTransparency ? .normal : .overlay)
             )
             .clipShape(Capsule())
     }
@@ -158,16 +176,25 @@ private struct GlassCardModifier: ViewModifier {
     let radius: CGFloat
     let elevation: CGFloat
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         content
             .background(
-                shape
-                    .fill(style.material)
-                    .overlay(
-                        shape.fill(scheme == .dark ? DailyOKGlass.tintDark : DailyOKGlass.tintLight)
-                    )
+                Group {
+                    if reduceTransparency {
+                        // Opaque fallback for users who turn off transparency for
+                        // legibility — no blur, full text contrast.
+                        shape.fill(Color(.secondarySystemBackground))
+                    } else {
+                        shape
+                            .fill(style.material)
+                            .overlay(
+                                shape.fill(scheme == .dark ? DailyOKGlass.tintDark : DailyOKGlass.tintLight)
+                            )
+                    }
+                }
             )
             .overlay(
                 shape
@@ -198,21 +225,26 @@ struct AmbientBackground: View {
     @State private var phase: CGFloat = 0
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         GeometryReader { geo in
             ZStack {
                 baseColor
-                ForEach(Array(orbs.enumerated()), id: \.offset) { idx, orb in
-                    Circle()
-                        .fill(orb.color)
-                        .frame(width: geo.size.width * orb.size, height: geo.size.width * orb.size)
-                        .blur(radius: 80)
-                        .offset(
-                            x: geo.size.width * orb.x + sin(phase + CGFloat(idx)) * 24,
-                            y: geo.size.height * orb.y + cos(phase + CGFloat(idx) * 1.3) * 24
-                        )
-                        .opacity(scheme == .dark ? 0.55 : 0.7)
+                // Flatten to a solid base when transparency is reduced — the
+                // translucent orb mesh hurts legibility for those users.
+                if !reduceTransparency {
+                    ForEach(Array(orbs.enumerated()), id: \.offset) { idx, orb in
+                        Circle()
+                            .fill(orb.color)
+                            .frame(width: geo.size.width * orb.size, height: geo.size.width * orb.size)
+                            .blur(radius: 80)
+                            .offset(
+                                x: geo.size.width * orb.x + sin(phase + CGFloat(idx)) * 24,
+                                y: geo.size.height * orb.y + cos(phase + CGFloat(idx) * 1.3) * 24
+                            )
+                            .opacity(scheme == .dark ? 0.55 : 0.7)
+                    }
                 }
             }
             .ignoresSafeArea()
@@ -221,7 +253,7 @@ struct AmbientBackground: View {
             // Respect Reduce Motion: hold the orbs still (and skip the continuous
             // blur recomputation / GPU cost) for users with vestibular
             // sensitivity. This view sits behind nearly every screen.
-            guard !reduceMotion else { return }
+            guard !reduceMotion, !reduceTransparency else { return }
             withAnimation(.linear(duration: 14).repeatForever(autoreverses: true)) {
                 phase = .pi * 2
             }

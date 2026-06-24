@@ -319,6 +319,13 @@ struct ReceiverHomeView: View {
                                 requestReview()
                                 ReviewPromptService.shared.markPrompted()
                             }
+                        } else if viewModel.isOffline {
+                            // Offline-queued: still give low-vision receivers a
+                            // distinct spoken cue so a saved-but-not-yet-sent
+                            // check-in isn't indistinguishable from silence.
+                            if viewModel.audioConfirmationEnabled {
+                                CheckInAudio.confirm("Saved. Your check-in will be sent when you're back online.")
+                            }
                         }
                     } else if viewModel.errorMessage != nil {
                         DailyOKHaptics.error()

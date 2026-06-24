@@ -11,16 +11,19 @@ struct EmptyStateView: View {
     var onPrimaryAction: (() -> Void)? = nil
     var secondaryActionLabel: String? = nil
     var onSecondaryAction: (() -> Void)? = nil
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         VStack(spacing: 16) {
             ZStack {
                 Circle()
-                    .fill(DailyOKColor.green100)
+                    // green100 stays pale (low contrast) in dark mode; use a
+                    // translucent brand tint that reads on a dark surface.
+                    .fill(scheme == .dark ? DailyOKColor.green500.opacity(0.18) : DailyOKColor.green100)
                     .frame(width: 96, height: 96)
                 Image(systemName: systemImage)
                     .font(.system(size: 44, weight: .semibold))
-                    .foregroundStyle(DailyOKColor.green700)
+                    .foregroundStyle(scheme == .dark ? DailyOKColor.green400 : DailyOKColor.green700)
             }
             .accessibilityHidden(true)
 
@@ -46,9 +49,12 @@ struct EmptyStateView: View {
             }
 
             if let secondaryActionLabel, let onSecondaryAction {
-                Button(secondaryActionLabel, action: onSecondaryAction)
-                    .font(.subheadline)
-                    .foregroundStyle(DailyOKColor.brand)
+                Button(action: onSecondaryAction) {
+                    Text(secondaryActionLabel)
+                        .font(.subheadline)
+                        .frame(minHeight: 44) // match the 44pt minimum tap target
+                }
+                .foregroundStyle(DailyOKColor.brand)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

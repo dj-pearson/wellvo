@@ -36,6 +36,16 @@ enum PasswordStrength: Int, Comparable {
         }
     }
 
+    /// The exact policy the sign-up copy promises: 10+ characters with at least
+    /// one uppercase letter, one lowercase letter, and one number. Enforced
+    /// client-side so the user isn't told "Good" and then rejected by the server.
+    static func meetsPolicy(_ password: String) -> Bool {
+        password.count >= 10
+            && password.contains(where: { $0.isUppercase })
+            && password.contains(where: { $0.isLowercase })
+            && password.contains(where: { $0.isNumber })
+    }
+
     static func evaluate(_ password: String) -> PasswordStrength {
         guard !password.isEmpty else { return .weak }
 

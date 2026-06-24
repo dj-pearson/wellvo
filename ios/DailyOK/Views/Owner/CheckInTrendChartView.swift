@@ -5,6 +5,9 @@ import SwiftUI
 struct CheckInTrendChartView: View {
     let checkIns: [CheckIn]
     let days: Int
+    /// IANA timezone of the receiver, so weekly buckets and average times align
+    /// with the receiver's day, not the owner's device timezone.
+    var timezone: String? = nil
 
     private let chartHeight: CGFloat = 160
 
@@ -12,7 +15,7 @@ struct CheckInTrendChartView: View {
         // Compute the buckets and bounds ONCE per body evaluation. These were
         // previously read ~10x per render (dataPoints + yMin/yMax/yMid/
         // overall*), each filtering/reducing the full check-in history.
-        let points = Self.computeDataPoints(checkIns: checkIns, days: days)
+        let points = Self.computeDataPoints(checkIns: checkIns, days: days, timezone: timezone)
         let avgs = points.map(\.avgMinutes)
         let yMinV = max(0, (avgs.min() ?? 0) - 60)
         let yMaxV = min(1440, (avgs.max() ?? 1440) + 60)
@@ -151,8 +154,8 @@ struct CheckInTrendChartView: View {
         let count: Int
     }
 
-    private static func computeDataPoints(checkIns: [CheckIn], days: Int) -> [DataPoint] {
-        let calendar = Calendar.current
+    private static func computeDataPoints(checkIns: [CheckIn], days: Int, timezone: String? = nil) -> [DataPoint] {
+        let calendar = Calendar.forTimezone(timezone)
         let today = calendar.startOfDay(for: Date())
 
         // Group check-ins by week
@@ -162,6 +165,7 @@ struct CheckInTrendChartView: View {
         var points: [DataPoint] = []
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = days <= 7 ? "EEE" : "M/d"
+        dateFormatter.timeZone = calendar.timeZone
 
         for bucket in 0..<bucketCount {
             guard let bucketStart = calendar.date(byAdding: .day, value: -(days - bucket * bucketSize), to: today),

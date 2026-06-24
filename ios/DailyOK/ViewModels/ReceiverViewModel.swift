@@ -108,6 +108,19 @@ final class ReceiverViewModel: ObservableObject {
         Log.receiver.debug("loadStatus tz=\(tzRow?.timezone ?? "nil", privacy: .public) hasCheckedInToday=\(todayCheckIn != nil, privacy: .public)")
         lastCheckIn = todayCheckIn
         hasCheckedInToday = (todayCheckIn != nil)
+        // Keep the Undo affordance alive across reloads/foregrounds within the
+        // grace window, derived from the server check-in time (offline-queued
+        // rows are synced just above, so todayCheckIn reflects a real server row).
+        if let checkedAt = todayCheckIn?.checkedInAt {
+            let deadline = checkedAt.addingTimeInterval(Self.undoGraceSeconds)
+            if deadline > Date() {
+                if undoableUntil != deadline { openUndoWindow(deadline: deadline) }
+            } else {
+                undoableUntil = nil
+            }
+        } else {
+            undoableUntil = nil
+        }
         // A fresh load reflects server truth — clear any locally-picked mood so
         // the prompt reappears only if today's row genuinely has no mood yet.
         selectedMood = todayCheckIn?.mood
@@ -143,6 +156,12 @@ final class ReceiverViewModel: ObservableObject {
             hasPendingRequest = false
         } else {
             await loadPendingRequest(receiverId: session.user.id, familyId: family.id)
+        }
+
+        // Clear any stale "Snoozed for N minutes" confirmation once the receiver
+        // has checked in or there's no longer a pending request to snooze.
+        if hasCheckedInToday || !hasPendingRequest {
+            snoozeConfirmation = nil
         }
 
         // (Re)schedule or clear the local fallback reminder safety net.
@@ -504,10 +523,17 @@ final class ReceiverViewModel: ObservableObject {
     /// Open the post-check-in undo window and auto-close it when the grace
     /// period lapses so the button can't linger past the server-side limit.
     private func startUndoWindow() {
-        let deadline = Date().addingTimeInterval(Self.undoGraceSeconds)
+        openUndoWindow(deadline: Date().addingTimeInterval(Self.undoGraceSeconds))
+    }
+
+    /// Open (or re-open) the undo window to a specific deadline and schedule it to
+    /// auto-close. Used both right after a check-in and when a reload finds the
+    /// grace window still open, so the Undo button survives backgrounding.
+    private func openUndoWindow(deadline: Date) {
         undoableUntil = deadline
         Task { [weak self] in
-            try? await Task.sleep(for: .seconds(Self.undoGraceSeconds))
+            let interval = deadline.timeIntervalSinceNow
+            if interval > 0 { try? await Task.sleep(for: .seconds(interval)) }
             guard let self else { return }
             // Only clear if it's still the same window we opened (a later
             // check-in may have re-opened it).

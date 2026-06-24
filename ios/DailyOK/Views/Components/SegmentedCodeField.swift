@@ -9,6 +9,9 @@ struct SegmentedCodeField: View {
     var length: Int = 6
     /// Called when the field reaches `length` digits.
     var onComplete: (() -> Void)? = nil
+    /// Whether to grab keyboard focus on appear. Hosts set this false when the
+    /// field is disabled (e.g. locked out) so the keyboard doesn't pop uselessly.
+    var autoFocus: Bool = true
 
     @FocusState private var focused: Bool
 
@@ -38,7 +41,7 @@ struct SegmentedCodeField: View {
             .contentShape(Rectangle())
             .onTapGesture { focused = true }
         }
-        .onAppear { focused = true }
+        .onAppear { if autoFocus { focused = true } }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Verification code")
         .accessibilityValue("\(code.count) of \(length) digits entered")

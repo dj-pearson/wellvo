@@ -29,6 +29,12 @@ struct ViewerTabView: View {
                 .tag(AppState.AppTab.settings)
         }
         .tint(.green)
+        .onAppear {
+            // selectedTab is shared with OwnerTabView; viewers have no Family tab,
+            // so a leftover .family selection (e.g. right after a role change from
+            // owner) would match no tab. Fall back to Dashboard.
+            if appState.selectedTab == .family { appState.selectedTab = .dashboard }
+        }
     }
 }
 

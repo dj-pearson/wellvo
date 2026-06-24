@@ -20,7 +20,7 @@ struct ContactQuickActions: View {
     var body: some View {
         if let number = dialable {
             HStack(spacing: 10) {
-                action(title: "Call", systemImage: "phone.fill", tint: DailyOKColor.green600, urlString: "tel://\(number)")
+                action(title: "Call", systemImage: "phone.fill", tint: DailyOKColor.green600, urlString: "tel:\(number)")
                 action(title: "FaceTime", systemImage: "video.fill", tint: .blue, urlString: "facetime://\(number)")
                 action(title: "Text", systemImage: "message.fill", tint: .indigo, urlString: "sms:\(number)")
             }

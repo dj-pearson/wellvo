@@ -79,7 +79,7 @@ struct DashboardView: View {
                         // Receiver Cards
                         ForEach(Array(viewModel.receiverCards.enumerated()), id: \.element.id) { index, card in
                             ReceiverStatusCardView(card: card, onCheckOn: {
-                                Task { await viewModel.sendOnDemandCheckIn(to: card.id) }
+                                await viewModel.sendOnDemandCheckIn(to: card.id)
                             }, onStandDown: {
                                 Task { await viewModel.standDownEscalation(for: card.id) }
                             }, familyId: viewModel.family?.id)
@@ -351,11 +351,19 @@ struct TodayTimelineCard: View {
 struct ReceiverStatusCardView: View {
     let card: ReceiverStatusCard
     var isReadOnly: Bool = false
-    let onCheckOn: () -> Void
+    /// Returns true when the on-demand request was actually sent, so the card can
+    /// show an accurate confirmation (and stay quiet on failure).
+    let onCheckOn: () async -> Bool
     var onStandDown: (() -> Void)? = nil
     /// US-IOS016: family the receiver belongs to, so the card can open the
     /// shared care-notes timeline. Nil hides the notes affordance.
     var familyId: UUID? = nil
+
+    /// Transient state for the "Check on" button so a successful send gives
+    /// visible/haptic feedback and the button can't be mashed into duplicates.
+    private enum CheckOnState { case idle, sending, sent }
+    @State private var checkOnState: CheckOnState = .idle
+    @State private var showStandDownConfirm = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -509,7 +517,7 @@ struct ReceiverStatusCardView: View {
 
                     if let onStandDown {
                         Button {
-                            onStandDown()
+                            showStandDownConfirm = true
                         } label: {
                             HStack {
                                 Image(systemName: "checkmark.shield")
@@ -522,6 +530,17 @@ struct ReceiverStatusCardView: View {
                         .buttonStyle(.bordered)
                         .tint(.secondary)
                         .accessibilityHint("Stops the escalation reminders and alerts for \(card.name)")
+                        .confirmationDialog("Stop alerts for \(card.name)?",
+                                            isPresented: $showStandDownConfirm,
+                                            titleVisibility: .visible) {
+                            Button("Stop alerts", role: .destructive) {
+                                DailyOKHaptics.warning()
+                                onStandDown()
+                            }
+                            Button("Keep alerting", role: .cancel) {}
+                        } message: {
+                            Text("Only do this if you've confirmed \(card.name) is OK. It cancels the escalation reminders.")
+                        }
                     }
                 }
                 .padding(8)
@@ -535,11 +554,33 @@ struct ReceiverStatusCardView: View {
             if !isReadOnly {
                 let alreadyChecked = card.status == .checkedIn
                 Button {
-                    onCheckOn()
+                    Task {
+                        checkOnState = .sending
+                        let sent = await onCheckOn()
+                        if sent {
+                            checkOnState = .sent
+                            DailyOKHaptics.success()
+                            UIAccessibility.post(notification: .announcement, argument: "Request sent to \(card.name)")
+                            try? await Task.sleep(nanoseconds: 2_500_000_000)
+                            checkOnState = .idle
+                        } else {
+                            // Failure is surfaced by the view model's errorMessage.
+                            checkOnState = .idle
+                        }
+                    }
                 } label: {
                     HStack {
-                        Image(systemName: "bell.badge")
-                        Text(alreadyChecked ? "Request another update" : "Check on \(card.name)")
+                        switch checkOnState {
+                        case .sending:
+                            ProgressView()
+                            Text("Sending…")
+                        case .sent:
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Request sent")
+                        case .idle:
+                            Image(systemName: "bell.badge")
+                            Text(alreadyChecked ? "Request another update" : "Check on \(card.name)")
+                        }
                     }
                     .font(.subheadline)
                     .fontWeight(.medium)
@@ -547,7 +588,8 @@ struct ReceiverStatusCardView: View {
                     .padding(.vertical, 10)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(alreadyChecked ? .blue : .orange)
+                .tint(checkOnState == .sent ? .green : (alreadyChecked ? .blue : .orange))
+                .disabled(checkOnState != .idle)
                 .accessibilityLabel(alreadyChecked ? "Request another update from \(card.name)" : "Check on \(card.name)")
                 .accessibilityHint("Sends an immediate check-in notification")
             }

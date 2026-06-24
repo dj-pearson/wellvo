@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct HistoryView: View {
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedReceiver: FamilyMember?
     @State private var checkIns: [CheckIn] = []
     @State private var members: [FamilyMember] = []
@@ -9,6 +11,15 @@ struct HistoryView: View {
     @State private var receiverSettings: ReceiverSettings?
     @State private var showPDFShare = false
     @State private var pdfData: Data?
+    @State private var isExporting = false
+    @State private var exportError: String?
+
+    /// Calendar weekday numbers (1=Sun…7=Sat) the selected receiver is scheduled
+    /// to check in on, so the heatmap doesn't paint unscheduled/paused days as
+    /// "missed". Nil → treat every day as scheduled (legacy behavior).
+    private var scheduledWeekdays: Set<Int>? {
+        receiverSettings?.scheduledWeekdays
+    }
 
     var body: some View {
         NavigationStack {
@@ -37,7 +48,7 @@ struct HistoryView: View {
                                             .font(.subheadline)
                                             .fontWeight(selectedReceiver?.id == member.id ? .bold : .regular)
                                             .padding(.horizontal, 16)
-                                            .padding(.vertical, 8)
+                                            .frame(minHeight: 44) // comfortable tap target
                                             .background(
                                                 Group {
                                                     if selectedReceiver?.id == member.id {
@@ -73,14 +84,18 @@ struct HistoryView: View {
                         CalendarHeatmapView(
                             checkIns: checkIns,
                             days: selectedDays,
-                            scheduledTime: receiverSettings?.checkinTime
+                            scheduledTime: receiverSettings?.checkinTime,
+                            timezone: selectedReceiver?.user?.timezone,
+                            enrolledSince: selectedReceiver?.joinedAt ?? selectedReceiver?.invitedAt,
+                            scheduledWeekdays: scheduledWeekdays
                         )
                         .padding(.horizontal)
 
                         // Trend Chart
                         CheckInTrendChartView(
                             checkIns: checkIns,
-                            days: selectedDays
+                            days: selectedDays,
+                            timezone: selectedReceiver?.user?.timezone
                         )
                         .padding(.horizontal)
 
@@ -138,14 +153,41 @@ struct HistoryView: View {
                     Button {
                         Task { await exportPDF() }
                     } label: {
-                        Image(systemName: "square.and.arrow.up")
+                        if isExporting {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "square.and.arrow.up")
+                        }
                     }
-                    .disabled(checkIns.isEmpty)
+                    .disabled(checkIns.isEmpty || isExporting)
+                    .accessibilityLabel(isExporting ? "Generating report" : "Export report")
                 }
             }
+            .alert("Export Failed", isPresented: Binding(
+                get: { exportError != nil },
+                set: { if !$0 { exportError = nil } }
+            )) {
+                Button("OK", role: .cancel) { exportError = nil }
+            } message: {
+                Text(exportError ?? "")
+            }
+            .refreshable { await loadMembers() }
             .task { await loadMembers() }
             .onChange(of: selectedDays) { _ in
                 Task { await loadHistory() }
+            }
+            // SwiftUI keeps tabs alive, so `.task` only fires once. Reload when the
+            // owner returns to the History tab or foregrounds the app so the member
+            // list / data isn't stale after inviting or removing a receiver.
+            .onChange(of: appState.selectedTab) { newTab in
+                if newTab == .history {
+                    Task { await loadMembers() }
+                }
+            }
+            .onChange(of: scenePhase) { newPhase in
+                if newPhase == .active {
+                    Task { await loadMembers() }
+                }
             }
             .sheet(isPresented: $showPDFShare) {
                 if let data = pdfData {
@@ -187,8 +229,12 @@ struct HistoryView: View {
     }
 
     private func exportPDF() async {
+        guard !isExporting else { return }
         guard let receiver = selectedReceiver,
               let family = try? await FamilyService.shared.getFamily() else { return }
+
+        isExporting = true
+        defer { isExporting = false }
 
         let reportData = CheckInReportGenerator.ReportData(
             receiverName: receiver.user?.displayName ?? "Unknown",
@@ -198,7 +244,18 @@ struct HistoryView: View {
             generatedAt: Date()
         )
 
-        pdfData = CheckInReportGenerator.generatePDF(from: reportData)
+        // Generate off the main actor so a large (e.g. 90-day) report can't
+        // freeze the UI while the spinner shows. ReportData is Sendable.
+        let data = await Task.detached(priority: .userInitiated) {
+            CheckInReportGenerator.generatePDF(from: reportData)
+        }.value
+
+        // Don't present an empty share sheet — surface an error instead.
+        guard !data.isEmpty else {
+            exportError = "Couldn't generate the report. Please try again."
+            return
+        }
+        pdfData = data
         showPDFShare = true
     }
 

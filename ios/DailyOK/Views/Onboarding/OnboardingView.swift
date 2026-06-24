@@ -7,6 +7,9 @@ struct OnboardingView: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @ScaledMetric(relativeTo: .largeTitle) private var largeIconSize: CGFloat = 80
     @ScaledMetric(relativeTo: .title) private var mediumIconSize: CGFloat = 60
+    @FocusState private var receiverField: ReceiverField?
+
+    private enum ReceiverField: Hashable { case name, phone }
 
     private static let welcomeCarouselPages: [OnboardingPageData] = [
         OnboardingPageData(
@@ -37,16 +40,32 @@ struct OnboardingView: View {
                 AmbientBackground(tone: ambientTone(for: viewModel.currentStep))
 
                 VStack {
-                    // Progress indicator on a glass pill
-                    ProgressView(value: Double(viewModel.currentStep.rawValue), total: Double(OnboardingStep.allCases.count - 1))
-                        .tint(DailyOKColor.green500)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 8)
-                        .glassPill(style: .ultraThin)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .accessibilityLabel("Onboarding progress: step \(viewModel.currentStep.rawValue + 1) of \(OnboardingStep.allCases.count)")
+                    // Progress indicator on a glass pill, with a back affordance so
+                    // a mis-tap (e.g. wrong user type) is recoverable.
+                    HStack(spacing: 8) {
+                        if canGoBack {
+                            Button {
+                                viewModel.goBack()
+                            } label: {
+                                Image(systemName: "chevron.left")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(DailyOKColor.green700)
+                                    .frame(width: 44, height: 44)
+                                    .glassPill(style: .ultraThin)
+                            }
+                            .accessibilityLabel("Go back")
+                        }
+
+                        ProgressView(value: Double(viewModel.currentStep.rawValue), total: Double(OnboardingStep.allCases.count - 1))
+                            .tint(DailyOKColor.green500)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 8)
+                            .glassPill(style: .ultraThin)
+                            .accessibilityLabel("Onboarding progress: step \(viewModel.currentStep.rawValue + 1) of \(OnboardingStep.allCases.count)")
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
 
                     Spacer()
 
@@ -78,6 +97,15 @@ struct OnboardingView: View {
                 }
                 .animation(reduceMotion ? nil : DailyOKMotion.smoothSpring, value: viewModel.currentStep)
             }
+        }
+    }
+
+    /// Back is offered on intermediate steps — not the first (welcome carousel
+    /// has its own paging) or the final success screen.
+    private var canGoBack: Bool {
+        switch viewModel.currentStep {
+        case .welcome, .complete: return false
+        default: return true
         }
     }
 
@@ -136,6 +164,9 @@ struct OnboardingView: View {
     private func userTypeButton(title: String, subtitle: String, icon: String, type: UserTypeSelection) -> some View {
         Button {
             viewModel.userTypeSelection = type
+            // Record the selection so the step personalizes analytics rather than
+            // being collected and silently discarded.
+            Task { await AnalyticsService.shared.track(.onboardingStepViewed, properties: ["user_type": type.rawValue]) }
             viewModel.advance()
         } label: {
             HStack(spacing: 16) {
@@ -206,22 +237,35 @@ struct OnboardingView: View {
                 TextField("Their Name", text: $viewModel.receiverName)
                     .textFieldStyle(.roundedBorder)
                     .textContentType(.name)
+                    .submitLabel(.next)
+                    .focused($receiverField, equals: .name)
+                    .onSubmit { receiverField = .phone }
 
                 TextField("Their Phone Number", text: $viewModel.receiverPhone)
                     .textFieldStyle(.roundedBorder)
                     .textContentType(.telephoneNumber)
                     .keyboardType(.phonePad)
+                    .focused($receiverField, equals: .phone)
 
                 DatePicker("Daily Check-In Time", selection: $viewModel.checkinTime, displayedComponents: .hourAndMinute)
                     .padding(.horizontal, 4)
             }
             .padding(.horizontal)
+            .toolbar {
+                // phonePad has no return key — give the user a way to dismiss the
+                // keyboard so they can reach the DatePicker / buttons below.
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { receiverField = nil }
+                }
+            }
 
             if let error = viewModel.errorMessage {
                 Text(error).foregroundStyle(.red).font(.caption)
             }
 
             Button {
+                receiverField = nil
                 Task { await viewModel.inviteReceiver() }
             } label: {
                 if viewModel.isLoading {
@@ -233,7 +277,7 @@ struct OnboardingView: View {
             .buttonStyle(.borderedProminent)
             .tint(.green)
             .controlSize(.large)
-            .disabled(viewModel.receiverName.isEmpty || viewModel.receiverPhone.isEmpty || viewModel.isLoading)
+            .disabled(!viewModel.canInviteReceiver || viewModel.isLoading)
 
             Button("Skip for now") { viewModel.advance() }
                 .foregroundStyle(.secondary)
@@ -269,12 +313,40 @@ struct OnboardingView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            Button("Enable Notifications") {
-                Task { await viewModel.requestNotificationPermission() }
+            if viewModel.notificationDenied {
+                // Recovery path: the system won't re-prompt once denied, so guide the
+                // user to Settings rather than dead-ending on "All set".
+                VStack(spacing: 12) {
+                    Label("Notifications are turned off. Daily OK can't alert you to missed check-ins until you enable them in Settings.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(DailyOKColor.gold)
+                        .multilineTextAlignment(.center)
+                        .labelStyle(.titleAndIcon)
+
+                    Button("Open Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(DailyOKColor.green500)
+                    .controlSize(.large)
+
+                    Button("Continue without notifications") {
+                        viewModel.continuePastNotifications()
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                .transition(.opacity)
+            } else {
+                Button("Enable Notifications") {
+                    Task { await viewModel.requestNotificationPermission() }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(DailyOKColor.green500)
+                .controlSize(.large)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(DailyOKColor.green500)
-            .controlSize(.large)
         }
         .padding(24)
         .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
