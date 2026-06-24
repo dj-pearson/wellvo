@@ -187,7 +187,16 @@ struct FamilyView: View {
                     .dailyokGlassSheet(style: .regular)
             }
             .sheet(isPresented: $showPaywall) {
-                SubscriptionView()
+                // Wrap in a NavigationStack so the paywall has a title bar and an
+                // explicit Done button (App Review expects a dismissible paywall).
+                NavigationStack {
+                    SubscriptionView()
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Done") { showPaywall = false }
+                            }
+                        }
+                }
             }
             .alert("Transfer Ownership", isPresented: $showTransferAlert) {
                 Button("Transfer", role: .destructive) {

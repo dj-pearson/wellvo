@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var showDeleteConfirmation = false
     @State private var deleteConfirmText = ""
     @State private var showSignOutConfirmation = false
+    @State private var showManageSubscriptions = false
     @State private var isExportingData = false
     @State private var exportedData: String?
     @State private var showExportSheet = false
@@ -93,8 +94,16 @@ struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
 
-                        NavigationLink("Manage Subscription") {
-                            SubscriptionView()
+                        if subscriptionService.currentTier != .free {
+                            // Active subscriber: open Apple's system management sheet
+                            // (cancel/change plan) rather than the marketing paywall.
+                            Button("Manage Subscription") {
+                                showManageSubscriptions = true
+                            }
+                        } else {
+                            NavigationLink("View Plans") {
+                                SubscriptionView()
+                            }
                         }
 
                         Button("Restore Purchases") {
@@ -247,6 +256,7 @@ struct SettingsView: View {
                     .dailyokGlassSheet(style: .regular)
                 }
             }
+            .manageSubscriptionsSheet(isPresented: $showManageSubscriptions)
         }
     }
 
