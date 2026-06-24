@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct HistoryView: View {
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedReceiver: FamilyMember?
     @State private var checkIns: [CheckIn] = []
     @State private var members: [FamilyMember] = []
@@ -57,7 +59,7 @@ struct HistoryView: View {
                                             .font(.subheadline)
                                             .fontWeight(selectedReceiver?.id == member.id ? .bold : .regular)
                                             .padding(.horizontal, 16)
-                                            .padding(.vertical, 8)
+                                            .frame(minHeight: 44) // comfortable tap target
                                             .background(
                                                 Group {
                                                     if selectedReceiver?.id == member.id {
@@ -167,9 +169,23 @@ struct HistoryView: View {
                     .disabled(checkIns.isEmpty)
                 }
             }
+            .refreshable { await loadMembers() }
             .task { await loadMembers() }
             .onChange(of: selectedDays) { _ in
                 Task { await loadHistory() }
+            }
+            // SwiftUI keeps tabs alive, so `.task` only fires once. Reload when the
+            // owner returns to the History tab or foregrounds the app so the member
+            // list / data isn't stale after inviting or removing a receiver.
+            .onChange(of: appState.selectedTab) { newTab in
+                if newTab == .history {
+                    Task { await loadMembers() }
+                }
+            }
+            .onChange(of: scenePhase) { newPhase in
+                if newPhase == .active {
+                    Task { await loadMembers() }
+                }
             }
             .sheet(isPresented: $showPDFShare) {
                 if let data = pdfData {

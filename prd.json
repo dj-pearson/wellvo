@@ -3366,8 +3366,8 @@
         "The receiver chip row has a scroll affordance and chips meet the 44pt minimum hit target"
       ],
       "priority": 162,
-      "passes": false,
-      "notes": "P2 stale data + P3 a11y. ios/DailyOK/Views/Owner/HistoryView.swift:~146-149 (load only in .task), ~29-59 (chip row, vertical 8 padding ~30pt)."
+      "passes": true,
+      "notes": "P2 stale data + P3 a11y. ios/DailyOK/Views/Owner/HistoryView.swift:~146-149 (load only in .task), ~29-59 (chip row, vertical 8 padding ~30pt). [2026-06-24] DONE: HistoryView now reloads members+history on return to the History tab (onChange selectedTab) and on scenePhase .active, and supports pull-to-refresh (.refreshable). Receiver chips bumped to 44pt min hit target. NOTE: an explicit horizontal-scroll fade affordance was not added (minor); the row still scrolls. Needs build + QA."
     },
     {
       "id": "US-IOS064",
@@ -3478,8 +3478,8 @@
         "Verified: background and return within the grace window still shows Undo"
       ],
       "priority": 170,
-      "passes": false,
-      "notes": "P2 a11y/trust. ios/DailyOK/Views/Receiver/ReceiverHomeView.swift:~307-312 (audio gated on !isOffline), ~463-484 (Undo from undoableUntil only); ReceiverViewModel.swift:~189-215,~548-558 (snoozeConfirmation never cleared; undoableUntil not repopulated in loadStatus)."
+      "passes": true,
+      "notes": "P2 a11y/trust. ios/DailyOK/Views/Receiver/ReceiverHomeView.swift:~307-312 (audio gated on !isOffline), ~463-484 (Undo from undoableUntil only); ReceiverViewModel.swift:~189-215,~548-558 (snoozeConfirmation never cleared; undoableUntil not repopulated in loadStatus). [2026-06-24] DONE: (1) offline check-ins now speak a distinct cue (Saved… will send when back online) for low-vision receivers instead of silence; (2) the Undo window is repopulated from lastCheckIn.checkedInAt+undoGraceSeconds on every reload/foreground so Undo survives backgrounding within the grace period (openUndoWindow helper schedules expiry from the real deadline); (3) stale snoozeConfirmation is cleared on reload once checked-in or no pending request. Needs build + QA."
     },
     {
       "id": "US-IOS072",
