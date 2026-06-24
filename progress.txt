@@ -1240,3 +1240,20 @@ AC4 streak/consistency:
   - Streaks.currentStreak/consistencyPercent gain expectedPerDay overloads (day complete only when all expected windows hit; consistency denom = expectedPerDay*windowDays, per-day capped). expectedPerDay<=1 delegates to the legacy functions. ReceiverViewModel passes slotsCount(for:); streak block moved after settings load so the count is available.
 Tests: ScheduleResolverTests (multi-window earliest/second slot, slotsCount, currentSlotKey nearest + nil-for-single); StreaksTimezoneTests (expectedPerDay 1-of-2=50%, 2-of-2=100%, per-day cap, streak-requires-all, parity at expectedPerDay=1). Appended to existing target files (no pbxproj change).
 KNOWN SCOPE LIMIT: server-side scheduled-request/escalation generation still keys off the primary checkin_time. Extra custom windows feed the app's next-check-in display, slot dedup, and streak math but do NOT yet generate independent escalation requests — follow-up. Offline-queued check-ins carry no slot_key (avoids a SwiftData migration); a late-synced offline check-in resolves to day-level.
+
+--- iOS Release-Readiness Audit (2026-06-24) ---
+Deep-dive audit of the iOS app (ios/) for App Store readiness. Six parallel audits: security/privacy/compliance, core services & data-flow, UI/accessibility/UX, watch/widgets/extensions, models/business-logic, tests/build/CI. Findings appended to prd.json as US-IOS077..US-IOS112 (priorities 176-211), all passes:false. No app code changed in this iteration — this is the work backlog.
+
+CONFIRMED release-blockers (verified against source/edge-functions/migrations, not just asserted):
+  - US-IOS077 product-ID namespace mismatch: iOS net.wellvo.* vs backend TIER_MAP net.dailyok.* -> every purchase 400s 'Unknown product_id', family never upgraded server-side.
+  - US-IOS078 EdgeFunctionsClient sends numeric fields ([String:String]) as JSON strings; server validates typeof===number -> all location/battery check-ins and report-location 400. Heartbeat battery too.
+  - US-IOS079 DailyOKAlert.data typed [String:Double]?; low_battery/stale_heartbeat alerts carry string last_seen_at -> whole alerts array decode throws -> owner sees zero alerts.
+  - US-IOS080 NotificationService extension is NOT a build target (0 refs in pbxproj) -> never ships; mutable-content/delivery-confirm path dead.
+  - US-IOS081 escalation Live Activity never ended on stand-down (deep link + standDownEscalation never call EscalationActivityManager) + staleDate:nil -> stale Lock Screen timer.
+  - US-IOS082 PhoneWatchSync.didReceiveWatchCheckIn posted but observed nowhere -> wrist check-in invisible to phone; phone can re-escalate.
+  - US-IOS083 Dashboard errorMessage gated on receiverCards.isEmpty -> check-on/stand-down/acknowledge/dismiss failures silent.
+
+HIGH: US-IOS084 extension token stale after refresh; US-IOS085 deployment target 18.0 vs documented 16+; US-IOS086 foreground location full-precision vs Coarse-only manifest; US-IOS087 non-defaulted CheckIn enums throw on unknown source/response_type; US-IOS088 NetworkRetry retries deterministic 4xx + no Retry-After; US-IOS089 multi-window custom schedules never dispatched server-side; US-IOS090 watch over-queues unflushable check-ins; US-IOS091 widget deep links checkin/dashboard unhandled; US-IOS092 iOS tests only run on main PRs + UI tests `|| true` + no lint; US-IOS093 release ships empty Supabase config silently; US-IOS094 settingsError/Data-Retention swallowed; US-IOS095 subscription never reconciled on restore/launch.
+MEDIUM: US-IOS096..US-IOS111 (paywall tier state, free-tier expiry, heartbeat background timer, offline sync tz+dead-letter, PDF/weekly tz, heatmap window/labels/mood, care-notes hardening, OTP resend+lockout visibility, invite validation+focus, a11y data-viz/senior surfaces, increased-contrast palette, widget/complication cadence, build/signing hygiene, associated-domains+critical-alerts justification, test coverage, health/quiet-hours/history state bugs).
+LOW: US-IOS112 misc UX dead-ends & confirmations.
+Verification: source-level only (no Xcode/Deno/Supabase here). Top 7 blockers grep-verified across iOS + edge-functions + migrations.
