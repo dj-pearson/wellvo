@@ -54,6 +54,11 @@ struct DailyOKApp: App {
                       token.range(of: "^[0-9a-fA-F]+$", options: .regularExpression) != nil else {
                     return // Silently reject invalid tokens
                 }
+                // Don't let an invite link hijack an already-onboarded member and
+                // demote them into the receiver onboarding flow. If we already know
+                // their role, ignore the token. (ContentView also re-resolves role
+                // and clears a stale token on cold-start from a link.)
+                guard appState.currentUserRole == nil else { return }
                 appState.pendingInviteToken = token
             }
         case "standdown":

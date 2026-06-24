@@ -279,8 +279,7 @@ final class AuthViewModel: ObservableObject {
             clearFormFields()
             await checkBiometricSetupPrompt()
         } catch {
-            // Temporary: surface real error for debugging — revert before shipping
-            errorMessage = "Sign-in error: \(error)"
+            errorMessage = error.localizedDescription
             password = "" // Clear password on failure
             recordFailedAttempt()
         }

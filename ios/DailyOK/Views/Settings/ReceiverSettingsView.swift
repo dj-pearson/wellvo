@@ -17,6 +17,12 @@ struct ReceiverSettingsView: View {
     @State private var smsEscalationEnabled = false
     @State private var notifyOwnerOnCheckin = true
     @State private var isLoading = false
+    /// True only after settings have been successfully loaded from the server.
+    /// Gates Save so the on-screen @State defaults can never overwrite real config
+    /// before/without a successful load.
+    @State private var hasLoaded = false
+    /// True when the initial load failed — show Retry instead of Save.
+    @State private var loadFailed = false
     @State private var isSaving = false
     @State private var showSavedConfirmation = false
     @State private var errorMessage: String?
@@ -252,16 +258,25 @@ struct ReceiverSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button {
-                    Task { await saveSettings() }
-                } label: {
-                    if isSaving {
-                        ProgressView()
-                    } else {
-                        Text("Save")
+                if loadFailed {
+                    // Don't offer Save when we never loaded the real settings —
+                    // saving here would write @State defaults over the server row.
+                    Button("Retry") {
+                        Task { await loadSettings() }
                     }
+                    .disabled(isLoading)
+                } else {
+                    Button {
+                        Task { await saveSettings() }
+                    } label: {
+                        if isSaving {
+                            ProgressView()
+                        } else {
+                            Text("Save")
+                        }
+                    }
+                    .disabled(isSaving || isLoading || !hasLoaded)
                 }
-                .disabled(isSaving)
             }
         }
         .overlay {
@@ -417,6 +432,7 @@ struct ReceiverSettingsView: View {
 
     private func loadSettings() async {
         isLoading = true
+        loadFailed = false
         do {
             let loaded: ReceiverSettings = try await SupabaseService.shared.client
                 .from("receiver_settings")
@@ -482,8 +498,10 @@ struct ReceiverSettingsView: View {
                 if let start = formatter.date(from: qStart) { quietHoursStart = start }
                 if let end = formatter.date(from: qEnd) { quietHoursEnd = end }
             }
+            hasLoaded = true
         } catch {
             errorMessage = DailyOKError.network(error).localizedDescription
+            loadFailed = true
         }
         isLoading = false
     }
@@ -493,7 +511,9 @@ struct ReceiverSettingsView: View {
 
         let timeString = timeFormatter.string(from: checkinTime)
 
-        var updates: [String: String] = [
+        // Nullable values so disabling quiet hours can explicitly null the columns
+        // (omitting them left stale values that silently re-enabled the toggle).
+        var updates: [String: String?] = [
             "checkin_time": timeString,
             "grace_period_minutes": String(gracePeriod),
             "reminder_interval_minutes": String(reminderInterval),
@@ -526,6 +546,10 @@ struct ReceiverSettingsView: View {
         if quietHoursEnabled {
             updates["quiet_hours_start"] = timeFormatter.string(from: quietHoursStart)
             updates["quiet_hours_end"] = timeFormatter.string(from: quietHoursEnd)
+        } else {
+            // Explicitly clear so turning Quiet Hours off actually persists.
+            updates["quiet_hours_start"] = String?.none
+            updates["quiet_hours_end"] = String?.none
         }
 
         do {

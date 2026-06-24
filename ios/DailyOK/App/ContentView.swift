@@ -15,9 +15,11 @@ struct ContentView: View {
                 case .unauthenticated:
                     AuthView()
                 case .authenticated:
-                    if let inviteToken = appState.pendingInviteToken {
+                    // Only honor an invite/auto-join deep link when the user isn't
+                    // already a member, so a stray link can't demote an owner/viewer.
+                    if let inviteToken = appState.pendingInviteToken, appState.currentUserRole == nil {
                         ReceiverOnboardingView(inviteToken: inviteToken)
-                    } else if appState.pendingAutoJoin != nil {
+                    } else if appState.pendingAutoJoin != nil, appState.currentUserRole == nil {
                         ReceiverOnboardingView(inviteToken: nil)
                     } else if appState.showPairingCodeEntry {
                         PairingCodeEntryView()
@@ -57,9 +59,11 @@ struct ContentView: View {
             }
         }
         .task(id: authViewModel.authState) {
+            // Resolve the role even when an invite/auto-join token is pending, so an
+            // existing member who taps a link gets routed by role (not hijacked into
+            // receiver onboarding). The auto-join probe still only runs for genuinely
+            // new users with no pending token.
             guard authViewModel.authState == .authenticated,
-                  appState.pendingInviteToken == nil,
-                  appState.pendingAutoJoin == nil,
                   appState.currentUserRole == nil else { return }
 
             // Keep `users.timezone` aligned with the device zone so the edge
@@ -72,10 +76,16 @@ struct ContentView: View {
             // not just after the initial onboarding flow.
             if let role = await FamilyService.shared.getCurrentUserRole() {
                 appState.currentUserRole = role
+                // Already a member: drop any stale invite/auto-join deep link so it
+                // can't surface the receiver onboarding flow over their real home.
+                appState.pendingInviteToken = nil
+                appState.pendingAutoJoin = nil
                 return
             }
 
-            // No existing membership — check for phone-based auto-join (new user)
+            // No existing membership — check for phone-based auto-join (new user),
+            // unless we're already handling a token-based invite.
+            guard appState.pendingInviteToken == nil, appState.pendingAutoJoin == nil else { return }
             do {
                 if let result = try await FamilyService.shared.checkAutoJoin() {
                     appState.pendingAutoJoin = result

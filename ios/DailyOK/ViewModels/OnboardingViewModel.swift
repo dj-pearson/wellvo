@@ -26,6 +26,10 @@ final class OnboardingViewModel: ObservableObject {
     @Published var checkinTime = Date()
     @Published var isLoading = false
     @Published var errorMessage: String?
+    /// True once the user has been asked for notification permission and denied it.
+    /// Drives the inline recovery UI (Open Settings / Continue anyway) instead of
+    /// silently walking the user into the "All set" screen with a broken core feature.
+    @Published var notificationDenied = false
 
     var createdFamily: Family?
 
@@ -97,10 +101,17 @@ final class OnboardingViewModel: ObservableObject {
     func requestNotificationPermission() async {
         let granted = (try? await PushNotificationService.shared.requestPermission()) ?? false
         if granted {
+            notificationDenied = false
             advance()
         } else {
-            errorMessage = "Notifications are important for Daily OK to work. You can enable them in Settings."
-            advance() // Still proceed, but show the warning
+            // Don't auto-advance: keep the user on this step so they can recover via
+            // Open Settings, or make a deliberate choice to continue without alerts.
+            notificationDenied = true
         }
+    }
+
+    /// User explicitly chose to proceed without notifications after being warned.
+    func continuePastNotifications() {
+        advance()
     }
 }

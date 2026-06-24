@@ -269,12 +269,40 @@ struct OnboardingView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            Button("Enable Notifications") {
-                Task { await viewModel.requestNotificationPermission() }
+            if viewModel.notificationDenied {
+                // Recovery path: the system won't re-prompt once denied, so guide the
+                // user to Settings rather than dead-ending on "All set".
+                VStack(spacing: 12) {
+                    Label("Notifications are turned off. Daily OK can't alert you to missed check-ins until you enable them in Settings.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(DailyOKColor.gold)
+                        .multilineTextAlignment(.center)
+                        .labelStyle(.titleAndIcon)
+
+                    Button("Open Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(DailyOKColor.green500)
+                    .controlSize(.large)
+
+                    Button("Continue without notifications") {
+                        viewModel.continuePastNotifications()
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                .transition(.opacity)
+            } else {
+                Button("Enable Notifications") {
+                    Task { await viewModel.requestNotificationPermission() }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(DailyOKColor.green500)
+                .controlSize(.large)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(DailyOKColor.green500)
-            .controlSize(.large)
         }
         .padding(24)
         .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)

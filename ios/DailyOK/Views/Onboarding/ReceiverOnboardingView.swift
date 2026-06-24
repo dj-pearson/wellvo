@@ -12,6 +12,12 @@ struct ReceiverOnboardingView: View {
     @State private var checkinTimeDisplay = "8:00 AM"
     @State private var ownerName = "Your family"
     @State private var errorMessage: String?
+    /// True when a token-based invite failed to redeem. Blocks the false "All set"
+    /// success screen and surfaces Try Again / Cancel instead of stranding the
+    /// user as a receiver of no family.
+    @State private var joinFailed = false
+    /// True once the receiver was asked for notification permission and denied it.
+    @State private var notificationDenied = false
 
     /// Nil when using auto-join (phone match) flow.
     let inviteToken: String?
@@ -99,21 +105,44 @@ struct ReceiverOnboardingView: View {
 
             if let error = errorMessage {
                 Text(error)
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
             }
 
-            Button("Continue") {
-                if reduceMotion {
-                    currentStep = 1
-                } else {
-                    withAnimation(DailyOKMotion.smoothSpring) { currentStep = 1 }
+            if joinFailed {
+                // Invite couldn't be redeemed — don't advance to a fake success.
+                VStack(spacing: 12) {
+                    Button("Try Again") {
+                        Task { await retryJoin() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(DailyOKColor.green500)
+                    .controlSize(.large)
+                    .disabled(isProcessing)
+
+                    Text("If this keeps happening, ask your family to send you a new invite.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+
+                    Button("Cancel") { cancelJoin() }
+                        .foregroundStyle(.secondary)
+                        .disabled(isProcessing)
                 }
+            } else {
+                Button("Continue") {
+                    if reduceMotion {
+                        currentStep = 1
+                    } else {
+                        withAnimation(DailyOKMotion.smoothSpring) { currentStep = 1 }
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(DailyOKColor.green500)
+                .controlSize(.large)
+                .disabled(isProcessing)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(DailyOKColor.green500)
-            .controlSize(.large)
-            .disabled(isProcessing)
         }
         .padding(24)
         .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
@@ -148,22 +177,56 @@ struct ReceiverOnboardingView: View {
                 .foregroundStyle(.secondary)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
 
-            Button("Allow Notifications") {
-                Task {
-                    let _ = (try? await PushNotificationService.shared.requestPermission()) ?? false
-                    if reduceMotion {
-                        currentStep = 2
-                    } else {
-                        withAnimation(DailyOKMotion.smoothSpring) { currentStep = 2 }
+            if notificationDenied {
+                // The system won't re-prompt once denied — guide to Settings rather
+                // than silently advancing to "All set" with no daily reminder.
+                VStack(spacing: 16) {
+                    Label("Notifications are turned off. You won't get your daily check-in reminder until you turn them on in Settings.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.body)
+                        .foregroundStyle(DailyOKColor.gold)
+                        .multilineTextAlignment(.center)
+                        .labelStyle(.titleAndIcon)
+                        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+
+                    Button("Open Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(DailyOKColor.green500)
+                    .controlSize(.large)
+
+                    Button("Continue anyway") { advanceToDone() }
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Button("Allow Notifications") {
+                    Task {
+                        let granted = (try? await PushNotificationService.shared.requestPermission()) ?? false
+                        if granted {
+                            advanceToDone()
+                        } else {
+                            notificationDenied = true
+                        }
                     }
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(DailyOKColor.green500)
+                .controlSize(.large)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(DailyOKColor.green500)
-            .controlSize(.large)
         }
         .padding(24)
         .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
+    }
+
+    private func advanceToDone() {
+        if reduceMotion {
+            currentStep = 2
+        } else {
+            withAnimation(DailyOKMotion.smoothSpring) { currentStep = 2 }
+        }
     }
 
     // MARK: - Step 3: Done
@@ -227,10 +290,27 @@ struct ReceiverOnboardingView: View {
         isProcessing = true
         do {
             try await FamilyService.shared.acceptInvite(token: token)
+            errorMessage = nil
+            joinFailed = false
         } catch {
             errorMessage = "Could not join family. The invite may have expired."
+            joinFailed = true
         }
         isProcessing = false
+    }
+
+    private func retryJoin() async {
+        guard let token = inviteToken else { return }
+        await acceptInviteByToken(token)
+    }
+
+    /// Abandon a failed invite: clear the pending deep link and let ContentView
+    /// re-resolve the user's role instead of stranding them on a dead screen.
+    private func cancelJoin() {
+        appState.pendingInviteToken = nil
+        appState.pendingAutoJoin = nil
+        appState.currentUserRole = nil
+        appState.isOnboarding = false
     }
 
     private func formatCheckinTime(_ time: String) -> String {

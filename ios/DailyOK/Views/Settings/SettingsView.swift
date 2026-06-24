@@ -389,6 +389,16 @@ struct DataRetentionView: View {
 
 struct SubscriptionView: View {
     @StateObject private var subscriptionService = SubscriptionService.shared
+    @State private var showErrorAlert = false
+
+    /// Subscription plans only — exclude add-on SKUs, which aren't standalone
+    /// plans and shouldn't render as "Subscribe" rows in the main paywall list.
+    private var planProducts: [Product] {
+        subscriptionService.products.filter {
+            $0.id != SubscriptionService.ProductIDs.addonReceiver &&
+            $0.id != SubscriptionService.ProductIDs.addonViewer
+        }
+    }
 
     private static let paywallFeatures: [PaywallFeature] = [
         PaywallFeature(
@@ -423,14 +433,25 @@ struct SubscriptionView: View {
         author: "Sarah M., parent of two"
     )
 
+    /// Real annual savings vs. paying monthly for the same tier, computed from
+    /// StoreKit prices (never hardcoded — App Store guideline 3.1). Returns nil
+    /// for monthly products or when the matching monthly SKU hasn't loaded.
     private func annualSavingsPercent(for product: Product) -> Int? {
-        // If the product description mentions an annual plan, surface the
-        // hard-coded savings copy. The exact percent is product-config dependent;
-        // if the StoreKit metadata doesn't expose it, default to a conservative
-        // 15% which matches the App Store Connect configuration.
-        guard product.id.lowercased().contains("annual") || product.id.lowercased().contains("yearly")
+        let monthlyID: String?
+        switch product.id {
+        case SubscriptionService.ProductIDs.caregiverYearly: monthlyID = SubscriptionService.ProductIDs.caregiverMonthly
+        case SubscriptionService.ProductIDs.familyYearly: monthlyID = SubscriptionService.ProductIDs.familyMonthly
+        case SubscriptionService.ProductIDs.familyPlusYearly: monthlyID = SubscriptionService.ProductIDs.familyPlusMonthly
+        default: return nil
+        }
+        guard let monthlyID,
+              let monthly = subscriptionService.products.first(where: { $0.id == monthlyID })
         else { return nil }
-        return 15
+        let annualIfMonthly = monthly.price * Decimal(12)
+        guard annualIfMonthly > 0 else { return nil }
+        let saved = (annualIfMonthly - product.price) / annualIfMonthly
+        let pct = NSDecimalNumber(decimal: saved * Decimal(100)).intValue
+        return pct > 0 ? pct : nil
     }
 
     var body: some View {
@@ -442,51 +463,122 @@ struct SubscriptionView: View {
                 TestimonialCard(testimonial: Self.testimonial)
                     .padding(.horizontal, 16)
 
-                VStack(spacing: 12) {
-                    ForEach(subscriptionService.products, id: \.id) { product in
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text(product.displayName)
-                                    .font(.headline)
-                                Spacer()
-                                if let pct = annualSavingsPercent(for: product) {
-                                    AnnualSavingsBadge(percentSaved: pct)
-                                }
-                                Text(product.displayPrice)
-                                    .fontWeight(.semibold)
-                            }
-
-                            Text(product.description)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-
-                            if subscriptionService.purchasedProductIDs.contains(product.id) {
-                                Text("Current Plan")
-                                    .font(.caption)
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(.green)
-                            } else {
-                                Button("Subscribe") {
-                                    Task { _ = try? await subscriptionService.purchase(product) }
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .tint(.green)
-                            }
+                if subscriptionService.isLoading && planProducts.isEmpty {
+                    ProgressView("Loading plans…")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                } else if planProducts.isEmpty {
+                    // Load failed or no plans available — give the user a way out
+                    // instead of a blank paywall.
+                    VStack(spacing: 12) {
+                        Image(systemName: "wifi.exclamationmark")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
+                        Text(subscriptionService.errorMessage ?? "Subscription options are unavailable right now.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Button("Try Again") {
+                            Task { await subscriptionService.loadProducts() }
                         }
-                        .padding(16)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(Color(.secondarySystemGroupedBackground))
-                        )
+                        .buttonStyle(.bordered)
+                        .frame(minHeight: 44)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 32)
+                } else {
+                    VStack(spacing: 12) {
+                        ForEach(planProducts, id: \.id) { product in
+                            planRow(product)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+
+                    Button {
+                        Task { await restore() }
+                    } label: {
+                        Text("Restore Purchases")
+                            .font(.subheadline.weight(.medium))
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.green)
+                    .disabled(subscriptionService.isLoading)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 24)
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 24)
             }
         }
         .background(AmbientBackground(tone: .warm))
         .navigationTitle("Subscription")
         .task { await subscriptionService.loadProducts() }
+        .alert("Subscription", isPresented: $showErrorAlert, presenting: subscriptionService.errorMessage) { _ in
+            Button("OK", role: .cancel) { subscriptionService.errorMessage = nil }
+        } message: { message in
+            Text(message)
+        }
+    }
+
+    @ViewBuilder
+    private func planRow(_ product: Product) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(product.displayName)
+                    .font(.headline)
+                Spacer()
+                if let pct = annualSavingsPercent(for: product) {
+                    AnnualSavingsBadge(percentSaved: pct)
+                }
+                Text(product.displayPrice)
+                    .fontWeight(.semibold)
+            }
+
+            Text(product.description)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if subscriptionService.purchasedProductIDs.contains(product.id) {
+                Text("Current Plan")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.green)
+            } else {
+                Button("Subscribe") {
+                    Task { await subscribe(product) }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+                .disabled(subscriptionService.isLoading)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+    }
+
+    private func subscribe(_ product: Product) async {
+        do {
+            _ = try await subscriptionService.purchase(product)
+        } catch {
+            subscriptionService.errorMessage = "Purchase couldn't be completed. Please try again."
+            Log.subscription.error("Purchase failed: \(error.localizedDescription, privacy: .public)")
+        }
+        // Surface any message the service set (failure, pending, sync-pending).
+        if subscriptionService.errorMessage != nil {
+            showErrorAlert = true
+        }
+    }
+
+    private func restore() async {
+        await subscriptionService.restorePurchases()
+        if subscriptionService.errorMessage != nil {
+            showErrorAlert = true
+        }
     }
 }

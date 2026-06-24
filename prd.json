@@ -3197,8 +3197,8 @@
         "No code path in Auth surfaces a raw error object or internal detail to the UI"
       ],
       "priority": 150,
-      "passes": false,
-      "notes": "P1 BUG. ios/DailyOK/ViewModels/AuthViewModel.swift:~283 has a debug leak with a 'revert before shipping' comment; signUp at ~312 already uses localizedDescription. Quick fix."
+      "passes": true,
+      "notes": "P1 BUG. ios/DailyOK/ViewModels/AuthViewModel.swift:~283 has a debug leak with a 'revert before shipping' comment; signUp at ~312 already uses localizedDescription. Quick fix. [2026-06-24] DONE: AuthViewModel.signInWithEmail now uses error.localizedDescription; removed the raw-error debug leak and its 'revert before shipping' comment."
     },
     {
       "id": "US-IOS052",
@@ -3211,8 +3211,8 @@
         "The denied/disabled state is consistent with the existing 'notifications disabled' warning banner shown elsewhere"
       ],
       "priority": 151,
-      "passes": false,
-      "notes": "P1 UX dead-end. ios/DailyOK/ViewModels/OnboardingViewModel.swift:~97-105 (auto-advance on denial); ios/DailyOK/Views/Onboarding/ReceiverOnboardingView.swift:~151-160 ('let _ = ...' advances regardless). Core failure mode for a check-in app."
+      "passes": true,
+      "notes": "P1 UX dead-end. ios/DailyOK/ViewModels/OnboardingViewModel.swift:~97-105 (auto-advance on denial); ios/DailyOK/Views/Onboarding/ReceiverOnboardingView.swift:~151-160 ('let _ = ...' advances regardless). Core failure mode for a check-in app. [2026-06-24] DONE: Owner (OnboardingViewModel) and receiver (ReceiverOnboardingView) notification steps no longer auto-advance on denial. They surface an inline warning with 'Open Settings' + an explicit 'Continue anyway/without notifications' action. Needs an Xcode build + device QA pass."
     },
     {
       "id": "US-IOS053",
@@ -3239,8 +3239,8 @@
         "Verified round-trip: enable quiet hours, save, reopen, disable, save, reopen -> stays disabled"
       ],
       "priority": 153,
-      "passes": false,
-      "notes": "P1 safety-critical config corruption. ios/DailyOK/Views/Settings/ReceiverSettingsView.swift:~479 (load forces quietHoursEnabled true when columns non-nil), ~526-529 (save omits null), Save toolbar uses .disabled(isSaving) only (~254-265)."
+      "passes": true,
+      "notes": "P1 safety-critical config corruption. ios/DailyOK/Views/Settings/ReceiverSettingsView.swift:~479 (load forces quietHoursEnabled true when columns non-nil), ~526-529 (save omits null), Save toolbar uses .disabled(isSaving) only (~254-265). [2026-06-24] DONE: ReceiverSettingsView save dict is now [String:String?] and explicitly nulls quiet_hours_start/end when disabled (turning Quiet Hours off now persists). Save is gated on a successful load (hasLoaded) and disabled while isLoading; a failed load shows Retry instead of Save so @State defaults can't overwrite the server row. Needs build + QA."
     },
     {
       "id": "US-IOS055",
@@ -3253,8 +3253,8 @@
         "Verified: an owner tapping an invite link stays an owner"
       ],
       "priority": 154,
-      "passes": false,
-      "notes": "P1 routing/role bug. ios/DailyOK/App/ContentView.swift:~18 (pendingInviteToken is top routing branch), DailyOKApp.swift:~57 (set unconditionally), ReceiverOnboardingView.swift:~198-203 (forces .receiver)."
+      "passes": true,
+      "notes": "P1 routing/role bug. ios/DailyOK/App/ContentView.swift:~18 (pendingInviteToken is top routing branch), DailyOKApp.swift:~57 (set unconditionally), ReceiverOnboardingView.swift:~198-203 (forces .receiver). [2026-06-24] DONE: handleDeepLink ignores an invite token when currentUserRole != nil; ContentView only shows ReceiverOnboarding when role==nil and now resolves role even with a pending token, clearing a stale invite/auto-join link for existing members. Needs build + QA (incl. cold-start-from-link)."
     },
     {
       "id": "US-IOS056",
@@ -3267,8 +3267,8 @@
         "Verified: a cancelled/failed purchase produces visible feedback"
       ],
       "priority": 155,
-      "passes": false,
-      "notes": "P1/P2 silent paywall. ios/DailyOK/Views/Settings/SettingsView.swift:~445-490 (SubscriptionView never reads isLoading/errorMessage), ~470 (try? purchase). SubscriptionService sets errorMessage at ~62,127,248."
+      "passes": true,
+      "notes": "P1/P2 silent paywall. ios/DailyOK/Views/Settings/SettingsView.swift:~445-490 (SubscriptionView never reads isLoading/errorMessage), ~470 (try? purchase). SubscriptionService sets errorMessage at ~62,127,248. [2026-06-24] DONE: SubscriptionView shows a loading spinner while products load, an inline error+Try Again when load fails, and an alert bound to SubscriptionService.errorMessage for purchase failures and the pending/sync-pending states (purchase no longer 'try?'-swallowed). Needs build + StoreKit sandbox QA."
     },
     {
       "id": "US-IOS057",
@@ -3281,8 +3281,8 @@
         "The user never becomes currentUserRole = .receiver without a successful family join"
       ],
       "priority": 156,
-      "passes": false,
-      "notes": "P2 dead-end. ios/DailyOK/Views/Onboarding/ReceiverOnboardingView.swift:~106,~226-234. Related to US-IOS055 routing guard."
+      "passes": true,
+      "notes": "P2 dead-end. ios/DailyOK/Views/Onboarding/ReceiverOnboardingView.swift:~106,~226-234. Related to US-IOS055 routing guard. [2026-06-24] DONE: ReceiverOnboardingView tracks joinFailed; on a failed token redeem it blocks the success screen and shows Try Again + Cancel (cancel clears the pending link and re-resolves role). User can no longer become a receiver of no family. Needs build + QA."
     },
     {
       "id": "US-IOS058",
@@ -3395,7 +3395,7 @@
       ],
       "priority": 164,
       "passes": false,
-      "notes": "P2 + App Review risk. ios/DailyOK/Views/Owner/FamilyView.swift:~170-172 (bare .sheet, no nav/Done); SettingsView.swift:~96-98 (manage links to paywall), ~426-434 (hardcoded 15%, dead 'annual' string match), ~446 (iterates all products incl add-ons). Restore lives only at SettingsView:~100."
+      "notes": "P2 + App Review risk. ios/DailyOK/Views/Owner/FamilyView.swift:~170-172 (bare .sheet, no nav/Done); SettingsView.swift:~96-98 (manage links to paywall), ~426-434 (hardcoded 15%, dead 'annual' string match), ~446 (iterates all products incl add-ons). Restore lives only at SettingsView:~100. [2026-06-24] PARTIAL: Restore Purchases button added to SubscriptionView; add-on SKUs filtered out of the plan list; annual savings % now computed from real StoreKit monthly-vs-yearly prices (no more hardcoded 15%). STILL OPEN: group plans into tiers with monthly/yearly toggle, wrap the sheet presentation (FamilyView) with a Done/Close affordance, and route active subscribers to StoreKit's manageSubscriptionsSheet from 'Manage Subscription'."
     },
     {
       "id": "US-IOS066",
