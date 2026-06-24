@@ -150,6 +150,54 @@ enum Streaks {
         return max(0, min(100, Int(pct)))
     }
 
+    // MARK: - Schedule-aware consistency (US-IOS075)
+
+    /// Consistency over the last `windowDays`, counting only the days the
+    /// receiver was actually scheduled to check in. `scheduledWeekdays` uses
+    /// Calendar weekday numbers (1=Sun…7=Sat); pass `nil` to treat every day as
+    /// scheduled (legacy behavior). A weekday-only receiver who checks in every
+    /// scheduled weekday scores 100% instead of being dragged down by weekends.
+    ///
+    /// Returns the percent plus the raw `scheduledDays` / `checkedInDays` counts
+    /// so callers (e.g. the family weekly summary) can aggregate a fair
+    /// denominator across receivers. When no days were scheduled in the window
+    /// (e.g. paused, or a weekend-only receiver mid-week) `percent` is 100 and
+    /// both counts are 0 — nothing was expected, so nothing is penalized.
+    static func scheduleConsistency(
+        isoTimestamps: [String],
+        scheduledWeekdays: Set<Int>?,
+        windowDays: Int = 7,
+        calendar: Calendar = .current,
+        today: Date = Date()
+    ) -> (percent: Int, scheduledDays: Int, checkedInDays: Int) {
+        guard windowDays > 0 else { return (0, 0, 0) }
+        let startOfToday = calendar.startOfDay(for: today)
+        guard let windowStart = calendar.date(byAdding: .day, value: -(windowDays - 1), to: startOfToday) else {
+            return (0, 0, 0)
+        }
+
+        // Enumerate the scheduled days within the window.
+        var scheduledDays: [Date] = []
+        var cursor = windowStart
+        while cursor <= startOfToday {
+            if let scheduledWeekdays {
+                if scheduledWeekdays.contains(calendar.component(.weekday, from: cursor)) {
+                    scheduledDays.append(cursor)
+                }
+            } else {
+                scheduledDays.append(cursor) // nil → every day expected
+            }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+        guard !scheduledDays.isEmpty else { return (100, 0, 0) }
+
+        let checkedDays = Set(countsPerDay(isoTimestamps, calendar: calendar).keys)
+        let checkedIn = scheduledDays.filter { checkedDays.contains($0) }.count
+        let pct = Int((Double(checkedIn) / Double(scheduledDays.count) * 100).rounded())
+        return (max(0, min(100, pct)), scheduledDays.count, checkedIn)
+    }
+
     static func badge(consistencyPercent pct: Int) -> ConsistencyBadge {
         switch pct {
         case 100...:       return .gold

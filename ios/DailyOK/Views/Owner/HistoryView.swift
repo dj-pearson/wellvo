@@ -18,20 +18,7 @@ struct HistoryView: View {
     /// to check in on, so the heatmap doesn't paint unscheduled/paused days as
     /// "missed". Nil → treat every day as scheduled (legacy behavior).
     private var scheduledWeekdays: Set<Int>? {
-        guard let settings = receiverSettings else { return nil }
-        if settings.schedulePaused { return [] }
-        switch settings.scheduleType {
-        case .daily, .weekdayWeekend:
-            return [1, 2, 3, 4, 5, 6, 7]
-        case .custom:
-            guard let custom = settings.customSchedule else { return nil }
-            let keyToWeekday: [String: Int] = ["sun": 1, "mon": 2, "tue": 3, "wed": 4, "thu": 5, "fri": 6, "sat": 7]
-            var set = Set<Int>()
-            for (key, weekday) in keyToWeekday where !custom.times(forDayKey: key).isEmpty {
-                set.insert(weekday)
-            }
-            return set
-        }
+        receiverSettings?.scheduledWeekdays
     }
 
     var body: some View {
@@ -257,9 +244,11 @@ struct HistoryView: View {
             generatedAt: Date()
         )
 
-        // Let the progress spinner paint before the synchronous render begins.
-        await Task.yield()
-        let data = CheckInReportGenerator.generatePDF(from: reportData)
+        // Generate off the main actor so a large (e.g. 90-day) report can't
+        // freeze the UI while the spinner shows. ReportData is Sendable.
+        let data = await Task.detached(priority: .userInitiated) {
+            CheckInReportGenerator.generatePDF(from: reportData)
+        }.value
 
         // Don't present an empty share sheet — surface an error instead.
         guard !data.isEmpty else {

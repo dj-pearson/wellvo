@@ -126,8 +126,21 @@ final class DashboardViewModel: ObservableObject {
             // of a separate push_tokens SELECT per receiver.
             let notifiedUserIds = await activeNotificationUserIds(userIds: receivers.map(\.userId))
 
+            // Batch each receiver's schedule (one query) so consistency can be
+            // judged against the days they were actually scheduled to check in
+            // (US-IOS075) — a weekday-only receiver shouldn't be penalized for
+            // weekends.
+            let settingsByMember = await receiverSettingsByMember(memberIds: receivers.map(\.id))
+
             var cards: [ReceiverStatusCard] = []
             var weeklyCheckIns: [CheckIn] = []
+            // Aggregate a fair, schedule-aware family consistency for the weekly
+            // summary instead of assuming 7 expected days per receiver.
+            var totalScheduledDays = 0
+            var totalCheckedInDays = 0
+            // Average check-in time accumulated in each receiver's own timezone.
+            var weekMinutesTotal = 0
+            var weekMinutesCount = 0
 
             for receiver in receivers {
                 let receiverTz = receiver.user?.timezone
@@ -166,19 +179,34 @@ final class DashboardViewModel: ObservableObject {
                 isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
                 let isoTimestamps = history.map { isoFormatter.string(from: $0.checkedInAt) }
                 // Bucket consistency days in the receiver's timezone so the
-                // dashboard chip agrees with their "checked in today" status.
-                let consistency = Streaks.consistencyPercent(
+                // dashboard chip agrees with their "checked in today" status, and
+                // only count days they were scheduled to check in (US-IOS075).
+                let scheduledWeekdays = settingsByMember[receiver.id]?.scheduledWeekdays
+                let consistencyResult = Streaks.scheduleConsistency(
                     isoTimestamps: isoTimestamps,
+                    scheduledWeekdays: scheduledWeekdays,
                     windowDays: 7,
                     calendar: .forTimezone(receiverTz)
                 )
+                let consistency = consistencyResult.percent
+                totalScheduledDays += consistencyResult.scheduledDays
+                totalCheckedInDays += consistencyResult.checkedInDays
 
                 let hasNotifications = notifiedUserIds.contains(receiver.userId)
 
                 // Collect last 7 days for weekly summary
                 let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date())
                     ?? Date().addingTimeInterval(-7 * 86_400)
-                weeklyCheckIns.append(contentsOf: history.filter { $0.checkedInAt >= sevenDaysAgo })
+                let recentCheckIns = history.filter { $0.checkedInAt >= sevenDaysAgo }
+                weeklyCheckIns.append(contentsOf: recentCheckIns)
+                // Accumulate minute-of-day in the receiver's timezone for the
+                // family-average check-in time.
+                let receiverCal = Calendar.forTimezone(receiverTz)
+                for ci in recentCheckIns {
+                    let comps = receiverCal.dateComponents([.hour, .minute], from: ci.checkedInAt)
+                    weekMinutesTotal += (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
+                    weekMinutesCount += 1
+                }
 
                 let resolved = Self.resolveStatus(todayCheckIn: todayCheckIn, activeRequest: activeRequest)
                 let status = resolved.status
@@ -213,7 +241,12 @@ final class DashboardViewModel: ObservableObject {
             SharedOwnerPublisher.publish(cards)
             // Start/refresh/end Live Activities for any receiver in escalation.
             EscalationActivityManager.sync(cards: cards, familyId: family.id)
-            weeklySummary = computeWeeklySummary(checkIns: weeklyCheckIns, receiverCount: receivers.count)
+            weeklySummary = computeWeeklySummary(
+                checkIns: weeklyCheckIns,
+                totalScheduledDays: totalScheduledDays,
+                totalCheckedInDays: totalCheckedInDays,
+                avgCheckInMinutes: weekMinutesCount > 0 ? weekMinutesTotal / weekMinutesCount : nil
+            )
             // A receiver hitting a strong streak is a high-satisfaction moment —
             // flag it so the view can ask for a rating (gated + throttled in the
             // service, so this only fires occasionally and never offline).
@@ -462,20 +495,42 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
-    private func computeWeeklySummary(checkIns: [CheckIn], receiverCount: Int) -> WeeklySummary {
-        let totalExpected = receiverCount * 7
-        let totalCheckIns = checkIns.count
-        let consistency = totalExpected > 0 ? (Double(totalCheckIns) / Double(totalExpected)) * 100 : 0
+    /// Each receiver's settings (keyed by family_member_id) fetched in ONE query,
+    /// so consistency can be judged against their real schedule. Falls back to an
+    /// empty map (→ "every day expected") if the read fails.
+    private func receiverSettingsByMember(memberIds: [UUID]) async -> [UUID: ReceiverSettings] {
+        guard !memberIds.isEmpty else { return [:] }
+        do {
+            let rows: [ReceiverSettings] = try await SupabaseService.shared.client
+                .from("receiver_settings")
+                .select()
+                .in("family_member_id", values: memberIds.map { $0.uuidString })
+                .execute()
+                .value
+            return Dictionary(rows.map { ($0.familyMemberId, $0) }, uniquingKeysWith: { first, _ in first })
+        } catch {
+            return [:]
+        }
+    }
 
-        // Average check-in time
+    private func computeWeeklySummary(
+        checkIns: [CheckIn],
+        totalScheduledDays: Int,
+        totalCheckedInDays: Int,
+        avgCheckInMinutes: Int?
+    ) -> WeeklySummary {
+        // Schedule-aware: the denominator is the days receivers were actually
+        // scheduled to check in this week (summed across receivers), not a flat
+        // receivers × 7. The "X/Y" bubble shows checked-in days / scheduled days.
+        let totalExpected = totalScheduledDays
+        let totalCheckIns = totalCheckedInDays
+        let consistency = totalExpected > 0 ? min(100.0, Double(totalCheckIns) / Double(totalExpected) * 100) : 100
+
+        // Average check-in time — minute-of-day already accumulated in each
+        // receiver's own timezone (US-IOS059/075), so the figure isn't skewed by
+        // the owner's device zone.
         let avgTime: String
-        if !checkIns.isEmpty {
-            let calendar = Calendar.current
-            let totalMinutes = checkIns.reduce(0) { sum, checkIn in
-                let components = calendar.dateComponents([.hour, .minute], from: checkIn.checkedInAt)
-                return sum + (components.hour ?? 0) * 60 + (components.minute ?? 0)
-            }
-            let avgMinutes = totalMinutes / checkIns.count
+        if let avgMinutes = avgCheckInMinutes {
             let hour = avgMinutes / 60
             let minute = avgMinutes % 60
             let formatter = DateFormatter()
@@ -483,7 +538,7 @@ final class DashboardViewModel: ObservableObject {
             var components = DateComponents()
             components.hour = hour
             components.minute = minute
-            if let date = calendar.date(from: components) {
+            if let date = Calendar.current.date(from: components) {
                 avgTime = formatter.string(from: date)
             } else {
                 avgTime = "--"

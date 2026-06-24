@@ -175,3 +175,26 @@ struct ReceiverSettings: Codable, Identifiable {
         audioConfirmationEnabled = try container.decodeIfPresent(Bool.self, forKey: .audioConfirmationEnabled) ?? false
     }
 }
+
+extension ReceiverSettings {
+    /// Calendar weekday numbers (1=Sun…7=Sat) on which a check-in is scheduled,
+    /// used to judge consistency against the days the receiver was actually
+    /// expected to check in. Empty when the schedule is paused (nothing expected);
+    /// nil for a custom schedule with no day data so callers fall back to
+    /// "every day" (legacy behavior).
+    var scheduledWeekdays: Set<Int>? {
+        if schedulePaused { return [] }
+        switch scheduleType {
+        case .daily, .weekdayWeekend:
+            return [1, 2, 3, 4, 5, 6, 7]
+        case .custom:
+            guard let custom = customSchedule else { return nil }
+            let keyToWeekday: [String: Int] = ["sun": 1, "mon": 2, "tue": 3, "wed": 4, "thu": 5, "fri": 6, "sat": 7]
+            var set = Set<Int>()
+            for (key, weekday) in keyToWeekday where !custom.times(forDayKey: key).isEmpty {
+                set.insert(weekday)
+            }
+            return set
+        }
+    }
+}
