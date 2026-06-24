@@ -64,4 +64,14 @@ enum Configuration {
 
     static let appScheme = "dailyok"
     static let appDomain = "dailyok.net"
+
+    /// Marketing version (CFBundleShortVersionString), e.g. "1.4.0". Sent to the
+    /// backend so it can enforce MIN_SUPPORTED_IOS_APP_VERSION (force-update).
+    static var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+    }
+
+    /// Fallback App Store URL used by the force-update screen if the server
+    /// didn't supply one.
+    static let appStoreURL = "https://apps.apple.com/us/app/dailyok-daily-check-in/id6760836697"
 }

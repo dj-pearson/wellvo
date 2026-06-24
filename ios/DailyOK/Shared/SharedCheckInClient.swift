@@ -41,9 +41,13 @@ enum SharedCheckInClient {
         batteryLevel: Double? = nil
     ) async throws -> SharedCheckInState {
         guard var state = SharedCheckInStore.load() else { throw SharedCheckInError.notSignedIn }
+        // The session secrets live in the Keychain, not the snapshot plist. No
+        // tokens means signed-out, or biometric lock has withheld them — either
+        // way this surface must not act.
+        guard var tokens = SharedKeychain.loadTokens() else { throw SharedCheckInError.notSignedIn }
 
-        if state.isAccessTokenExpired {
-            state = try await refreshSession(state)
+        if tokens.isAccessTokenExpired {
+            tokens = try await refreshSession(state, tokens: tokens)
         }
 
         var body: [String: String] = [
@@ -57,13 +61,13 @@ enum SharedCheckInClient {
         }
 
         do {
-            try await postCheckIn(state: state, body: body)
+            try await postCheckIn(state: state, accessToken: tokens.accessToken, body: body)
         } catch SharedCheckInError.server(let code, _) where code == 401 {
             // Token may have expired between the check and the request — refresh
             // once and retry so a wrist/widget tap isn't lost (which would leave
             // the request pending and falsely escalate to the owner).
-            state = try await refreshSession(state)
-            try await postCheckIn(state: state, body: body)
+            tokens = try await refreshSession(state, tokens: tokens)
+            try await postCheckIn(state: state, accessToken: tokens.accessToken, body: body)
         }
 
         state.hasCheckedInToday = true
@@ -75,7 +79,7 @@ enum SharedCheckInClient {
 
     // MARK: - Networking
 
-    private static func postCheckIn(state: SharedCheckInState, body: [String: String]) async throws {
+    private static func postCheckIn(state: SharedCheckInState, accessToken: String, body: [String: String]) async throws {
         guard let url = URL(string: "\(state.edgeFunctionsURL)/process-checkin-response") else {
             throw SharedCheckInError.badConfiguration
         }
@@ -84,13 +88,13 @@ enum SharedCheckInClient {
         req.timeoutInterval = 30
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(state.anonKey, forHTTPHeaderField: "apikey")
-        req.setValue("Bearer \(state.accessToken)", forHTTPHeaderField: "Authorization")
+        req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(for: req)
+            (data, response) = try await PinnedURLSession.shared.data(for: req)
         } catch {
             throw SharedCheckInError.transport(error)
         }
@@ -104,8 +108,8 @@ enum SharedCheckInClient {
     }
 
     /// Refresh the Supabase access token using the refresh token and persist the
-    /// rotated tokens back to the shared store.
-    private static func refreshSession(_ state: SharedCheckInState) async throws -> SharedCheckInState {
+    /// rotated tokens back to the shared Keychain.
+    private static func refreshSession(_ state: SharedCheckInState, tokens: SharedAuthTokens) async throws -> SharedAuthTokens {
         guard let url = URL(string: "\(state.supabaseURL)/auth/v1/token?grant_type=refresh_token") else {
             throw SharedCheckInError.sessionExpired
         }
@@ -114,12 +118,12 @@ enum SharedCheckInClient {
         req.timeoutInterval = 30
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(state.anonKey, forHTTPHeaderField: "apikey")
-        req.httpBody = try JSONSerialization.data(withJSONObject: ["refresh_token": state.refreshToken])
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["refresh_token": tokens.refreshToken])
 
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(for: req)
+            (data, response) = try await PinnedURLSession.shared.data(for: req)
         } catch {
             throw SharedCheckInError.transport(error)
         }
@@ -137,12 +141,12 @@ enum SharedCheckInClient {
             throw SharedCheckInError.sessionExpired
         }
 
-        var updated = state
-        updated.accessToken = token.access_token
-        updated.refreshToken = token.refresh_token
-        updated.expiresAt = Date().addingTimeInterval(TimeInterval(token.expires_in))
-        updated.updatedAt = Date()
-        SharedCheckInStore.save(updated)
+        let updated = SharedAuthTokens(
+            accessToken: token.access_token,
+            refreshToken: token.refresh_token,
+            expiresAt: Date().addingTimeInterval(TimeInterval(token.expires_in))
+        )
+        SharedKeychain.saveTokens(updated)
         return updated
     }
 }

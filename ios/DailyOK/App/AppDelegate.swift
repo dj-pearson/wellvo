@@ -77,6 +77,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             handleCheckInFromNotification(userInfo: userInfo, responseType: .needHelp)
         case "CHECKIN_CALL_ME_ACTION":
             handleCheckInFromNotification(userInfo: userInfo, responseType: .callMe)
+        case "CHECKIN_SNOOZE_ACTION":
+            handleSnoozeFromNotification(userInfo: userInfo)
         case "CALL_RECEIVER_ACTION":
             handleCallReceiver(userInfo: userInfo)
         case UNNotificationDefaultActionIdentifier:
@@ -113,9 +115,16 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             options: [.foreground]
         )
 
+        // Background snooze — defers escalation without opening the app.
+        let snoozeAction = UNNotificationAction(
+            identifier: "CHECKIN_SNOOZE_ACTION",
+            title: "Remind me in 15 min",
+            options: []
+        )
+
         let checkinCategory = UNNotificationCategory(
             identifier: "CHECKIN_REQUEST",
-            actions: [okAction, needHelpAction, callMeAction],
+            actions: [okAction, snoozeAction, needHelpAction, callMeAction],
             intentIdentifiers: [],
             options: [.customDismissAction]
         )
@@ -182,6 +191,25 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             await MainActor.run {
                 UIApplication.shared.open(telURL)
             }
+        }
+    }
+
+    private func handleSnoozeFromNotification(userInfo: [AnyHashable: Any]) {
+        guard let requestIdString = userInfo["checkin_request_id"] as? String,
+              let requestId = UUID(uuidString: requestIdString) else { return }
+        Task {
+            // Defer escalation server-side (best-effort; bounded server-side).
+            do {
+                try await CheckInService.shared.snoozeCheckIn(requestId: requestId)
+            } catch {
+                Log.checkIn.error("Notification snooze failed: \(error.localizedDescription, privacy: .public)")
+            }
+            // Re-arm the local fallback reminder regardless, so the receiver is
+            // nudged again in 15 minutes even if the snooze POST didn't land.
+            await PushNotificationService.shared.scheduleLocalCheckinFallback(
+                at: Date().addingTimeInterval(15 * 60),
+                isKidMode: false
+            )
         }
     }
 

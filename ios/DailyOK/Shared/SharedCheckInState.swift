@@ -5,22 +5,18 @@ import Foundation
 /// Center control, and the watch) can perform and display a check-in without
 /// the full Supabase SDK or a live app session.
 ///
-/// It intentionally carries the mirrored Supabase session and backend config so
-/// an extension can POST to the edge function on its own and refresh the token
-/// if needed. The phone remains the source of truth: it rewrites this snapshot
-/// on every `loadStatus`, and clears it on sign-out.
+/// It carries only NON-SECRET identity, backend config, and glanceable status.
+/// The Supabase session secrets (access/refresh token + expiry) are kept out of
+/// this App Group `UserDefaults` plist — which is plaintext and lands in device
+/// backups — and live in the encrypted Keychain via `SharedKeychain`. The phone
+/// remains the source of truth: it rewrites this snapshot on every `loadStatus`,
+/// and clears it (and the Keychain tokens) on sign-out.
 struct SharedCheckInState: Codable, Equatable {
     // MARK: Identity
     var receiverId: String
     var familyId: String
     var displayName: String?
     var isKidMode: Bool
-
-    // MARK: Auth (mirrored from the phone's Supabase session)
-    var accessToken: String
-    var refreshToken: String
-    /// Absolute expiry of `accessToken`.
-    var expiresAt: Date
 
     // MARK: Backend config (so extensions don't depend on the host Info.plist)
     var supabaseURL: String
@@ -32,11 +28,6 @@ struct SharedCheckInState: Codable, Equatable {
     var lastCheckInAt: Date?
     var nextCheckInAt: Date?
     var updatedAt: Date
-
-    /// True when the access token is at/near expiry (refresh 60s early).
-    var isAccessTokenExpired: Bool {
-        Date() >= expiresAt.addingTimeInterval(-60)
-    }
 }
 
 /// Read/write access to the shared check-in snapshot. Safe to call from any

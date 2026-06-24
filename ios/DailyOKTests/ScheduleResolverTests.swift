@@ -99,4 +99,77 @@ final class ScheduleResolverTests: XCTestCase {
         let next = ReceiverViewModel.nextScheduledCheckIn(for: s, now: date("2026-06-10T06:00:00Z"), calendar: utc)
         XCTAssertEqual(next, date("2026-06-11T07:00:00Z"))
     }
+
+    // MARK: - US-IOS048: multiple windows per day
+
+    /// Build settings whose custom_schedule carries a `multiTimes` map (the new
+    /// multi-window shape) alongside legacy single-time fields.
+    private func makeMultiTimeSettings(multiTimes: [String: [String]]) -> ReceiverSettings {
+        // Dual-written legacy single fields = earliest time of each day.
+        var custom: [String: Any] = [:]
+        for (day, times) in multiTimes {
+            if let earliest = times.sorted().first { custom[day] = earliest }
+        }
+        custom["multiTimes"] = multiTimes
+
+        let dict: [String: Any] = [
+            "id": UUID().uuidString,
+            "family_member_id": UUID().uuidString,
+            "checkin_time": "09:00",
+            "timezone": "UTC",
+            "grace_period_minutes": 30,
+            "reminder_interval_minutes": 15,
+            "escalation_enabled": true,
+            "mood_tracking_enabled": false,
+            "sms_escalation_enabled": false,
+            "is_active": true,
+            "location_tracking_enabled": false,
+            "geofence_radius_meters": 100,
+            "location_alert_enabled": false,
+            "receiver_mode": "standard",
+            "schedule_type": "custom",
+            "schedule_paused": false,
+            "notify_owner_on_checkin": true,
+            "simple_mode": false,
+            "audio_confirmation_enabled": false,
+            "custom_schedule": custom,
+        ]
+        let data = try! JSONSerialization.data(withJSONObject: dict)
+        return try! JSONDecoder().decode(ReceiverSettings.self, from: data)
+    }
+
+    func testMultiWindowResolvesEarliestUpcomingSlot() {
+        // Wednesday with 08:00 and 20:00 windows. At 06:00 the next slot is 08:00.
+        let s = makeMultiTimeSettings(multiTimes: ["wed": ["08:00", "20:00"]])
+        let next = ReceiverViewModel.nextScheduledCheckIn(for: s, now: date("2026-06-10T06:00:00Z"), calendar: utc)
+        XCTAssertEqual(next, date("2026-06-10T08:00:00Z"))
+    }
+
+    func testMultiWindowResolvesSecondSlotAfterFirstPasses() {
+        // After 08:00 has passed, the next slot the same day is 20:00.
+        let s = makeMultiTimeSettings(multiTimes: ["wed": ["08:00", "20:00"]])
+        let next = ReceiverViewModel.nextScheduledCheckIn(for: s, now: date("2026-06-10T09:00:00Z"), calendar: utc)
+        XCTAssertEqual(next, date("2026-06-10T20:00:00Z"))
+    }
+
+    func testSlotsCountReflectsMultipleWindows() {
+        let s = makeMultiTimeSettings(multiTimes: ["wed": ["08:00", "20:00"]])
+        XCTAssertEqual(ReceiverViewModel.slotsCount(for: s, on: date("2026-06-10T06:00:00Z"), calendar: utc), 2)
+    }
+
+    func testCurrentSlotKeyPicksNearestWindow() {
+        let s = makeMultiTimeSettings(multiTimes: ["wed": ["08:00", "20:00"]])
+        // 07:50 is nearest the 08:00 window.
+        XCTAssertEqual(
+            ReceiverViewModel.currentSlotKey(for: s, now: date("2026-06-10T07:50:00Z"), calendar: utc), "08:00")
+        // 19:30 is nearest the 20:00 window.
+        XCTAssertEqual(
+            ReceiverViewModel.currentSlotKey(for: s, now: date("2026-06-10T19:30:00Z"), calendar: utc), "20:00")
+    }
+
+    func testCurrentSlotKeyNilForSingleWindow() {
+        // A single-window day preserves legacy one-per-day dedup (nil slot key).
+        let s = makeSettings(scheduleType: "custom", customSchedule: ["wed": "08:00"])
+        XCTAssertNil(ReceiverViewModel.currentSlotKey(for: s, now: date("2026-06-10T07:50:00Z"), calendar: utc))
+    }
 }

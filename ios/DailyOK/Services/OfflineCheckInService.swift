@@ -76,7 +76,11 @@ final class OfflineCheckInService: ObservableObject {
     }
 
     /// Attempt to check in — queues locally if offline, sends directly if online.
-    func performCheckIn(familyId: UUID, mood: Mood? = nil, source: CheckInSource = .app) async throws -> CheckIn? {
+    /// `slotKey` (US-IOS048) tags which scheduled window an online check-in
+    /// satisfies; it's intentionally dropped on the offline-queued path (a
+    /// later-synced check-in resolves to day-level), so no on-device migration
+    /// of the offline queue is needed.
+    func performCheckIn(familyId: UUID, mood: Mood? = nil, source: CheckInSource = .app, slotKey: String? = nil) async throws -> CheckIn? {
         guard let session = try? await SupabaseService.shared.client.auth.session else {
             throw CheckInError.notAuthenticated
         }
@@ -86,7 +90,7 @@ final class OfflineCheckInService: ObservableObject {
         if isOnline {
             do {
                 let checkIn = try await NetworkRetry.execute {
-                    try await CheckInService.shared.checkIn(familyId: familyId, mood: mood, source: source)
+                    try await CheckInService.shared.checkIn(familyId: familyId, mood: mood, source: source, slotKey: slotKey)
                 }
                 return checkIn
             } catch {

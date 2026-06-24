@@ -57,6 +57,7 @@ interface ProcessCheckinRequest {
   battery_level?: number;
   location_label?: string;
   kid_response_type?: string;
+  slot_key?: string;
 }
 
 export async function handleProcessCheckinResponse(req: Request, auth: AuthResult): Promise<Response> {
@@ -99,6 +100,10 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
 
   // Truncate string fields
   if (body.location_label) body.location_label = truncateString(body.location_label, 500);
+  // slot_key identifies which scheduled window this check-in satisfies so a
+  // receiver with multiple windows/day (US-IOS048) doesn't collapse to one row.
+  // Keep it short and stable (e.g. "08:00"); absent = legacy day-level check-in.
+  const slotKey = body.slot_key ? truncateString(body.slot_key, 20) : null;
 
   // If responding by request ID, look it up
   if (requestId && !receiverId) {
@@ -168,13 +173,23 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
     .single();
   const receiverTz = receiverUser?.timezone || "UTC";
   const { startUTC, endUTC } = localDayBoundsUTC(receiverTz);
-  const { data: existingCheckIn } = await supabaseAdmin
+  // Dedup within the receiver's local day. When a slot_key is supplied, dedup
+  // per slot so multiple windows/day stay distinct; otherwise fall back to the
+  // legacy day-level dedup. `order + limit(1)` (instead of maybeSingle over the
+  // whole day) is required now that a day can legitimately hold multiple rows.
+  let existingQuery = supabaseAdmin
     .from("checkins")
     .select()
     .eq("receiver_id", receiverId)
     .eq("family_id", familyId)
     .gte("checked_in_at", startUTC)
-    .lt("checked_in_at", endUTC)
+    .lt("checked_in_at", endUTC);
+  if (slotKey !== null) {
+    existingQuery = existingQuery.eq("slot_key", slotKey);
+  }
+  const { data: existingCheckIn } = await existingQuery
+    .order("checked_in_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (existingCheckIn) {
@@ -214,6 +229,7 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
   if (distanceFromHome != null) insertData.distance_from_home_meters = Math.round(distanceFromHome);
   if (body.location_label != null) insertData.location_label = body.location_label;
   if (body.kid_response_type != null) insertData.kid_response_type = body.kid_response_type;
+  if (slotKey !== null) insertData.slot_key = slotKey;
 
   const { data: checkIn, error: checkInError } = await supabaseAdmin
     .from("checkins")

@@ -16,7 +16,8 @@ actor CheckInService {
         location: CheckInLocation? = nil,
         batteryLevel: Double? = nil,
         locationLabel: String? = nil,
-        kidResponseType: String? = nil
+        kidResponseType: String? = nil,
+        slotKey: String? = nil
     ) async throws -> CheckIn {
         guard let session = try? await supabase.auth.session else {
             throw CheckInError.notAuthenticated
@@ -29,6 +30,9 @@ actor CheckInService {
             "response_type": responseType.rawValue,
         ]
 
+        // US-IOS048: which scheduled window this check-in satisfies. Absent for
+        // single-window receivers (preserves legacy one-per-day dedup).
+        if let slotKey { body["slot_key"] = slotKey }
         if let mood = mood { body["mood"] = mood.rawValue }
         if let loc = location {
             // Validate location bounds before sending
@@ -127,6 +131,22 @@ actor CheckInService {
         }
     }
 
+    /// Undo the receiver's most recent check-in within the server grace window
+    /// (US-IOS048). Reverses the check-in row, deletes any alert it created, and
+    /// re-opens the requests it closed. Throws if the grace window has lapsed.
+    func undoLastCheckIn(familyId: UUID) async throws {
+        guard let session = try? await supabase.auth.session else {
+            throw CheckInError.notAuthenticated
+        }
+        try await EdgeFunctionsClient.invoke(
+            "undo-checkin",
+            body: [
+                "receiver_id": session.user.id.uuidString.lowercased(),
+                "family_id": familyId.uuidString.lowercased(),
+            ]
+        )
+    }
+
     /// Owner sends on-demand check-in request
     func sendOnDemandCheckIn(receiverId: UUID, familyId: UUID) async throws {
         try await EdgeFunctionsClient.invoke(
@@ -136,6 +156,25 @@ actor CheckInService {
                 "family_id": familyId.uuidString,
             ]
         )
+    }
+
+    private struct SnoozeParams: Encodable {
+        let p_request_id: String
+        let p_minutes: Int
+    }
+
+    /// Receiver snoozes their own pending request, deferring escalation by
+    /// `minutes`. Bounded server-side (max 3 snoozes); throws if the limit is
+    /// reached or the request is no longer pending. Returns the updated request
+    /// so callers can read the new `snoozeCount` / `snoozedUntil`.
+    @discardableResult
+    func snoozeCheckIn(requestId: UUID, minutes: Int = 15) async throws -> CheckInRequest {
+        try await supabase
+            .rpc("snooze_checkin_request",
+                 params: SnoozeParams(p_request_id: requestId.uuidString, p_minutes: minutes))
+            .single()
+            .execute()
+            .value
     }
 
     /// Fetch today's check-in status for a receiver.

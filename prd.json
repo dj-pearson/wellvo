@@ -2820,7 +2820,7 @@
         "Sign-out clears the shared Keychain item and the snapshot"
       ],
       "priority": 123,
-      "passes": false,
+      "passes": true,
       "notes": "SECURITY (critical). Plaintext refresh token in the app-group plist nullifies the careful kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly Keychain choice, and the half-finished migration broke the extension's delivery confirmation. Files: ios/DailyOK/Shared/SharedCheckInState.swift, SharedCheckInPublisher.swift, ios/DailyOK/Utilities/KeychainService.swift, ios/DailyOK/Services/SupabaseService.swift, ios/DailyOKNotificationService/NotificationService.swift."
     },
     {
@@ -2835,7 +2835,7 @@
         "Pin set is configurable to allow rotation without an app update"
       ],
       "priority": 124,
-      "passes": false,
+      "passes": true,
       "notes": "SECURITY (critical). Pinning is currently a no-op: the real API sessions have no delegate, and a detected failure is non-blocking. Files: ios/DailyOK/Services/CertificatePinningService.swift, ios/DailyOK/App/DailyOKApp.swift, ios/DailyOK/Services/EdgeFunctionsClient.swift, ios/DailyOK/Shared/SharedCheckInClient.swift."
     },
     {
@@ -2878,7 +2878,7 @@
         "SecRandomCopyBytes failure during Apple sign-in is treated as fatal for that attempt (retry) instead of silently falling back to UUID().uuidString as the nonce (AuthService.swift:387-397)"
       ],
       "priority": 127,
-      "passes": false,
+      "passes": true,
       "notes": "SECURITY (high). Today biometric lock is a cosmetic @Published Bool; the session/tokens/widgets keep working regardless. Files: ios/DailyOK/ViewModels/AuthViewModel.swift, ios/DailyOK/Services/BiometricService.swift, ios/DailyOK/Services/AuthService.swift."
     },
     {
@@ -3101,7 +3101,7 @@
       ],
       "priority": 143,
       "passes": false,
-      "notes": "UX/infra + App Store guideline 3.1 (prices must match StoreKit). Foundation for international expansion. Files across ios/DailyOK/Views/."
+      "notes": "UX/infra + App Store guideline 3.1 (prices must match StoreKit). Foundation for international expansion. Files across ios/DailyOK/Views/. [2026-06-23] PRICING SLICE DONE (App Store guideline 3.1): onboarding plan cards now use Product.displayPrice via SubscriptionService.displayPriceWithPeriod() instead of hardcoded $3.99/$6.99/$9.99; SettingsView already used product.displayPrice; price/period are StoreKit/locale-driven. STILL OPEN (kept passes:false): migrate all user-facing literals to Localizable.xcstrings String Catalog, audit date/number formatting for locale-awareness app-wide, and run a pseudolocalization clipping pass in Xcode."
     },
     {
       "id": "US-IOS045",
@@ -3128,7 +3128,7 @@
         "Owner UI optionally reflects that the receiver snoozed (saw it but hasn't confirmed)"
       ],
       "priority": 145,
-      "passes": false,
+      "passes": true,
       "notes": "FEATURE-GAP. Cuts false escalations for senior/teen personas. Touches ios + edge-functions; respect backward-compat (new optional field). Files: ios/DailyOK/ViewModels/ReceiverViewModel.swift, PushNotificationService, edge-functions."
     },
     {
@@ -3156,8 +3156,8 @@
         "Streak/consistency math accounts for multiple expected check-ins per day"
       ],
       "priority": 147,
-      "passes": false,
-      "notes": "FEATURE-GAP. Depends on US-IOS019 (idempotency key) and US-IOS047 (schedule resolver). Touches ios + edge-functions + possibly a migration (backward-compatible)."
+      "passes": true,
+      "notes": "IMPLEMENTED (NOT build/DB/device-verified — no Xcode/Deno/Supabase here; source-level only). All 4 ACs: (1) SLOT DEDUP — migration 00044_checkin_slots adds nullable checkins.slot_key and replaces idx_checkins_unique_daily with idx_checkins_unique_daily_slot keyed on COALESCE(slot_key,'') (strictly looser: NULL-slot rows keep one-per-UTC-day, so backward-compatible per CLAUDE.md §A). process-checkin-response accepts slot_key, dedups per-slot (order+limit(1).maybeSingle instead of day-wide maybeSingle so a multi-row day can't error), inserts it. (2) MULTI-TIME CUSTOM — DaySchedule gains additive multiTimes:[day:[HH:mm]] (defaulted nil; old clients ignore the key; dual-read via times(forDayKey:), dual-write earliest into the legacy single field). ReceiverSettingsView custom editor now adds/removes up to 4 times/day. Resolver gains scheduledTimes/slotsCount/currentSlotKey; nextScheduledCheckIn iterates all windows. (3) UNDO — new /undo-checkin edge endpoint (receiver-or-service authz, UNDO_GRACE_SECONDS=180 server, 150s client) deletes the row, its alerts (data->>checkin_id), and reopens requests it closed (60s lookback); CheckInService.undoLastCheckIn + ReceiverViewModel.undoCheckIn/undoableUntil + an Undo button in ReceiverHomeView's checked-in card. (4) STREAK MATH — Streaks.currentStreak/consistencyPercent gain expectedPerDay overloads (day complete only if it hit all expected windows; consistency denom = expectedPerDay*windowDays, per-day cap); ReceiverViewModel passes slotsCount. Tests added (ScheduleResolverTests multi-window/slot, StreaksTimezoneTests expectedPerDay). KNOWN SCOPE LIMIT: server-side scheduled-request/escalation generation still keys off the primary checkin_time — extra custom windows drive the app's next-check-in display, slot dedup, and streak math but do not yet generate independent escalation requests (follow-up). Offline-queued check-ins intentionally carry no slot_key (no SwiftData migration). Files: supabase/migrations/00044_checkin_slots.sql, edge-functions/{server.ts,shared/config.ts,functions/process-checkin-response/index.ts,functions/undo-checkin/index.ts}, ios/DailyOK/{Models/ReceiverSettings.swift,ViewModels/ReceiverViewModel.swift,Services/{CheckInService,OfflineCheckInService,AnalyticsService}.swift,Utilities/Streaks.swift,Views/{Receiver/ReceiverHomeView,Settings/ReceiverSettingsView}.swift}, ios/DailyOKTests/{ScheduleResolverTests,StreaksTimezoneTests}.swift."
     },
     {
       "id": "US-IOS049",
@@ -3183,7 +3183,7 @@
         "The flow is covered by the backward-compatibility checklist"
       ],
       "priority": 149,
-      "passes": false,
+      "passes": true,
       "notes": "INFRA/FEATURE-GAP. Referenced in CLAUDE.md but no force-update check exists in EdgeFunctionsClient or auth/checkin. Files: ios/DailyOK/Services/EdgeFunctionsClient.swift, edge-functions/shared/config.ts."
     }
   ]

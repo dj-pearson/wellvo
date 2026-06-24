@@ -98,16 +98,35 @@ struct DailyOKApp: App {
                 await reRegisterPushToken()
                 // Non-urgent / best-effort work last.
                 await AnalyticsService.shared.track(.appOpened)
-                let valid = await CertificatePinningService.shared.validateServerCertificate()
-                if !valid {
+                // A genuine pin MISMATCH (device-trusted but un-pinned CA) is
+                // treated as a possible MITM: surface a blocking state instead of
+                // merely logging and proceeding. A transient "couldn't evaluate"
+                // (captive portal, offline) is ignored — inline enforcement on
+                // each real request still fails those closed if they're hostile.
+                switch await CertificatePinningService.shared.validate() {
+                case .mismatch:
                     await AnalyticsService.shared.track(.certificatePinningFailure)
+                    await MainActor.run { appState.secureConnectionFailed = true }
+                case .pinned:
+                    await MainActor.run { appState.secureConnectionFailed = false }
+                case .unevaluable:
+                    break
                 }
             }
         case .background:
             // Stop the foreground heartbeat timer when backgrounded (it can't
             // fire while suspended anyway); checkSession restarts it on resume.
             HeartbeatService.shared.stop()
-            Task { await AnalyticsService.shared.track(.appBackgrounded) }
+            Task {
+                await AnalyticsService.shared.track(.appBackgrounded)
+                // If the user relies on biometric lock, pull the mirrored session
+                // out of reach of widgets/Siri/watch the moment we background, so
+                // a found/handed-off phone can't be used to check in before the
+                // owner passes Face ID on the next resume.
+                if await BiometricService.shared.isEnabled {
+                    SharedCheckInPublisher.withholdTokens()
+                }
+            }
             break
         case .inactive:
             break

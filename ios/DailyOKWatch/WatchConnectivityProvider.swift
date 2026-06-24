@@ -34,8 +34,23 @@ final class WatchConnectivityProvider: NSObject, ObservableObject, WCSessionDele
         guard let data = context["checkin_state"] as? Data else { return }
         if data.isEmpty {
             SharedCheckInStore.clear()
+            SharedKeychain.clearTokens()
         } else {
             SharedAppGroup.defaults?.set(data, forKey: SharedAppGroup.Key.checkInState)
+            // Tokens arrive separately (they're not in the snapshot plist) and
+            // are persisted to the watch's own Keychain. An empty/absent blob
+            // clears them so a stale session can't be used on the wrist.
+            if let tokenData = context["auth_tokens"] as? Data, !tokenData.isEmpty {
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                if let tokens = try? decoder.decode(SharedAuthTokens.self, from: tokenData) {
+                    SharedKeychain.saveTokens(tokens)
+                } else {
+                    SharedKeychain.clearTokens()
+                }
+            } else {
+                SharedKeychain.clearTokens()
+            }
         }
         // The complication reads the same snapshot — refresh it too.
         WidgetCenter.shared.reloadAllTimelines()

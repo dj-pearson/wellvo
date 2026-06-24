@@ -1,91 +1,80 @@
 import Foundation
-import CryptoKit
 import Security
 
-/// Validates the TLS certificate chain for the Supabase server against known pins.
-/// Pins to Let's Encrypt ISRG Root X1 (primary) and ISRG Root X2 (backup).
+/// Out-of-band launch/resume probe that checks the Supabase host's TLS chain
+/// against the pinned roots (see `CertificatePinning`). This is an *early
+/// warning* — the authoritative enforcement happens inline on every real
+/// request via `PinnedURLSession`. The probe lets the app surface a clear
+/// "secure connection couldn't be verified" state proactively rather than only
+/// when the next API call fails.
 ///
-/// Pin rotation strategy:
-/// - Pins target the root CA public key, not the leaf certificate
-/// - Let's Encrypt leaf certs rotate every 90 days, but root pins are stable for years
-/// - Backup pin (ISRG Root X2) provides continuity if primary root changes
-/// - Update pins when Let's Encrypt announces root CA transitions
-actor CertificatePinningService: NSObject {
+/// Pins target the root CA SPKI, which is stable for years; leaf certs rotating
+/// every ~90 days don't affect them. The active pin set is configurable at
+/// runtime (`CertificatePinning.overrideDefaultsKey`) so a rotation can ship
+/// without an app update.
+actor CertificatePinningService {
     static let shared = CertificatePinningService()
 
-    /// SHA-256 hashes of the Subject Public Key Info (SPKI) for trusted root CAs.
-    /// ISRG Root X1: Let's Encrypt primary root
-    /// ISRG Root X2: Let's Encrypt backup root (ECDSA)
-    private let pinnedHashes: Set<String> = [
-        "C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=", // ISRG Root X1
-        "diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvVFZE8zmgzI=", // ISRG Root X2
-    ]
-
-    private var lastValidationResult: Bool?
+    private var lastResult: CertificatePinning.Evaluation?
     private var lastValidationDate: Date?
 
-    /// Validate the Supabase server certificate on app launch.
-    /// Returns true if the certificate chain matches known pins.
-    func validateServerCertificate() async -> Bool {
+    /// Probe the Supabase server certificate. Returns the evaluation so callers
+    /// can distinguish a genuine pin mismatch (attack — block) from a transient
+    /// "couldn't evaluate" (e.g. captive portal — retry).
+    func validate() async -> CertificatePinning.Evaluation {
         let urlString = Configuration.supabaseURL
         guard let url = URL(string: urlString), url.scheme == "https" else {
-            return true // Skip validation for non-HTTPS (debug/localhost)
+            return .pinned // Non-HTTPS (debug/localhost) — nothing to pin.
         }
 
-        // Cache result for 1 hour to avoid excessive checks
-        if let lastDate = lastValidationDate,
-           let lastResult = lastValidationResult,
+        // Cache for 1 hour to avoid excessive handshakes.
+        if let lastDate = lastValidationDate, let lastResult,
            Date().timeIntervalSince(lastDate) < 3600 {
             return lastResult
         }
 
-        let result = await performPinValidation(url: url)
-        lastValidationResult = result
+        let result = await performProbe(url: url)
+        lastResult = result
         lastValidationDate = Date()
         return result
     }
 
-    private func performPinValidation(url: URL) async -> Bool {
+    /// Back-compat boolean: true only when a pinned key was found.
+    func validateServerCertificate() async -> Bool {
+        await validate() == .pinned
+    }
+
+    private func performProbe(url: URL) async -> CertificatePinning.Evaluation {
         await withCheckedContinuation { continuation in
-            let delegate = PinValidationDelegate(pinnedHashes: pinnedHashes) { result in
-                continuation.resume(returning: result)
-            }
+            let delegate = ProbeDelegate { continuation.resume(returning: $0) }
+            let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
 
-            let session = URLSession(
-                configuration: .ephemeral,
-                delegate: delegate,
-                delegateQueue: nil
-            )
-
-            // Simple HEAD request to trigger TLS handshake
             var request = URLRequest(url: url)
             request.httpMethod = "HEAD"
             request.timeoutInterval = 10
 
             let task = session.dataTask(with: request) { _, _, error in
-                if error != nil, delegate.pinResult == nil {
-                    delegate.complete(false)
-                }
+                // If the handshake failed before the auth challenge resolved our
+                // result, treat it as transient/unevaluable.
+                if error != nil { delegate.complete(.unevaluable) }
             }
             task.resume()
         }
     }
 }
 
-/// URLSession delegate that validates server certificate pins during TLS handshake.
-private class PinValidationDelegate: NSObject, URLSessionDelegate {
-    let pinnedHashes: Set<String>
-    private var completion: ((Bool) -> Void)?
-    private(set) var pinResult: Bool?
+/// URLSession delegate that evaluates the pin set during the TLS handshake.
+private final class ProbeDelegate: NSObject, URLSessionDelegate {
+    private var completion: ((CertificatePinning.Evaluation) -> Void)?
+    private var finished = false
 
-    init(pinnedHashes: Set<String>, completion: @escaping (Bool) -> Void) {
-        self.pinnedHashes = pinnedHashes
+    init(completion: @escaping (CertificatePinning.Evaluation) -> Void) {
         self.completion = completion
     }
 
-    func complete(_ result: Bool) {
-        guard pinResult == nil else { return }
-        pinResult = result
+    func complete(_ result: CertificatePinning.Evaluation) {
+        guard !finished else { return }
+        finished = true
         completion?(result)
         completion = nil
     }
@@ -97,54 +86,17 @@ private class PinValidationDelegate: NSObject, URLSessionDelegate {
     ) {
         guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
               let serverTrust = challenge.protectionSpace.serverTrust else {
-            completionHandler(.cancelAuthenticationChallenge, nil)
-            complete(false)
+            completionHandler(.performDefaultHandling, nil)
             return
         }
 
-        // Evaluate the trust chain
-        let policy = SecPolicyCreateSSL(true, challenge.protectionSpace.host as CFString)
-        SecTrustSetPolicies(serverTrust, policy)
-
-        var error: CFError?
-        guard SecTrustEvaluateWithError(serverTrust, &error) else {
-            completionHandler(.cancelAuthenticationChallenge, nil)
-            complete(false)
-            return
-        }
-
-        // Check if any certificate in the chain matches our pins
-        let chainLength = SecTrustGetCertificateCount(serverTrust)
-        var matched = false
-
-        for i in 0..<chainLength {
-            guard let certificate = SecTrustGetCertificateAtIndex(serverTrust, i) else { continue }
-            let hash = sha256OfPublicKey(certificate: certificate)
-            if let hash, pinnedHashes.contains(hash) {
-                matched = true
-                break
-            }
-        }
-
-        if matched {
+        let evaluation = CertificatePinning.evaluate(serverTrust, host: challenge.protectionSpace.host)
+        switch evaluation {
+        case .pinned:
             completionHandler(.useCredential, URLCredential(trust: serverTrust))
-            complete(true)
-        } else {
+        case .mismatch, .unevaluable:
             completionHandler(.cancelAuthenticationChallenge, nil)
-            complete(false)
         }
-    }
-
-    /// Extract the Subject Public Key Info and compute its SHA-256 hash (base64-encoded).
-    private func sha256OfPublicKey(certificate: SecCertificate) -> String? {
-        guard let publicKey = SecCertificateCopyKey(certificate) else { return nil }
-
-        var error: Unmanaged<CFError>?
-        guard let publicKeyData = SecKeyCopyExternalRepresentation(publicKey, &error) as Data? else {
-            return nil
-        }
-
-        let hash = SHA256.hash(data: publicKeyData)
-        return Data(hash).base64EncodedString()
+        complete(evaluation)
     }
 }

@@ -1157,3 +1157,86 @@ iOS:
   - Info.plist NSHealthShareUsageDescription; DailyOK.entitlements com.apple.developer.healthkit. Registered HealthService.swift + HealthSharingView.swift in DailyOK.xcodeproj (F1C00200/B1C00200, F1F00203/B1F00203).
 Verification: source-level only (no Xcode/Deno/Postgres). HealthKit code guarded by canImport + isHealthDataAvailable. SQL hand-reviewed against the care_notes/00041 RLS+realtime pattern.
 Documented follow-ups: (1) HealthKit capability must be enabled on the app target in Xcode/App Store Connect provisioning (entitlement added here, but the provisioning profile must include HealthKit) and the feature must clear App Store HealthKit review (framed as reassurance, minimal scope, opt-in) — flagged for the Mac/release pass; (2) the website Privacy page should add a line about the opt-in derived activity signal to match the in-app disclosure.
+
+--- Iteration SEC-024/025/028: iOS security hardening (2026-06-23) ---
+Worked the top three open (highest-priority) stories in prd.json — all SECURITY. Source-level verification only (Linux container: no Xcode/Swift toolchain). pbxproj edited by hand following the existing F1S/B1S id convention; brace/paren balance + id reference counts checked.
+
+US-IOS024 — Auth tokens out of the plaintext App Group plist, into a shared Keychain group:
+  - NEW ios/DailyOK/Shared/SharedKeychain.swift: SharedAuthTokens {accessToken, refreshToken, expiresAt, isAccessTokenExpired} stored as an ISO-8601 JSON Keychain item (kSecClassGenericPassword, service com.wellvo.ios.shared, account auth_tokens) with kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly + kSecUseDataProtectionKeychain + kSecAttrAccessGroup. Access group resolved at runtime (team-prefix unknown at compile time) by reading back the group the system assigns to a probe item = first entitlement entry.
+  - SharedCheckInState.swift: removed accessToken/refreshToken/expiresAt/isAccessTokenExpired — the App Group UserDefaults snapshot now holds only non-secret ids/flags/timestamps/URLs.
+  - SharedCheckInPublisher: publish() writes tokens to SharedKeychain (not the snapshot); clear() also clears Keychain tokens. Added republishTokensFromSession()/withholdTokens() for the biometric story.
+  - SharedCheckInClient: loads tokens from SharedKeychain (notSignedIn when absent — covers signed-out AND biometric-withheld), refreshes back to Keychain.
+  - SupabaseService.syncAccessTokenToExtension: writes full SharedAuthTokens to SharedKeychain; migrates away from the old plaintext UserDefaults key AND the old non-access-group KeychainService item (which the extension could never read — that was the delivery-confirmation regression).
+  - NotificationService.swift (NSE): reads the access token from the shared Keychain group (inlined resolver/read, since this target isn't wired into the pbxproj and compiles standalone) instead of defaults.string("supabase_access_token"). Non-secret URLs still come from App Group defaults.
+  - Watch (separate device, no shared Keychain): tokens now ride the encrypted WatchConnectivity channel in a separate "auth_tokens" key (PhoneWatchSync.sync) and land in the watch's own Keychain (WatchConnectivityProvider.applyContext) — never the watch plist. Empty/absent blob clears them.
+  - Entitlements: keychain-access-groups ($(AppIdentifierPrefix)com.wellvo.ios.shared) added to app, Widgets, NSE. pbxproj: SharedKeychain.swift (F1S00008) added to app/Widgets/Watch Sources.
+  Note: reads span all of an app's access groups, so existing Supabase-SDK and KeychainService items are still found after the entitlement is added — no forced sign-out on upgrade.
+
+US-IOS025 — Certificate pinning that actually enforces on real traffic and fails closed:
+  - NEW ios/DailyOK/Shared/CertificatePinning.swift: correct SPKI SHA-256 pinning. The old code hashed SecKeyCopyExternalRepresentation (raw key) and called it "SPKI" — that never matches the published ISRG SPKI pins, so enforcing it as-was would have broken ALL traffic. Now prepends the right ASN.1 header (RSA 2048/4096, EC P-256/P-384) before hashing. evaluate() returns pinned / mismatch / unevaluable.
+  - PinnedURLSession (shared singleton) enforces in its URLSessionDelegate: genuine mismatch (system-trusted but un-pinned CA = MDM/rogue profile) fails closed (cancelAuthenticationChallenge); "unevaluable" (captive portal/offline) also cancels but surfaces as an ordinary transport error, NOT an attack.
+  - EdgeFunctionsClient and SharedCheckInClient (which carry tokens + PII; LocationService routes through EdgeFunctionsClient) now use PinnedURLSession instead of URLSession.shared.
+  - CertificatePinningService rewritten to use the shared evaluator and return the tri-state; pins are configurable at runtime via App Group key "pinned_spki_hashes" (CertificatePinning.overrideDefaultsKey) for rotation without an app update.
+  - DailyOKApp resume probe no longer just fires analytics + proceeds: a genuine .mismatch sets AppState.secureConnectionFailed → blocking SecureConnectionBlockedView in ContentView; .unevaluable is ignored (inline enforcement still fails hostile requests closed).
+  Documented gaps: (1) Supabase-Swift SDK uses its own URLSession; not yet routed through a pinned delegate — the resume probe covers the same host as an early warning. (2) The NSE's confirm-delivery POST still uses URLSession.shared (the NSE target isn't in the pbxproj/build today); pin it if/when the target is wired up.
+
+US-IOS028 — Biometric lock that actually withholds data + Apple nonce hardening:
+  - biometricLocked was a cosmetic @Published Bool consumed by nothing. Now: on lock (checkBiometricOnResume) and on background-while-enabled (DailyOKApp), SharedCheckInPublisher.withholdTokens() clears the mirrored session from Keychain + watch so widgets/Siri/Control Center/watch can't act as the user while locked; attemptBiometricUnlock() republishes from the live session only after Face ID succeeds. ContentView now shows a full-screen BiometricLockView over all content while locked (real obscuring, with a retry button).
+  - Cryptographic-gating note: the shared token item is intentionally NOT kSecAccessControl/.userPresence-gated, because the Notification Service Extension must read it headless in the background for delivery confirmation; a userPresence ACL would break that. Per the AC's own escape hatch, the lock is made genuinely protective via withholding instead, and there is no UI copy that over-claims (the only "protects data" surfaces are the new ones, which are accurate). 
+  - Nonce: randomNonceString (both the AuthViewModel live path and the AuthService copy) no longer falls back to UUID().uuidString on SecRandomCopyBytes failure — it returns nil and the attempt is treated as fatal/retryable (configureAppleSignInRequest/LinkRequest leave currentRawNonce nil so the result handler rejects the credential and asks the user to retry; AuthService.generateNonce throws AuthError.missingNonce).
+
+prd.json: US-IOS024/025/028 passes:true. Remaining iOS backlog (passes:false): US-IOS044 (localization/StoreKit pricing), US-IOS046 (snooze), US-IOS048 (multiple check-ins + undo), US-IOS050 (MIN_SUPPORTED_IOS_APP_VERSION force-update).
+
+--- Iteration SEC/FEAT-046: US-IOS046 snooze / "remind me in 15 min" (2026-06-23) ---
+Receiver who can't act right now (driving, meeting) can defer the check-in by 15 min instead of triggering a false escalation. Backend-first, all additive/backward-compatible per CLAUDE.md.
+Backend: supabase/migrations/00043_checkin_snooze.sql
+  - checkin_requests += snoozed_until TIMESTAMPTZ (null) and snooze_count INT NOT NULL DEFAULT 0 — additive, older clients ignore them.
+  - escalation_tick() recreated (supersedes 00036; verbatim copy + one guard line "AND (cr.snoozed_until IS NULL OR cr.snoozed_until <= NOW())"). Non-snoozed requests behave exactly as before.
+  - NEW SECURITY DEFINER RPC snooze_checkin_request(p_request_id, p_minutes default 15): authorizes auth.uid() == receiver, requires status='pending', clamps minutes to 1..60, enforces snooze_count < 3 (bounded so escalation can't be suppressed forever), sets snoozed_until + pushes next_escalation_at forward (GREATEST) + increments snooze_count, RETURNS the row. GRANT EXECUTE to authenticated. No edge-function change needed.
+iOS:
+  - Models/CheckIn.swift: CheckInRequest += optional snoozedUntil/snoozeCount (decodeIfPresent-safe).
+  - Services/CheckInService.swift: snoozeCheckIn(requestId:minutes:) via .rpc (same pattern as acknowledge_alert), returns the updated request.
+  - ViewModels/ReceiverViewModel.swift: loadPendingRequest now captures pendingRequestId + canSnooze (snoozeCount < 3); snoozePendingRequest() calls the RPC, re-arms the local fallback reminder for +15 min, and is best-effort (local reminder still fires + server escalation proceeds if the POST fails). snoozeMinutes=15 / maxSnoozes=3 constants. analytics checkin.snoozed.
+  - App/AppDelegate.swift: CHECKIN_SNOOZE_ACTION ("Remind me in 15 min", background/no-foreground) added to the CHECKIN_REQUEST category; handler snoozes via RPC and re-arms the local fallback. Both in-app and on-notification per the AC.
+  - Views/Receiver/ReceiverHomeView.swift: bordered "Remind me in 15 min" button shown under the check-in button while a request is pending and canSnooze; confirmation text on success.
+Owner UI reflection: AC marks it optional; intentionally skipped this slice (data is available on checkin_requests.snoozed_until/snooze_count for a future owner-dashboard chip).
+Verification: source-level only (Linux container: no Deno/Postgres/Xcode). SQL hand-reviewed against the 00036 escalation_tick it supersedes (copied verbatim + 1 guard) and the acknowledge_alert RPC pattern; Swift mirrors existing .rpc()/UNNotificationAction/fallback-reminder conventions.
+
+--- Iteration FEAT-044 (pricing slice): US-IOS044 StoreKit-driven pricing (2026-06-23) ---
+Per user direction, completed the high-value, shippable, App-Store-guideline-3.1 portion of US-IOS044 and left the full String-Catalog i18n as a tracked follow-up (US-IOS044 stays passes:false).
+  - Services/SubscriptionService.swift: added displayPrice(for:) and displayPriceWithPeriod(for:) — locale-aware Product.displayPrice + a StoreKit-derived period suffix ("/mo","/yr"). Returns nil until products load so callers show a placeholder, never a stale hardcoded price.
+  - Views/Onboarding/OnboardingView.swift: the three plan cards (Caregiver/Family/Family+) now read planPrice(productID) → displayPriceWithPeriod instead of the hardcoded "$3.99/mo"/"$6.99/mo"/"$9.99/mo". Loads products via .task; shows "—" while loading. (SettingsView's paywall already used product.displayPrice.)
+  - Swept the iOS tree: the only remaining user-facing hardcoded prices were these three cards; the one other "$3.99/mo" hit is a non-displayed code comment in Models/Family.swift (left as-is).
+STILL OPEN for US-IOS044 (needs Xcode to do/verify, hence not marked passes): migrate all user-facing literals to Localizable.xcstrings; audit app-wide date/number formatting for locale-awareness; pseudolocalization clipping pass.
+Verification: source-level only (no Xcode/StoreKit here). Matches existing SubscriptionService.shared @StateObject + loadProducts usage in SettingsView.
+
+--- Iteration INFRA-050: US-IOS050 MIN_SUPPORTED_IOS_APP_VERSION force-update (2026-06-23) ---
+Old builds can now be told to update so the API can evolve per CLAUDE.md's backward-compat rules. Backend-first, fails OPEN (dormant until a floor is set).
+Backend:
+  - NEW edge-functions/shared/config.ts: MIN_SUPPORTED_IOS_APP_VERSION / MIN_SUPPORTED_ANDROID_APP_VERSION (default "0.0.0" = blocks nothing; env-overridable to raise without a deploy), store URLs, compareVersions(), isBelowMinimum() (fails open on missing/unknown version or disabled floor), forceUpdatePayload().
+  - server.ts: after auth+rate-limit, for client (non-service-role, non-webhook) traffic, reads X-App-Version / X-App-Platform headers and returns 426 + force-update payload when below floor. Added the two headers to Access-Control-Allow-Headers.
+iOS:
+  - Utilities/Configuration.swift: appVersion (CFBundleShortVersionString) + appStoreURL fallback (id6760836697, from the website).
+  - Services/EdgeFunctionsClient.swift: sends X-App-Version + X-App-Platform: ios on every call; on a 426 it parses update_url, latches ForceUpdateState, and throws so the stale response isn't used.
+  - NEW Services/ForceUpdateState.swift: @MainActor one-way latch (never clears in-session).
+  - App/ContentView.swift: blocking ForceUpdateView (Update Now → App Store) shown whenever forceUpdate.required, layered with the existing biometric-lock / secure-connection overlays.
+  - Registered ForceUpdateState.swift in the app target (F1C00026/B1C00026).
+Backward-compat: additive only. Older builds don't send the header → fail open. Only builds shipping with this handling can render the block, so the first such build is the effective baseline; future floors should be >= it (documented in config.ts). NOTE: pure GoTrue sign-in doesn't traverse the edge server, so the gate engages on the first edge call after launch (heartbeat/dashboard/checkin) — which blocks an old build as soon as it talks to the backend.
+Verification: source-level only (no Deno/Xcode here). pbxproj balance + id counts checked.
+
+--- Iteration FEAT-048: US-IOS048 multiple check-ins/day + undo grace window (2026-06-23) ---
+Full story across edge-functions + a migration + iOS. Backward-compatible (CLAUDE.md §A/B/C). NOT build/DB/device-verified (no Xcode/Deno/Supabase here) — source-level only.
+AC1 slot-aware dedup:
+  - NEW supabase/migrations/00044_checkin_slots.sql: nullable checkins.slot_key; DROP idx_checkins_unique_daily, CREATE idx_checkins_unique_daily_slot keyed on (receiver,family,UTC-day,COALESCE(slot_key,'')). Strictly looser — NULL-slot rows (all shipped clients, single-window receivers, offline syncs) keep one-per-day; only distinct slot_keys coexist same day.
+  - process-checkin-response: accepts slot_key (truncated 20), dedups per-slot, and now uses order+limit(1).maybeSingle (a slotted day legitimately holds >1 row, which would make a day-wide maybeSingle error). Inserts slot_key when present.
+AC2 multi-time custom schedule:
+  - DaySchedule: additive multiTimes:[day:[HH:mm]] (defaulted nil so memberwise init stays source-compatible). Dual-read times(forDayKey:) prefers the array, falls back to the single field; old clients ignore the unknown JSON key.
+  - ReceiverSettingsView custom editor: dayTimes is now [String:[Date]]; per-day add/remove (cap 4). buildCustomSchedule dual-writes earliest into the legacy single field and sets multiTimes only when >1 (single-time payloads stay byte-identical).
+  - Resolver: scheduledTimes/slotsCount/currentSlotKey added; nextScheduledCheckIn iterates every window in a day.
+AC3 undo:
+  - NEW edge-functions/functions/undo-checkin + server.ts route. Authz: receiver-or-service. UNDO_GRACE_SECONDS=180 (config.ts, env-overridable). Deletes the row, its alerts (data->>checkin_id), reopens requests it closed (responded_at >= checked_in_at-60s). Returns 409 once the window lapses.
+  - CheckInService.undoLastCheckIn(familyId:); ReceiverViewModel.undoCheckIn()/undoableUntil (150s client window, auto-clears); Undo button in ReceiverHomeView's checked-in card; checkin.undone analytics event.
+AC4 streak/consistency:
+  - Streaks.currentStreak/consistencyPercent gain expectedPerDay overloads (day complete only when all expected windows hit; consistency denom = expectedPerDay*windowDays, per-day capped). expectedPerDay<=1 delegates to the legacy functions. ReceiverViewModel passes slotsCount(for:); streak block moved after settings load so the count is available.
+Tests: ScheduleResolverTests (multi-window earliest/second slot, slotsCount, currentSlotKey nearest + nil-for-single); StreaksTimezoneTests (expectedPerDay 1-of-2=50%, 2-of-2=100%, per-day cap, streak-requires-all, parity at expectedPerDay=1). Appended to existing target files (no pbxproj change).
+KNOWN SCOPE LIMIT: server-side scheduled-request/escalation generation still keys off the primary checkin_time. Extra custom windows feed the app's next-check-in display, slot dedup, and streak math but do NOT yet generate independent escalation requests — follow-up. Offline-queued check-ins carry no slot_key (avoids a SwiftData migration); a late-synced offline check-in resolves to day-level.

@@ -80,4 +80,58 @@ final class StreaksTimezoneTests: XCTestCase {
         XCTAssertNil(ReceiverViewModel.parseCheckinTime("0900"))
         XCTAssertNil(ReceiverViewModel.parseCheckinTime(""))
     }
+
+    // MARK: - US-IOS048: streak/consistency with multiple windows per day
+
+    func testExpectedPerDayConsistencyHalfWhenOneOfTwoHit() {
+        // One check-in on a 2-window day over a 1-day window → 50%.
+        let iso = ["2026-06-09T08:00:00Z"]
+        let today = date("2026-06-09T22:00:00Z")
+        let pct = Streaks.consistencyPercent(
+            isoTimestamps: iso, expectedPerDay: 2, windowDays: 1, calendar: calendar("UTC"), today: today)
+        XCTAssertEqual(pct, 50)
+    }
+
+    func testExpectedPerDayConsistencyFullWhenBothHit() {
+        let iso = ["2026-06-09T08:00:00Z", "2026-06-09T20:00:00Z"]
+        let today = date("2026-06-09T22:00:00Z")
+        let pct = Streaks.consistencyPercent(
+            isoTimestamps: iso, expectedPerDay: 2, windowDays: 1, calendar: calendar("UTC"), today: today)
+        XCTAssertEqual(pct, 100)
+    }
+
+    func testExpectedPerDayConsistencyCapsPerDay() {
+        // Three check-ins on a 2-window day count at most 2 — no over-credit.
+        let iso = ["2026-06-09T08:00:00Z", "2026-06-09T12:00:00Z", "2026-06-09T20:00:00Z"]
+        let today = date("2026-06-09T22:00:00Z")
+        let pct = Streaks.consistencyPercent(
+            isoTimestamps: iso, expectedPerDay: 2, windowDays: 1, calendar: calendar("UTC"), today: today)
+        XCTAssertEqual(pct, 100)
+    }
+
+    func testExpectedPerDayStreakRequiresAllWindows() {
+        // Yesterday hit both windows, today only one → streak counts yesterday
+        // (complete) but not today (incomplete).
+        let iso = [
+            "2026-06-08T08:00:00Z", "2026-06-08T20:00:00Z", // complete
+            "2026-06-09T08:00:00Z",                          // incomplete
+        ]
+        let today = date("2026-06-09T22:00:00Z")
+        let streak = Streaks.currentStreak(
+            isoTimestamps: iso, expectedPerDay: 2, calendar: calendar("UTC"), today: today)
+        XCTAssertEqual(streak, 1)
+    }
+
+    func testExpectedPerDayOneMatchesLegacy() {
+        // expectedPerDay <= 1 must behave exactly like the single-window API.
+        let iso = ["2026-06-09T08:00:00Z"]
+        let today = date("2026-06-09T22:00:00Z")
+        let cal = calendar("UTC")
+        XCTAssertEqual(
+            Streaks.currentStreak(isoTimestamps: iso, expectedPerDay: 1, calendar: cal, today: today),
+            Streaks.currentStreak(isoTimestamps: iso, calendar: cal, today: today))
+        XCTAssertEqual(
+            Streaks.consistencyPercent(isoTimestamps: iso, expectedPerDay: 1, windowDays: 7, calendar: cal, today: today),
+            Streaks.consistencyPercent(isoTimestamps: iso, windowDays: 7, calendar: cal, today: today))
+    }
 }

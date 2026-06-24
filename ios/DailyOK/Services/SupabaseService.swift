@@ -33,16 +33,23 @@ final class SupabaseService {
         sharedDefaults?.set(Configuration.edgeFunctionsURL, forKey: "edge_functions_url")
     }
 
-    /// Writes the current access token to Keychain (shared via App Group)
-    /// so the Notification Service Extension can confirm delivery.
-    /// Call this after successful auth and on token refresh.
+    /// Mirrors the current session into the shared Keychain so the Notification
+    /// Service Extension and the widget / Siri / watch surfaces can confirm
+    /// delivery and perform a check-in. Call after successful auth and on token
+    /// refresh.
     func syncAccessTokenToExtension() async {
         guard let session = try? await client.auth.session else { return }
-        // Migrate: remove old UserDefaults storage
+        // Migrate away from the two earlier storage locations: the plaintext
+        // App Group UserDefaults key, and the non-access-group Keychain item
+        // (which the extension could never read).
         let sharedDefaults = UserDefaults(suiteName: "group.com.wellvo.ios")
-        if sharedDefaults?.string(forKey: "supabase_access_token") != nil {
-            sharedDefaults?.removeObject(forKey: "supabase_access_token")
-        }
-        _ = KeychainService.save(key: "supabase_access_token", value: session.accessToken)
+        sharedDefaults?.removeObject(forKey: "supabase_access_token")
+        KeychainService.delete(key: "supabase_access_token")
+
+        SharedKeychain.saveTokens(SharedAuthTokens(
+            accessToken: session.accessToken,
+            refreshToken: session.refreshToken,
+            expiresAt: Date(timeIntervalSince1970: session.expiresAt)
+        ))
     }
 }
