@@ -287,9 +287,27 @@ final class AuthViewModel: ObservableObject {
         isLoading = false
     }
 
+    /// Lightweight RFC-ish email format check so we don't tell the user a reset
+    /// link is on the way (or attempt a sign-up) for an obviously-invalid address.
+    func isValidEmail(_ value: String) -> Bool {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.range(of: "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", options: .regularExpression) != nil
+    }
+
+    /// The displayed sign-up password policy, enforced client-side.
+    var passwordMeetsPolicy: Bool { PasswordStrength.meetsPolicy(password) }
+
     func signUpWithEmail() async {
         guard !email.isEmpty, !password.isEmpty, !displayName.isEmpty else {
             errorMessage = "Please fill in all fields"
+            return
+        }
+        guard isValidEmail(email) else {
+            errorMessage = "Please enter a valid email address"
+            return
+        }
+        guard passwordMeetsPolicy else {
+            errorMessage = "Password must be 10+ characters with an uppercase letter, a lowercase letter, and a number."
             return
         }
         guard !isLockedOut() else { return }
@@ -380,6 +398,12 @@ final class AuthViewModel: ObservableObject {
     func sendPasswordReset() async {
         guard !email.isEmpty else {
             errorMessage = "Please enter your email address"
+            return
+        }
+        guard isValidEmail(email) else {
+            // Don't show the "link sent" success for an obviously-wrong address —
+            // the user would wait for an email that can never arrive.
+            errorMessage = "Please enter a valid email address"
             return
         }
 

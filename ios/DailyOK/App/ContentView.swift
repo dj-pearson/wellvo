@@ -179,6 +179,13 @@ struct ForceUpdateView: View {
     let updateURL: URL?
     @Environment(\.openURL) private var openURL
 
+    /// Never leave the only CTA dead: if both the server URL and the bundled
+    /// App Store URL failed to parse, fall back to an App Store search so the
+    /// user can always reach an update.
+    private var effectiveURL: URL {
+        updateURL ?? URL(string: "https://apps.apple.com/search?term=Daily%20OK")!
+    }
+
     var body: some View {
         ZStack {
             Color(.systemBackground).ignoresSafeArea()
@@ -195,7 +202,7 @@ struct ForceUpdateView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
                 Button {
-                    if let updateURL { openURL(updateURL) }
+                    openURL(effectiveURL)
                 } label: {
                     Text("Update Now")
                         .fontWeight(.semibold)
@@ -206,7 +213,6 @@ struct ForceUpdateView: View {
                 .tint(.green)
                 .padding(.horizontal, 40)
                 .padding(.top, 8)
-                .disabled(updateURL == nil)
             }
             .padding()
             .accessibilityElement(children: .combine)

@@ -3506,8 +3506,8 @@
         "Verified: an 8-char password is rejected client-side with guidance matching the displayed rule"
       ],
       "priority": 172,
-      "passes": false,
-      "notes": "P3. ios/DailyOK/Views/Auth/AuthView.swift:~210-237 (no focus chain), ~244 (policy copy), ~252 (forgot pw); AuthViewModel.swift:~291 (no pre-validation), ~381-401 (reset only checks .isEmpty); PasswordStrength.swift:~39-66 (diversity-only meter)."
+      "passes": true,
+      "notes": "P3. ios/DailyOK/Views/Auth/AuthView.swift:~210-237 (no focus chain), ~244 (policy copy), ~252 (forgot pw); AuthViewModel.swift:~291 (no pre-validation), ~381-401 (reset only checks .isEmpty); PasswordStrength.swift:~39-66 (diversity-only meter). [2026-06-24] DONE: AuthView name/email/password now chain via @FocusState (keyboard Next advances). signUpWithEmail and sendPasswordReset validate email format (isValidEmail) before acting — a typo no longer yields a fake reset-link success. Added PasswordStrength.meetsPolicy and AuthViewModel.passwordMeetsPolicy; Create Account is disabled until the displayed 10+/upper/lower/number policy is met, and sign-up rejects sub-policy passwords client-side. Needs build + QA."
     },
     {
       "id": "US-IOS074",
@@ -3520,8 +3520,8 @@
         "Verified: a failed digest/retention save shows an error"
       ],
       "priority": 173,
-      "passes": false,
-      "notes": "P3. ios/DailyOK/Views/Settings/CaregiverDigestView.swift:~64-73,~109-126; SettingsView.swift:~326-335,~366-387 (saveRetention); ReceiverSettingsView.swift:~364-389 (sub-44pt schedule buttons)."
+      "passes": true,
+      "notes": "P3. ios/DailyOK/Views/Settings/CaregiverDigestView.swift:~64-73,~109-126; SettingsView.swift:~326-335,~366-387 (saveRetention); ReceiverSettingsView.swift:~364-389 (sub-44pt schedule buttons). [2026-06-24] DONE: CaregiverDigestView.save and DataRetentionView.saveRetention now surface failures via an alert + error haptic + VoiceOver announcement (were swallowed into Log only); the Saved capsule is accessibilityHidden. Custom-schedule add/remove-time buttons now have 44pt min hit targets + contentShape. Needs build + QA."
     },
     {
       "id": "US-IOS075",
@@ -3547,8 +3547,8 @@
         "Verified: switching roles or deep-linking does not leave a viewer on an unexpected tab, and the update button is always actionable"
       ],
       "priority": 175,
-      "passes": false,
-      "notes": "P3 edge cases. ios/DailyOK/App/ContentView.swift:~187-199 (button disabled when updateURL nil); AppState.swift:~8 (selectedTab shared across Owner/Viewer tab sets)."
+      "passes": true,
+      "notes": "P3 edge cases. ios/DailyOK/App/ContentView.swift:~187-199 (button disabled when updateURL nil); AppState.swift:~8 (selectedTab shared across Owner/Viewer tab sets). [2026-06-24] DONE: ForceUpdateView now uses an effectiveURL with an App Store search fallback so the Update button is never permanently disabled/dead. ViewerTabView clamps a leftover .family selectedTab (owner-only tab) to .dashboard on appear, fixing the no-matching-tab state after an ownership transfer or deep link. Needs build + QA."
     }
   ]
 }

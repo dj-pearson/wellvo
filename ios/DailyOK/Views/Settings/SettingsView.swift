@@ -297,6 +297,7 @@ struct DataRetentionView: View {
     @State private var retentionDays: Int = 365
     @State private var isLoading = true
     @State private var showSaved = false
+    @State private var errorMessage: String?
 
     private let retentionOptions = [90, 180, 365, 730]
 
@@ -331,7 +332,16 @@ struct DataRetentionView: View {
                     .background(.green, in: Capsule())
                     .foregroundStyle(.white)
                     .transition(.scale.combined(with: .opacity))
+                    .accessibilityHidden(true) // announced via UIAccessibility.post
             }
+        }
+        .alert("Couldn't Save", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
         }
         .task { await loadRetention() }
     }
@@ -383,6 +393,9 @@ struct DataRetentionView: View {
             }
         } catch {
             Log.settings.error("Failed to save retention: \(error.localizedDescription, privacy: .public)")
+            DailyOKHaptics.error()
+            errorMessage = DailyOKError.network(error).localizedDescription
+            UIAccessibility.post(notification: .announcement, argument: "Couldn't save data retention")
         }
     }
 }

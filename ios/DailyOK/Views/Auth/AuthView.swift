@@ -9,7 +9,10 @@ struct AuthView: View {
     @State private var isSignUp = false
     @State private var showEmailAuth = false
     @State private var joinViaCode = false
+    @FocusState private var focusedField: AuthField?
     @ScaledMetric(relativeTo: .largeTitle) private var logoSize: CGFloat = 80
+
+    private enum AuthField: Hashable { case name, email, password }
 
     var body: some View {
         NavigationStack {
@@ -212,6 +215,8 @@ struct AuthView: View {
                     .textContentType(.name)
                     .autocorrectionDisabled()
                     .submitLabel(.next)
+                    .focused($focusedField, equals: .name)
+                    .onSubmit { focusedField = .email }
             }
 
             TextField("Email", text: $authViewModel.email)
@@ -221,11 +226,14 @@ struct AuthView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.next)
+                .focused($focusedField, equals: .email)
+                .onSubmit { focusedField = .password }
 
             SecureField("Password", text: $authViewModel.password)
                 .textFieldStyle(.roundedBorder)
                 .textContentType(isSignUp ? .newPassword : .password)
                 .submitLabel(.go)
+                .focused($focusedField, equals: .password)
                 .onSubmit {
                     Task {
                         if isSignUp {
@@ -294,7 +302,9 @@ struct AuthView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(.green)
-            .disabled(authViewModel.isLoading)
+            // On sign-up, enforce the exact policy the copy promises so the user
+            // isn't shown "Good" and then rejected by the server.
+            .disabled(authViewModel.isLoading || (isSignUp && !authViewModel.passwordMeetsPolicy))
 
             Button {
                 if reduceMotion {

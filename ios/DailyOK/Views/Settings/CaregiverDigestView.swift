@@ -12,6 +12,7 @@ struct CaregiverDigestView: View {
     @State private var hour: Int = 8
     @State private var isLoading = true
     @State private var showSaved = false
+    @State private var errorMessage: String?
 
     private struct DigestPrefs: Encodable {
         let digest_frequency: String
@@ -69,7 +70,16 @@ struct CaregiverDigestView: View {
                     .background(.green, in: Capsule())
                     .foregroundStyle(.white)
                     .transition(.scale.combined(with: .opacity))
+                    .accessibilityHidden(true) // announced via UIAccessibility.post
             }
+        }
+        .alert("Couldn't Save", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
         }
         .task { await load() }
     }
@@ -122,6 +132,9 @@ struct CaregiverDigestView: View {
             withAnimation { showSaved = false }
         } catch {
             Log.settings.error("Failed to save digest prefs: \(error.localizedDescription, privacy: .public)")
+            DailyOKHaptics.error()
+            errorMessage = DailyOKError.network(error).localizedDescription
+            UIAccessibility.post(notification: .announcement, argument: "Couldn't save digest settings")
         }
     }
 }

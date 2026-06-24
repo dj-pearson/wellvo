@@ -383,6 +383,8 @@ struct ReceiverSettingsView: View {
                                     } label: {
                                         Image(systemName: "minus.circle.fill")
                                             .foregroundStyle(.red)
+                                            .frame(minWidth: 44, minHeight: 44)
+                                            .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.borderless)
                                     .accessibilityLabel("Remove this time")
@@ -398,6 +400,8 @@ struct ReceiverSettingsView: View {
                             } label: {
                                 Label("Add time", systemImage: "plus.circle")
                                     .font(.subheadline)
+                                    .frame(minHeight: 44)
+                                    .contentShape(Rectangle())
                             }
                             .buttonStyle(.borderless)
                             .frame(maxWidth: .infinity, alignment: .trailing)
