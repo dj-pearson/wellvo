@@ -3185,6 +3185,370 @@
       "priority": 149,
       "passes": true,
       "notes": "INFRA/FEATURE-GAP. Referenced in CLAUDE.md but no force-update check exists in EdgeFunctionsClient or auth/checkin. Files: ios/DailyOK/Services/EdgeFunctionsClient.swift, edge-functions/shared/config.ts."
+    },
+    {
+      "id": "US-IOS051",
+      "title": "Remove debug raw-error leak from email sign-in",
+      "description": "As a user, I want a clean, non-technical message when sign-in fails, so that I'm not shown raw internal/Supabase error text.",
+      "acceptanceCriteria": [
+        "AuthViewModel email sign-in no longer sets errorMessage to \"Sign-in error: \\(error)\" (raw interpolated Swift error)",
+        "Failed sign-in uses error.localizedDescription (or a mapped user-friendly string), matching signUp's existing behavior",
+        "The explicit 'Temporary... revert before shipping' debug comment is removed",
+        "No code path in Auth surfaces a raw error object or internal detail to the UI"
+      ],
+      "priority": 150,
+      "passes": false,
+      "notes": "P1 BUG. ios/DailyOK/ViewModels/AuthViewModel.swift:~283 has a debug leak with a 'revert before shipping' comment; signUp at ~312 already uses localizedDescription. Quick fix."
+    },
+    {
+      "id": "US-IOS052",
+      "title": "Notification-permission denial must not dead-end onboarding",
+      "description": "As an owner or receiver who denies notifications during onboarding, I want clear guidance and a recoverable path, so that I'm not silently walked into a 'You're all set' state with a broken core feature.",
+      "acceptanceCriteria": [
+        "Owner onboarding (OnboardingViewModel) no longer sets an errorMessage and immediately advance()s past the notifications step on denial",
+        "On denial the user stays on the notifications step and sees inline guidance with an 'Open Settings' button (UIApplication.openSettingsURLString) plus an explicit 'Continue anyway' action",
+        "Receiver onboarding behaves the same: denying notifications shows guidance before the success screen instead of advancing regardless of grant result",
+        "The denied/disabled state is consistent with the existing 'notifications disabled' warning banner shown elsewhere"
+      ],
+      "priority": 151,
+      "passes": false,
+      "notes": "P1 UX dead-end. ios/DailyOK/ViewModels/OnboardingViewModel.swift:~97-105 (auto-advance on denial); ios/DailyOK/Views/Onboarding/ReceiverOnboardingView.swift:~151-160 ('let _ = ...' advances regardless). Core failure mode for a check-in app."
+    },
+    {
+      "id": "US-IOS053",
+      "title": "Make Transfer Ownership atomic and re-route the demoted owner immediately",
+      "description": "As an owner transferring the family to another member, I want the change to be all-or-nothing and to immediately reflect my new Viewer role, so that a partial failure can't leave the family broken and I don't keep seeing owner-only controls.",
+      "acceptanceCriteria": [
+        "The three sequential client writes (families.owner_id, new member -> owner, old owner -> viewer) are replaced by a single transactional server-side RPC so the operation cannot partially apply",
+        "On success, appState.currentUserRole is set to .viewer immediately so ContentView swaps OwnerTabView for ViewerTabView without an app relaunch",
+        "The members list and any owner-only affordances (Invite, swipe Remove/Transfer, Subscription/billing) disappear right after transfer",
+        "A failed/partial transfer surfaces a clear error and leaves the family in its original valid state"
+      ],
+      "priority": 152,
+      "passes": false,
+      "notes": "P1 data-integrity + stale-UI. ios/DailyOK/Views/Owner/FamilyView.swift:~231-262 does 3 non-atomic writes; appState.currentUserRole is never updated post-transfer. Needs an RPC (supabase/migrations) per CLAUDE.md 'new RPC is always safe'."
+    },
+    {
+      "id": "US-IOS054",
+      "title": "Quiet Hours can be turned off and settings never save stale defaults over real config",
+      "description": "As an owner configuring a receiver, I want disabling Quiet Hours to actually persist and I never want unsaved defaults to overwrite the real saved schedule/escalation config, so that a receiver's safety-critical settings aren't silently corrupted.",
+      "acceptanceCriteria": [
+        "When quietHoursEnabled is toggled off, saveSettings explicitly writes quiet_hours_start and quiet_hours_end to null so the change persists (currently the keys are omitted and old values remain, re-enabling the toggle on next open)",
+        "The Save button is disabled while loadSettings() is in flight (isLoading) so the user can't save the @State defaults over server data before load completes",
+        "If loadSettings() fails (network), the form does not present editable defaults that can be saved over real data; it shows an error/retry state instead",
+        "Verified round-trip: enable quiet hours, save, reopen, disable, save, reopen -> stays disabled"
+      ],
+      "priority": 153,
+      "passes": false,
+      "notes": "P1 safety-critical config corruption. ios/DailyOK/Views/Settings/ReceiverSettingsView.swift:~479 (load forces quietHoursEnabled true when columns non-nil), ~526-529 (save omits null), Save toolbar uses .disabled(isSaving) only (~254-265)."
+    },
+    {
+      "id": "US-IOS055",
+      "title": "Invite deep link must not hijack or demote an existing member",
+      "description": "As an already-onboarded owner or viewer, I want tapping a family-invite link to not replace my app with the receiver onboarding flow and silently demote me to a receiver, so that I can't lose my role and access by accident.",
+      "acceptanceCriteria": [
+        "handleDeepLink ignores/guards a pending invite token when appState.currentUserRole is already set (existing member), or ContentView only honors pendingInviteToken when role is nil",
+        "ReceiverOnboardingView no longer unconditionally sets currentUserRole = .receiver from its forward button when the user is already a member",
+        "If the invite flow is ever shown, it has a 'Not now / Cancel' action that clears pendingInviteToken and returns to the prior root",
+        "Verified: an owner tapping an invite link stays an owner"
+      ],
+      "priority": 154,
+      "passes": false,
+      "notes": "P1 routing/role bug. ios/DailyOK/App/ContentView.swift:~18 (pendingInviteToken is top routing branch), DailyOKApp.swift:~57 (set unconditionally), ReceiverOnboardingView.swift:~198-203 (forces .receiver)."
+    },
+    {
+      "id": "US-IOS056",
+      "title": "Paywall must surface purchase failures, pending state, loading and errors",
+      "description": "As a user on the subscription screen, I want to see what's happening when I tap to subscribe and when products are loading, so that a failed/pending purchase or a slow product load isn't a silent no-op.",
+      "acceptanceCriteria": [
+        "SubscriptionView binds SubscriptionService.errorMessage to an alert/inline banner; purchase is no longer fired with 'try?' swallowing failures",
+        "The StoreKit .pending (Ask-to-Buy) and 'activated but sync pending' states are shown explicitly instead of appearing as a dead button",
+        "While isLoading && products.isEmpty the view shows a ProgressView; a product-load failure shows an error with retry instead of a blank plan list",
+        "Verified: a cancelled/failed purchase produces visible feedback"
+      ],
+      "priority": 155,
+      "passes": false,
+      "notes": "P1/P2 silent paywall. ios/DailyOK/Views/Settings/SettingsView.swift:~445-490 (SubscriptionView never reads isLoading/errorMessage), ~470 (try? purchase). SubscriptionService sets errorMessage at ~62,127,248."
+    },
+    {
+      "id": "US-IOS057",
+      "title": "Receiver-onboarding invite failure: block success, add retry and cancel",
+      "description": "As a receiver whose invite fails to redeem, I want to be told and given a way to retry or cancel, so that I'm not turned into a receiver of no family with no recovery path.",
+      "acceptanceCriteria": [
+        "When acceptInvite(token:)/acceptInviteByToken throws, the flow does not advance to the 'You're all set' / 'Start Checking In' success step",
+        "A 'Try again' button re-runs the join, and a 'Cancel' button clears pendingInviteToken/pendingAutoJoin and returns to the prior root",
+        "The error message is visible at the point of failure (not only on step 0), with copy explaining the invite may be expired",
+        "The user never becomes currentUserRole = .receiver without a successful family join"
+      ],
+      "priority": 156,
+      "passes": false,
+      "notes": "P2 dead-end. ios/DailyOK/Views/Onboarding/ReceiverOnboardingView.swift:~106,~226-234. Related to US-IOS055 routing guard."
+    },
+    {
+      "id": "US-IOS058",
+      "title": "Pairing-code entry: persist lockout, show backoff feedback, gate auto-focus",
+      "description": "As a user entering a pairing code, I want the attempt lockout to actually hold and the wait between attempts to be visible, so that the lockout isn't trivially bypassable and I don't think my taps are being ignored.",
+      "acceptanceCriteria": [
+        "failedAttempts / isLockedOut / lockoutEndTime are persisted (e.g. UserDefaults keyed per device) so leaving and reopening the screen does not reset the 10-attempt/15-min lockout, matching AuthViewModel's persisted lockout",
+        "During exponential backoff the UI shows a waiting/disabled-progress state (e.g. 'Please wait…') set before the Task.sleep, not after",
+        "SegmentedCodeField does not force-focus on appear when the field is disabled (locked out / submitting); auto-focus is gated or host-controlled",
+        "Verified: failing the limit, backing out, and returning keeps the user locked out"
+      ],
+      "priority": 157,
+      "passes": false,
+      "notes": "P2. ios/DailyOK/Views/Onboarding/PairingCodeEntryView.swift:~13-15,~184-200 (local @State lockout, sleep before isSubmitting); ios/DailyOK/Views/Components/SegmentedCodeField.swift:~41 (unconditional onAppear focus)."
+    },
+    {
+      "id": "US-IOS059",
+      "title": "Owner analytics must use the receiver's timezone, not the device's",
+      "description": "As an owner in a different timezone than a receiver, I want the heatmap, trend chart, and weekly averages to bucket and judge on-time/late by the receiver's timezone, so that on-time check-ins aren't shown as late and day buckets don't shift.",
+      "acceptanceCriteria": [
+        "CalendarHeatmapView uses the receiver's timezone (Calendar.forTimezone) for day bucketing and for comparing check-in time vs scheduled HH:mm, instead of Calendar.current",
+        "CheckInTrendChartView weekly bucketing uses the receiver's timezone",
+        "DashboardViewModel weekly-average / on-time computations use the receiver's timezone consistently with resolveStatus",
+        "Verified with an owner device timezone offset from the receiver: a check-in exactly at the scheduled time is not colored 'late'"
+      ],
+      "priority": 158,
+      "passes": false,
+      "notes": "P2 correctness. Heatmap ~98,126-127; CheckInTrendChartView ~155; DashboardViewModel weekly avg ~467 all use Calendar.current while resolveStatus already uses Calendar.forTimezone. Files under ios/DailyOK/Views/Owner."
+    },
+    {
+      "id": "US-IOS060",
+      "title": "Heatmap must not mark pre-enrollment, unscheduled, or paused days as 'Missed'",
+      "description": "As an owner viewing a recently-added receiver, I want days before they joined (and days with no scheduled check-in, and paused days) to read as 'no data' rather than red 'Missed', so that I'm not falsely alarmed.",
+      "acceptanceCriteria": [
+        "Days before the receiver's enrollment/created date are rendered as neutral 'No data' (gray), never red 'Missed'",
+        "Days with no scheduled check-in (weekend/custom/paused schedule) are not counted as 'Missed'",
+        "Only days the receiver was enrolled AND had a scheduled check-in with no response are shown as 'Missed'",
+        "Month-label alignment is correct for short/partial windows (no integer-division collapse)",
+        "Verified: a receiver added 5 days ago over a 30-day window shows ~25 'No data' cells, not 25 red 'Missed'"
+      ],
+      "priority": 159,
+      "passes": false,
+      "notes": "P2 false-alarm. ios/DailyOK/Views/Owner/CalendarHeatmapView.swift:~136-139 (unconditional Missed), ~189,198 (weeks: max(1, weekCount/7) integer-div label drift)."
+    },
+    {
+      "id": "US-IOS061",
+      "title": "On-demand check-in feedback and stand-down confirmation",
+      "description": "As an owner, I want a clear confirmation when I send an on-demand 'Check on X' request and a confirmation prompt before I stand down an active escalation, so that I know my tap worked and I can't silence safety alerts by accident.",
+      "acceptanceCriteria": [
+        "Tapping 'Check on X' gives transient confirmation (haptic + 'Request sent' toast) and briefly disables the button to prevent duplicate pushes",
+        "'I've reached them — stand down' shows a confirmation alert ('Stop alerts for X? Only do this if you've confirmed they're OK.') before cancelEscalation runs",
+        "On-demand send failure surfaces an error instead of silently doing nothing",
+        "Both actions post VoiceOver announcements consistent with other dashboard actions"
+      ],
+      "priority": 160,
+      "passes": false,
+      "notes": "P2. ios/DailyOK/Views/Owner/DashboardView.swift:~537-553 (on-demand, no feedback), ~511 (stand-down, no confirm); DashboardViewModel ~232-242,~246."
+    },
+    {
+      "id": "US-IOS062",
+      "title": "Resend Invite: show loading/success/error and use the real check-in time",
+      "description": "As an owner re-sending an invite, I want to see whether the SMS went out and I want it to use the receiver's actual schedule, so that I'm not left guessing and the invite doesn't silently reset their check-in time.",
+      "acceptanceCriteria": [
+        "resendInvite shows a loading state, a success indicator, and surfaces errors instead of being a silent 'try?'",
+        "The resend passes the member's real configured check-in time instead of the hardcoded '08:00'",
+        "The button is disabled while the resend is in flight",
+        "Verified: a failed resend shows an error; a successful one shows confirmation"
+      ],
+      "priority": 161,
+      "passes": false,
+      "notes": "P2. ios/DailyOK/Views/Owner/FamilyView.swift:~220-229 (silent try?, hardcoded checkinTime '08:00')."
+    },
+    {
+      "id": "US-IOS063",
+      "title": "History tab reloads on tab switch/foreground and supports pull-to-refresh",
+      "description": "As an owner, I want the History tab's member list and data to refresh when I switch to it, return to the app, or pull down, so that it isn't stale after I add or remove a receiver.",
+      "acceptanceCriteria": [
+        "HistoryView reloads members/data on appState.selectedTab change to History and on scenePhase active, mirroring DashboardView",
+        "The History scroll view supports .refreshable pull-to-refresh",
+        "After inviting/removing a receiver, the History selector reflects it without an app relaunch",
+        "The receiver chip row has a scroll affordance and chips meet the 44pt minimum hit target"
+      ],
+      "priority": 162,
+      "passes": false,
+      "notes": "P2 stale data + P3 a11y. ios/DailyOK/Views/Owner/HistoryView.swift:~146-149 (load only in .task), ~29-59 (chip row, vertical 8 padding ~30pt)."
+    },
+    {
+      "id": "US-IOS064",
+      "title": "PDF export shows progress and generates off the main actor",
+      "description": "As an owner exporting a check-in report, I want a progress indicator and a responsive UI during generation, so that large histories don't freeze the app with no feedback.",
+      "acceptanceCriteria": [
+        "exportPDF shows a progress/loading state while the report is generated",
+        "PDF rendering for large datasets (e.g. 90 days) does not block the main actor (generate off-main or chunk), keeping the UI responsive",
+        "If generated pdfData is empty, an error is surfaced rather than presenting an empty share sheet",
+        "Verified: exporting a 90-day report keeps the UI responsive and shows progress"
+      ],
+      "priority": 163,
+      "passes": false,
+      "notes": "P2. ios/DailyOK/Views/Owner/HistoryView.swift:~138-144,~189-203; CheckInReportGenerator.swift:~17 (synchronous @MainActor UIGraphicsPDFRenderer)."
+    },
+    {
+      "id": "US-IOS065",
+      "title": "Paywall: Restore + dismiss, tier grouping, real savings %, system manage-subscription",
+      "description": "As a user on the subscription screen (especially when it's presented as a sheet from Family), I want a Restore Purchases button, a way to close it, clearly grouped plans, an accurate savings badge, and a real way to manage an active subscription, so that the paywall is usable and App Review compliant.",
+      "acceptanceCriteria": [
+        "SubscriptionView includes a 'Restore Purchases' button wherever it's shown (not only in SettingsView), and when presented as a sheet it is wrapped so it has a Done/Close affordance",
+        "The plan list groups products into tiers (Caregiver/Family/Family+) with monthly/yearly options and excludes add-on SKUs (addonReceiver/addonViewer) from the main plan list",
+        "The annual savings badge is computed from actual StoreKit monthly vs yearly prices (or omitted), not a hardcoded 15%",
+        "For active subscribers, 'Manage Subscription' opens StoreKit's manageSubscriptionsSheet / App Store management instead of re-showing the marketing paywall"
+      ],
+      "priority": 164,
+      "passes": false,
+      "notes": "P2 + App Review risk. ios/DailyOK/Views/Owner/FamilyView.swift:~170-172 (bare .sheet, no nav/Done); SettingsView.swift:~96-98 (manage links to paywall), ~426-434 (hardcoded 15%, dead 'annual' string match), ~446 (iterates all products incl add-ons). Restore lives only at SettingsView:~100."
+    },
+    {
+      "id": "US-IOS066",
+      "title": "Owner onboarding invite flow: back nav, phone validation, keyboard focus, dedupe",
+      "description": "As an owner going through onboarding, I want to be able to go back, have my inputs validated, dismiss the keyboard, and not hit two divergent invite flows, so that the setup is forgiving and consistent.",
+      "acceptanceCriteria": [
+        "A back affordance (calling the existing goBack()) is shown in the onboarding header for steps after .welcome so a mis-tap (e.g. wrong user type) is recoverable",
+        "The onboarding invite validates the phone number (>= 10 digits) and trims/validates the name before enabling Send Invite, matching FirstReceiverWalkthroughView/AuthViewModel",
+        "Invite TextFields use @FocusState with next/done chaining and a keyboard 'Done' toolbar so the keyboard can be dismissed to reach the DatePicker/buttons",
+        "The onboarding invite and FirstReceiverWalkthrough invite share one validated invite path; userTypeSelection is either persisted/used or the step is removed"
+      ],
+      "priority": 165,
+      "passes": false,
+      "notes": "P2. ios/DailyOK/Views/Onboarding/OnboardingView.swift:~137-138 (userTypeSelection unused, no back), ~171,206-244 (no focus/validation); OnboardingViewModel.swift:~67-95 (only .isEmpty check). Model: FirstReceiverWalkthroughView.swift:~159-166."
+    },
+    {
+      "id": "US-IOS067",
+      "title": "Respect Reduce Transparency across glass surfaces and AmbientBackground",
+      "description": "As a user with Reduce Transparency enabled (an accessibility/legibility setting), I want frosted glass surfaces and the ambient background to fall back to opaque fills, so that text stays legible across the app.",
+      "acceptanceCriteria": [
+        "glassCard/glassPill/GlassCardModifier fall back to an opaque fill (e.g. Color(.secondarySystemBackground)) when accessibilityReduceTransparency is on, instead of always using the blur material",
+        "AmbientBackground flattens to its base color (no translucent mesh/orbs) under Reduce Transparency",
+        "The change applies app-wide since these modifiers back the nav bar, chips, and sheets",
+        "Verified visually with Reduce Transparency on: no low-contrast translucent text backgrounds remain"
+      ],
+      "priority": 166,
+      "passes": false,
+      "notes": "P2 a11y, app-wide. ios/DailyOK/Utilities/Theme.swift:~133-188 (glass modifiers), ~202-229 (AmbientBackground). Reduce Motion is already honored; Reduce Transparency is ignored."
+    },
+    {
+      "id": "US-IOS068",
+      "title": "Dark-mode contrast for status chips and cards",
+      "description": "As a dark-mode user, I want streak/consistency chips, the paywall feature cards, and empty-state cards to adapt to dark mode, so that I don't get bright light-only patches with poor surrounding contrast.",
+      "acceptanceCriteria": [
+        "StreakChip and ConsistencyChip derive fills/foregrounds from semantic/adaptive tokens (or provide dark-mode variants) instead of fixed light-mode sRGB values",
+        "PaywallFeatureCard icon backing and card gradient adapt to color scheme (no literal .white circle / light-only gradient)",
+        "EmptyStateView icon circle adapts to dark mode and its secondary button meets the 44pt minimum hit target",
+        "Root cause addressed: the DailyOKColor ramp tokens used for backgrounds get dark-mode variants or are replaced by adaptive assets where they fill surfaces"
+      ],
+      "priority": 167,
+      "passes": false,
+      "notes": "P2 dark-mode. ios/DailyOK/Views/Components/StreakBadge.swift:~32-42,~117-121; PaywallFeatureCarousel.swift:~53-55; EmptyStateView.swift:~18-24,~49-52. Ramp lives in Theme.swift (no dark variants); Colors.swift DailyOKGreen asset is adaptive but bypassed."
+    },
+    {
+      "id": "US-IOS069",
+      "title": "FloatingBottomNav: Dynamic Type, Reduce Motion, safe area, badge polish",
+      "description": "As a user, I want the floating bottom nav to handle large text, respect Reduce Motion, sit clear of the home indicator, and announce/clamp badges, so that it doesn't clip, animate against my settings, or obscure content.",
+      "acceptanceCriteria": [
+        "The selected-item label uses lineLimit(1)/minimumScaleFactor (or hides above an accessibility text size) so large Dynamic Type or long labels don't truncate icons or overflow the pill",
+        "The pill-slide animation and symbol bounce are gated on accessibilityReduceMotion",
+        "The bar respects the bottom safe area (not a hardcoded 12pt) and hosts get a matching content inset so the last scroll row isn't obscured",
+        "Badge counts are clamped (e.g. '99+') and included in the VoiceOver label/value (e.g. 'N new')"
+      ],
+      "priority": 168,
+      "passes": false,
+      "notes": "P2. ios/DailyOK/Views/Components/FloatingBottomNav.swift:~35-37 (motion), ~46 (hardcoded bottom pad), ~60-78 (label/bounce), ~61-69,102-104 (badge)."
+    },
+    {
+      "id": "US-IOS070",
+      "title": "Fix tel: dialing scheme and verify contact-action contrast",
+      "description": "As a caregiver acting during an escalation, I want the Call button to reliably dial, so that a malformed URL scheme doesn't fail at the worst moment.",
+      "acceptanceCriteria": [
+        "ContactQuickActions uses the correct 'tel:\\(number)' scheme instead of the non-standard 'tel://\\(number)'",
+        "The sms: action remains correct and consistent",
+        "Call/FaceTime/Text tint colors are verified to meet AA contrast on the thin-material glass background (adjust if not)",
+        "Verified: Call launches the dialer with the number prefilled"
+      ],
+      "priority": 169,
+      "passes": false,
+      "notes": "P2, escalation-critical. ios/DailyOK/Views/Components/ContactQuickActions.swift:~23-25 (tel:// malformed; sms: is fine)."
+    },
+    {
+      "id": "US-IOS071",
+      "title": "Receiver feedback fixes: offline audio cue, durable Undo, clearing snooze text",
+      "description": "As a receiver (often low-vision/elderly), I want an audible cue when an offline check-in is saved, an Undo button that survives the app backgrounding within the grace window, and snooze confirmations that clear, so that the home screen state is always trustworthy.",
+      "acceptanceCriteria": [
+        "When audio confirmation is enabled and the check-in is saved offline, a distinct spoken phrase is played (e.g. 'Saved. Will send when you're back online.') instead of silence",
+        "The Undo affordance is derived from a persisted deadline (e.g. lastCheckIn.checkedInAt + undoGraceSeconds) so it survives loadStatus()/foreground reloads within the grace window, not only the in-memory performCheckIn path",
+        "snoozeConfirmation is cleared on reload/after check-in (or auto-dismisses) so a stale 'Snoozed for 15 minutes' can't reappear",
+        "Verified: background and return within the grace window still shows Undo"
+      ],
+      "priority": 170,
+      "passes": false,
+      "notes": "P2 a11y/trust. ios/DailyOK/Views/Receiver/ReceiverHomeView.swift:~307-312 (audio gated on !isOffline), ~463-484 (Undo from undoableUntil only); ReceiverViewModel.swift:~189-215,~548-558 (snoozeConfirmation never cleared; undoableUntil not repopulated in loadStatus)."
+    },
+    {
+      "id": "US-IOS072",
+      "title": "CelebrationOverlay: cancel timer on early dismiss and announce to VoiceOver",
+      "description": "As a user, I want the celebration overlay to stop cleanly if it's dismissed early and to be announced to VoiceOver, so that completion handlers don't fire on a torn-down view and blind users get the confirmation.",
+      "acceptanceCriteria": [
+        "The 1.0s completion chain is driven by a cancellable Task / guarded by isVisible so onComplete and state mutations don't fire after the parent flips isVisible=false",
+        "On appear, the overlay posts a UIAccessibility announcement (e.g. 'Success') so VoiceOver users get the confirmation",
+        "The success element has appropriate accessibility traits and is focusable",
+        "Verified: dismissing before the timer elapses does not call onComplete"
+      ],
+      "priority": 171,
+      "passes": false,
+      "notes": "P2. ios/DailyOK/Views/Components/CelebrationOverlay.swift:~76-88 (DispatchQueue.main.asyncAfter, unconditional; no a11y announcement)."
+    },
+    {
+      "id": "US-IOS073",
+      "title": "Email auth flow: focus chaining, email-format validation, enforce stated password policy",
+      "description": "As a user signing up or resetting a password, I want keyboard 'Next' to move between fields, my email to be format-checked, and the password rules I'm shown to actually be enforced, so that I don't get misleading affordances or a server rejection after a 'Good' meter.",
+      "acceptanceCriteria": [
+        "Name -> Email -> Password fields use @FocusState chaining so the keyboard 'Next' button advances focus (currently a no-op)",
+        "Email is format-validated before sign-up and before sending a password reset; an invalid/typo'd email prompts correction instead of showing the generic 'you'll receive a link' success",
+        "The stated password policy (10+ chars with uppercase, lowercase, and a number) is enforced client-side before Create Account is enabled, and the strength meter is reconciled with that policy",
+        "Verified: an 8-char password is rejected client-side with guidance matching the displayed rule"
+      ],
+      "priority": 172,
+      "passes": false,
+      "notes": "P3. ios/DailyOK/Views/Auth/AuthView.swift:~210-237 (no focus chain), ~244 (policy copy), ~252 (forgot pw); AuthViewModel.swift:~291 (no pre-validation), ~381-401 (reset only checks .isEmpty); PasswordStrength.swift:~39-66 (diversity-only meter)."
+    },
+    {
+      "id": "US-IOS074",
+      "title": "Surface save errors in Caregiver Digest / Data Retention and enlarge schedule buttons",
+      "description": "As a user saving digest or data-retention settings, I want failures shown instead of silently swallowed, and as a caregiver editing a custom schedule I want comfortably-sized add/remove buttons, so that I'm never unsure whether a save worked and the controls aren't fiddly.",
+      "acceptanceCriteria": [
+        "CaregiverDigestView.save and DataRetentionView.saveRetention surface save failures via toast/alert (matching ReceiverSettingsView), not just Log.error",
+        "The transient green 'Saved' capsule is marked accessibilityHidden and the accompanying UIAccessibility announcement is confirmed to fire",
+        "The custom-schedule minus.circle.fill / plus.circle buttons get .frame(minWidth: 44, minHeight: 44) and .contentShape(Rectangle()) to meet the 44pt hit target",
+        "Verified: a failed digest/retention save shows an error"
+      ],
+      "priority": 173,
+      "passes": false,
+      "notes": "P3. ios/DailyOK/Views/Settings/CaregiverDigestView.swift:~64-73,~109-126; SettingsView.swift:~326-335,~366-387 (saveRetention); ReceiverSettingsView.swift:~364-389 (sub-44pt schedule buttons)."
+    },
+    {
+      "id": "US-IOS075",
+      "title": "Consistency math and receiver-limit counting honor real schedule and status",
+      "description": "As an owner, I want consistency percentages and the receiver-limit count to reflect each receiver's actual schedule and active status, so that weekday-only/paused receivers don't drag consistency below 100% and deactivated receivers don't consume a paywall slot.",
+      "acceptanceCriteria": [
+        "WeeklySummary computes totalExpected from each receiver's actual scheduled days (not receiverCount * 7), so weekday-only/paused/partially-enrolled receivers aren't unfairly penalized",
+        "currentReceiverCount used for the maxReceivers gate excludes deactivated receivers (status != .deactivated)",
+        "Average check-in time uses the receiver's timezone (consistent with US-IOS059)",
+        "Verified: a weekday-only receiver who checks in every scheduled day shows 100% consistency"
+      ],
+      "priority": 174,
+      "passes": false,
+      "notes": "P3 correctness. ios/DailyOK/ViewModels/DashboardViewModel.swift:~459-462 (totalExpected = receiverCount*7), ~467 (avg tz); FamilyView.swift:~18-24 (count includes deactivated/invited)."
+    },
+    {
+      "id": "US-IOS076",
+      "title": "Force-update fallback URL and cross-role tab-selection mapping",
+      "description": "As a user, I never want the force-update screen to be a dead end, and as a viewer I don't want a stale tab selection to land me on the wrong screen, so that navigation is robust across edge cases.",
+      "acceptanceCriteria": [
+        "If both the server updateURL and bundled Configuration.appStoreURL fail to parse, the force-update screen still offers a working action (hardcoded App Store URL or an App Store search), so the CTA is never permanently disabled",
+        "appState.selectedTab is clamped/translated per role so a value valid for owners (e.g. .family at index 2) doesn't land a viewer on the wrong tab after a role change or deep link",
+        "Verified: switching roles or deep-linking does not leave a viewer on an unexpected tab, and the update button is always actionable"
+      ],
+      "priority": 175,
+      "passes": false,
+      "notes": "P3 edge cases. ios/DailyOK/App/ContentView.swift:~187-199 (button disabled when updateURL nil); AppState.swift:~8 (selectedTab shared across Owner/Viewer tab sets)."
     }
   ]
 }
