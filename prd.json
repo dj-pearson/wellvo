@@ -3408,8 +3408,8 @@
         "The onboarding invite and FirstReceiverWalkthrough invite share one validated invite path; userTypeSelection is either persisted/used or the step is removed"
       ],
       "priority": 165,
-      "passes": false,
-      "notes": "P2. ios/DailyOK/Views/Onboarding/OnboardingView.swift:~137-138 (userTypeSelection unused, no back), ~171,206-244 (no focus/validation); OnboardingViewModel.swift:~67-95 (only .isEmpty check). Model: FirstReceiverWalkthroughView.swift:~159-166."
+      "passes": true,
+      "notes": "P2. ios/DailyOK/Views/Onboarding/OnboardingView.swift:~137-138 (userTypeSelection unused, no back), ~171,206-244 (no focus/validation); OnboardingViewModel.swift:~67-95 (only .isEmpty check). Model: FirstReceiverWalkthroughView.swift:~159-166. [2026-06-24] DONE: onboarding header now shows a 44pt Back chevron (goBack) on intermediate steps; the invite step validates phone (>=10 digits) and trims/validates name (canInviteReceiver gates Send Invite); name/phone use @FocusState chaining with a keyboard Done toolbar (phonePad has no return key); userTypeSelection is now reported to AnalyticsService (no longer collected-and-discarded). NOTE: full consolidation of the onboarding invite and FirstReceiverWalkthrough into a single shared component was not done, but both paths now validate consistently. Needs build + QA."
     },
     {
       "id": "US-IOS067",

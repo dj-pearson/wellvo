@@ -68,13 +68,28 @@ final class OnboardingViewModel: ObservableObject {
         isLoading = false
     }
 
+    /// Valid when a name is present and the phone has at least 10 digits — drives
+    /// the Send Invite button so we don't submit "abc" or a 3-digit number.
+    var canInviteReceiver: Bool {
+        !receiverName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && receiverPhone.filter(\.isNumber).count >= 10
+    }
+
     func inviteReceiver() async {
-        guard let family = createdFamily,
-              !receiverName.isEmpty,
-              !receiverPhone.isEmpty else {
+        guard let family = createdFamily else {
             errorMessage = "Please fill in all fields"
             return
         }
+        let trimmedName = receiverName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            errorMessage = "Please enter their name"
+            return
+        }
+        guard receiverPhone.filter(\.isNumber).count >= 10 else {
+            errorMessage = "Please enter a valid phone number"
+            return
+        }
+        receiverName = trimmedName
 
         isLoading = true
         errorMessage = nil
