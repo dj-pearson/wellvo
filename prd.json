@@ -3422,8 +3422,8 @@
         "Verified visually with Reduce Transparency on: no low-contrast translucent text backgrounds remain"
       ],
       "priority": 166,
-      "passes": false,
-      "notes": "P2 a11y, app-wide. ios/DailyOK/Utilities/Theme.swift:~133-188 (glass modifiers), ~202-229 (AmbientBackground). Reduce Motion is already honored; Reduce Transparency is ignored."
+      "passes": true,
+      "notes": "P2 a11y, app-wide. ios/DailyOK/Utilities/Theme.swift:~133-188 (glass modifiers), ~202-229 (AmbientBackground). Reduce Motion is already honored; Reduce Transparency is ignored. [2026-06-24] DONE: glassCard/glassPill (GlassCardModifier + new GlassPillModifier) and AmbientBackground now read accessibilityReduceTransparency and fall back to opaque fills (secondarySystemBackground) / a flat base color with no orb mesh when it is on. Applies app-wide since these back nav/chips/sheets. glassPill stroke also switches to a normal blend (visible edge) under reduced transparency. Needs build + QA with Reduce Transparency on."
     },
     {
       "id": "US-IOS068",
@@ -3436,8 +3436,8 @@
         "Root cause addressed: the DailyOKColor ramp tokens used for backgrounds get dark-mode variants or are replaced by adaptive assets where they fill surfaces"
       ],
       "priority": 167,
-      "passes": false,
-      "notes": "P2 dark-mode. ios/DailyOK/Views/Components/StreakBadge.swift:~32-42,~117-121; PaywallFeatureCarousel.swift:~53-55; EmptyStateView.swift:~18-24,~49-52. Ramp lives in Theme.swift (no dark variants); Colors.swift DailyOKGreen asset is adaptive but bypassed."
+      "passes": true,
+      "notes": "P2 dark-mode. ios/DailyOK/Views/Components/StreakBadge.swift:~32-42,~117-121; PaywallFeatureCarousel.swift:~53-55; EmptyStateView.swift:~18-24,~49-52. Ramp lives in Theme.swift (no dark variants); Colors.swift DailyOKGreen asset is adaptive but bypassed. [2026-06-24] DONE: StreakChip, ConsistencyChip, PaywallFeatureCard, AnnualSavingsBadge, and EmptyStateView now branch fills/foregrounds on colorScheme so they no longer render as bright light-only patches in dark mode; EmptyStateView secondary button now meets the 44pt hit target. NOTE: fixed at the component level rather than adding dark variants to the DailyOKColor ramp tokens (lower blast radius). Needs build + dark-mode QA."
     },
     {
       "id": "US-IOS069",

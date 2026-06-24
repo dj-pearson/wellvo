@@ -9,6 +9,7 @@ import SwiftUI
 struct StreakChip: View {
     let streakDays: Int
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var scheme
     @State private var sparklePhase: CGFloat = 0
 
     private static let milestones: Set<Int> = [7, 14, 30, 60, 100, 180, 365]
@@ -32,13 +33,19 @@ struct StreakChip: View {
                 .foregroundStyle(Color(red: 0.976, green: 0.451, blue: 0.086))
             Text("\(streakDays)")
                 .font(.caption.weight(.bold))
-                .foregroundStyle(Color(red: 0.604, green: 0.204, blue: 0.071))
+                .foregroundStyle(scheme == .dark
+                    ? DailyOKColor.goldLight
+                    : Color(red: 0.604, green: 0.204, blue: 0.071))
                 .contentTransition(.numericText(value: Double(streakDays)))
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(
-            Capsule().fill(Color(red: 1.0, green: 0.945, blue: 0.859))
+            // Warm cream in light mode; a translucent ember tint in dark mode so
+            // the chip doesn't sit as a bright patch on a dark surface.
+            Capsule().fill(scheme == .dark
+                ? Color(red: 0.976, green: 0.451, blue: 0.086).opacity(0.22)
+                : Color(red: 1.0, green: 0.945, blue: 0.859))
         )
         .accessibilityElement()
         .accessibilityLabel("\(streakDays) day streak")
@@ -108,31 +115,39 @@ struct StreakChip: View {
 /// Returns EmptyView for .none.
 struct ConsistencyChip: View {
     let badge: ConsistencyBadge
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         switch badge {
         case .none:
             EmptyView()
         case .gold:
-            chip(background: Color(red: 0.996, green: 0.953, blue: 0.780), foreground: DailyOKColor.gold, label: "Gold")
+            chip(light: (Color(red: 0.996, green: 0.953, blue: 0.780), DailyOKColor.gold),
+                 dark: (DailyOKColor.gold.opacity(0.22), DailyOKColor.goldLight),
+                 label: "Gold")
         case .silver:
-            chip(background: Color(red: 0.898, green: 0.906, blue: 0.922), foreground: Color(red: 0.420, green: 0.447, blue: 0.502), label: "Silver")
+            chip(light: (Color(red: 0.898, green: 0.906, blue: 0.922), Color(red: 0.420, green: 0.447, blue: 0.502)),
+                 dark: (Color(white: 0.6).opacity(0.28), Color(white: 0.88)),
+                 label: "Silver")
         case .bronze:
-            chip(background: Color(red: 0.996, green: 0.843, blue: 0.667), foreground: Color(red: 0.761, green: 0.255, blue: 0.047), label: "Bronze")
+            chip(light: (Color(red: 0.996, green: 0.843, blue: 0.667), Color(red: 0.761, green: 0.255, blue: 0.047)),
+                 dark: (Color(red: 0.761, green: 0.255, blue: 0.047).opacity(0.28), Color(red: 0.95, green: 0.62, blue: 0.42)),
+                 label: "Bronze")
         }
     }
 
-    private func chip(background: Color, foreground: Color, label: String) -> some View {
-        HStack(spacing: 4) {
+    private func chip(light: (bg: Color, fg: Color), dark: (bg: Color, fg: Color), label: String) -> some View {
+        let palette = scheme == .dark ? dark : light
+        return HStack(spacing: 4) {
             Image(systemName: "trophy.fill")
                 .font(.caption2.weight(.bold))
             Text(label)
                 .font(.caption.weight(.semibold))
         }
-        .foregroundStyle(foreground)
+        .foregroundStyle(palette.fg)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(Capsule().fill(background))
+        .background(Capsule().fill(palette.bg))
         .accessibilityElement()
         .accessibilityLabel("\(label) consistency badge")
     }

@@ -46,22 +46,23 @@ struct PaywallFeatureCarousel: View {
 
 private struct PaywallFeatureCard: View {
     let feature: PaywallFeature
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         VStack(spacing: 16) {
             ZStack {
                 Circle()
-                    .fill(.white)
+                    .fill(scheme == .dark ? Color.white.opacity(0.14) : .white)
                     .frame(width: 80, height: 80)
                 Image(systemName: feature.systemImage)
                     .font(.system(size: 36, weight: .semibold))
-                    .foregroundStyle(DailyOKColor.green700)
+                    .foregroundStyle(scheme == .dark ? DailyOKColor.green400 : DailyOKColor.green700)
             }
 
             Text(feature.title)
                 .font(.title2.weight(.bold))
                 .multilineTextAlignment(.center)
-                .foregroundStyle(DailyOKColor.green700)
+                .foregroundStyle(scheme == .dark ? DailyOKColor.green400 : DailyOKColor.green700)
 
             Text(feature.description)
                 .font(.subheadline)
@@ -73,7 +74,11 @@ private struct PaywallFeatureCard: View {
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(LinearGradient(
-                    colors: [DailyOKColor.green50, DailyOKColor.green100],
+                    // Light: pale green wash. Dark: a subtle green-tinted dark
+                    // surface so the card doesn't stay bright against dark chrome.
+                    colors: scheme == .dark
+                        ? [DailyOKColor.green600.opacity(0.30), DailyOKColor.green700.opacity(0.16)]
+                        : [DailyOKColor.green50, DailyOKColor.green100],
                     startPoint: .top,
                     endPoint: .bottom
                 ))
@@ -84,16 +89,17 @@ private struct PaywallFeatureCard: View {
 /// Animated "Save X%" badge for the annual plan.
 struct AnnualSavingsBadge: View {
     let percentSaved: Int
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         Text("Save \(percentSaved)%")
             .font(.caption.weight(.bold))
-            .foregroundStyle(DailyOKColor.gold)
+            .foregroundStyle(scheme == .dark ? DailyOKColor.goldLight : DailyOKColor.gold)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(DailyOKColor.goldLight)
+                    .fill(scheme == .dark ? DailyOKColor.gold.opacity(0.22) : DailyOKColor.goldLight)
             )
     }
 }
