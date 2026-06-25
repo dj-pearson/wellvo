@@ -197,8 +197,10 @@ final class DashboardViewModel: ObservableObject {
 
                 let hasNotifications = notifiedUserIds.contains(receiver.userId)
 
-                // Collect last 7 days for weekly summary
-                let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date())
+                // Collect last 7 days for weekly summary, bucketed in the
+                // receiver's timezone so it matches the dashboard/heatmap window
+                // for an owner in a different region (US-IOS100).
+                let sevenDaysAgo = Calendar.forTimezone(receiverTz).date(byAdding: .day, value: -7, to: Date())
                     ?? Date().addingTimeInterval(-7 * 86_400)
                 let recentCheckIns = history.filter { $0.checkedInAt >= sevenDaysAgo }
                 weeklyCheckIns.append(contentsOf: recentCheckIns)

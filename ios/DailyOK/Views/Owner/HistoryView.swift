@@ -246,7 +246,8 @@ struct HistoryView: View {
             familyName: family.name,
             checkIns: checkIns,
             periodDays: selectedDays,
-            generatedAt: Date()
+            generatedAt: Date(),
+            timezone: receiver.user?.timezone
         )
 
         // Generate off the main actor so a large (e.g. 90-day) report can't

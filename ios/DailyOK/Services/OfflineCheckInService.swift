@@ -184,10 +184,19 @@ final class OfflineCheckInService: ObservableObject {
                 try context.save()
                 syncedAny = true
             } catch {
-                Log.offline.error("Sync failed: \(error.localizedDescription, privacy: .public)")
-                // Stop and retry on the next trigger. A connectivity error means
-                // the network dropped again; any other error (server/auth) will
-                // also be retried rather than dropping the queued check-in.
+                if NetworkRetry.isNonRetryable(error) {
+                    // Deterministic server rejection (e.g. 400/403/404) — this row
+                    // will NEVER succeed, so dead-letter it (mark synced so it
+                    // leaves the queue) and keep going. Otherwise one poison row
+                    // would stall every later queued check-in forever (US-IOS099).
+                    Log.offline.error("Dropping un-syncable queued check-in: \(error.localizedDescription, privacy: .public)")
+                    offlineCheckIn.synced = true
+                    try? context.save()
+                    continue
+                }
+                Log.offline.error("Sync failed (will retry): \(error.localizedDescription, privacy: .public)")
+                // Transient (connectivity / 5xx): stop and retry the rest of the
+                // queue on the next trigger.
                 break
             }
         }
