@@ -257,6 +257,17 @@ struct SettingsView: View {
                 }
             }
             .manageSubscriptionsSheet(isPresented: $showManageSubscriptions)
+            // settingsError is set on Export / Delete Account / not-signed-in but
+            // was rendered nowhere — a silently-failed Delete Account is serious.
+            // Surface it (VoiceOver announces alerts) — US-IOS094.
+            .alert("Something went wrong", isPresented: Binding(
+                get: { settingsError != nil },
+                set: { if !$0 { settingsError = nil } }
+            ), presenting: settingsError) { _ in
+                Button("OK", role: .cancel) { settingsError = nil }
+            } message: { message in
+                Text(message)
+            }
         }
     }
 
@@ -308,6 +319,10 @@ struct DataRetentionView: View {
     @State private var isLoading = true
     @State private var showSaved = false
     @State private var errorMessage: String?
+    /// True when the current value couldn't be read. We must NOT let the user
+    /// Save in this state — saving would clobber the real server value with the
+    /// 365 default (US-IOS094).
+    @State private var loadFailed = false
 
     private let retentionOptions = [90, 180, 365, 730]
 
@@ -324,11 +339,23 @@ struct DataRetentionView: View {
                 Text("Check-in records older than this will be automatically deleted. Default is 1 year.")
             }
 
+            if loadFailed {
+                Section {
+                    Label("Couldn't load your current setting.", systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                    Button("Retry") {
+                        Task { await loadRetention() }
+                    }
+                }
+            }
+
             Section {
                 Button("Save") {
                     Task { await saveRetention() }
                 }
-                .disabled(isLoading)
+                // Block Save while loading or after a failed load so we don't
+                // overwrite the real server value with the default (US-IOS094).
+                .disabled(isLoading || loadFailed)
             }
         }
         .scrollContentBackground(.hidden)
@@ -357,7 +384,10 @@ struct DataRetentionView: View {
     }
 
     private func loadRetention() async {
+        isLoading = true
+        loadFailed = false
         guard let family = try? await FamilyService.shared.getFamily() else {
+            loadFailed = true
             isLoading = false
             return
         }
@@ -378,7 +408,9 @@ struct DataRetentionView: View {
                 .value
             retentionDays = result.dataRetentionDays
         } catch {
-            // Use default
+            // Don't silently fall back to the default and then let Save clobber
+            // the real server value — flag the failure and block Save.
+            loadFailed = true
         }
         isLoading = false
     }
