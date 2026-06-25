@@ -93,16 +93,39 @@ final class SubscriptionService: ObservableObject {
     /// placeholder rather than a stale hardcoded price.
     func displayPriceWithPeriod(for productID: String) -> String? {
         guard let product = products.first(where: { $0.id == productID }) else { return nil }
-        guard let period = product.subscription?.subscriptionPeriod else { return product.displayPrice }
-        let unit: String
-        switch period.unit {
-        case .day: unit = "day"
-        case .week: unit = "wk"
-        case .month: unit = "mo"
-        case .year: unit = "yr"
-        @unknown default: unit = ""
+        // Non-subscription products (the add-ons) have no renewal period — show
+        // the bare price.
+        return Self.priceWithPeriod(
+            displayPrice: product.displayPrice,
+            periodUnit: product.subscription?.subscriptionPeriod.unit
+        )
+    }
+
+    /// Short suffix for a StoreKit renewal-period unit ("mo", "yr", …). Extracted
+    /// as a pure function so the mapping — including the `@unknown default`
+    /// fallback for a future unit — is unit-testable without a live StoreKit
+    /// product (US-IOS110). An unknown unit returns "" so callers drop the suffix
+    /// and show the bare price rather than a malformed "$3.99/".
+    nonisolated static func periodSuffix(for unit: Product.SubscriptionPeriod.Unit) -> String {
+        switch unit {
+        case .day: return "day"
+        case .week: return "wk"
+        case .month: return "mo"
+        case .year: return "yr"
+        @unknown default: return ""
         }
-        return unit.isEmpty ? product.displayPrice : "\(product.displayPrice)/\(unit)"
+    }
+
+    /// Compose a locale-aware display price with an optional renewal-period
+    /// suffix, e.g. "$3.99" + `.month` → "$3.99/mo". A `nil` unit (non-subscription
+    /// product) or an unknown future unit yields the bare price. Pure/testable.
+    nonisolated static func priceWithPeriod(
+        displayPrice: String,
+        periodUnit: Product.SubscriptionPeriod.Unit?
+    ) -> String {
+        guard let periodUnit else { return displayPrice }
+        let suffix = periodSuffix(for: periodUnit)
+        return suffix.isEmpty ? displayPrice : "\(displayPrice)/\(suffix)"
     }
 
     // MARK: - Purchase

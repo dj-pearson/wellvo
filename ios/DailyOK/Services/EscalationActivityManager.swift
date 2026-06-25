@@ -16,7 +16,37 @@ enum EscalationActivityManager {
 
     /// How long after the due time a still-running activity is marked stale by
     /// the system, so a resolved-but-not-ended timer doesn't count up forever.
-    private static let staleWindow: TimeInterval = 6 * 60 * 60
+    /// Internal (not private) so the timing math is unit-testable (US-IOS110).
+    static let staleWindow: TimeInterval = 6 * 60 * 60
+
+    // MARK: - Pure decision logic (testable without ActivityKit — US-IOS110)
+
+    /// Cards that warrant a Live Activity: still unresolved (not checked in) and
+    /// at least one escalation step in. Mirrors the owner "escalating" banner gate.
+    static func escalatingCards(from cards: [ReceiverStatusCard]) -> [ReceiverStatusCard] {
+        cards.filter { $0.status != .checkedIn && $0.escalationStep >= 1 }
+    }
+
+    /// The "overdue since" anchor for a card's activity. Preserve an existing
+    /// activity's original due time so the timer is stable across updates; on a
+    /// cold start use the request's real escalation start (`card.escalationDueSince`)
+    /// — NOT `now` — otherwise a long-overdue receiver looks freshly due after the
+    /// app is relaunched. Falls back to `now` only when neither is known.
+    static func resolvedDueSince(existing: Date?, cardDueSince: Date?, now: Date) -> Date {
+        existing ?? cardDueSince ?? now
+    }
+
+    /// When a still-running activity should be marked stale by the system so a
+    /// resolved-but-not-ended timer stops counting up forever.
+    static func staleDate(after dueSince: Date) -> Date {
+        dueSince.addingTimeInterval(staleWindow)
+    }
+
+    /// Lock Screen status string for a card. Only `.missed` reads as "missed";
+    /// everything still in flight is "pending".
+    static func statusString(for status: ReceiverCheckInStatus) -> String {
+        status == .missed ? "missed" : "pending"
+    }
 
     /// Reconcile live activities with the current dashboard state.
     static func sync(cards: [ReceiverStatusCard], familyId: UUID) {
@@ -28,7 +58,7 @@ enum EscalationActivityManager {
             return
         }
 
-        let escalating = cards.filter { $0.status != .checkedIn && $0.escalationStep >= 1 }
+        let escalating = escalatingCards(from: cards)
         let escalatingIds = Set(escalating.map { $0.id.uuidString })
 
         // End activities for receivers no longer escalating (checked in / resolved).
@@ -46,9 +76,13 @@ enum EscalationActivityManager {
             // request's real escalation start time — NOT `Date()` — otherwise a
             // receiver who's been overdue for 40 minutes looks freshly due after
             // the app is killed and relaunched.
-            let dueSince = existing?.content.state.dueSince ?? card.escalationDueSince ?? Date()
+            let dueSince = resolvedDueSince(
+                existing: existing?.content.state.dueSince,
+                cardDueSince: card.escalationDueSince,
+                now: Date()
+            )
             let state = EscalationActivityAttributes.ContentState(
-                status: card.status == .missed ? "missed" : "pending",
+                status: statusString(for: card.status),
                 escalationStep: card.escalationStep,
                 dueSince: dueSince
             )
@@ -57,7 +91,7 @@ enum EscalationActivityManager {
                 // Only push an update when something actually changed — avoids
                 // redundant ActivityKit churn on every (frequent) dashboard reload.
                 guard existing.content.state != state else { continue }
-                Task { await existing.update(ActivityContent(state: state, staleDate: dueSince.addingTimeInterval(staleWindow))) }
+                Task { await existing.update(ActivityContent(state: state, staleDate: staleDate(after: dueSince))) }
             } else {
                 let attributes = EscalationActivityAttributes(
                     receiverName: card.name,
@@ -71,7 +105,7 @@ enum EscalationActivityManager {
                     // them so the owner isn't left thinking escalation is visible.
                     _ = try Activity.request(
                         attributes: attributes,
-                        content: ActivityContent(state: state, staleDate: dueSince.addingTimeInterval(staleWindow))
+                        content: ActivityContent(state: state, staleDate: staleDate(after: dueSince))
                     )
                 } catch {
                     Log.general.error("Failed to start escalation Live Activity: \(error.localizedDescription, privacy: .public)")

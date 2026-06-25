@@ -134,6 +134,9 @@
 		B3U00007 /* StreaksTimezoneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00007; };
 		B3U00008 /* ScheduleResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00008; };
 		B3U00009 /* ReleaseReadinessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00009; };
+		B3U00010 /* EscalationActivityManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00010; };
+		B3U00011 /* NotificationRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00011; };
+		B3U00012 /* CheckInServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00012; };
 		/* Widget extension sources */
 		B5F00001 /* DailyOKWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F00001; };
 		B5F00002 /* CheckInWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F00002; };
@@ -309,6 +312,9 @@
 		F3U00007 /* StreaksTimezoneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreaksTimezoneTests.swift; sourceTree = "<group>"; };
 		F3U00008 /* ScheduleResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleResolverTests.swift; sourceTree = "<group>"; };
 		F3U00009 /* ReleaseReadinessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseReadinessTests.swift; sourceTree = "<group>"; };
+		F3U00010 /* EscalationActivityManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscalationActivityManagerTests.swift; sourceTree = "<group>"; };
+		F3U00011 /* NotificationRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationRoutingTests.swift; sourceTree = "<group>"; };
+		F3U00012 /* CheckInServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInServiceTests.swift; sourceTree = "<group>"; };
 		/* Widget extension */
 		F5F00001 /* DailyOKWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKWidgetBundle.swift; sourceTree = "<group>"; };
 		F5F00002 /* CheckInWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInWidget.swift; sourceTree = "<group>"; };
@@ -833,6 +839,9 @@
 				F3U00007 /* StreaksTimezoneTests.swift */,
 				F3U00008 /* ScheduleResolverTests.swift */,
 				F3U00009 /* ReleaseReadinessTests.swift */,
+				F3U00010 /* EscalationActivityManagerTests.swift */,
+				F3U00011 /* NotificationRoutingTests.swift */,
+				F3U00012 /* CheckInServiceTests.swift */,
 			);
 			path = DailyOKTests;
 			sourceTree = "<group>";
@@ -1151,6 +1160,9 @@
 				B3U00007 /* StreaksTimezoneTests.swift in Sources */,
 				B3U00008 /* ScheduleResolverTests.swift in Sources */,
 				B3U00009 /* ReleaseReadinessTests.swift in Sources */,
+				B3U00010 /* EscalationActivityManagerTests.swift in Sources */,
+				B3U00011 /* NotificationRoutingTests.swift in Sources */,
+				B3U00012 /* CheckInServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
