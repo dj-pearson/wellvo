@@ -1288,3 +1288,24 @@ STILL OPEN (passes:false) — warrant their own focused iterations:
   - US-IOS109 associated-domains + AASA hosting + entitlement justification (infra).
   - US-IOS110 expand test coverage (needs new test files registered in pbxproj).
   - US-IOS112 misc UX dead-ends/confirmations polish cluster.
+
+--- Iteration RELEASE-BLOCKERS cont'd: US-IOS089,101,105,106,107,108,112 + 109/110 partial (2026-06-25) ---
+Continued the iOS release-readiness backlog. 7 more stories closed (passes:true); 3 remain open with documented blockers. Source-level only — no Xcode/Deno/Supabase/devices; pbxproj id-balance + JSON validity checked. Branch claude/open-prd-stories-f6zc7r.
+
+CLOSED:
+  - US-IOS101 heatmap cluster: buildGrid/monthLabels render exactly `days` cells (was days+1) with ceil() month-column widths; per-day "late" threshold resolves the day's scheduled time (daily/weekday_weekend/custom) instead of one weekday time; NEW Mood.unknown case (decode unknown -> .unknown, excluded from moodBreakdown + PDF).
+  - US-IOS107 widget/complication/intent: OwnerStatusProvider refreshes every 5 min while missed/pending (15 otherwise); watch complication reloads only when hasCheckedInToday/lastCheckInAt change; CheckInIntent carries a @Parameter source so widget/control/siri are attributed distinctly (migration 00046 adds those checkin_source enum values; CheckInSource gains the cases); confirmed confirm-delivery is already idempotent.
+  - US-IOS108 build/signing hygiene: aps-environment is now $(APS_ENVIRONMENT) (development for Debug, production for Release via pbxproj BC000003/4); BiometricService uses .deviceOwnerAuthentication (passcode fallback / no permanent lockout); KeychainService pins kSecUseDataProtectionKeychain on all queries; Apple nonce alphabet typo fixed (missing W); Log subsystem = com.wellvo.ios. (Package.resolved still needs an Xcode resolve to commit.)
+  - US-IOS112 UX dead-ends: ContactQuickActions 'No phone number on file' + canOpenURL gating + open-success haptic; OnboardingCarousel empty-list guard + Page X of N VoiceOver; pairing/onboarding success screens drop the fabricated '8:00 AM'; EmptyStateView secondary action is a bordered affordance; BrandedProgressView start/stop on isActive; onboarding/walkthrough step animations gate on Reduce Motion; Dashboard alert-dismiss 44pt.
+  - US-IOS105 a11y (data-viz/senior): SegmentedCodeField scales boxes (capped) + shrinks spacing + keeps the hidden TextField as the editable VoiceOver element; heatmap/trend/mood/nav scale with Dynamic Type; mood chips + FloatingBottomNav 44pt; snooze/manual-send + inline auth/receiver errors post VoiceOver announcements; manual-send shows a 'Sent' label not icon-only.
+  - US-IOS106 increased-contrast: StreakChip flame/number, account avatar, heatmap glyph (dark on yellow 'late') + legend, and dashboard status chips darken under Increase Contrast; password-strength label is .secondary text with accessibilityLabel/Value, not color-only.
+  - US-IOS089 multi-window dispatch: migration 00047 adds checkin_requests.slot_key and rewrites dispatch_scheduled_checkins to create one request per window in custom_schedule.multiTimes (per-slot idempotency); single-window receivers byte-for-byte unchanged (slot_key NULL). Escalation honors each window (per-window rows). process-checkin-response inherits the request's slot_key on a notification tap. DEPLOY 00047 before/with the client build (safe to deploy ahead).
+
+NEW MIGRATIONS (ride to main in a release; additive/safe per §A): 00046 (checkin_source enum += widget/control/siri), 00047 (multi-window dispatch + checkin_requests.slot_key).
+
+STILL OPEN (passes:false) — genuinely blocked here:
+  - US-IOS044 localization: full Localizable.xcstrings String Catalog migration + pseudolocalization needs Xcode catalog tooling + a build to verify; impractical/risky to hand-migrate hundreds of literals source-only. Pricing slice remains done.
+  - US-IOS109 associated domains: AASA scaffold (website/public/.well-known/apple-app-site-association, served as JSON) + brand-split docs in CLAUDE.md are DONE, but the associated-domains entitlement can't be added without enabling the Associated Domains capability in the Apple portal + regenerating profiles (would break signing), and the real Team ID + Critical Alerts grant must be filled/verified manually. See website/public/.well-known/README.md.
+  - US-IOS110 test coverage: DST schedule cases + JSONValue/CheckIn/Mood/DailyOKAlert/NetworkRetry/Family tests added (NEW DailyOKTests/ReleaseReadinessTests.swift, registered in pbxproj). EscalationActivityManager + PushNotificationService tests need injectable ActivityKit/UN seams, and SubscriptionService.displayPrice needs a StoreKit test harness — deferred.
+
+NET: of the original 37 open stories, 34 are now passes:true; 3 remain (US-IOS044, 109, 110) each blocked on Xcode/Apple-portal/StoreKit-harness work that can't be done in this environment.

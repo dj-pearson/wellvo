@@ -3740,7 +3740,7 @@
         "Add coverage for a 2-window day producing 2 requests and correct consistency"
       ],
       "priority": 188,
-      "passes": false,
+      "passes": true,
       "notes": "HIGH, CONFIRMED (progress.txt for US-IOS048 explicitly records this scope limit; migration uses custom_schedule->>current_dow::time = one time/day). Client scores against windows the backend never prompts -> unfair penalty. Server-side dispatch fix is the correct resolution; spans edge-functions + a migration + iOS."
     },
     {
@@ -3911,7 +3911,7 @@
         "Mood unknown server values are not silently counted as neutral: add a `Mood.unknown` case excluded from moodBreakdown (ios/DailyOK/Models/CheckIn.swift:47-51; DashboardViewModel.swift:551-556)"
       ],
       "priority": 200,
-      "passes": false,
+      "passes": true,
       "notes": "MEDIUM analytics-correctness cluster. Off-by-one window, mis-sized month labels, single-time late threshold on multi-window/weekend days, and Mood->neutral coercion that skews wellness analytics when the server adds a mood value (the enum already grew once in 00014)."
     },
     {
@@ -3969,7 +3969,7 @@
         "Inline auth/onboarding/pairing error Text is announced to VoiceOver when it appears"
       ],
       "priority": 204,
-      "passes": false,
+      "passes": true,
       "notes": "MEDIUM accessibility cluster on the most senior-facing screens. Pairing-code boxes clip and aren't VoiceOver-editable; charts ignore Dynamic Type; success states are color/icon-only and unannounced. Distinct from the already-tracked FloatingBottomNav dynamic-type story (US-IOS069) — this is the 44pt hit target."
     },
     {
@@ -3984,7 +3984,7 @@
         "Account-row avatar uses higher-contrast fill/text and .accessibilityElement(children:.combine) (SettingsView.swift:28-45; ViewerTabView.swift:51-68)"
       ],
       "priority": 205,
-      "passes": false,
+      "passes": true,
       "notes": "MEDIUM. Root cause of several contrast findings: the design tokens are fixed RGB and none honor increased-contrast. Heatmap is effectively color-only with a tiny low-contrast glyph."
     },
     {
@@ -3998,7 +3998,7 @@
         "Confirm the foreground double confirm-delivery (NSE + AppDelegate.willPresent) is idempotent server-side, or dedupe (AppDelegate.swift:56-62,87-89)"
       ],
       "priority": 206,
-      "passes": false,
+      "passes": true,
       "notes": "MEDIUM/LOW widget cluster. Owner widget can lag an escalation by 15 min; per-context complication reloads can exhaust the daily budget (then the complication stops updating); all out-of-process check-ins report source 'app' so analytics can't tell widget/Siri/control apart."
     },
     {
@@ -4014,7 +4014,7 @@
         "The unified-logging subsystem matches the bundle id (Log.swift:18 net.dailyok.app vs bundle com.wellvo.ios)"
       ],
       "priority": 207,
-      "passes": false,
+      "passes": true,
       "notes": "MEDIUM/LOW hygiene cluster. aps-environment hardcoded production breaks sandbox push in dev; biometrics-only policy risks permanent lockout (fallback button is dead); minor keychain/nonce/logging/SPM cleanups. US-IOS028 covered biometric data-gating + nonce CSPRNG but not the passcode-fallback policy."
     },
     {
@@ -4070,7 +4070,7 @@
         "Onboarding step-indicator animations are gated on accessibilityReduceMotion (ReceiverOnboardingView.swift:31-44; FirstReceiverWalkthroughView.swift:45,64-77); BrandedProgressView also starts/stops animation on onChange(of: isActive) (BrandedProgressView.swift:40-48); core full-screen state icons use @ScaledMetric instead of fixed .system(size:56) (ContentView.swift:113,157,193,233)"
       ],
       "priority": 211,
-      "passes": false,
+      "passes": true,
       "notes": "LOW polish cluster: blank contact actions in an escalation moment, carousel empty-array underflow + missing page context, fabricated success-screen time, sub-44pt targets, ungated animations, and non-scaling state-screen icons. None block release individually; bundled for a polish pass."
     }
   ]
