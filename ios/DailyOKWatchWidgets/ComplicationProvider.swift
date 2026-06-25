@@ -14,7 +14,9 @@ struct ComplicationEntry: TimelineEntry {
         ComplicationEntry(
             date: date,
             isSignedIn: state != nil,
-            hasCheckedInToday: state?.hasCheckedInToday ?? false,
+            // Day-scoped so the complication flips back to "Check in" at a new
+            // day even if the phone hasn't synced a fresh snapshot.
+            hasCheckedInToday: state?.isCheckedIn(asOf: date) ?? false,
             lastCheckInAt: state?.lastCheckInAt
         )
     }

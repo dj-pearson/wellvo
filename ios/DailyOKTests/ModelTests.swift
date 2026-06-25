@@ -182,4 +182,92 @@ final class ModelTests: XCTestCase {
         XCTAssertTrue(settings.moodTrackingEnabled)
         XCTAssertFalse(settings.smsEscalationEnabled)
     }
+
+    // MARK: - SharedCheckInState day-scoped doneness (US-IOS113)
+
+    private func makeSharedState(hasCheckedInToday: Bool, lastCheckInAt: Date?) -> SharedCheckInState {
+        SharedCheckInState(
+            receiverId: "r", familyId: "f", displayName: nil, isKidMode: false,
+            supabaseURL: "https://x", anonKey: "k", edgeFunctionsURL: "https://e",
+            hasCheckedInToday: hasCheckedInToday, lastCheckInAt: lastCheckInAt,
+            nextCheckInAt: nil, updatedAt: Date()
+        )
+    }
+
+    func testIsCheckedInTrueForSameDay() {
+        let cal = Calendar(identifier: .gregorian)
+        let now = Date(timeIntervalSince1970: 1_750_000_000) // fixed instant
+        let earlierToday = now.addingTimeInterval(-3 * 3600)
+        let state = makeSharedState(hasCheckedInToday: true, lastCheckInAt: earlierToday)
+        XCTAssertTrue(state.isCheckedIn(asOf: now, calendar: cal))
+    }
+
+    func testIsCheckedInFalseForPreviousDay() {
+        // The flag is stale-true (never cleared at midnight), but the check-in
+        // landed yesterday — a new day must re-enable the tap.
+        let cal = Calendar(identifier: .gregorian)
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let yesterday = now.addingTimeInterval(-26 * 3600)
+        let state = makeSharedState(hasCheckedInToday: true, lastCheckInAt: yesterday)
+        XCTAssertFalse(state.isCheckedIn(asOf: now, calendar: cal))
+    }
+
+    func testIsCheckedInFalseWhenNoLastCheckIn() {
+        let cal = Calendar(identifier: .gregorian)
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        XCTAssertFalse(makeSharedState(hasCheckedInToday: true, lastCheckInAt: nil).isCheckedIn(asOf: now, calendar: cal))
+    }
+
+    func testIsCheckedInRespectsFalseFlagEvenIfLastCheckInToday() {
+        // Phone is authoritative: a false flag means not-done even if a stale
+        // lastCheckInAt happens to fall today.
+        let cal = Calendar(identifier: .gregorian)
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let state = makeSharedState(hasCheckedInToday: false, lastCheckInAt: now)
+        XCTAssertFalse(state.isCheckedIn(asOf: now, calendar: cal))
+    }
+
+    // MARK: - Snooze state (US-IOS114)
+
+    private func makeRequest(snoozedUntil: Date?) -> CheckInRequest {
+        var dict: [String: Any] = [
+            "id": UUID().uuidString,
+            "family_id": UUID().uuidString,
+            "receiver_id": UUID().uuidString,
+            "requested_by": UUID().uuidString,
+            "type": "scheduled",
+            "status": "pending",
+            "created_at": "2026-06-10T08:00:00Z",
+            "escalation_step": 0,
+        ]
+        if let snoozedUntil {
+            let f = ISO8601DateFormatter()
+            dict["snoozed_until"] = f.string(from: snoozedUntil)
+        }
+        let data = try! JSONSerialization.data(withJSONObject: dict)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try! decoder.decode(CheckInRequest.self, from: data)
+    }
+
+    func testSnoozedRequestIsNotActivelyPending() {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let req = makeRequest(snoozedUntil: now.addingTimeInterval(15 * 60))
+        XCTAssertFalse(ReceiverViewModel.isActivelyPending(req, now: now))
+    }
+
+    func testElapsedSnoozeRequestIsActivelyPending() {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let req = makeRequest(snoozedUntil: now.addingTimeInterval(-60))
+        XCTAssertTrue(ReceiverViewModel.isActivelyPending(req, now: now))
+    }
+
+    func testUnsnoozedRequestIsActivelyPending() {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        XCTAssertTrue(ReceiverViewModel.isActivelyPending(makeRequest(snoozedUntil: nil), now: now))
+    }
+
+    func testNilRequestIsNotActivelyPending() {
+        XCTAssertFalse(ReceiverViewModel.isActivelyPending(nil))
+    }
 }

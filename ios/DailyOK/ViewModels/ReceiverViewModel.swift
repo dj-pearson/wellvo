@@ -51,6 +51,11 @@ final class ReceiverViewModel: ObservableObject {
     /// The receiver's own family_member id, so they can self-serve display
     /// preferences (Simple Mode, spoken confirmation) without an owner.
     private var receiverMemberId: UUID?
+    /// The receiver's account timezone (users.timezone), captured on load so the
+    /// "next check-in" / local-fallback computation buckets in the same zone the
+    /// status query and streak chips use — not the device zone, which can differ
+    /// when the receiver travels or has a mismatched account timezone.
+    private var receiverTimezone: String?
 
     /// Whether to show the optional "how are you feeling?" picker after a
     /// check-in: enabled in settings, an online check-in row exists to attach to,
@@ -70,10 +75,18 @@ final class ReceiverViewModel: ObservableObject {
         if let loadTask {
             return await loadTask.value
         }
-        let task = Task { await performLoadStatus() }
+        // Clear the handle from inside the task (via the trailing assignment)
+        // rather than after `await task.value`: the caller is usually a view's
+        // `.task`, cancelled on disappear. If it's torn down at the suspension
+        // below, a caller-side `loadTask = nil` would never run and every later
+        // loadStatus() would return the cached completed task instantly — the
+        // receiver's status would stop refreshing. The task clears itself.
+        let task = Task { [weak self] in
+            await self?.performLoadStatus()
+            self?.loadTask = nil
+        }
         loadTask = task
         await task.value
-        loadTask = nil
     }
 
     private func performLoadStatus() async {
@@ -90,6 +103,7 @@ final class ReceiverViewModel: ObservableObject {
             .single()
             .execute()
             .value
+        receiverTimezone = tzRow?.timezone
 
         // Sync any queued offline check-ins first so the subsequent status
         // query reflects them. Without this, a synced check-in would only
@@ -194,11 +208,25 @@ final class ReceiverViewModel: ObservableObject {
             .execute()
             .value
         let pending = requests?.first
-        hasPendingRequest = pending != nil
-        pendingRequestId = pending?.id
-        // Receiver can snooze while a request is pending and the server cap
-        // hasn't been hit (nil count = older backend = allow).
-        canSnooze = pending != nil && (pending?.snoozeCount ?? 0) < Self.maxSnoozes
+        // A request the receiver just snoozed is still `pending` server-side
+        // (escalation merely deferred), so don't re-surface the "family is
+        // waiting" banner until the snooze window elapses — otherwise we'd
+        // contradict the just-shown "Snoozed for N minutes" confirmation.
+        let active = Self.isActivelyPending(pending)
+        hasPendingRequest = active
+        pendingRequestId = active ? pending?.id : nil
+        // Receiver can snooze while a request is actively pending and the server
+        // cap hasn't been hit (nil count = older backend = allow).
+        canSnooze = active && (pending?.snoozeCount ?? 0) < Self.maxSnoozes
+    }
+
+    /// Whether a fetched pending request should be surfaced as *actively*
+    /// pending. A request whose `snoozedUntil` is still in the future was just
+    /// snoozed and must not re-surface the pending banner. Pure for testability.
+    nonisolated static func isActivelyPending(_ request: CheckInRequest?, now: Date = Date()) -> Bool {
+        guard let request else { return false }
+        if let until = request.snoozedUntil, until > now { return false }
+        return true
     }
 
     /// Snooze the pending request: defer escalation server-side and re-arm the
@@ -254,8 +282,9 @@ final class ReceiverViewModel: ObservableObject {
         // Honor the full schedule (weekday/weekend/custom/paused/quiet-hours),
         // then push out by the grace period so the local fallback fires only
         // after the server push has had its chance.
-        guard let target = Self.nextScheduledCheckIn(for: settings) else { return nil }
-        return Calendar.current.date(byAdding: .minute, value: settings.gracePeriodMinutes, to: target)
+        let cal = Calendar.forTimezone(receiverTimezone)
+        guard let target = Self.nextScheduledCheckIn(for: settings, calendar: cal) else { return nil }
+        return cal.date(byAdding: .minute, value: settings.gracePeriodMinutes, to: target)
     }
 
     /// Parse a stored "HH:mm[:ss]" check-in time into hour/minute components.
@@ -465,7 +494,11 @@ final class ReceiverViewModel: ObservableObject {
     private func computeNextCheckInTime(from settings: ReceiverSettings) {
         // Use the full schedule resolver so the displayed "next check-in" matches
         // the receiver's weekday/weekend/custom schedule (and is nil when paused).
-        nextCheckInTime = Self.nextScheduledCheckIn(for: settings)
+        // Bucket in the receiver's account timezone, not the device zone.
+        nextCheckInTime = Self.nextScheduledCheckIn(
+            for: settings,
+            calendar: Calendar.forTimezone(receiverTimezone)
+        )
     }
 
     func performCheckIn() async {

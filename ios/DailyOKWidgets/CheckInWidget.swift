@@ -37,8 +37,9 @@ struct CheckInWidgetView: View {
             default: home
             }
         }
-        // When not signed in, tapping opens the app to finish setup.
-        .widgetURL(entry.isSignedIn ? nil : URL(string: "dailyok://checkin"))
+        // When not signed in — or locked (tokens withheld) — tapping opens the
+        // app to finish setup / unlock. Only a fully-ready surface stays inert.
+        .widgetURL((entry.isSignedIn && !entry.isLocked) ? nil : URL(string: "dailyok://checkin"))
     }
 
     // MARK: Home Screen (small / medium)
@@ -64,6 +65,14 @@ struct CheckInWidgetView: View {
             .multilineTextAlignment(.center)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(homeAccessibilityLabel)
+        } else if entry.isLocked {
+            VStack(spacing: 6) {
+                Image(systemName: "lock.fill").font(.title).foregroundStyle(.secondary)
+                Text("Tap to unlock").font(.caption).fontWeight(.semibold)
+                Text("and check in").font(.caption2).foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(homeAccessibilityLabel)
         } else {
             VStack(spacing: 10) {
                 Button(intent: CheckInIntent(source: "widget")) {
@@ -86,6 +95,7 @@ struct CheckInWidgetView: View {
     /// VoiceOver description of the current state for the Home Screen variant.
     private var homeAccessibilityLabel: String {
         if !entry.isSignedIn { return "Daily OK. Open the app to finish setup." }
+        if entry.isLocked { return "Daily OK is locked. Activate to open the app and unlock to check in." }
         if entry.hasCheckedInToday {
             if let at = entry.lastCheckInAt {
                 return "Checked in today at \(at.formatted(date: .omitted, time: .shortened))."
@@ -102,6 +112,8 @@ struct CheckInWidgetView: View {
             AccessoryWidgetBackground()
             if entry.hasCheckedInToday {
                 Image(systemName: "checkmark.circle.fill").font(.title2)
+            } else if entry.isLocked {
+                Image(systemName: "lock.fill").font(.title3)
             } else {
                 Button(intent: CheckInIntent(source: "widget")) {
                     Image(systemName: "hand.tap.fill").font(.title3)
@@ -110,12 +122,14 @@ struct CheckInWidgetView: View {
             }
         }
         .widgetAccentable()
-        .accessibilityLabel(entry.hasCheckedInToday ? "Checked in today" : "Tap to check in")
+        .accessibilityLabel(entry.hasCheckedInToday ? "Checked in today" : (entry.isLocked ? "Locked. Tap to unlock." : "Tap to check in"))
     }
 
     @ViewBuilder private var inline: some View {
         if entry.hasCheckedInToday {
             Label("Checked in", systemImage: "checkmark.circle.fill")
+        } else if entry.isLocked {
+            Label("Unlock to check in", systemImage: "lock.fill")
         } else {
             Label("Tap to check in", systemImage: "hand.tap.fill")
         }
@@ -131,6 +145,14 @@ struct CheckInWidgetView: View {
                         Text(at.formatted(date: .omitted, time: .shortened))
                             .font(.caption2).foregroundStyle(.secondary)
                     }
+                }
+            }
+        } else if entry.isLocked {
+            HStack(spacing: 8) {
+                Image(systemName: "lock.fill").font(.title2).foregroundStyle(.secondary)
+                VStack(alignment: .leading) {
+                    Text("Locked").font(.headline)
+                    Text("Tap to unlock").font(.caption2).foregroundStyle(.secondary)
                 }
             }
         } else {

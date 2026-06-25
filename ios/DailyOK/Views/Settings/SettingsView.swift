@@ -294,6 +294,10 @@ struct SettingsView: View {
             if let jsonString = String(data: jsonData, encoding: .utf8) {
                 exportedData = jsonString
                 showExportSheet = true
+            } else {
+                // Encoding failed (non-UTF8) — surface it instead of leaving the
+                // button looking like it did nothing.
+                settingsError = "Couldn't prepare your data for export. Please try again."
             }
         } catch {
             settingsError = DailyOKError.network(error).localizedDescription

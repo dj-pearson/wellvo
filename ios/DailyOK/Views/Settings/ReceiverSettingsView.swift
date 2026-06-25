@@ -542,6 +542,18 @@ struct ReceiverSettingsView: View {
     }
 
     private func saveSettings() async {
+        // Block a custom schedule with every day toggled off: it would persist an
+        // empty schedule, meaning the receiver silently never gets a check-in
+        // request. Warn instead of saving a broken configuration. (Matches the
+        // `?? false` semantics buildCustomSchedule actually persists.)
+        if scheduleType == .custom,
+           !DaySchedule.allDays.contains(where: { dayEnabled[$0.key] ?? false }) {
+            errorMessage = "Turn on at least one day — otherwise this person will never get a check-in request."
+            DailyOKHaptics.error()
+            UIAccessibility.post(notification: .announcement, argument: "Select at least one check-in day")
+            return
+        }
+
         isSaving = true
 
         let timeString = timeFormatter.string(from: checkinTime)

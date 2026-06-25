@@ -12,6 +12,7 @@ final class HeartbeatService {
     private var supabase: SupabaseClient { SupabaseService.shared.client }
     private var timer: Timer?
     private let interval: TimeInterval = 15 * 60 // 15 minutes
+    private var connectivityObserver: NSObjectProtocol?
 
     func start() {
         // Enable battery monitoring once here rather than re-toggling it on every
@@ -29,6 +30,21 @@ final class HeartbeatService {
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             Task { await self?.sendHeartbeat() }
         }
+
+        // The repeating Timer no-ops while offline (and is suspended in the
+        // background), so a receiver who was offline for a long foreground
+        // stretch looks stale until the next tick. Re-anchor last_seen the moment
+        // connectivity returns (US-IOS136). Guarded by `timer == nil` above so we
+        // never double-register.
+        if connectivityObserver == nil {
+            connectivityObserver = NotificationCenter.default.addObserver(
+                forName: OfflineCheckInService.connectivityRestored,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in await self?.sendHeartbeat() }
+            }
+        }
     }
 
     /// Re-anchor `last_seen_at` when the app returns to the foreground. The
@@ -43,6 +59,10 @@ final class HeartbeatService {
     func stop() {
         timer?.invalidate()
         timer = nil
+        if let connectivityObserver {
+            NotificationCenter.default.removeObserver(connectivityObserver)
+            self.connectivityObserver = nil
+        }
     }
 
     func sendHeartbeat() async {

@@ -122,15 +122,33 @@ enum SharedKeychain {
 
     @discardableResult
     private static func set(account: String, data: Data) -> Bool {
-        // Delete any existing item first so the accessibility/access-group
-        // attributes are always the current ones.
+        let accessible = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+
+        // Prefer an in-place update so there is never a window with NO item: the
+        // previous delete-then-add could, if interrupted between the two calls,
+        // leave the surface with no tokens (silently degrading to signed-out)
+        // until the next phone sync (US-IOS135).
+        let updateAttributes: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: accessible,
+        ]
+        let updateStatus = SecItemUpdate(baseQuery(account: account) as CFDictionary,
+                                         updateAttributes as CFDictionary)
+        if updateStatus == errSecSuccess { return true }
+
+        func add() -> Bool {
+            var addQuery = baseQuery(account: account)
+            addQuery[kSecValueData as String] = data
+            addQuery[kSecAttrAccessible as String] = accessible
+            return SecItemAdd(addQuery as CFDictionary, nil) == errSecSuccess
+        }
+
+        if updateStatus == errSecItemNotFound { return add() }
+
+        // Unexpected status (e.g. a legacy item with mismatched attributes):
+        // self-heal by deleting and re-adding.
         SecItemDelete(baseQuery(account: account) as CFDictionary)
-
-        var addQuery = baseQuery(account: account)
-        addQuery[kSecValueData as String] = data
-        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-
-        return SecItemAdd(addQuery as CFDictionary, nil) == errSecSuccess
+        return add()
     }
 
     private static func get(account: String) -> Data? {

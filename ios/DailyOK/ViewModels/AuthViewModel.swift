@@ -455,6 +455,9 @@ final class AuthViewModel: ObservableObject {
             try await AuthService.shared.signOut()
             await BiometricService.shared.reset()
             HeartbeatService.shared.stop()
+            // Allow the next (possibly different) user to reconcile entitlements
+            // within this same process launch.
+            SubscriptionService.shared.resetReconcileLatch()
             // Drop the shared check-in snapshot so Siri/widget/watch can't act
             // on a stale session after sign-out.
             SharedCheckInPublisher.clear()

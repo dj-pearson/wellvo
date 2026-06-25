@@ -68,6 +68,21 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         // Sync access token to shared App Group for Notification Service Extension
         Task { await SupabaseService.shared.syncAccessTokenToExtension() }
 
+        // Register for remote notifications at cold launch when permission is
+        // already granted (reinstall / restore-from-backup, where no new
+        // permission prompt fires and the initial scenePhase transition may not
+        // re-trigger registration). Idempotent with the resume-path
+        // registration — APNs returns the same token and registerToken upserts —
+        // so this just guarantees an already-granted user gets a live token
+        // without first having to background and foreground the app (US-IOS121).
+        Task {
+            if await PushNotificationService.shared.checkPermissionStatus() == .authorized {
+                await MainActor.run {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+            }
+        }
+
         return true
     }
 
@@ -211,26 +226,33 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
               let receiverId = UUID(uuidString: receiverIdString) else { return }
 
         Task {
-            // Fetch receiver's phone number
-            let users: [AppUser] = try await SupabaseService.shared.client
-                .from("users")
-                .select("id, phone")
-                .eq("id", value: receiverId.uuidString)
-                .limit(1)
-                .execute()
-                .value
+            do {
+                // Fetch receiver's phone number
+                let users: [AppUser] = try await SupabaseService.shared.client
+                    .from("users")
+                    .select("id, phone")
+                    .eq("id", value: receiverId.uuidString)
+                    .limit(1)
+                    .execute()
+                    .value
 
-            guard let phone = users.first?.phone, !phone.isEmpty else {
-                Log.general.error("No phone number found for receiver")
-                return
-            }
+                guard let phone = users.first?.phone, !phone.isEmpty else {
+                    Log.general.error("No phone number found for receiver")
+                    return
+                }
 
-            // Normalize to tel:// URL format
-            let cleaned = phone.replacingOccurrences(of: "[^0-9+]", with: "", options: .regularExpression)
-            guard let telURL = URL(string: "tel://\(cleaned)") else { return }
+                // Normalize to tel:// URL format
+                let cleaned = phone.replacingOccurrences(of: "[^0-9+]", with: "", options: .regularExpression)
+                guard let telURL = URL(string: "tel://\(cleaned)") else { return }
 
-            await MainActor.run {
-                UIApplication.shared.open(telURL)
+                await MainActor.run {
+                    UIApplication.shared.open(telURL)
+                }
+            } catch {
+                // Don't let an urgent "Call Now" action silently no-op on a query
+                // failure (offline / RLS) — the previous bare `try` discarded the
+                // throw entirely.
+                Log.general.error("Call-receiver lookup failed: \(error.localizedDescription, privacy: .public)")
             }
         }
     }

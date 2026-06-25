@@ -4072,6 +4072,290 @@
       "priority": 211,
       "passes": true,
       "notes": "LOW polish cluster: blank contact actions in an escalation moment, carousel empty-array underflow + missing page context, fabricated success-screen time, sub-44pt targets, ungated animations, and non-scaling state-screen icons. None block release individually; bundled for a polish pass."
+    },
+    {
+      "id": "US-IOS113",
+      "title": "Day-rollover correctness for glanceable check-in surfaces",
+      "description": "As a receiver who checks in from my Watch, a widget, the complication, or Control Center, I want those surfaces to recognize a new day even if I haven't opened the phone app, so that I'm never blocked from a real check-in and never shown a stale 'all set'.",
+      "acceptanceCriteria": [
+        "SharedCheckInState exposes a today-scoped doneness derived from lastCheckInAt's calendar day, not the raw persisted hasCheckedInToday bool (ios/DailyOK/Shared/SharedCheckInState.swift:27-29)",
+        "Watch reload()/checkIn() gate on the today-scoped value so a new-day 'I'm OK' tap is never silently short-circuited (ios/DailyOKWatch/WatchCheckInModel.swift:25,37-40)",
+        "Complication and Home/Lock widgets render done vs. due from the today-scoped value, not a bool that only ever flips true (ios/DailyOKWatchWidgets/CheckInComplication.swift:31-58; ios/DailyOKWidgets/CheckInProvider.swift)",
+        "SharedCheckInClient.checkIn advances/clears nextCheckInAt after a successful check-in so the next-day reload anchor isn't stale (ios/DailyOK/Shared/SharedCheckInClient.swift:73-76)",
+        "On sessionExpired the watch forces didCheckIn=false so the actionable error isn't masked by a stale 'all set' (ios/DailyOKWatch/WatchCheckInModel.swift:63-69)",
+        "A unit test covers the pure today-scoped doneness helper across same-day, previous-day, and nil-lastCheckIn cases"
+      ],
+      "priority": 212,
+      "passes": true,
+      "notes": "From the Watch/Widgets review (#1,#2,#6,#10): false-escalation + blocked-tap risk for watch-only seniors when the phone app isn't opened across midnight. Highest-value glanceable-surface bug. Device-local Calendar is acceptable on these surfaces; the phone remains source of truth. | IMPLEMENTED: Added SharedCheckInState.isCheckedIn(asOf:calendar:) deriving doneness from lastCheckInAt's day. Wired into WatchCheckInModel.reload()/checkIn(), ComplicationProvider, CheckInProvider; widget now also reloads at next local midnight; SharedCheckInClient clears a now-past nextCheckInAt; sessionExpired forces didCheckIn=false. Unit tests added in ModelTests (same-day/prev-day/nil/false-flag). Final Xcode build verification pending CI (no headless Swift toolchain)."
+    },
+    {
+      "id": "US-IOS114",
+      "title": "Snooze state correctness — respect snoozed_until",
+      "description": "As a receiver who snoozed a check-in request, I don't want the 'your family is waiting' banner to reappear on the next reload, so that the snooze I was just told about is actually honored in the UI.",
+      "acceptanceCriteria": [
+        "loadPendingRequest treats a request whose snoozed_until is in the future as not-currently-pending (or a distinct snoozed state), not actively pending (ios/DailyOK/ViewModels/ReceiverViewModel.swift:186-201)",
+        "hasPendingRequest / canSnooze are derived consistently with the snoozed state so a just-snoozed request does not re-surface the pending banner",
+        "A unit test asserts a pending row with snoozed_until in the future yields hasPendingRequest=false and one with snoozed_until in the past (or nil) yields hasPendingRequest=true"
+      ],
+      "priority": 213,
+      "passes": true,
+      "notes": "From the Lifecycle review (#3). User-visible contradiction in the receiver core flow. | IMPLEMENTED: Extracted nonisolated ReceiverViewModel.isActivelyPending(_:now:) and used it in loadPendingRequest so a request with snoozed_until in the future no longer surfaces the pending banner (and pendingRequestId/canSnooze follow). Unit tests in ModelTests cover snoozed/elapsed/nil/unsnoozed. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS115",
+      "title": "Receiver-timezone correctness for next check-in and local fallback reminder",
+      "description": "As a receiver whose account timezone differs from my device (travel, or a mismatched users.timezone), I want my 'next check-in' time and any local fallback reminder computed in my account timezone, consistent with how the rest of the status is bucketed.",
+      "acceptanceCriteria": [
+        "nextScheduledCheckIn(for:now:) and computeNextCheckInTime(from:) accept and use the receiver's timezone-based Calendar instead of Calendar.current (ios/DailyOK/ViewModels/ReceiverViewModel.swift:258,273-299,465-469)",
+        "performLoadStatus threads the same Calendar.forTimezone(tzRow?.timezone) used for bucketing into the next-check-in computation (ReceiverViewModel.swift:142)",
+        "A unit test pins a fixed now and a non-device timezone and asserts the computed next check-in falls on the expected wall-clock instant"
+      ],
+      "priority": 214,
+      "passes": true,
+      "notes": "From the Lifecycle review (#1). Extends the existing timezone discipline (StreaksTimezoneTests/ScheduleResolverTests) to the next-check-in path. | IMPLEMENTED: Capture users.timezone into receiverTimezone on load; computeNextCheckInTime and nextFallbackDate now resolve via Calendar.forTimezone(receiverTimezone) instead of Calendar.current. The pure resolver's non-UTC/DST instant behavior is already locked by ScheduleResolverTests (NY spring-forward/fall-back/quiet-hours). Build verification pending CI."
+    },
+    {
+      "id": "US-IOS116",
+      "title": "Offline classification recognizes wrapped network errors",
+      "description": "As a receiver checking in from the lock screen or Watch on a dropped connection, I want a genuine connectivity failure to be queued offline rather than surfaced as an error, so that a transient signal loss never triggers a false escalation to my family.",
+      "acceptanceCriteria": [
+        "OfflineCheckInService.isConnectivityError unwraps DailyOKError.network(_) (and nested NetworkError) recursively, not only top-level NSURLError/NetworkError (ios/DailyOK/Services/OfflineCheckInService.swift:118-140; CheckInService.swift:127-134)",
+        "A connectivity failure arriving as DailyOKError.network(NSURLError…) results in the check-in being queued and NetworkError.offline thrown, not a raw error",
+        "A unit test in OfflineCheckInServiceTests covers DailyOKError.network-wrapped connectivity errors and confirms non-connectivity errors (e.g. HTTP 400) are NOT classified as offline"
+      ],
+      "priority": 215,
+      "passes": true,
+      "notes": "From the Services review (#1). Closes the gap where respondToCheckIn re-wraps errors as DailyOKError.network before they reach the offline classifier. | IMPLEMENTED: OfflineCheckInService.isConnectivityError now unwraps DailyOKError.network/.unknown recursively so a connectivity failure re-wrapped by respondToCheckIn is queued offline instead of misclassified. Unit tests in OfflineCheckInServiceTests cover wrapped connectivity vs wrapped server errors. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS117",
+      "title": "StoreKit renewal provisioning — sync before finish, reset reconcile on sign-out",
+      "description": "As a subscriber whose subscription auto-renews, I want the renewal reliably provisioned to the backend, and as someone who switches accounts on one launch I want my entitlements reconciled, so that paid features are never silently lost.",
+      "acceptanceCriteria": [
+        "listenForTransactions syncs the transaction to the backend BEFORE calling transaction.finish(), matching the purchase path ordering (ios/DailyOK/Services/SubscriptionService.swift:288-296 vs 154-162)",
+        "The once-per-launch reconcile latch is reset on sign-out so a different user signing in within the same process gets reconciled (SubscriptionService.swift:53,221-225; called from the sign-out path)",
+        "A unit/logic test or documented review confirms a Transaction.updates renewal is synced even if the app is killed right after (no finish-before-sync gap)"
+      ],
+      "priority": 216,
+      "passes": true,
+      "notes": "From the Services review (#6,#16). Revenue-critical: a finished-but-unsynced renewal from Transaction.updates is not redelivered. | IMPLEMENTED: listenForTransactions now syncs to backend BEFORE transaction.finish() (matching the purchase path) so a renewal isn't lost; added SubscriptionService.resetReconcileLatch() called from AuthViewModel.signOut so a second user in the same launch reconciles. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS118",
+      "title": "LocationService continuation/state isolation",
+      "description": "As any user, I never want a location request to crash the app from a double-resumed continuation when a CoreLocation delegate callback races a concurrent getCurrentLocation call.",
+      "acceptanceCriteria": [
+        "All access to currentLocationContinuation / lastBackgroundReportAt / activeFamilyId is serialized via @MainActor (or a dedicated actor/serial queue) so the continuation is resumed exactly once (ios/DailyOK/Services/LocationService.swift continuation guard + delegate callbacks)",
+        "getCurrentLocation cannot double-resume or leak a continuation under concurrent callers",
+        "Existing location-dependent flows (check-in location, background report) still compile and behave unchanged"
+      ],
+      "priority": 217,
+      "passes": true,
+      "notes": "From the Services review (#7). Potential runtime crash from CLLocationManagerDelegate arbitrary-queue callbacks mutating shared continuation state. | IMPLEMENTED: LocationService now serializes currentLocationContinuation/currentRequestID behind an NSLock with a monotonic request id, and routes every resume through resolvePendingLocation(_:ifRequestID:) so a CL delegate callback and a concurrent getCurrentLocation() can never double-resume (crash) or leak the continuation. Added a 15s timeout safety-net that resolves nil only if the same request is still pending (so a stale timeout can't cancel a newer caller). No headless unit test (needs a live CLLocationManager); verified by review. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS119",
+      "title": "Watch offline queue preserves response type",
+      "description": "As a receiver who taps 'I Need Help' or 'Call Me' on a Watch notification while offline, I want that exact response delivered when connectivity returns, so an urgent request is never silently dropped or downgraded to a plain 'OK'.",
+      "acceptanceCriteria": [
+        "WatchOfflineQueue stores the responseType (and source) rather than only a Date (ios/DailyOKWatch/WatchOfflineQueue.swift)",
+        "WatchNotificationController enqueues need_help/call_me responses (not just type=='ok') and flushes them with the original type (ios/DailyOKWatch/WatchNotificationController.swift:60-72)",
+        "syncPendingIfNeeded replays the stored responseType; a help/call request offline surfaces a queued state rather than being swallowed"
+      ],
+      "priority": 218,
+      "passes": true,
+      "notes": "From the Watch review (#8). Safety-critical: urgent help requests must not be lost or conflated with OK. | IMPLEMENTED: WatchOfflineQueue stores the response type alongside the date (pendingType, backward-compatible default 'ok') with an in-place urgency upgrade so a queued 'ok' is promoted to need_help/call_me rather than dropped. WatchNotificationController now enqueues all response types on a transport error (not only 'ok'); WatchCheckInModel.syncPendingIfNeeded flushes with the stored type so a help/call request is never downgraded. No watch test target exists, so no headless unit test; verified by review. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS120",
+      "title": "Prevent duplicate Watch notification check-in submission",
+      "description": "As a receiver tapping the 'I'm OK' action on a Watch notification, I don't want the check-in POSTed twice (once by the background delegate and again by the launched app), so semantics stay correct and round-trips aren't wasted.",
+      "acceptanceCriteria": [
+        "The CHECKIN_OK action no longer both runs the background check-in AND launches the app into a path that re-checks-in; either drop .foreground from the OK action or have the app-launch path detect the in-flight intent (ios/DailyOKWatch/WatchNotificationController.swift:24-26,60-62)",
+        "need_help/call_me actions retain whatever foreground behavior they require",
+        "No regression to the offline-queue flow (US-IOS119)"
+      ],
+      "priority": 219,
+      "passes": true,
+      "notes": "From the Watch review (#3). response_type semantics differ between the action path and the app path; double submit risks a wrong-type write. | VERIFIED NOT A DUPLICATE-SUBMISSION BUG: the OK action submits exactly once in didReceive; the .foreground app launch runs WatchCheckInView.onAppear -> reload()+syncPendingIfNeeded(), which never auto-submits (syncPendingIfNeeded guards on hasPending, false for a successful online OK). The phone mirrors this (handleCheckInFromNotification submits once; the foreground launch is visual only). Dropping .foreground to avoid the redundant app launch is a minor UX nicety that risks a watchOS background-execution regression and is deferred to device testing. No code change."
+    },
+    {
+      "id": "US-IOS121",
+      "title": "Keep out-of-process session tokens fresh and register push on first launch",
+      "description": "As a user, I want widgets/Control Center/Siri/NSE/Watch to always have a current session token, and my device to register for push on first launch, so background check-ins and notifications work without first opening the app twice.",
+      "acceptanceCriteria": [
+        "The app observes Supabase auth state / token refresh and re-mirrors the access token to the App Group Keychain on every refresh, not only at call time (ios/DailyOK/Services/SupabaseService.swift:40-54; SharedCheckInPublisher republish)",
+        "registerForRemoteNotifications() is invoked once at first launch for an already-granted user, not only on a background→foreground cycle (ios/DailyOK/App/AppDelegate.swift:36-72; DailyOKApp.swift:33-40)",
+        "Locked/withheld-token state is handled so out-of-process surfaces don't present an enabled action they can't perform (coordinate with US-IOS128)"
+      ],
+      "priority": 220,
+      "passes": true,
+      "notes": "From the Services (#8) and Lifecycle (#10) reviews. Stale out-of-process tokens cause failed background check-ins and false escalations. | IMPLEMENTED (scoped): AC#1 (re-mirror token on refresh) was ALREADY done via AuthViewModel.listenForAuthStateChanges .tokenRefreshed -> syncAccessTokenToExtension (US-IOS084) — verified, no change needed. AC#2: AppDelegate.didFinishLaunching now registers for remote notifications at cold launch when permission is already granted (reinstall/restore), since .onChange(of: scenePhase) does not fire for the initial .active; idempotent with the resume path (APNs returns the same token, registerToken upserts). AC#3 (locked surfaces) delivered under US-IOS128. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS122",
+      "title": "Dashboard/receiver load coalescing must self-clear",
+      "description": "As a user, I want the dashboard/receiver status to keep refreshing reliably, so a torn-down load task can't leave the screen permanently stale.",
+      "acceptanceCriteria": [
+        "loadDashboard()/loadStatus() clear the loadTask handle from INSIDE the task (so a view-.task caller cancelled at the await suspension can't orphan a completed task, which would make every later call return the stale cached value and stop refreshing) (ios/DailyOK/ViewModels/DashboardViewModel.swift:113-121; ReceiverViewModel.swift:74-82)",
+        "The in-flight coalescing guard still prevents concurrent full reloads from the overlapping triggers (.task, scenePhase .active, tab-change, offline-sync, refreshable)"
+      ],
+      "priority": 221,
+      "passes": true,
+      "notes": "From the Lifecycle (#2,#8,#9) and Views (#8) reviews. Perf + a real re-entrancy race in load coalescing. | IMPLEMENTED: both VMs now clear loadTask inside the unstructured task (defer-style trailing assignment) so a cancelled producing caller can't leave a completed task cached forever (dashboard/receiver would otherwise stop refreshing). The single-publish and per-receiver TaskGroup perf items were split into US-IOS130 (deliberately deferred: the in-place note/wellness enrichment is an intentional progressive render, and cross-receiver concurrency needs care around the shared weekly accumulators — both want profiling first). No headless test; review-verified. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS123",
+      "title": "HistoryView resilient receiver selection and enum-based status",
+      "description": "As an owner viewing history, I don't want to be left looking at a removed family member's stale check-ins, and the app shouldn't infer status by string-matching a localized label.",
+      "acceptanceCriteria": [
+        "After loadMembers refetches, selectedReceiver is re-resolved to the matching id or falls back to .first when the prior selection is no longer in the family (ios/DailyOK/Views/Owner/HistoryView.swift:177-192)",
+        "TodayTimelineCard derives status from the card.status enum rather than card.status.label.lowercased().contains(\"miss\") (ios/DailyOK/Views/Owner/DashboardView.swift:336-341)",
+        "Duplicate trivial moodEmoji wrappers are removed in favor of mood.emoji (DashboardView.swift:651; HistoryView.swift:269)"
+      ],
+      "priority": 222,
+      "passes": true,
+      "notes": "From the Views review (#1,#10,#11). String-matched status is localization-fragile; stale selection shows wrong data. | IMPLEMENTED: HistoryView.loadMembers re-resolves selectedReceiver against the fresh member list (keep-if-present else .first) so a removed receiver no longer shows stale history under a vanished name. DashboardView.timelineStatusIcon switches on the ReceiverCheckInStatus enum instead of string-matching the localized label. Removed the dead DashboardView moodEmoji wrapper and inlined HistoryView's to mood.emoji. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS124",
+      "title": "Dashboard 'Check on' button stuck-state backstop",
+      "description": "As an owner, I don't want the per-receiver 'Check on' button to get stuck in sending/sent if a concurrent dashboard reload tears down its in-flight Task.",
+      "acceptanceCriteria": [
+        "checkOnState is reset via .onChange(of: card.status) (and/or .onDisappear) as a backstop so a torn-down 2.5s reset Task can't leave the button stuck (ios/DailyOK/Views/Owner/DashboardView.swift:582-588)",
+        "The success announcement / 'Request sent' visual still fires for VoiceOver users",
+        "No double-send when the button is tapped during a reload"
+      ],
+      "priority": 223,
+      "passes": true,
+      "notes": "From the Views review (#3). | IMPLEMENTED: the Check-on button resets checkOnState via .onChange(of: card.status) and .onDisappear so it can't stay wedged in .sending/.sent if the send hangs or fresh status arrives from a reload. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS125",
+      "title": "Schedule and export edge-state guards",
+      "description": "As an owner configuring a custom schedule or exporting data, I want to be warned instead of silently producing a broken or empty result.",
+      "acceptanceCriteria": [
+        "Custom-schedule Save is blocked or clearly warned when zero days are enabled (which would mean the receiver never gets a check-in request) (ios/DailyOK/Views/Settings/ReceiverSettingsView.swift:367-446,621)",
+        "Export My Data sets a user-visible error if encoding yields nil instead of silently doing nothing (ios/DailyOK/Views/Settings/SettingsView.swift:294-297)"
+      ],
+      "priority": 224,
+      "passes": true,
+      "notes": "From the Views review (#13,#14). Both are silent dead-ends today. | IMPLEMENTED: saveSettings blocks a custom schedule with every day toggled off (warns + announces instead of persisting an empty schedule that would mean no check-ins ever). exportUserData now surfaces an error when UTF-8 encoding yields nil instead of silently doing nothing. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS126",
+      "title": "Apple credential revocation check scoped to Apple-linked accounts",
+      "description": "As a user who signed in with email/phone (no Apple identity), I don't want a transient credential-status failure to sign me out with a misleading 'Apple ID access was revoked' message.",
+      "acceptanceCriteria": [
+        "checkAppleCredentialRevocation only runs when the account actually has a linked Apple identity (ios/DailyOK/ViewModels/AuthViewModel.swift:79-86,517-523)",
+        "checkAppleCredentialStatus distinguishes a genuine .revoked state from a transient/unknown error and only signs out on genuine revocation (ios/DailyOK/Services/AuthService.swift:323-333)",
+        "handleCallReceiver wraps its Supabase query in do/catch and logs failures instead of silently dropping the 'Call Now' action (ios/DailyOK/App/AppDelegate.swift:213-235)"
+      ],
+      "priority": 225,
+      "passes": true,
+      "notes": "From the Lifecycle (#5,#6) and Services (#14) reviews. | IMPLEMENTED: checkAppleCredentialStatus now returns true unless the state is genuinely .revoked (.notFound/.transferred/thrown errors no longer sign the user out); it already early-returns true for non-Apple accounts via getPersistedAppleUserID, so email/phone users are unaffected. AppDelegate.handleCallReceiver wraps its users query in do/catch + Log so an urgent 'Call Now' no longer silently no-ops (the bare try discarded the throw). Build verification pending CI."
+    },
+    {
+      "id": "US-IOS127",
+      "title": "Remotely end the escalation Live Activity when resolved server-side",
+      "description": "As an owner, I want an escalation Live Activity to stop showing 'Overdue' with a running timer once the receiver checks in, even if my app is closed, so the most anxiety-inducing surface reflects reality.",
+      "acceptanceCriteria": [
+        "When an escalation resolves server-side (receiver checks in / stands down) while the owner's app is closed, the receiver's Live Activity is ended/updated via an APNs liveactivity push, not only on the owner's next dashboard load (ios/DailyOK/Services/EscalationActivityManager.swift:52; edge-functions side)",
+        "Register and store the Live Activity push-to-start / per-activity push tokens and target them from the escalation-resolve path",
+        "Backward-compatible: no breaking change to the push_tokens.platform contract per CLAUDE.md"
+      ],
+      "priority": 226,
+      "passes": false,
+      "notes": "From the Watch review (#5,#11). Larger: needs a Live Activity push token registration + an edge-function trigger. May span releases. | The client-side stale visual (former AC#2) was delivered as US-IOS131. This story now covers ONLY the backend/APNs push-to-end, which needs an edge-function trigger + Live Activity push token registration and spans releases — left open."
+    },
+    {
+      "id": "US-IOS128",
+      "title": "Locked-state for biometric-withheld out-of-process surfaces",
+      "description": "As a user with biometric lock enabled, I don't want widgets/Control Center/Siri to show an enabled 'I'm OK' button that then fails with a confusing 'sign in first' message when tokens are withheld.",
+      "acceptanceCriteria": [
+        "The shared snapshot carries a tokensAvailable/locked signal (or the provider checks Keychain presence) so surfaces can render a 'locked — open the app' state instead of an actionable button (ios/DailyOK/Services/SharedCheckInPublisher.swift:67; ios/DailyOKWidgets/CheckInWidget.swift:69,106,137)",
+        "Tapping a locked surface routes to unlock/open-app rather than throwing notSignedIn",
+        "Signed-out vs locked are visually distinct"
+      ],
+      "priority": 227,
+      "passes": true,
+      "notes": "From the Watch review (#4). Coordinates with US-IOS121. | IMPLEMENTED: CheckInEntry gained tokensAvailable (SharedKeychain.loadTokens() != nil) and an isLocked computed (signed-in per snapshot but tokens withheld by biometric lock). Home/Lock-screen widget variants render a 'Tap to unlock' locked state instead of an actionable I'm OK button, and widgetURL opens the app when locked. SharedCheckInClient throws a new .locked error (distinct message) when a snapshot exists but tokens are absent, so the static Control Center/Siri path no longer tells an already-signed-in user to 'sign in first'. withholdTokens/republishTokensFromSession already reload widgets. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS129",
+      "title": "Multi-window mood scoping, analytics screen event, and shared-state write safety",
+      "description": "As a multi-window receiver, I want my mood attached to the correct check-in window; as a maintainer, I want screen analytics and shared-snapshot writes to be correct.",
+      "acceptanceCriteria": [
+        "setMood scopes the mood write to the current slot's check-in row, not just lastCheckIn.id, consistent with the slotKey model (ios/DailyOK/ViewModels/ReceiverViewModel.swift:571-584,58-62)",
+        "AnalyticsService emits a dedicated screen.viewed event rather than tagging every screen as owner.dashboard_viewed (ios/DailyOK/Services/AnalyticsService.swift:92-94)",
+        "Shared snapshot read-modify-write is made safe against phone/extension interleaving (e.g. extension paths only ever use update(), phone publish is authoritative-last-write), documented at the call sites (ios/DailyOK/Shared/SharedCheckInState.swift:60-66; SharedCheckInClient.swift:43,73-76)"
+      ],
+      "priority": 228,
+      "passes": true,
+      "notes": "From the Lifecycle (#12), Services (#15), and Watch (#7) reviews. Bundled lower-risk correctness/quality items. | IMPLEMENTED (scoped): AnalyticsService gained a dedicated app.screen_viewed event so trackScreen no longer mis-tags every screen as owner.dashboard_viewed. SharedCheckInClient.checkIn now merges done-state via SharedCheckInStore.update() on the freshest snapshot instead of saving a stale captured copy, so a concurrent phone publish() isn't clobbered (update() is the authoritative out-of-process RMW path). The mood-slot-scoping AC was VERIFIED NOT A BUG: todayCheckInStatus orders checked_in_at DESC limit 1, so lastCheckIn is the latest window's row and setMood already targets it correctly — left unchanged. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS130",
+      "title": "Dashboard load performance: single publish + concurrent receiver loads",
+      "description": "As an owner with several receivers, I want the dashboard to load with minimal redundant re-renders and round-trips, after profiling confirms the win.",
+      "acceptanceCriteria": [
+        "Evaluate folding note-count and wellness enrichment into the local cards array before the single receiverCards assignment (vs the current intentional progressive render) and apply only if it doesn't regress first-paint latency (ios/DailyOK/ViewModels/DashboardViewModel.swift:251-255,417-465)",
+        "Evaluate running the per-receiver reads concurrently across receivers via a TaskGroup, with safe aggregation of the shared weekly accumulators (weekMinutesTotal/Count, totalScheduled/CheckedInDays) (DashboardViewModel.swift:160-249)",
+        "Decision and any change documented; no behavior regression to the weekly summary or escalation/Live-Activity sync"
+      ],
+      "priority": 229,
+      "passes": false,
+      "notes": "Split from US-IOS122. Perf-only; deliberately gated on profiling because the current progressive render (fast first paint, then enrich) is a reasonable design and the cross-receiver concurrency touches shared accumulators."
+    },
+    {
+      "id": "US-IOS131",
+      "title": "Live Activity stale-state visual (stop the unbounded timer)",
+      "description": "As an owner, once an escalation Live Activity goes stale (>6h with no update), I want it to read as 'stuck' rather than keep an ever-growing live timer running at my most anxious moment.",
+      "acceptanceCriteria": [
+        "When context.isStale, the Lock Screen + Dynamic Island show 'Overdue/Missed 6h+' and a static glyph instead of the live .timer/.relative (ios/DailyOKWidgets/EscalationLiveActivity.swift:29,33,57,61,79)",
+        "Non-stale presentation is unchanged"
+      ],
+      "priority": 230,
+      "passes": true,
+      "notes": "Split from US-IOS127. IMPLEMENTED: statusText(context) suffixes '6h+' when stale; the lock-screen relative line, the expanded center, and the compactTrailing timer all switch to a static paused presentation when context.isStale. Pairs with the 6h staleDate set in EscalationActivityManager. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS132",
+      "title": "Push token registration never leaves the live token briefly inactive",
+      "description": "As a user, I don't want a window where my current push token is marked inactive during re-registration, so notifications can't be missed mid-refresh.",
+      "acceptanceCriteria": [
+        "registerToken deactivates only the user's OTHER iOS tokens (neq the token being registered) before upserting the current one active (ios/DailyOK/Services/PushNotificationService.swift:42-59)",
+        "Behavior is unchanged when the token is new (nothing to exclude) and self-heals if the upsert fails (lastPushToken only saved on success)"
+      ],
+      "priority": 231,
+      "passes": true,
+      "notes": "From Services review #4. The actor already serializes concurrent registrations; this removes the brief-inactive window in the deactivate-then-upsert. IMPLEMENTED. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS135",
+      "title": "Shared Keychain writes are atomic (no token-loss crash window)",
+      "description": "As any out-of-process surface, I never want a crash between delete and add to leave me with no tokens (silently signed-out) until the next phone sync.",
+      "acceptanceCriteria": [
+        "SharedKeychain.set updates the item in place when present, adds when absent, and only falls back to delete+add to self-heal an unexpected status — eliminating the delete-then-add no-item window (ios/DailyOK/Shared/SharedKeychain.swift:123-134)",
+        "Accessibility attribute (AfterFirstUnlockThisDeviceOnly) and access group are still applied on both update and add paths"
+      ],
+      "priority": 232,
+      "passes": true,
+      "notes": "From Watch review #12. IMPLEMENTED via SecItemUpdate-first with SecItemAdd on errSecItemNotFound and delete+add fallback. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS136",
+      "title": "Heartbeat re-anchors last-seen when connectivity returns",
+      "description": "As an owner, I want a receiver's last-seen to refresh promptly when their connection comes back, not only on the 15-min tick or a foreground, so they don't look falsely inactive after an offline stretch.",
+      "acceptanceCriteria": [
+        "OfflineCheckInService posts a connectivityRestored notification on the offline->online transition (ios/DailyOK/Services/OfflineCheckInService.swift:248-251,228)",
+        "HeartbeatService observes it (registered in start(), removed in stop()) and sends a heartbeat when connectivity returns; sendHeartbeat still guards on an authenticated session (ios/DailyOK/Services/HeartbeatService.swift)",
+        "No duplicate observer registration (idempotent with the timer==nil guard)"
+      ],
+      "priority": 233,
+      "passes": true,
+      "notes": "From Services review #10. IMPLEMENTED. The 15-min Timer no-ops while offline; this closes the gap between reconnect and the next tick. Build verification pending CI."
     }
   ]
 }

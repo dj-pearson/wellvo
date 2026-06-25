@@ -2,6 +2,7 @@ import Foundation
 
 enum SharedCheckInError: LocalizedError {
     case notSignedIn
+    case locked
     case sessionExpired
     case badConfiguration
     case server(Int, String)
@@ -11,6 +12,8 @@ enum SharedCheckInError: LocalizedError {
         switch self {
         case .notSignedIn:
             return "Open Daily OK on your iPhone and sign in first."
+        case .locked:
+            return "Daily OK is locked. Open the app on this device to unlock, then try again."
         case .sessionExpired:
             return "Your session expired. Open Daily OK on your iPhone to sign back in."
         case .badConfiguration:
@@ -41,10 +44,12 @@ enum SharedCheckInClient {
         batteryLevel: Double? = nil
     ) async throws -> SharedCheckInState {
         guard var state = SharedCheckInStore.load() else { throw SharedCheckInError.notSignedIn }
-        // The session secrets live in the Keychain, not the snapshot plist. No
-        // tokens means signed-out, or biometric lock has withheld them — either
-        // way this surface must not act.
-        guard var tokens = SharedKeychain.loadTokens() else { throw SharedCheckInError.notSignedIn }
+        // The session secrets live in the Keychain, not the snapshot plist. With
+        // a snapshot present but no tokens, the user IS signed in but biometric
+        // lock has withheld the tokens — surface a distinct "locked" message so
+        // a Control Center / Siri tap doesn't tell an already-signed-in user to
+        // "sign in first" (US-IOS128).
+        guard var tokens = SharedKeychain.loadTokens() else { throw SharedCheckInError.locked }
 
         if tokens.isAccessTokenExpired {
             tokens = try await refreshSession(state, tokens: tokens)
@@ -70,10 +75,31 @@ enum SharedCheckInClient {
             try await postCheckIn(state: state, accessToken: tokens.accessToken, body: body)
         }
 
+        // Merge the done-state onto the FRESHEST snapshot (re-loaded inside
+        // update()) instead of saving the whole `state` captured at the top of
+        // this call: a concurrent phone `publish()` rewrites the entire snapshot
+        // (e.g. a new nextCheckInAt / displayName), and saving our stale copy
+        // would clobber it. update() is the single authoritative
+        // read-modify-write path for out-of-process writers (US-IOS129).
+        let now = Date()
+        SharedCheckInStore.update { snapshot in
+            snapshot.hasCheckedInToday = true
+            snapshot.lastCheckInAt = now
+            // Drop a now-past reload anchor so a stale `nextCheckInAt` from a
+            // prior config can't delay the new-day flip on glanceable surfaces;
+            // the phone rewrites the real next time on its next `loadStatus`.
+            if let next = snapshot.nextCheckInAt, next <= now {
+                snapshot.nextCheckInAt = nil
+            }
+        }
+        // Reflect the merged result; fall back to a locally-updated copy if the
+        // snapshot was cleared concurrently (e.g. by sign-out).
+        if let merged = SharedCheckInStore.load() {
+            return merged
+        }
         state.hasCheckedInToday = true
-        state.lastCheckInAt = Date()
-        state.updatedAt = Date()
-        SharedCheckInStore.save(state)
+        state.lastCheckInAt = now
+        state.updatedAt = now
         return state
     }
 

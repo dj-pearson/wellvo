@@ -114,10 +114,19 @@ final class DashboardViewModel: ObservableObject {
         if let loadTask {
             return await loadTask.value
         }
-        let task = Task { await performLoad() }
+        // Clear the handle from INSIDE the task (via defer) rather than after
+        // `await task.value` in the caller. The caller is usually a view's
+        // `.task`, which is cancelled on disappear; if it's torn down at the
+        // suspension below, a caller-side `loadTask = nil` would never run,
+        // leaving a completed task cached forever — every later loadDashboard()
+        // would return its stale value instantly and the dashboard would stop
+        // refreshing. The unstructured task finishes regardless and clears itself.
+        let task = Task { [weak self] in
+            await self?.performLoad()
+            self?.loadTask = nil
+        }
         loadTask = task
         await task.value
-        loadTask = nil
     }
 
     private func performLoad() async {

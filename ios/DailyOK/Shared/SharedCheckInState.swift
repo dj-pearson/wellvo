@@ -30,6 +30,28 @@ struct SharedCheckInState: Codable, Equatable {
     var updatedAt: Date
 }
 
+extension SharedCheckInState {
+    /// Whether today's check-in is actually done *as of `now`*, derived from the
+    /// check-in's calendar day rather than trusting the persisted
+    /// `hasCheckedInToday` flag on its own.
+    ///
+    /// `hasCheckedInToday` is only ever flipped *true* (by `markCheckedIn` /
+    /// `SharedCheckInClient.checkIn`) and is never cleared at a local-midnight
+    /// rollover for out-of-process surfaces — the phone clears it only when it
+    /// next runs `loadStatus`. If the phone app isn't opened across midnight, a
+    /// watch-only user would otherwise be shown a stale "all set" and have a
+    /// real new-day check-in silently short-circuited (a false-escalation risk).
+    ///
+    /// Uses the device-local calendar; the phone remains the source of truth and
+    /// rewrites the snapshot with its own timezone-correct status whenever it
+    /// runs. The flag is still required so the phone can authoritatively mark
+    /// "not done" even when `lastCheckInAt` happens to land today.
+    func isCheckedIn(asOf now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        guard hasCheckedInToday, let last = lastCheckInAt else { return false }
+        return calendar.isDate(last, inSameDayAs: now)
+    }
+}
+
 /// Read/write access to the shared check-in snapshot. Safe to call from any
 /// target that links the shared files and has the App Group entitlement.
 enum SharedCheckInStore {

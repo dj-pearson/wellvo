@@ -39,15 +39,18 @@ actor PushNotificationService {
         guard token != storedToken else { return }
 
         do {
-            // Deactivate old tokens for this user on this platform
+            // Deactivate this user's OTHER iOS tokens (exclude the one we're
+            // about to register) so the live token is never momentarily marked
+            // inactive between this update and the upsert below.
             try await supabase
                 .from("push_tokens")
                 .update(["is_active": "false"])
                 .eq("user_id", value: session.user.id.uuidString)
                 .eq("platform", value: "ios")
+                .neq("token", value: token)
                 .execute()
 
-            // Register new token
+            // Register (or re-activate) the current token.
             try await supabase
                 .from("push_tokens")
                 .upsert([
