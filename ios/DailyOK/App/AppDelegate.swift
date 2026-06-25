@@ -68,6 +68,21 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         // Sync access token to shared App Group for Notification Service Extension
         Task { await SupabaseService.shared.syncAccessTokenToExtension() }
 
+        // Register for remote notifications at cold launch when permission is
+        // already granted (reinstall / restore-from-backup, where no new
+        // permission prompt fires and the initial scenePhase transition may not
+        // re-trigger registration). Idempotent with the resume-path
+        // registration — APNs returns the same token and registerToken upserts —
+        // so this just guarantees an already-granted user gets a live token
+        // without first having to background and foreground the app (US-IOS121).
+        Task {
+            if await PushNotificationService.shared.checkPermissionStatus() == .authorized {
+                await MainActor.run {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+            }
+        }
+
         return true
     }
 

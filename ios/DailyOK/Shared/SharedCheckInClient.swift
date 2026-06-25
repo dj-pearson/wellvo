@@ -2,6 +2,7 @@ import Foundation
 
 enum SharedCheckInError: LocalizedError {
     case notSignedIn
+    case locked
     case sessionExpired
     case badConfiguration
     case server(Int, String)
@@ -11,6 +12,8 @@ enum SharedCheckInError: LocalizedError {
         switch self {
         case .notSignedIn:
             return "Open Daily OK on your iPhone and sign in first."
+        case .locked:
+            return "Daily OK is locked. Open the app on this device to unlock, then try again."
         case .sessionExpired:
             return "Your session expired. Open Daily OK on your iPhone to sign back in."
         case .badConfiguration:
@@ -41,10 +44,12 @@ enum SharedCheckInClient {
         batteryLevel: Double? = nil
     ) async throws -> SharedCheckInState {
         guard var state = SharedCheckInStore.load() else { throw SharedCheckInError.notSignedIn }
-        // The session secrets live in the Keychain, not the snapshot plist. No
-        // tokens means signed-out, or biometric lock has withheld them — either
-        // way this surface must not act.
-        guard var tokens = SharedKeychain.loadTokens() else { throw SharedCheckInError.notSignedIn }
+        // The session secrets live in the Keychain, not the snapshot plist. With
+        // a snapshot present but no tokens, the user IS signed in but biometric
+        // lock has withheld the tokens — surface a distinct "locked" message so
+        // a Control Center / Siri tap doesn't tell an already-signed-in user to
+        // "sign in first" (US-IOS128).
+        guard var tokens = SharedKeychain.loadTokens() else { throw SharedCheckInError.locked }
 
         if tokens.isAccessTokenExpired {
             tokens = try await refreshSession(state, tokens: tokens)

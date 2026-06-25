@@ -4190,8 +4190,8 @@
         "Locked/withheld-token state is handled so out-of-process surfaces don't present an enabled action they can't perform (coordinate with US-IOS128)"
       ],
       "priority": 220,
-      "passes": false,
-      "notes": "From the Services (#8) and Lifecycle (#10) reviews. Stale out-of-process tokens cause failed background check-ins and false escalations."
+      "passes": true,
+      "notes": "From the Services (#8) and Lifecycle (#10) reviews. Stale out-of-process tokens cause failed background check-ins and false escalations. | IMPLEMENTED (scoped): AC#1 (re-mirror token on refresh) was ALREADY done via AuthViewModel.listenForAuthStateChanges .tokenRefreshed -> syncAccessTokenToExtension (US-IOS084) — verified, no change needed. AC#2: AppDelegate.didFinishLaunching now registers for remote notifications at cold launch when permission is already granted (reinstall/restore), since .onChange(of: scenePhase) does not fire for the initial .active; idempotent with the resume path (APNs returns the same token, registerToken upserts). AC#3 (locked surfaces) delivered under US-IOS128. Build verification pending CI."
     },
     {
       "id": "US-IOS122",
@@ -4279,8 +4279,8 @@
         "Signed-out vs locked are visually distinct"
       ],
       "priority": 227,
-      "passes": false,
-      "notes": "From the Watch review (#4). Coordinates with US-IOS121."
+      "passes": true,
+      "notes": "From the Watch review (#4). Coordinates with US-IOS121. | IMPLEMENTED: CheckInEntry gained tokensAvailable (SharedKeychain.loadTokens() != nil) and an isLocked computed (signed-in per snapshot but tokens withheld by biometric lock). Home/Lock-screen widget variants render a 'Tap to unlock' locked state instead of an actionable I'm OK button, and widgetURL opens the app when locked. SharedCheckInClient throws a new .locked error (distinct message) when a snapshot exists but tokens are absent, so the static Control Center/Siri path no longer tells an already-signed-in user to 'sign in first'. withholdTokens/republishTokensFromSession already reload widgets. Build verification pending CI."
     },
     {
       "id": "US-IOS129",

@@ -1437,3 +1437,27 @@ left unchanged.
 
 Open: US-IOS120, US-IOS121, US-IOS127, US-IOS128, US-IOS130 (each larger /
 needs backend or device testing).
+
+------------------------------------------------------------------------
+iOS deep-dive batch 5 (branch claude/ios-app-review-prd-416pqc)
+------------------------------------------------------------------------
+US-IOS121 — token-refresh re-mirror was already wired (US-IOS084, the
+.tokenRefreshed authStateChanges case), so AC#1 was a non-issue. AC#2: register
+for remote notifications at cold launch when already-granted, because
+.onChange(of: scenePhase) doesn't fire for the initial .active and there's no
+app-level .task — an already-granted user otherwise had to background/foreground
+once before the token registered. Idempotent with the resume path.
+
+US-IOS128 — biometric-locked (tokens withheld) widgets/Control Center/Siri used
+to show an enabled I'm OK button that then failed with 'sign in first'. Widget
+entry now carries tokensAvailable/isLocked; the home + lock-screen variants show
+a 'Tap to unlock' state and open the app on tap; SharedCheckInClient throws a
+distinct .locked error so the static Control Center/Siri path gives a correct
+message. withhold/republish already reload widgets.
+
+Open (each deferred with rationale): US-IOS120 (watch double-submit — needs
+device testing, low impact since syncPendingIfNeeded guards on hasPending),
+US-IOS127 (remote Live Activity end — needs an edge-function/APNs liveactivity
+push, spans releases), US-IOS130 (dashboard perf — gated on profiling).
+Pre-existing US-IOS044 (String Catalog — Xcode tooling) and US-IOS109
+(Associated Domains — Apple portal) remain blocked on non-headless work.

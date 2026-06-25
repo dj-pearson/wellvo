@@ -10,12 +10,22 @@ struct CheckInEntry: TimelineEntry {
     let lastCheckInAt: Date?
     let nextCheckInAt: Date?
     let displayName: String?
+    /// Whether the shared session tokens are currently available. False while
+    /// biometric lock has withheld them (`SharedCheckInPublisher.withholdTokens`),
+    /// even though the snapshot still says signed-in — so the surface can show a
+    /// "locked" state instead of an actionable button that would just throw
+    /// `notSignedIn` (US-IOS128).
+    let tokensAvailable: Bool
+
+    /// Signed-in per the snapshot but the tokens are withheld (biometric lock).
+    var isLocked: Bool { isSignedIn && !tokensAvailable }
 
     static func from(_ state: SharedCheckInState?, date: Date = Date()) -> CheckInEntry {
         guard let state else {
             return CheckInEntry(
                 date: date, isSignedIn: false, hasCheckedInToday: false,
-                lastCheckInAt: nil, nextCheckInAt: nil, displayName: nil
+                lastCheckInAt: nil, nextCheckInAt: nil, displayName: nil,
+                tokensAvailable: false
             )
         }
         return CheckInEntry(
@@ -26,18 +36,21 @@ struct CheckInEntry: TimelineEntry {
             hasCheckedInToday: state.isCheckedIn(asOf: date),
             lastCheckInAt: state.lastCheckInAt,
             nextCheckInAt: state.nextCheckInAt,
-            displayName: state.displayName
+            displayName: state.displayName,
+            tokensAvailable: SharedKeychain.loadTokens() != nil
         )
     }
 
     static let placeholder = CheckInEntry(
         date: Date(), isSignedIn: true, hasCheckedInToday: false,
-        lastCheckInAt: nil, nextCheckInAt: nil, displayName: nil
+        lastCheckInAt: nil, nextCheckInAt: nil, displayName: nil,
+        tokensAvailable: true
     )
 
     static let checkedInSample = CheckInEntry(
         date: Date(), isSignedIn: true, hasCheckedInToday: true,
-        lastCheckInAt: Date(), nextCheckInAt: nil, displayName: "Mom"
+        lastCheckInAt: Date(), nextCheckInAt: nil, displayName: "Mom",
+        tokensAvailable: true
     )
 }
 
