@@ -542,8 +542,11 @@ struct ReceiverHomeView: View {
                             Text(mood.label)
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .minimumScaleFactor(0.8)
+                                .lineLimit(2)
                         }
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, minHeight: 44) // 44pt min + wrap/scale at large sizes (US-IOS105)
                         .padding(.vertical, 8)
                         .glassPill(style: .thin)
                     }

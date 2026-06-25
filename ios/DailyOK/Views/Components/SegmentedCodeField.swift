@@ -14,11 +14,20 @@ struct SegmentedCodeField: View {
     var autoFocus: Bool = true
 
     @FocusState private var focused: Bool
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    // Scale the boxes with Dynamic Type so digits stay legible for low-vision
+    // users, but cap the growth and let inter-box spacing shrink so six boxes
+    // still fit on a phone (US-IOS105).
+    @ScaledMetric(relativeTo: .title) private var boxWidth: CGFloat = 44
+    @ScaledMetric(relativeTo: .title) private var boxHeight: CGFloat = 56
+
+    private var boxSpacing: CGFloat { dynamicTypeSize.isAccessibilitySize ? 4 : 10 }
 
     var body: some View {
         ZStack {
-            // Hidden field captures the keyboard, paste, and OTP autofill. The
-            // visible boxes below mirror its value.
+            // Hidden field captures the keyboard, paste, and OTP autofill — and
+            // is the focusable, EDITABLE accessibility element. The visible boxes
+            // below merely mirror its value and are hidden from VoiceOver.
             TextField("", text: Binding(
                 get: { code },
                 set: { newValue in
@@ -32,20 +41,20 @@ struct SegmentedCodeField: View {
             .focused($focused)
             .opacity(0.02) // near-invisible but still focusable/tappable
             .frame(height: 1)
+            .accessibilityLabel("Verification code")
+            .accessibilityValue("\(code.count) of \(length) digits entered")
+            .accessibilityHint("Enter the \(length)-digit code")
 
-            HStack(spacing: 10) {
+            HStack(spacing: boxSpacing) {
                 ForEach(0..<length, id: \.self) { index in
                     digitBox(at: index)
                 }
             }
             .contentShape(Rectangle())
             .onTapGesture { focused = true }
+            .accessibilityHidden(true) // decorative mirror of the field above
         }
         .onAppear { if autoFocus { focused = true } }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Verification code")
-        .accessibilityValue("\(code.count) of \(length) digits entered")
-        .accessibilityHint("Enter the \(length)-digit code")
     }
 
     private func digitBox(at index: Int) -> some View {
@@ -56,7 +65,10 @@ struct SegmentedCodeField: View {
 
         return Text(character)
             .font(.title.monospaced().weight(.semibold))
-            .frame(width: 44, height: 56)
+            // Cap the digit's own scaling so it can't overflow the box.
+            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+            .minimumScaleFactor(0.6)
+            .frame(width: boxWidth, height: boxHeight)
             .background(
                 RoundedRectangle(cornerRadius: 10)
                     .fill(Color(.secondarySystemBackground))
