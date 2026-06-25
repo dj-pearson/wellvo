@@ -13,6 +13,7 @@ struct CareNotesView: View {
     @StateObject private var model: CareNotesViewModel
     @State private var draft: String = ""
     @State private var editingNote: CareNote?
+    @State private var noteToDelete: CareNote?
     @FocusState private var composerFocused: Bool
 
     init(familyId: UUID, receiverId: UUID, receiverName: String) {
@@ -24,7 +25,9 @@ struct CareNotesView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if model.notes.isEmpty && !model.isLoading {
+            if model.loadFailed && model.notes.isEmpty {
+                loadErrorState
+            } else if model.notes.isEmpty && !model.isLoading {
                 emptyState
             } else {
                 notesList
@@ -44,6 +47,40 @@ struct CareNotesView: View {
         } message: {
             Text(model.errorMessage ?? "")
         }
+        // Confirm before a permanent, server-side delete — every other
+        // destructive action in the app confirms (US-IOS102).
+        .confirmationDialog(
+            "Delete this note?",
+            isPresented: Binding(
+                get: { noteToDelete != nil },
+                set: { if !$0 { noteToDelete = nil } }
+            ),
+            presenting: noteToDelete
+        ) { note in
+            Button("Delete", role: .destructive) {
+                Task { await model.delete(note) }
+                noteToDelete = nil
+            }
+            Button("Cancel", role: .cancel) { noteToDelete = nil }
+        } message: { _ in
+            Text("This permanently removes the note for the whole care team.")
+        }
+    }
+
+    private var loadErrorState: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 40))
+                .foregroundStyle(.orange)
+            Text("Couldn't load notes")
+                .font(.headline)
+            Button("Retry") { Task { await model.reload() } }
+                .buttonStyle(.bordered)
+                .frame(minHeight: 44)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private var emptyState: some View {
@@ -73,6 +110,8 @@ struct CareNotesView: View {
             }
             .padding()
         }
+        // Let the user swipe the list to dismiss the keyboard (US-IOS102).
+        .scrollDismissesKeyboard(.interactively)
     }
 
     private func noteRow(_ note: CareNote) -> some View {
@@ -106,7 +145,7 @@ struct CareNotesView: View {
             }
             if model.canDelete(note) {
                 Button(role: .destructive) {
-                    Task { await model.delete(note) }
+                    noteToDelete = note
                 } label: { Label("Delete", systemImage: "trash") }
             }
         }
@@ -135,9 +174,12 @@ struct CareNotesView: View {
                 } label: {
                     Image(systemName: editingNote == nil ? "arrow.up.circle.fill" : "checkmark.circle.fill")
                         .font(.title2)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isSaving)
                 .tint(DailyOKColor.green)
+                .accessibilityLabel(editingNote == nil ? "Send note" : "Save note")
             }
         }
         .padding(12)
@@ -170,6 +212,9 @@ final class CareNotesViewModel: ObservableObject {
     @Published var isLoading = true
     @Published var isSaving = false
     @Published var errorMessage: String?
+    /// True when the last load failed — lets the view show an error + retry
+    /// instead of the "No notes yet" empty state (US-IOS102).
+    @Published var loadFailed = false
 
     private let familyId: UUID
     private let receiverId: UUID
@@ -237,8 +282,11 @@ final class CareNotesViewModel: ObservableObject {
                 .order("created_at", ascending: false)
                 .execute()
                 .value
+            loadFailed = false
         } catch {
-            // Notes are non-critical; surface nothing on load failure.
+            // Distinguish a load failure from a genuinely empty list so the view
+            // can offer Retry instead of "No notes yet" (US-IOS102).
+            loadFailed = true
         }
         isLoading = false
     }
