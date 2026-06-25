@@ -117,6 +117,20 @@ final class OfflineCheckInService: ObservableObject {
     /// a check-in for later sync.
     static func isConnectivityError(_ error: Error) -> Bool {
         if error is NetworkError { return true }
+        // `respondToCheckIn` (and other callers) re-wrap thrown errors as
+        // `DailyOKError.network(_)` / `.unknown(_)` before they reach here, so a
+        // genuine connectivity failure would otherwise bridge to an NSError with
+        // the DailyOKError domain (not NSURLErrorDomain) and be misclassified as
+        // a hard error — leaving the check-in un-queued and falsely escalating.
+        // Unwrap one level and re-test.
+        if let appError = error as? DailyOKError {
+            switch appError {
+            case .network(let inner), .unknown(let inner):
+                return isConnectivityError(inner)
+            default:
+                return false
+            }
+        }
         let nsError = error as NSError
         guard nsError.domain == NSURLErrorDomain else { return false }
         switch nsError.code {

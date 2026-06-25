@@ -1326,3 +1326,44 @@ US-IOS109 (still passes:false — Apple-portal-blocked, not code-blocked): confi
 US-IOS044 (still passes:false): pricing slice (StoreKit displayPrice, App Store 3.1) remains done. Full Localizable.xcstrings String Catalog migration of hundreds of literals + the pseudolocalization clipping pass need Xcode catalog tooling and a build to verify; not safely doable source-only/headless.
 
 NET: of the 3 open stories, US-IOS110 closed. 255/257 stories passes:true; US-IOS044 + US-IOS109 remain, each blocked on Xcode / Apple-portal work that cannot be performed or verified in this headless environment.
+
+========================================================================
+iOS deep-dive review + batch 1 (branch claude/ios-app-review-prd-416pqc)
+========================================================================
+Ran a four-area code review of the iOS app (Services, Views/UX, App-lifecycle/
+ViewModels/Models, and Watch/Widgets/Shared). Filed 17 new stories
+US-IOS113–US-IOS129 in prd.json from the findings. Implemented the first batch
+(all source-only; final Xcode build verification pending CI — no headless Swift
+toolchain in this env):
+
+US-IOS113 (day-rollover on glanceable surfaces) — the highest-value bug: the
+shared snapshot's hasCheckedInToday is only ever flipped true and never cleared
+at local midnight, so a watch-only user crossing midnight without opening the
+phone saw a stale "all set" AND had a real new-day tap silently short-circuited
+(false-escalation risk). Added SharedCheckInState.isCheckedIn(asOf:calendar:)
+deriving doneness from lastCheckInAt's day; wired into watch model, complication,
+and Home/Lock widget; widget reloads at next local midnight; client clears a
+now-past nextCheckInAt; sessionExpired forces didCheckIn=false. Tests in ModelTests.
+
+US-IOS114 (snooze) — loadPendingRequest re-surfaced a just-snoozed request as
+pending. Extracted ReceiverViewModel.isActivelyPending(_:now:) honoring
+snoozed_until. Tests in ModelTests.
+
+US-IOS115 (receiver timezone) — computeNextCheckInTime / nextFallbackDate used
+Calendar.current instead of the receiver's account zone. Capture users.timezone
+into receiverTimezone and resolve via Calendar.forTimezone. Resolver instant
+behavior already locked by ScheduleResolverTests.
+
+US-IOS116 (offline classification) — isConnectivityError didn't unwrap
+DailyOKError.network/.unknown, so a connectivity failure re-wrapped by
+respondToCheckIn wasn't queued offline. Recursive unwrap added. Tests in
+OfflineCheckInServiceTests.
+
+US-IOS117 (StoreKit) — listenForTransactions finished the transaction before
+syncing, so a renewal whose sync failed was never redelivered; sync now precedes
+finish(). Added resetReconcileLatch() on sign-out so a second user reconciles.
+
+Still open from this backlog: US-IOS118–US-IOS129 (location continuation race,
+watch offline response-type, double-submit, token freshness, dashboard load
+coalescing, history selection, button stuck-state, schedule/export guards, Apple
+revocation scoping, remote Live Activity end, locked surfaces, mood scoping).

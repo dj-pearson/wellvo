@@ -70,9 +70,16 @@ enum SharedCheckInClient {
             try await postCheckIn(state: state, accessToken: tokens.accessToken, body: body)
         }
 
+        let now = Date()
         state.hasCheckedInToday = true
-        state.lastCheckInAt = Date()
-        state.updatedAt = Date()
+        state.lastCheckInAt = now
+        // Drop a now-past reload anchor so a stale `nextCheckInAt` from a prior
+        // config can't delay the new-day flip on glanceable surfaces; the phone
+        // rewrites the real next time on its next `loadStatus`.
+        if let next = state.nextCheckInAt, next <= now {
+            state.nextCheckInAt = nil
+        }
+        state.updatedAt = now
         SharedCheckInStore.save(state)
         return state
     }

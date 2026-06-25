@@ -21,7 +21,9 @@ struct CheckInEntry: TimelineEntry {
         return CheckInEntry(
             date: date,
             isSignedIn: true,
-            hasCheckedInToday: state.hasCheckedInToday,
+            // Day-scoped so the widget flips back to "tap I'm OK" at a new day
+            // even if the phone hasn't synced a fresh snapshot.
+            hasCheckedInToday: state.isCheckedIn(asOf: date),
             lastCheckInAt: state.lastCheckInAt,
             nextCheckInAt: state.nextCheckInAt,
             displayName: state.displayName
@@ -47,11 +49,20 @@ struct CheckInProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<CheckInEntry>) -> Void) {
-        let entry = CheckInEntry.from(SharedCheckInStore.load())
-        // Refresh around the next scheduled check-in (so a new day flips the
-        // widget back to "tap I'm OK"), but never less than 15 minutes out.
-        let soon = Date().addingTimeInterval(15 * 60)
-        let reload = max(entry.nextCheckInAt ?? soon, soon)
+        let now = Date()
+        let entry = CheckInEntry.from(SharedCheckInStore.load(), date: now)
+        // Refresh around the next scheduled check-in AND at the next local
+        // midnight (so a new day flips the widget back to "tap I'm OK" even if
+        // the phone never syncs a fresh snapshot), but never less than 15
+        // minutes out to respect WidgetKit's refresh budget.
+        let soon = now.addingTimeInterval(15 * 60)
+        let nextMidnight = Calendar.current.nextDate(
+            after: now,
+            matching: DateComponents(hour: 0, minute: 0, second: 0),
+            matchingPolicy: .nextTime
+        )
+        let candidates = [entry.nextCheckInAt, nextMidnight].compactMap { $0 }.filter { $0 > soon }
+        let reload = candidates.min() ?? soon
         completion(Timeline(entries: [entry], policy: .after(reload)))
     }
 }

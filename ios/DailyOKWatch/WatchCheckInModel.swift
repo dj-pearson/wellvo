@@ -22,7 +22,9 @@ final class WatchCheckInModel: ObservableObject {
     func reload() {
         state = SharedCheckInStore.load()
         queued = WatchOfflineQueue.hasPending
-        didCheckIn = (state?.hasCheckedInToday ?? false) || queued
+        // Derive doneness from the check-in's day, not the raw persisted flag,
+        // so a new day (crossed without a phone sync) re-enables the tap.
+        didCheckIn = (state?.isCheckedIn() ?? false) || queued
     }
 
     private var batteryLevel: Double? {
@@ -33,8 +35,9 @@ final class WatchCheckInModel: ObservableObject {
     func checkIn() async {
         guard !isCheckingIn else { return }
         // The server dedupes per day, but skip a pointless round-trip if we
-        // already know today's check-in landed.
-        if state?.hasCheckedInToday == true {
+        // already know *today's* check-in landed. Use the day-scoped check so a
+        // stale flag from a previous day can't block a real new-day check-in.
+        if state?.isCheckedIn() == true {
             didCheckIn = true
             return
         }
@@ -61,6 +64,9 @@ final class WatchCheckInModel: ObservableObject {
             WidgetCenter.shared.reloadAllTimelines()
             WatchConnectivityProvider.shared.notifyPhoneOfCheckIn()
         } catch SharedCheckInError.sessionExpired {
+            // Force the actionable error to show even if a stale snapshot flag
+            // would otherwise have left the "all set" state on screen.
+            didCheckIn = false
             errorMessage = SharedCheckInError.sessionExpired.localizedDescription
             WKInterfaceDevice.current().play(.failure)
         } catch {

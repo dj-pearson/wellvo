@@ -58,4 +58,29 @@ final class OfflineCheckInServiceTests: XCTestCase {
         let error = NSError(domain: "SomeOtherDomain", code: 42)
         XCTAssertFalse(OfflineCheckInService.isConnectivityError(error))
     }
+
+    // MARK: - Wrapped errors (US-IOS116)
+
+    func testDailyOKNetworkWrappedConnectivityErrorIsConnectivityError() {
+        // respondToCheckIn re-wraps as DailyOKError.network(_) before it reaches
+        // the classifier; the connectivity signal must survive the unwrap.
+        let wrapped = DailyOKError.network(urlError(NSURLErrorNotConnectedToInternet))
+        XCTAssertTrue(OfflineCheckInService.isConnectivityError(wrapped))
+    }
+
+    func testDailyOKUnknownWrappedConnectivityErrorIsConnectivityError() {
+        let wrapped = DailyOKError.unknown(urlError(NSURLErrorNetworkConnectionLost))
+        XCTAssertTrue(OfflineCheckInService.isConnectivityError(wrapped))
+    }
+
+    func testDailyOKNetworkWrappedServerErrorIsNotConnectivityError() {
+        // A wrapped non-connectivity failure (e.g. HTTP 400 bridged via URLError)
+        // must NOT be queued as offline.
+        let wrapped = DailyOKError.network(urlError(NSURLErrorBadServerResponse))
+        XCTAssertFalse(OfflineCheckInService.isConnectivityError(wrapped))
+    }
+
+    func testDailyOKServerErrorCaseIsNotConnectivityError() {
+        XCTAssertFalse(OfflineCheckInService.isConnectivityError(DailyOKError.serverError("boom")))
+    }
 }

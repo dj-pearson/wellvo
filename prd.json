@@ -4086,8 +4086,8 @@
         "A unit test covers the pure today-scoped doneness helper across same-day, previous-day, and nil-lastCheckIn cases"
       ],
       "priority": 212,
-      "passes": false,
-      "notes": "From the Watch/Widgets review (#1,#2,#6,#10): false-escalation + blocked-tap risk for watch-only seniors when the phone app isn't opened across midnight. Highest-value glanceable-surface bug. Device-local Calendar is acceptable on these surfaces; the phone remains source of truth."
+      "passes": true,
+      "notes": "From the Watch/Widgets review (#1,#2,#6,#10): false-escalation + blocked-tap risk for watch-only seniors when the phone app isn't opened across midnight. Highest-value glanceable-surface bug. Device-local Calendar is acceptable on these surfaces; the phone remains source of truth. | IMPLEMENTED: Added SharedCheckInState.isCheckedIn(asOf:calendar:) deriving doneness from lastCheckInAt's day. Wired into WatchCheckInModel.reload()/checkIn(), ComplicationProvider, CheckInProvider; widget now also reloads at next local midnight; SharedCheckInClient clears a now-past nextCheckInAt; sessionExpired forces didCheckIn=false. Unit tests added in ModelTests (same-day/prev-day/nil/false-flag). Final Xcode build verification pending CI (no headless Swift toolchain)."
     },
     {
       "id": "US-IOS114",
@@ -4099,8 +4099,8 @@
         "A unit test asserts a pending row with snoozed_until in the future yields hasPendingRequest=false and one with snoozed_until in the past (or nil) yields hasPendingRequest=true"
       ],
       "priority": 213,
-      "passes": false,
-      "notes": "From the Lifecycle review (#3). User-visible contradiction in the receiver core flow."
+      "passes": true,
+      "notes": "From the Lifecycle review (#3). User-visible contradiction in the receiver core flow. | IMPLEMENTED: Extracted nonisolated ReceiverViewModel.isActivelyPending(_:now:) and used it in loadPendingRequest so a request with snoozed_until in the future no longer surfaces the pending banner (and pendingRequestId/canSnooze follow). Unit tests in ModelTests cover snoozed/elapsed/nil/unsnoozed. Build verification pending CI."
     },
     {
       "id": "US-IOS115",
@@ -4112,8 +4112,8 @@
         "A unit test pins a fixed now and a non-device timezone and asserts the computed next check-in falls on the expected wall-clock instant"
       ],
       "priority": 214,
-      "passes": false,
-      "notes": "From the Lifecycle review (#1). Extends the existing timezone discipline (StreaksTimezoneTests/ScheduleResolverTests) to the next-check-in path."
+      "passes": true,
+      "notes": "From the Lifecycle review (#1). Extends the existing timezone discipline (StreaksTimezoneTests/ScheduleResolverTests) to the next-check-in path. | IMPLEMENTED: Capture users.timezone into receiverTimezone on load; computeNextCheckInTime and nextFallbackDate now resolve via Calendar.forTimezone(receiverTimezone) instead of Calendar.current. The pure resolver's non-UTC/DST instant behavior is already locked by ScheduleResolverTests (NY spring-forward/fall-back/quiet-hours). Build verification pending CI."
     },
     {
       "id": "US-IOS116",
@@ -4125,8 +4125,8 @@
         "A unit test in OfflineCheckInServiceTests covers DailyOKError.network-wrapped connectivity errors and confirms non-connectivity errors (e.g. HTTP 400) are NOT classified as offline"
       ],
       "priority": 215,
-      "passes": false,
-      "notes": "From the Services review (#1). Closes the gap where respondToCheckIn re-wraps errors as DailyOKError.network before they reach the offline classifier."
+      "passes": true,
+      "notes": "From the Services review (#1). Closes the gap where respondToCheckIn re-wraps errors as DailyOKError.network before they reach the offline classifier. | IMPLEMENTED: OfflineCheckInService.isConnectivityError now unwraps DailyOKError.network/.unknown recursively so a connectivity failure re-wrapped by respondToCheckIn is queued offline instead of misclassified. Unit tests in OfflineCheckInServiceTests cover wrapped connectivity vs wrapped server errors. Build verification pending CI."
     },
     {
       "id": "US-IOS117",
@@ -4138,8 +4138,8 @@
         "A unit/logic test or documented review confirms a Transaction.updates renewal is synced even if the app is killed right after (no finish-before-sync gap)"
       ],
       "priority": 216,
-      "passes": false,
-      "notes": "From the Services review (#6,#16). Revenue-critical: a finished-but-unsynced renewal from Transaction.updates is not redelivered."
+      "passes": true,
+      "notes": "From the Services review (#6,#16). Revenue-critical: a finished-but-unsynced renewal from Transaction.updates is not redelivered. | IMPLEMENTED: listenForTransactions now syncs to backend BEFORE transaction.finish() (matching the purchase path) so a renewal isn't lost; added SubscriptionService.resetReconcileLatch() called from AuthViewModel.signOut so a second user in the same launch reconciles. Build verification pending CI."
     },
     {
       "id": "US-IOS118",

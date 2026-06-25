@@ -224,6 +224,14 @@ final class SubscriptionService: ObservableObject {
         await reconcileEntitlementsToBackend()
     }
 
+    /// Reset the once-per-launch reconcile latch. Must be called on sign-out so a
+    /// *different* user signing in within the same process still gets their
+    /// entitlements reconciled to the backend (otherwise the second user is
+    /// silently skipped).
+    func resetReconcileLatch() {
+        hasReconciledThisLaunch = false
+    }
+
     func reconcileEntitlementsToBackend() async {
         for await result in Transaction.currentEntitlements {
             guard let transaction = try? checkVerified(result) else { continue }
@@ -289,8 +297,13 @@ final class SubscriptionService: ObservableObject {
         for await result in Transaction.updates {
             if let transaction = try? checkVerified(result) {
                 await updatePurchasedProducts()
-                await transaction.finish()
+                // Sync to the backend BEFORE finishing, matching the purchase
+                // path (line ~154-162). `Transaction.updates` only redelivers
+                // *unfinished* transactions, so finishing first means a renewal
+                // whose sync fails (or whose app is killed mid-sync) is never
+                // re-pushed — the user silently loses provisioned entitlements.
                 await syncSubscriptionToBackend(transaction)
+                await transaction.finish()
             }
         }
     }
