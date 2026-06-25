@@ -9,6 +9,11 @@ enum Mood: String, Codable, CaseIterable {
     case hungry
     case scared
     case havingFun = "having_fun"
+    /// A mood value this app version doesn't recognize (e.g. one the server
+    /// added later — the enum already grew once in migration 00014). Decoded
+    /// here instead of silently coercing to `.neutral`, and excluded from mood
+    /// analytics so it can't skew the breakdown (US-IOS101).
+    case unknown
 
     var emoji: String {
         switch self {
@@ -20,6 +25,7 @@ enum Mood: String, Codable, CaseIterable {
         case .hungry: return "🍕"
         case .scared: return "😰"
         case .havingFun: return "🎉"
+        case .unknown: return "❓"
         }
     }
 
@@ -33,6 +39,7 @@ enum Mood: String, Codable, CaseIterable {
         case .hungry: return "Hungry"
         case .scared: return "Scared"
         case .havingFun: return "Having Fun"
+        case .unknown: return "Unknown"
         }
     }
 
@@ -47,7 +54,7 @@ enum Mood: String, Codable, CaseIterable {
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let rawValue = try container.decode(String.self)
-        self = Mood(rawValue: rawValue) ?? .neutral
+        self = Mood(rawValue: rawValue) ?? .unknown
     }
 }
 

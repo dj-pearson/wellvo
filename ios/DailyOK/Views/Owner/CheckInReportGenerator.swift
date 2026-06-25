@@ -225,7 +225,7 @@ struct CheckInReportGenerator {
     private static func moodBreakdownString(_ checkIns: [CheckIn]) -> String {
         var counts: [String: Int] = [:]
         for ci in checkIns {
-            if let mood = ci.mood {
+            if let mood = ci.mood, mood != .unknown {
                 counts[mood.label, default: 0] += 1
             }
         }

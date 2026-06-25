@@ -556,10 +556,11 @@ final class DashboardViewModel: ObservableObject {
             avgTime = "--"
         }
 
-        // Mood breakdown
+        // Mood breakdown — exclude unrecognized server moods so they don't skew
+        // the wellness analytics (US-IOS101).
         var moodBreakdown: [Mood: Int] = [:]
         for checkIn in checkIns {
-            if let mood = checkIn.mood {
+            if let mood = checkIn.mood, mood != .unknown {
                 moodBreakdown[mood, default: 0] += 1
             }
         }

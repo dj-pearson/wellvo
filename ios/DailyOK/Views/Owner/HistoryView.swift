@@ -87,7 +87,8 @@ struct HistoryView: View {
                             scheduledTime: receiverSettings?.checkinTime,
                             timezone: selectedReceiver?.user?.timezone,
                             enrolledSince: selectedReceiver?.joinedAt ?? selectedReceiver?.invitedAt,
-                            scheduledWeekdays: scheduledWeekdays
+                            scheduledWeekdays: scheduledWeekdays,
+                            settings: receiverSettings
                         )
                         .padding(.horizontal)
 
