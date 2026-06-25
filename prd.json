@@ -3562,7 +3562,7 @@
         "Manual/sandbox verification: a purchase results in subscription_webhook returning 200 and the family row's subscription_tier / max_receivers / max_viewers being updated (no '400 Unknown product_id')"
       ],
       "priority": 176,
-      "passes": false,
+      "passes": true,
       "notes": "CRITICAL release-blocker, CONFIRMED by audit. iOS sends net.wellvo.* (e.g. net.wellvo.caregiver.monthly); the webhook TIER_MAP and addon branches only know net.dailyok.*, so every iOS purchase hits `if (!tierInfo)` -> 400 'Unknown product_id'. The iOS 3x retry then surfaces 'Subscription activated but sync pending' and the family is never upgraded: StoreKit entitlement is local-only, zero backend seats/features. Two independent audit agents flagged this; verified by grep of both files. Pick the namespace that matches the real ASC products (bundle id is com.wellvo.ios; Configuration.appStoreURL id6760836697)."
     },
     {
@@ -3577,7 +3577,7 @@
         "Add a unit test asserting the serialized body contains numeric (unquoted) lat/lng/battery"
       ],
       "priority": 177,
-      "passes": false,
+      "passes": true,
       "notes": "CRITICAL release-blocker, CONFIRMED. EdgeFunctionsClient.invoke only accepts [String: String], so the client sends {\"latitude\":\"37.77\"}. Server isValidLatitude/isValidBattery require typeof===number, so EVERY location-bearing check-in and EVERY background report-location call 400s; the check-in retry then exhausts and can leave a request falsely pending -> false escalation. Heartbeat battery_level is also sent as a string (same class). Prefer sending real numbers AND adding server coercion so in-flight old builds aren't broken."
     },
     {
@@ -3592,7 +3592,7 @@
         "Owner dashboard shows battery + heartbeat alerts alongside geofence/time-drift alerts"
       ],
       "priority": 178,
-      "passes": false,
+      "passes": true,
       "notes": "CRITICAL, CONFIRMED. The migration writes jsonb_build_object('battery_level', <num>, 'last_seen_at', <timestamp string>); decoding that into [String: Double]? throws a type mismatch, and because loadAlerts decodes the whole array at once, ONE such alert sets alerts=[] -> owner sees no alerts at all. geofence_breach/time_drift are all-numeric so they decode today, which makes this intermittent and easy to miss in testing."
     },
     {
@@ -3608,7 +3608,7 @@
         "Verify on a device/TestFlight build that the extension process launches on push receipt"
       ],
       "priority": 179,
-      "passes": false,
+      "passes": true,
       "notes": "CRITICAL, CONFIRMED via grep (0 occurrences of DailyOKNotificationService in project.pbxproj; only 6 targets exist). The whole NotificationService extension never builds into the IPA, so delivery-confirmation-from-the-extension and any mutable-content push silently no-op. Decide: wire it up properly (preferred, it's the documented escalation-suppression path) or remove it."
     },
     {
@@ -3623,7 +3623,7 @@
         "If cancelEscalation fails, the activity is NOT ended and the failure is surfaced (ties into US-IOS083)"
       ],
       "priority": 180,
-      "passes": false,
+      "passes": true,
       "notes": "CRITICAL stale-safety-state bug, CONFIRMED (handleDeepLink case 'standdown' calls CheckInService.cancelEscalation directly and never touches EscalationActivityManager). For a safety app, a resolved escalation that keeps showing a live overdue timer on the Lock Screen is the worst stale state. Pairs with staleDate:nil which means it never visually goes stale."
     },
     {
@@ -3638,7 +3638,7 @@
         "Manual verification on paired devices: wrist check-in updates the phone UI + widgets without opening the app"
       ],
       "priority": 181,
-      "passes": false,
+      "passes": true,
       "notes": "CRITICAL, CONFIRMED via grep. The full transferUserInfo round-trip is wired (watch -> notifyPhoneOfCheckIn -> phone posts didReceiveWatchCheckIn) but nothing listens, so a wrist check-in is invisible to the phone and the phone's snapshot still says not-checked-in (can re-escalate)."
     },
     {
@@ -3653,7 +3653,7 @@
         "Add/adjust a test or preview covering the populated-state error path"
       ],
       "priority": 182,
-      "passes": false,
+      "passes": true,
       "notes": "CRITICAL for a safety app: every owner action that can fail (check-on, stop-alerts/stand-down, acknowledge, dismiss) sets errorMessage but it's only rendered in the empty state, so with any receiver loaded the failure is invisible. A silently-failed stand-down that clears the banner is dangerous."
     },
     {
@@ -3667,7 +3667,7 @@
         "Add coverage/manual test: force a token refresh and confirm the mirrored token updates"
       ],
       "priority": 183,
-      "passes": false,
+      "passes": true,
       "notes": "HIGH, CONFIRMED. syncAccessTokenToExtension is called once at launch but NOT on refresh; Supabase access tokens are ~1h, so after the first refresh the extension's mirrored token is stale -> 401 on confirm-delivery -> the exact escalation-suppression path degrades silently. Distinct from US-IOS045 (telemetry) which is already done."
     },
     {
@@ -3682,7 +3682,7 @@
         "watchOS floor (currently 10.0) is reviewed the same way"
       ],
       "priority": 184,
-      "passes": false,
+      "passes": true,
       "notes": "HIGH, CONFIRMED via grep (8x IPHONEOS_DEPLOYMENT_TARGET = 18.0; Package.swift .v18). iOS 18.0 excludes all iOS 16/17 devices — a major, likely-unintended audience cut versus the documented 16+ contract. Needs a product decision either way."
     },
     {
@@ -3696,7 +3696,7 @@
         "Add a test asserting uploaded coordinates are rounded to the declared precision"
       ],
       "priority": 185,
-      "passes": false,
+      "passes": true,
       "notes": "HIGH App Store privacy-accuracy risk. US-IOS029 (passes:true) coarsened only the BACKGROUND path; the foreground check-in path still uploads full precision while PrivacyInfo declares only Coarse Location — a data-use misrepresentation. Pick coarsen-everywhere or declare precise."
     },
     {
@@ -3710,7 +3710,7 @@
         "Backward-compat note recorded: these raw values are now a tolerant contract"
       ],
       "priority": 186,
-      "passes": false,
+      "passes": true,
       "notes": "HIGH. Unlike Mood (which defaults), these enums are non-defaulted; a single unknown value makes JSONDecoder throw dataCorrupted, surfacing as a thrown check-in error even though the server already recorded the check-in — and it stalls the offline sync loop (which breaks on error)."
     },
     {
@@ -3725,7 +3725,7 @@
         "Unit test: an HTTPError(400) is not retried; an HTTPError(429) is"
       ],
       "priority": 187,
-      "passes": false,
+      "passes": true,
       "notes": "HIGH, CONFIRMED. isNonRetryable only inspects NSURLErrorDomain, so HTTPError (any non-2xx) is treated as retryable: deterministic 400/403 get retried 3x with backoff (wasted ~3-7s on the 'I'm OK' path), while there's no Retry-After handling for 429."
     },
     {
@@ -3755,7 +3755,7 @@
         "Manual verification on watch: signed-out/expired state surfaces guidance, a true offline tap queues and flushes when connectivity returns"
       ],
       "priority": 189,
-      "passes": false,
+      "passes": true,
       "notes": "HIGH. A watch whose tokens never arrived (no keychain group; tokens only via WatchConnectivity) will permanently hold an unflushable queued check-in while telling the user it's saved, and a stale day-old marker makes today look done."
     },
     {
@@ -3769,7 +3769,7 @@
         "Manual verification: tapping each widget in its relevant state lands on the correct screen"
       ],
       "priority": 190,
-      "passes": false,
+      "passes": true,
       "notes": "HIGH, CONFIRMED (handleDeepLink only switches invite/dailyok.net/standdown; checkin & dashboard fall through). The not-signed-in widget tap currently just opens to the last screen, so 'tap to finish setup' is unimplemented."
     },
     {
@@ -3783,7 +3783,7 @@
         "Verify a deliberately-failing UI test turns CI red"
       ],
       "priority": 191,
-      "passes": false,
+      "passes": true,
       "notes": "HIGH, CONFIRMED. iOS tests only trigger on PRs into main, but features merge into develop -> feature PRs get zero iOS test coverage. And `xcodebuild ... || true` on both UI build-for-testing and UI run means failing UI tests are green. No lint/analyze on iOS at all."
     },
     {
@@ -3797,7 +3797,7 @@
         "A build with deliberately-blank config fails CI or shows the error screen, not a silent dead app"
       ],
       "priority": 192,
-      "passes": false,
+      "passes": true,
       "notes": "HIGH. Release branch returns \"\" on missing keys (no crash/log); combined with fragile PlistBuddy injection guarded only by an echo, a renamed/missing Info.plist key ships an app that builds, uploads, and can't reach the backend (every auth/check-in fails against an empty URL)."
     },
     {
@@ -3811,7 +3811,7 @@
         "VoiceOver announces these errors when shown"
       ],
       "priority": 193,
-      "passes": false,
+      "passes": true,
       "notes": "HIGH. settingsError is set in three places and rendered nowhere; a silently-failed Delete Account is serious. DataRetentionView swallows load errors and can overwrite real config with the default on save (ReceiverSettingsView already guards this exact case with hasLoaded/loadFailed)."
     },
     {
@@ -3826,7 +3826,7 @@
         "This work assumes US-IOS077 (correct product IDs) is in place"
       ],
       "priority": 194,
-      "passes": false,
+      "passes": true,
       "notes": "HIGH. finish() happens before backend sync, so a process kill mid-sync leaves StoreKit unable to redeliver (already finished) and the backend unupgraded until a manual restore — which ALSO never syncs. This is the only path that would have masked US-IOS077 in testing."
     },
     {
@@ -3840,7 +3840,7 @@
         "Consistent behavior between the onboarding paywall and the settings paywall"
       ],
       "priority": 195,
-      "passes": false,
+      "passes": true,
       "notes": "MEDIUM. planRow only shows 'Current Plan' for the exact owned product id, so a subscriber sees an enabled 'Subscribe' on every other tier with no 'you're on X' context."
     },
     {
@@ -3854,7 +3854,7 @@
         "Add a test for expired vs not-expired free tier"
       ],
       "priority": 196,
-      "passes": false,
+      "passes": true,
       "notes": "MEDIUM (product-intent dependent). Migration 00019 sets a 90-day grandfather deadline and the model carries it, but nothing compares it to now, so a grandfathered free family keeps full access forever on iOS."
     },
     {
@@ -3869,7 +3869,7 @@
         "Verify last_seen_at updates after a background->foreground cycle"
       ],
       "priority": 197,
-      "passes": false,
+      "passes": true,
       "notes": "MEDIUM. Timer.scheduledTimer is suspended in the background and there's no foreground hook, so 'last seen' can lag by hours even though the receiver opened the app. US-IOS031 (passes:true) addressed other heartbeat/location issues but the service still uses a plain background-dying Timer."
     },
     {
@@ -3883,7 +3883,7 @@
         "Tests cover: travel across a timezone boundary near midnight, and one poison row followed by a good row"
       ],
       "priority": 198,
-      "passes": false,
+      "passes": true,
       "notes": "MEDIUM. Device-zone dedup disagrees with the server's receiver-timezone boundary near local midnight (lost or double-counted check-in for travelers), and `break` on any error stalls the whole queue behind a single deterministic failure. Builds on US-IOS019 (passes:true) which fixed duplicate inserts but not these two."
     },
     {
@@ -3897,7 +3897,7 @@
         "Add a test for an owner/receiver timezone mismatch"
       ],
       "priority": 199,
-      "passes": false,
+      "passes": true,
       "notes": "MEDIUM. US-IOS059 (passes:true) moved owner analytics to the receiver's timezone, but the PDF report and the weekly-summary cutoff still use Calendar.current, so they can disagree with the dashboard by a boundary day."
     },
     {
@@ -3925,7 +3925,7 @@
         "The Send button has a >=44pt hit target (CareNotesView.swift:133-140)"
       ],
       "priority": 201,
-      "passes": false,
+      "passes": true,
       "notes": "MEDIUM. Permanent server-side delete with no confirm; load failures masquerade as 'no notes'; bottom composer can hide behind the keyboard."
     },
     {
@@ -3939,7 +3939,7 @@
         "VoiceOver announces auth errors/lockout when they appear"
       ],
       "priority": 202,
-      "passes": false,
+      "passes": true,
       "notes": "MEDIUM. No resend path for SMS; lockout state (authLockoutMessage) is published but never shown and buttons only disable on isLoading, so a locked-out user taps into the void. Distinct from US-IOS058 (lockout mechanism) — this is UI visibility."
     },
     {
@@ -3953,7 +3953,7 @@
         "Custom-schedule time rows are keyed by a stable Identifiable id, not array offset, so removing a middle window doesn't shift DatePicker bindings to the wrong time (ios/DailyOK/Views/Settings/ReceiverSettingsView.swift:395-408)"
       ],
       "priority": 203,
-      "passes": false,
+      "passes": true,
       "notes": "MEDIUM. Invite validation is inconsistent (onboarding requires >=10 digits; FamilyView and the walkthrough accept 'abc'/'5' and fire an SMS to garbage). The ForEach-by-offset custom-schedule editor edits the wrong time after a removal."
     },
     {
@@ -4055,7 +4055,7 @@
         "CaregiverDigestView and DataRetentionView reload on foreground (onChange of scenePhase == .active) so a stale value isn't re-saved (CaregiverDigestView.swift:84; SettingsView.swift:356)"
       ],
       "priority": 210,
-      "passes": false,
+      "passes": true,
       "notes": "MEDIUM view-state cluster. Health toggle reverts with no explanation; quiet-hours Start==End silently no-ops; receiver switch shows stale data with the wrong schedule; settings views don't refresh on foreground and can re-save stale values."
     },
     {

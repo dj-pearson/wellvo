@@ -1257,3 +1257,34 @@ HIGH: US-IOS084 extension token stale after refresh; US-IOS085 deployment target
 MEDIUM: US-IOS096..US-IOS111 (paywall tier state, free-tier expiry, heartbeat background timer, offline sync tz+dead-letter, PDF/weekly tz, heatmap window/labels/mood, care-notes hardening, OTP resend+lockout visibility, invite validation+focus, a11y data-viz/senior surfaces, increased-contrast palette, widget/complication cadence, build/signing hygiene, associated-domains+critical-alerts justification, test coverage, health/quiet-hours/history state bugs).
 LOW: US-IOS112 misc UX dead-ends & confirmations.
 Verification: source-level only (no Xcode/Deno/Supabase here). Top 7 blockers grep-verified across iOS + edge-functions + migrations.
+
+--- Iteration RELEASE-BLOCKERS + HIGH/MED: US-IOS077-088,090-100,102-104,111 (2026-06-25) ---
+Worked the iOS release-readiness backlog. 27 stories closed (passes:true). Source-level only — no Xcode/Deno/Supabase/devices here; pbxproj id balance + JSON validity checked. Branch claude/open-prd-stories-f6zc7r.
+
+User decisions captured up front (AskUserQuestion): keep iOS product IDs as net.wellvo.* (don't re-apply for special features); iOS 18 is the deliberate floor; wire the NSE up as a real target; coarsen location everywhere.
+
+CRITICAL release-blockers (US-IOS077-083):
+  - US-IOS077 product IDs: subscription-webhook TIER_MAP + addon checks now recognize BOTH net.wellvo.* (iOS/ASC source of truth) and net.dailyok.* (Android/historical) so iOS purchases stop 400ing. iOS test already asserted net.wellvo.*. FOLLOW-UP: unify Android on net.wellvo.* once Play Console products are re-registered.
+  - US-IOS078 numeric JSON: NEW JSONValue type + `json:` overloads in EdgeFunctionsClient; check-in/location/heartbeat services send lat/lng/battery/accuracy as JSON numbers. Server defensive coerceNumericFields() in process-checkin-response/report-location/heartbeat accepts string-or-number from older builds.
+  - US-IOS079 alert decode: DailyOKAlert.data -> [String: JSONValue]? with a forgiving custom decoder; one bad payload no longer blanks the whole alerts array. DashboardView drift_hours reads via .doubleValue.
+  - US-IOS080 NSE: wired DailyOKNotificationService into project.pbxproj as an app-extension target (T7000001, bundle com.wellvo.ios.NotificationService), embedded in the app, compiling NotificationService.swift + CertificatePinning.swift with PrivacyInfo.xcprivacy as a resource. confirm-delivery routes through PinnedURLSession (fails closed). CI export gains the NSE provisioning profile. apns.ts sets aps.mutable-content=1 on check-in pushes so iOS invokes the extension.
+  - US-IOS081 Live Activity: EscalationActivityManager.end(receiverId:) ends the matching activity immediately on a successful stand-down (deep-link + in-app); activities now carry a non-nil staleDate (dueSince+6h).
+  - US-IOS082 watch->phone: AppDelegate observes PhoneWatchSync.didReceiveWatchCheckIn for the app lifetime (markCheckedIn + widget reload); ReceiverHomeView reloads status on a wrist check-in.
+  - US-IOS083 dashboard errors: populated-state .alert bound to errorMessage so check-on/stand-down/dismiss/acknowledge failures aren't swallowed; failed stand-down doesn't clear the Live Activity.
+
+HIGH:
+  - US-IOS084 token refresh -> syncAccessTokenToExtension(); US-IOS085 CLAUDE.md records iOS 18 floor; US-IOS086 getCurrentLocation() coarsens to ~110m so the foreground path matches the coarse-only manifest; US-IOS087 CheckInSource/CheckInResponseType decode unknown -> safe defaults; US-IOS088 NetworkRetry treats 4xx (except 408/429) as non-retryable + honors Retry-After; US-IOS091 handleDeepLink handles dailyok://dashboard + dailyok://checkin; US-IOS092 iOS e2e tests run on develop PRs, drop `|| true`, add SwiftLint job + .swiftlint.yml; US-IOS093 Configuration fatalErrors in release on empty Supabase config + CI hard-fails on empty/missing inject (Add-or-Set PlistBuddy); US-IOS094 settingsError alert + Data Retention loadFailed guard; US-IOS095 sync-before-finish + restore/launch entitlement reconcile.
+
+MEDIUM:
+  - US-IOS096 plan rows show Current/Upgrade/Switch + split load-vs-purchase error; US-IOS097 Family.isFreeTierExpired + grandfather gating in hasAccess (note: hasAccess isn't yet called anywhere — gating contract is correct for when it's wired); US-IOS098 HeartbeatService idempotent start + appBecameActive() foreground re-anchor; US-IOS099 offline sync dead-letters deterministic 4xx (NetworkRetry.isNonRetryable now internal) instead of stalling on a poison row; US-IOS100 CheckInReportGenerator threads receiver timezone + weekly cutoff uses receiver calendar; US-IOS102 Care Notes delete confirmation, load-error state, .scrollDismissesKeyboard, 44pt send; US-IOS103 OTP resend w/ 30s cooldown + visible auth lockout + reset-message clear on Sign In/Up toggle; US-IOS104 invite validation (trimmed name + >=10 digits) + focus chaining + stable-id custom-schedule rows + trimmed create-family; US-IOS111 Health setSharing returns success (permission alert), Quiet Hours blocks Save when Start==End, HistoryView clears prior receiver on switch, DataRetention/CaregiverDigest reload on foreground.
+
+STILL OPEN (passes:false) — warrant their own focused iterations:
+  - US-IOS044 localization (full String Catalog migration + pseudolocalization — large).
+  - US-IOS089 server-side multi-window dispatch (spans a migration + edge-functions + iOS).
+  - US-IOS101 heatmap window/labels/per-day-late/Mood.unknown cluster.
+  - US-IOS105/106 accessibility + increased-contrast clusters (many surfaces).
+  - US-IOS107 widget/complication/intent-source polish.
+  - US-IOS108 build/signing hygiene (aps-environment per-config needs a build-setting split).
+  - US-IOS109 associated-domains + AASA hosting + entitlement justification (infra).
+  - US-IOS110 expand test coverage (needs new test files registered in pbxproj).
+  - US-IOS112 misc UX dead-ends/confirmations polish cluster.
