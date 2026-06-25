@@ -63,14 +63,14 @@ final class WatchNotificationController: NSObject, UNUserNotificationCenterDeleg
                 WidgetCenter.shared.reloadAllTimelines()
                 WatchConnectivityProvider.shared.notifyPhoneOfCheckIn()
             } catch SharedCheckInError.transport {
-                // Genuinely offline — queue an "OK" so it still syncs later. Only
-                // queue on a transport error: a session-expired/not-signed-in
-                // failure would never flush, leaving an unflushable marker that
-                // falsely reads as "saved" (US-IOS090).
-                if type == "ok" {
-                    WatchOfflineQueue.enqueue()
-                    WidgetCenter.shared.reloadAllTimelines()
-                }
+                // Genuinely offline — queue the response (preserving its type) so
+                // it still syncs later. An urgent "I Need Help" / "Call Me" must
+                // never be silently dropped here (US-IOS119). Only queue on a
+                // transport error: a session-expired/not-signed-in failure would
+                // never flush, leaving an unflushable marker that falsely reads
+                // as "saved" (US-IOS090).
+                WatchOfflineQueue.enqueue(type: type)
+                WidgetCenter.shared.reloadAllTimelines()
             } catch {
                 // sessionExpired / notSignedIn / other — don't queue; the user
                 // must open the iPhone to restore the session.

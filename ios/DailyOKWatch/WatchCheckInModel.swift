@@ -82,8 +82,11 @@ final class WatchCheckInModel: ObservableObject {
     /// foreground, and when a fresh snapshot arrives from the phone).
     func syncPendingIfNeeded() async {
         guard WatchOfflineQueue.hasPending, !isCheckingIn else { return }
+        // Flush with the queued response type so a help/call request isn't
+        // downgraded to a plain "OK" on sync (US-IOS119).
+        let queuedType = WatchOfflineQueue.pendingType
         do {
-            let updated = try await SharedCheckInClient.checkIn(source: "watch", batteryLevel: batteryLevel)
+            let updated = try await SharedCheckInClient.checkIn(responseType: queuedType, source: "watch", batteryLevel: batteryLevel)
             state = updated
             didCheckIn = true
             queued = false

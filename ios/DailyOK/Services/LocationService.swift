@@ -11,7 +11,17 @@ class LocationService: NSObject, CLLocationManagerDelegate {
 
     private let locationManager = CLLocationManager()
     private var supabase: SupabaseClient { SupabaseService.shared.client }
+
+    /// Guards `currentLocationContinuation` / `currentRequestID`. CoreLocation
+    /// delivers delegate callbacks on the manager's run-loop thread while
+    /// `getCurrentLocation()` runs on an arbitrary async executor, so without a
+    /// lock the check-then-set and the delegate's take-then-resume can race —
+    /// double-resuming a CheckedContinuation (a hard runtime trap) or leaking it.
+    private let continuationLock = NSLock()
     private var currentLocationContinuation: CheckedContinuation<CLLocation?, Never>?
+    /// Monotonic id for the in-flight one-shot request, so a timed-out earlier
+    /// request can't resolve a newer caller's continuation.
+    private var currentRequestID = 0
 
     /// The family ID to report background location updates for.
     /// Set this when the receiver logs in and their family is known.
@@ -84,16 +94,30 @@ class LocationService: NSObject, CLLocationManagerDelegate {
         }
 
         let location: CLLocation? = await withCheckedContinuation { continuation in
+            continuationLock.lock()
             // Guard against a second call arriving before the first resolves:
             // overwriting `currentLocationContinuation` would leak the pending
-            // one (a hard runtime trap) and hang the first caller forever. If a
-            // request is already in flight, bail out for this caller instead.
+            // one and hang the first caller forever. If a request is already in
+            // flight, bail out for this caller instead.
             if currentLocationContinuation != nil {
+                continuationLock.unlock()
                 continuation.resume(returning: nil)
                 return
             }
+            currentRequestID &+= 1
+            let requestID = currentRequestID
             currentLocationContinuation = continuation
+            continuationLock.unlock()
             locationManager.requestLocation()
+
+            // Safety net: CoreLocation occasionally never calls back (no fix, no
+            // error). Don't leak the continuation — which would hang this caller
+            // AND block every future one-shot request. Resume nil after a
+            // timeout if this exact request is still pending.
+            Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 15 * 1_000_000_000)
+                _ = self?.resolvePendingLocation(nil, ifRequestID: requestID)
+            }
         }
 
         guard let loc = location else { return nil }
@@ -109,6 +133,28 @@ class LocationService: NSObject, CLLocationManagerDelegate {
             longitude: coarsen(loc.coordinate.longitude),
             accuracy: loc.horizontalAccuracy >= 0 ? max(loc.horizontalAccuracy, 110) : nil
         )
+    }
+
+    /// Atomically take the pending one-shot continuation and resume it exactly
+    /// once. Returns true if a continuation was resumed (so the caller knows the
+    /// callback was a one-shot request rather than a background update). When
+    /// `ifRequestID` is set, only resolves if it still matches the in-flight
+    /// request — so a timed-out earlier request can't cancel a newer one.
+    @discardableResult
+    private func resolvePendingLocation(_ location: CLLocation?, ifRequestID requestID: Int? = nil) -> Bool {
+        continuationLock.lock()
+        if let requestID, requestID != currentRequestID {
+            continuationLock.unlock()
+            return false
+        }
+        guard let continuation = currentLocationContinuation else {
+            continuationLock.unlock()
+            return false
+        }
+        currentLocationContinuation = nil
+        continuationLock.unlock()
+        continuation.resume(returning: location)
+        return true
     }
 
     // MARK: - Report Location to Server
@@ -138,10 +184,8 @@ class LocationService: NSObject, CLLocationManagerDelegate {
     // MARK: - CLLocationManagerDelegate
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        // If we have a pending one-shot request, fulfill it
-        if let continuation = currentLocationContinuation {
-            continuation.resume(returning: locations.last)
-            currentLocationContinuation = nil
+        // If we have a pending one-shot request, fulfill it.
+        if resolvePendingLocation(locations.last) {
             return
         }
 
@@ -198,10 +242,7 @@ class LocationService: NSObject, CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        if let continuation = currentLocationContinuation {
-            continuation.resume(returning: nil)
-            currentLocationContinuation = nil
-        }
+        resolvePendingLocation(nil)
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {

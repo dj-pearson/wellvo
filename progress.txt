@@ -1367,3 +1367,27 @@ Still open from this backlog: US-IOS118–US-IOS129 (location continuation race,
 watch offline response-type, double-submit, token freshness, dashboard load
 coalescing, history selection, button stuck-state, schedule/export guards, Apple
 revocation scoping, remote Live Activity end, locked surfaces, mood scoping).
+
+------------------------------------------------------------------------
+iOS deep-dive batch 2 (branch claude/ios-app-review-prd-416pqc)
+------------------------------------------------------------------------
+US-IOS118 (LocationService continuation race) — currentLocationContinuation was
+read/written from both getCurrentLocation() (arbitrary async executor) and the
+CLLocationManagerDelegate callbacks with no synchronization → double-resume
+crash + leak-on-stuck-request. Now serialized behind an NSLock with a monotonic
+request id; all resumes go through resolvePendingLocation(_:ifRequestID:); added
+a 15s timeout that only resolves the still-pending request. No headless test
+(needs live CLLocationManager); verified by review.
+
+US-IOS119 (Watch offline queue response type) — an offline 'I Need Help'/'Call
+Me' on a watch notification was silently dropped (only type=='ok' enqueued; the
+queue stored just a Date). WatchOfflineQueue now stores pendingType (default
+'ok', backward-compatible) with an in-place urgency upgrade; the notification
+controller enqueues all types on transport error; syncPendingIfNeeded flushes
+the stored type. No watch test target → verified by review.
+
+US-IOS120 intentionally deferred: on inspection the 'double submit' does not
+fire online (syncPendingIfNeeded guards on hasPending, which is false for a
+successful online OK), and dropping .foreground from the OK action risks a
+watchOS background-execution regression that can't be tested headlessly. Left
+open for a dedicated, device-tested change.

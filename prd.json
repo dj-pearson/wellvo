@@ -4151,8 +4151,8 @@
         "Existing location-dependent flows (check-in location, background report) still compile and behave unchanged"
       ],
       "priority": 217,
-      "passes": false,
-      "notes": "From the Services review (#7). Potential runtime crash from CLLocationManagerDelegate arbitrary-queue callbacks mutating shared continuation state."
+      "passes": true,
+      "notes": "From the Services review (#7). Potential runtime crash from CLLocationManagerDelegate arbitrary-queue callbacks mutating shared continuation state. | IMPLEMENTED: LocationService now serializes currentLocationContinuation/currentRequestID behind an NSLock with a monotonic request id, and routes every resume through resolvePendingLocation(_:ifRequestID:) so a CL delegate callback and a concurrent getCurrentLocation() can never double-resume (crash) or leak the continuation. Added a 15s timeout safety-net that resolves nil only if the same request is still pending (so a stale timeout can't cancel a newer caller). No headless unit test (needs a live CLLocationManager); verified by review. Build verification pending CI."
     },
     {
       "id": "US-IOS119",
@@ -4164,8 +4164,8 @@
         "syncPendingIfNeeded replays the stored responseType; a help/call request offline surfaces a queued state rather than being swallowed"
       ],
       "priority": 218,
-      "passes": false,
-      "notes": "From the Watch review (#8). Safety-critical: urgent help requests must not be lost or conflated with OK."
+      "passes": true,
+      "notes": "From the Watch review (#8). Safety-critical: urgent help requests must not be lost or conflated with OK. | IMPLEMENTED: WatchOfflineQueue stores the response type alongside the date (pendingType, backward-compatible default 'ok') with an in-place urgency upgrade so a queued 'ok' is promoted to need_help/call_me rather than dropped. WatchNotificationController now enqueues all response types on a transport error (not only 'ok'); WatchCheckInModel.syncPendingIfNeeded flushes with the stored type so a help/call request is never downgraded. No watch test target exists, so no headless unit test; verified by review. Build verification pending CI."
     },
     {
       "id": "US-IOS120",
