@@ -60,6 +60,7 @@ jobs:
           PROVISIONING_PROFILE_WIDGETS_BASE64: ${{ env.PROVISIONING_PROFILE_WIDGETS_BASE64 }}
           PROVISIONING_PROFILE_WATCH_BASE64: ${{ env.PROVISIONING_PROFILE_WATCH_BASE64 }}
           PROVISIONING_PROFILE_WATCH_WIDGETS_BASE64: ${{ env.PROVISIONING_PROFILE_WATCH_WIDGETS_BASE64 }}
+          PROVISIONING_PROFILE_NSE_BASE64: ${{ env.PROVISIONING_PROFILE_NSE_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ env.KEYCHAIN_PASSWORD }}
         run: |
           # Create variables
@@ -86,10 +87,12 @@ jobs:
           echo -n "$PROVISIONING_PROFILE_WIDGETS_BASE64"      | base64 --decode -o $RUNNER_TEMP/pp_widgets.mobileprovision
           echo -n "$PROVISIONING_PROFILE_WATCH_BASE64"        | base64 --decode -o $RUNNER_TEMP/pp_watch.mobileprovision
           echo -n "$PROVISIONING_PROFILE_WATCH_WIDGETS_BASE64" | base64 --decode -o $RUNNER_TEMP/pp_watch_widgets.mobileprovision
+          echo -n "$PROVISIONING_PROFILE_NSE_BASE64"           | base64 --decode -o $RUNNER_TEMP/pp_nse.mobileprovision
           cp $RUNNER_TEMP/pp_main.mobileprovision              ~/Library/MobileDevice/Provisioning\ Profiles/
           cp $RUNNER_TEMP/pp_widgets.mobileprovision           ~/Library/MobileDevice/Provisioning\ Profiles/
           cp $RUNNER_TEMP/pp_watch.mobileprovision             ~/Library/MobileDevice/Provisioning\ Profiles/
           cp $RUNNER_TEMP/pp_watch_widgets.mobileprovision     ~/Library/MobileDevice/Provisioning\ Profiles/
+          cp $RUNNER_TEMP/pp_nse.mobileprovision               ~/Library/MobileDevice/Provisioning\ Profiles/
 
       - name: Patch project for manual Distribution signing
         working-directory: ios
@@ -103,12 +106,14 @@ jobs:
           WIDGETS_UUID=$(extract_uuid $RUNNER_TEMP/pp_widgets.mobileprovision)
           WATCH_UUID=$(extract_uuid $RUNNER_TEMP/pp_watch.mobileprovision)
           WATCH_WIDGETS_UUID=$(extract_uuid $RUNNER_TEMP/pp_watch_widgets.mobileprovision)
-          echo "Profile UUIDs: main=$MAIN_UUID widgets=$WIDGETS_UUID watch=$WATCH_UUID watchwidgets=$WATCH_WIDGETS_UUID"
+          NSE_UUID=$(extract_uuid $RUNNER_TEMP/pp_nse.mobileprovision)
+          echo "Profile UUIDs: main=$MAIN_UUID widgets=$WIDGETS_UUID watch=$WATCH_UUID watchwidgets=$WATCH_WIDGETS_UUID nse=$NSE_UUID"
 
           echo "MAIN_PROFILE_UUID=$MAIN_UUID"                   >> $GITHUB_ENV
           echo "WIDGETS_PROFILE_UUID=$WIDGETS_UUID"             >> $GITHUB_ENV
           echo "WATCH_PROFILE_UUID=$WATCH_UUID"                 >> $GITHUB_ENV
           echo "WATCH_WIDGETS_PROFILE_UUID=$WATCH_WIDGETS_UUID" >> $GITHUB_ENV
+          echo "NSE_PROFILE_UUID=$NSE_UUID"                     >> $GITHUB_ENV
 
           python3 ../.github/scripts/patch_signing.py \
             "$MAIN_UUID" "$WIDGETS_UUID" "$WATCH_UUID" "$WATCH_WIDGETS_UUID"
@@ -220,6 +225,8 @@ jobs:
                   <string>${{ env.WATCH_PROFILE_UUID }}</string>
                   <key>com.wellvo.ios.watchkitapp.DailyOKWatchWidgets</key>
                   <string>${{ env.WATCH_WIDGETS_PROFILE_UUID }}</string>
+                  <key>com.wellvo.ios.NotificationService</key>
+                  <string>${{ env.NSE_PROFILE_UUID }}</string>
               </dict>
           </dict>
           </plist>

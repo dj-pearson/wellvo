@@ -29,6 +29,9 @@ interface APNsPayload {
     "thread-id"?: string;
     "interruption-level"?: "passive" | "active" | "time-sensitive" | "critical";
     "relevance-score"?: number;
+    // Set to 1 so iOS invokes the Notification Service Extension before display
+    // (it confirms delivery to stop escalation retries — US-IOS080).
+    "mutable-content"?: number;
   };
   // Custom data
   [key: string]: unknown;
@@ -152,6 +155,9 @@ export function buildCheckinPayload(
       category: "CHECKIN_REQUEST",
       "thread-id": `checkin-${requestId}`,
       "interruption-level": interruptionLevel as APNsPayload["aps"]["interruption-level"],
+      // Invoke the Notification Service Extension so it can confirm delivery and
+      // suppress the escalation retry chain (US-IOS080).
+      "mutable-content": 1,
     },
     checkin_request_id: requestId,
     type,
