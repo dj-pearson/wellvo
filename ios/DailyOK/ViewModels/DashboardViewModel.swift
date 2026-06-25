@@ -118,6 +118,9 @@ final class DashboardViewModel: ObservableObject {
                 isLoading = false
                 return
             }
+            // Mirror the grandfather deadline so subscription gating can honor it
+            // (US-IOS097).
+            SubscriptionService.shared.freeTierExpiresAt = family.freeTierExpiresAt
 
             let members = try await FamilyService.shared.getFamilyMembers(familyId: family.id)
             let receivers = members.filter { $0.role == .receiver && $0.status == .active }

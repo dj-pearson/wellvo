@@ -125,6 +125,9 @@ struct DailyOKApp: App {
                 // Re-anchor last_seen on foreground — the heartbeat timer is
                 // suspended while backgrounded (US-IOS098).
                 HeartbeatService.shared.appBecameActive()
+                // Reconcile any verified-but-unsynced subscription to the backend
+                // once per launch (reinstall / interrupted purchase) — US-IOS095.
+                await SubscriptionService.shared.reconcileEntitlementsToBackendOnce()
                 // Non-urgent / best-effort work last.
                 await AnalyticsService.shared.track(.appOpened)
                 // A genuine pin MISMATCH (device-trusted but un-pinned CA) is

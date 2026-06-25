@@ -498,7 +498,10 @@ struct SubscriptionView: View {
                             .font(.largeTitle)
                             .foregroundStyle(.secondary)
                             .accessibilityHidden(true)
-                        Text(subscriptionService.errorMessage ?? "Subscription options are unavailable right now.")
+                        // Load-failed state only — keep this distinct from the
+                        // purchase-failed alert so the same error isn't shown
+                        // twice (US-IOS096).
+                        Text("Subscription options are unavailable right now.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -563,18 +566,30 @@ struct SubscriptionView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            if subscriptionService.purchasedProductIDs.contains(product.id) {
+            // Frame every row relative to the active tier so a subscriber sees
+            // "Current Plan" / "Upgrade" / "Switch" instead of an undifferentiated
+            // "Subscribe" on every tier (US-IOS096).
+            switch subscriptionService.relation(forProductID: product.id) {
+            case .current:
                 Text("Current Plan")
                     .font(.caption)
                     .fontWeight(.bold)
                     .foregroundStyle(.green)
-            } else {
-                Button("Subscribe") {
-                    Task { await subscribe(product) }
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-                .disabled(subscriptionService.isLoading)
+            case .upgrade:
+                Button("Upgrade") { Task { await subscribe(product) } }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                    .disabled(subscriptionService.isLoading)
+            case .switchPlan:
+                Button("Switch to this plan") { Task { await subscribe(product) } }
+                    .buttonStyle(.bordered)
+                    .tint(.green)
+                    .disabled(subscriptionService.isLoading)
+            case .none:
+                Button("Subscribe") { Task { await subscribe(product) } }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                    .disabled(subscriptionService.isLoading)
             }
         }
         .padding(16)
