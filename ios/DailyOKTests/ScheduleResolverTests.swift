@@ -172,4 +172,52 @@ final class ScheduleResolverTests: XCTestCase {
         let s = makeSettings(scheduleType: "custom", customSchedule: ["wed": "08:00"])
         XCTAssertNil(ReceiverViewModel.currentSlotKey(for: s, now: date("2026-06-10T07:50:00Z"), calendar: utc))
     }
+
+    // MARK: - US-IOS110: DST + non-UTC coverage
+
+    private var newYork: Calendar {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(identifier: "America/New_York")!
+        return c
+    }
+
+    /// Hour/minute of a Date in the New York calendar — robust to the EST/EDT
+    /// offset so these assertions hold across the DST boundary.
+    private func nyComponents(_ d: Date) -> (h: Int, m: Int) {
+        let c = newYork.dateComponents([.hour, .minute], from: d)
+        return (c.hour ?? -1, c.minute ?? -1)
+    }
+
+    func testNextOccurrenceLandsOn9amLocalAcrossSpringForward() {
+        // 2026-03-08 is US spring-forward (02:00 -> 03:00 EDT). A 09:00 daily
+        // check-in must still resolve to 09:00 *local*, not shift by the hour the
+        // clocks jumped.
+        let s = makeSettings(checkinTime: "09:00")
+        let next = ReceiverViewModel.nextScheduledCheckIn(
+            for: s, now: date("2026-03-08T10:00:00Z"), calendar: newYork) // 05:00 EST that morning
+        XCTAssertNotNil(next)
+        XCTAssertEqual(nyComponents(next!).h, 9)
+        XCTAssertEqual(nyComponents(next!).m, 0)
+    }
+
+    func testNextOccurrenceLandsOn9amLocalAcrossFallBack() {
+        // 2026-11-01 is US fall-back (02:00 -> 01:00 EST). 09:00 local must hold.
+        let s = makeSettings(checkinTime: "09:00")
+        let next = ReceiverViewModel.nextScheduledCheckIn(
+            for: s, now: date("2026-11-01T05:00:00Z"), calendar: newYork) // 01:00 EDT that morning
+        XCTAssertNotNil(next)
+        XCTAssertEqual(nyComponents(next!).h, 9)
+        XCTAssertEqual(nyComponents(next!).m, 0)
+    }
+
+    func testQuietHoursWrapDefersToMorningInNonUTCZone() {
+        // 23:30 local check-in, quiet hours 22:00–07:00 — defer to 07:00 local
+        // the next morning, evaluated in New York (non-UTC).
+        let s = makeSettings(checkinTime: "23:30", quietStart: "22:00", quietEnd: "07:00")
+        let next = ReceiverViewModel.nextScheduledCheckIn(
+            for: s, now: date("2026-06-10T20:00:00Z"), calendar: newYork) // 16:00 EDT
+        XCTAssertNotNil(next)
+        XCTAssertEqual(nyComponents(next!).h, 7)
+        XCTAssertEqual(nyComponents(next!).m, 0)
+    }
 }
