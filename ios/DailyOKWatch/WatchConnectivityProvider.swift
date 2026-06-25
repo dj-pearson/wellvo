@@ -27,6 +27,9 @@ final class WatchConnectivityProvider: NSObject, ObservableObject, WCSessionDele
     /// widgets can refresh. `transferUserInfo` is queued and delivered reliably.
     func notifyPhoneOfCheckIn() {
         guard WCSession.isSupported() else { return }
+        // transferUserInfo traps if the session isn't activated yet — guard it
+        // (US-IOS090).
+        guard WCSession.default.activationState == .activated else { return }
         WCSession.default.transferUserInfo(["watch_checked_in": true])
     }
 
