@@ -3,6 +3,12 @@
 ## Overview
 Daily OK is a daily check-in app for families. Owners send check-in requests; Receivers tap "I'm OK." Escalation alerts fire if no response.
 
+> **Brand vs. identifier split (load-bearing — US-IOS109).** The product was renamed from "dailyok" to "wellvo" partway through. These two namespaces are BOTH live and must not be conflated:
+> - **`com.wellvo.ios`** — the iOS bundle id, App Group (`group.com.wellvo.ios`), shared Keychain group (`com.wellvo.ios.shared`), unified-logging subsystem, and the AASA `appID` prefix (`<TeamID>.com.wellvo.ios`). Extension bundle ids extend it (`com.wellvo.ios.NotificationService`, `…DailyOKWidgets`, `…watchkitapp`). StoreKit product ids are `net.wellvo.*`.
+> - **`dailyok` / `dailyok.net`** — the display name ("Daily OK"), website, URL scheme (`dailyok://`), edge-functions host (`functions.dailyok.net`), and the Universal Links domain (`applinks:dailyok.net`). Android Play products are still `net.dailyok.*` (the backend recognizes both namespaces).
+>
+> When configuring signing, AASA, entitlements, or app groups, use the **`com.wellvo.ios`** identifier — never the `dailyok` brand domain.
+
 ## Tech Stack
 - **iOS App**: Swift 5.9+, SwiftUI, MVVM, iOS 18+, StoreKit 2 (deliberate floor; all targets + Package.swift pin 18.0 to use Live Activities/Control Center/App Intents without availability gating — US-IOS085)
 - **Android App**: Kotlin 1.9+, Jetpack Compose, MVVM, API 26+ (Android 8.0+), Google Play Billing
