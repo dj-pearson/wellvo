@@ -108,6 +108,10 @@ private struct NavItemView: View {
                 }
             }
         )
+        // Guarantee a 44pt tap target even for the smaller unselected items
+        // (US-IOS105).
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
         .accessibilityElement()
         .accessibilityLabel(item.label)
         .accessibilityValue(item.badgeCount > 0 ? "\(item.badgeCount) new" : "")

@@ -21,14 +21,16 @@ enum NetworkRetry {
             } catch {
                 lastError = error
 
-                // Don't retry on auth errors or client errors
+                // Don't retry on auth errors or deterministic client errors
                 if isNonRetryable(error) {
                     throw error
                 }
 
                 // Don't sleep after the last attempt
                 if attempt < maxAttempts - 1 {
-                    let delay = initialDelay * pow(2.0, Double(attempt))
+                    // Honor a server-supplied Retry-After (e.g. 429/503) instead
+                    // of the fixed exponential schedule when present.
+                    let delay = retryAfter(for: error) ?? initialDelay * pow(2.0, Double(attempt))
                     try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                 }
             }
@@ -37,7 +39,17 @@ enum NetworkRetry {
         throw lastError ?? NetworkError.maxRetriesExceeded
     }
 
-    private static func isNonRetryable(_ error: Error) -> Bool {
+    /// Whether an error represents a deterministic failure that won't succeed on
+    /// retry. A retried 400/403/404 just wastes ~3-7s on the "I'm OK" path.
+    static func isNonRetryable(_ error: Error) -> Bool {
+        // Deterministic HTTP client errors (4xx) shouldn't be retried, EXCEPT
+        // 408 Request Timeout and 429 Too Many Requests, which are transient.
+        if let httpError = error as? EdgeFunctionsClient.HTTPError {
+            let status = httpError.status
+            if status == 408 || status == 429 { return false }
+            return (400..<500).contains(status)
+        }
+
         let nsError = error as NSError
 
         // Don't retry auth failures, bad requests, etc.
@@ -53,6 +65,12 @@ enum NetworkRetry {
         }
 
         return false
+    }
+
+    /// The server-requested backoff for a retryable error (429/503 Retry-After),
+    /// if any.
+    private static func retryAfter(for error: Error) -> TimeInterval? {
+        (error as? EdgeFunctionsClient.HTTPError)?.retryAfter
     }
 }
 

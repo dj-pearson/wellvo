@@ -87,7 +87,8 @@ struct HistoryView: View {
                             scheduledTime: receiverSettings?.checkinTime,
                             timezone: selectedReceiver?.user?.timezone,
                             enrolledSince: selectedReceiver?.joinedAt ?? selectedReceiver?.invitedAt,
-                            scheduledWeekdays: scheduledWeekdays
+                            scheduledWeekdays: scheduledWeekdays,
+                            settings: receiverSettings
                         )
                         .padding(.horizontal)
 
@@ -210,6 +211,11 @@ struct HistoryView: View {
         guard let receiver = selectedReceiver,
               let family = try? await FamilyService.shared.getFamily() else { return }
         isLoading = true
+        // Clear the previous receiver's data/schedule first so switching
+        // receivers doesn't briefly render the old data under the new name
+        // (US-IOS111).
+        checkIns = []
+        receiverSettings = nil
         checkIns = (try? await CheckInService.shared.checkInHistory(
             receiverId: receiver.userId,
             familyId: family.id,
@@ -241,7 +247,8 @@ struct HistoryView: View {
             familyName: family.name,
             checkIns: checkIns,
             periodDays: selectedDays,
-            generatedAt: Date()
+            generatedAt: Date(),
+            timezone: receiver.user?.timezone
         )
 
         // Generate off the main actor so a large (e.g. 90-day) report can't

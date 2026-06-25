@@ -38,9 +38,16 @@ struct ReceiverSettingsView: View {
     @State private var dayEnabled: [String: Bool] = [
         "mon": true, "tue": true, "wed": true, "thu": true, "fri": true, "sat": true, "sun": true
     ]
+    /// A single editable check-in window, carrying a stable identity so removing
+    /// a middle row doesn't shift DatePicker bindings to the wrong time
+    /// (US-IOS104). Keyed by `id`, never by array offset.
+    struct TimeEntry: Identifiable, Equatable {
+        let id = UUID()
+        var time: Date
+    }
     /// One or more check-in times per day key (US-IOS048). A day with more than
     /// one entry produces multiple scheduled windows.
-    @State private var dayTimes: [String: [Date]] = [:]
+    @State private var dayTimes: [String: [TimeEntry]] = [:]
     /// Upper bound on windows per day to keep the schedule sane.
     private let maxTimesPerDay = 4
 
@@ -49,6 +56,16 @@ struct ReceiverSettingsView: View {
     @State private var showManualSent = false
 
     private let gracePeriodOptions = [15, 30, 45, 60, 90, 120]
+
+    /// Quiet-hours start and end must differ (compared at minute granularity);
+    /// equal values silently disable the feature server-side (US-IOS111).
+    private var quietHoursValid: Bool {
+        let cal = Calendar.current
+        let s = cal.dateComponents([.hour, .minute], from: quietHoursStart)
+        let e = cal.dateComponents([.hour, .minute], from: quietHoursEnd)
+        return s.hour != e.hour || s.minute != e.minute
+    }
+
     private let timeFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
@@ -122,12 +139,18 @@ struct ReceiverSettingsView: View {
                         if isSendingManual {
                             ProgressView()
                         } else if showManualSent {
-                            Image(systemName: "checkmark.circle.fill")
+                            // Not icon-only — pair the checkmark with a word so it
+                            // reads for everyone (US-IOS105).
+                            Label("Sent", systemImage: "checkmark.circle.fill")
+                                .labelStyle(.titleAndIcon)
+                                .font(.subheadline)
                                 .foregroundStyle(.green)
                         }
                     }
                 }
                 .disabled(isSendingManual)
+                // Announce the success to VoiceOver (US-IOS105).
+                .announce(showManualSent) { $0 ? "Check-in request sent" : nil }
             } header: {
                 Text("Notification Controls")
             } footer: {
@@ -227,7 +250,14 @@ struct ReceiverSettingsView: View {
             } header: {
                 Text("Quiet Hours")
             } footer: {
-                Text("No notifications will be sent during quiet hours.")
+                // Start == End would silently disable the feature server-side, so
+                // warn and block Save until they differ (US-IOS111).
+                if quietHoursEnabled && !quietHoursValid {
+                    Text("Start and end times must be different.")
+                        .foregroundStyle(.orange)
+                } else {
+                    Text("No notifications will be sent during quiet hours.")
+                }
             }
 
             // SMS Escalation
@@ -275,7 +305,7 @@ struct ReceiverSettingsView: View {
                             Text("Save")
                         }
                     }
-                    .disabled(isSaving || isLoading || !hasLoaded)
+                    .disabled(isSaving || isLoading || !hasLoaded || (quietHoursEnabled && !quietHoursValid))
                 }
             }
         }
@@ -344,7 +374,7 @@ struct ReceiverSettingsView: View {
                             dayEnabled[day.key] = isOn
                             // Ensure an enabled day always has at least one time.
                             if isOn && (dayTimes[day.key]?.isEmpty ?? true) {
-                                dayTimes[day.key] = [defaultTimeDate()]
+                                dayTimes[day.key] = [TimeEntry(time: defaultTimeDate())]
                             }
                         }
                     )) {
@@ -353,20 +383,23 @@ struct ReceiverSettingsView: View {
                     }
 
                     if dayEnabled[day.key] ?? true {
-                        let times = dayTimes[day.key] ?? [defaultTimeDate()]
-                        ForEach(Array(times.enumerated()), id: \.offset) { idx, _ in
+                        let entries = dayTimes[day.key] ?? [TimeEntry(time: defaultTimeDate())]
+                        // Keyed by entry.id (stable), not array offset, so removing
+                        // a middle window doesn't rebind the wrong row (US-IOS104).
+                        ForEach(entries) { entry in
                             HStack {
                                 Spacer()
                                 DatePicker(
                                     "",
                                     selection: Binding(
                                         get: {
-                                            let arr = dayTimes[day.key] ?? []
-                                            return idx < arr.count ? arr[idx] : defaultTimeDate()
+                                            dayTimes[day.key]?.first(where: { $0.id == entry.id })?.time
+                                                ?? defaultTimeDate()
                                         },
                                         set: { newVal in
-                                            var arr = dayTimes[day.key] ?? []
-                                            if idx < arr.count { arr[idx] = newVal }
+                                            guard var arr = dayTimes[day.key],
+                                                  let i = arr.firstIndex(where: { $0.id == entry.id }) else { return }
+                                            arr[i].time = newVal
                                             dayTimes[day.key] = arr
                                         }
                                     ),
@@ -375,11 +408,9 @@ struct ReceiverSettingsView: View {
                                 .labelsHidden()
                                 .frame(width: 100)
 
-                                if times.count > 1 {
+                                if entries.count > 1 {
                                     Button {
-                                        var arr = dayTimes[day.key] ?? []
-                                        if idx < arr.count { arr.remove(at: idx) }
-                                        dayTimes[day.key] = arr
+                                        dayTimes[day.key]?.removeAll { $0.id == entry.id }
                                     } label: {
                                         Image(systemName: "minus.circle.fill")
                                             .foregroundStyle(.red)
@@ -392,10 +423,10 @@ struct ReceiverSettingsView: View {
                             }
                         }
 
-                        if times.count < maxTimesPerDay {
+                        if entries.count < maxTimesPerDay {
                             Button {
                                 var arr = dayTimes[day.key] ?? []
-                                arr.append(defaultTimeDate())
+                                arr.append(TimeEntry(time: defaultTimeDate()))
                                 dayTimes[day.key] = arr
                             } label: {
                                 Label("Add time", systemImage: "plus.circle")
@@ -491,7 +522,7 @@ struct ReceiverSettingsView: View {
                     dayEnabled[day.key] = !timeStrings.isEmpty
                     let dates = timeStrings.compactMap { formatter.date(from: $0) }
                     if !dates.isEmpty {
-                        dayTimes[day.key] = dates
+                        dayTimes[day.key] = dates.map { TimeEntry(time: $0) }
                     }
                 }
             }
@@ -596,8 +627,8 @@ struct ReceiverSettingsView: View {
                 continue
             }
             // Sorted, de-duplicated "HH:mm" times for the day.
-            let times = (dayTimes[day.key] ?? [defaultTimeDate()])
-                .map { timeFormatter.string(from: $0) }
+            let times = (dayTimes[day.key] ?? [TimeEntry(time: defaultTimeDate())])
+                .map { timeFormatter.string(from: $0.time) }
             let unique = Array(Set(times)).sorted()
             // Dual-write: legacy single field = earliest time (so old clients
             // still read a valid single time); multiTimes only when there's

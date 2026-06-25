@@ -7,6 +7,7 @@ struct HealthSharingView: View {
     @StateObject private var health = HealthService.shared
     @Environment(\.dismiss) private var dismiss
     @State private var isWorking = false
+    @State private var showPermissionAlert = false
 
     var body: some View {
         NavigationStack {
@@ -17,8 +18,12 @@ struct HealthSharingView: View {
                         set: { newValue in
                             isWorking = true
                             Task {
-                                await health.setSharing(newValue)
+                                let ok = await health.setSharing(newValue)
                                 isWorking = false
+                                // Enabling failed (permission denied) — explain
+                                // instead of letting the toggle silently revert
+                                // (US-IOS111).
+                                if newValue && !ok { showPermissionAlert = true }
                             }
                         }
                     )) {
@@ -56,6 +61,11 @@ struct HealthSharingView: View {
             }
             .overlay {
                 if isWorking { ProgressView() }
+            }
+            .alert("Couldn't Enable Activity Sharing", isPresented: $showPermissionAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Daily OK needs permission to read your step count. You can grant it in the Health app under Sharing → Apps.")
             }
         }
     }

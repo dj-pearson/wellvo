@@ -15,9 +15,19 @@ struct CalendarHeatmapView: View {
     /// Days off the schedule (weekend-only/custom/paused) render as "no data".
     /// Nil means every day is scheduled (legacy behavior).
     var scheduledWeekdays: Set<Int>? = nil
+    /// Full receiver settings, used to resolve the per-day scheduled time for the
+    /// "late" threshold on weekday_weekend / custom schedules (US-IOS101). When
+    /// nil, falls back to the single `scheduledTime` for every day.
+    var settings: ReceiverSettings? = nil
 
-    private let cellSize: CGFloat = 14
-    private let spacing: CGFloat = 3
+    @Environment(\.colorSchemeContrast) private var contrast
+    // Scale the grid with Dynamic Type instead of fixed point sizes so the
+    // heatmap remains legible at larger text sizes (US-IOS105).
+    @ScaledMetric(relativeTo: .caption2) private var cellSize: CGFloat = 14
+    @ScaledMetric(relativeTo: .caption2) private var spacing: CGFloat = 3
+    @ScaledMetric(relativeTo: .caption2) private var symbolSize: CGFloat = 7
+    @ScaledMetric(relativeTo: .caption2) private var dayLabelSize: CGFloat = 9
+    @ScaledMetric(relativeTo: .caption2) private var legendSymbolSize: CGFloat = 6
 
     var body: some View {
         // Compute the grid and month labels once per body evaluation instead of
@@ -45,7 +55,7 @@ struct CalendarHeatmapView: View {
                 VStack(spacing: spacing) {
                     ForEach(["", "M", "", "W", "", "F", ""], id: \.self) { label in
                         Text(label)
-                            .font(.system(size: 9))
+                            .font(.system(size: dayLabelSize))
                             .foregroundStyle(.secondary)
                             .frame(width: 14, height: cellSize)
                     }
@@ -62,8 +72,8 @@ struct CalendarHeatmapView: View {
                                     .frame(width: cellSize, height: cellSize)
 
                                 Text(symbolForStatus(entry.status))
-                                    .font(.system(size: 7, weight: .bold))
-                                    .foregroundStyle(.white.opacity(0.9))
+                                    .font(.system(size: symbolSize, weight: .bold))
+                                    .foregroundStyle(symbolColor(entry.status))
                             }
                             .help(entry.tooltip)
                             .accessibilityLabel(entry.tooltip.isEmpty ? "No data" : entry.tooltip)
@@ -106,7 +116,9 @@ struct CalendarHeatmapView: View {
     private func buildGrid() -> [[DayEntry]] {
         let calendar = Calendar.forTimezone(timezone)
         let today = calendar.startOfDay(for: Date())
-        let startDate = calendar.date(byAdding: .day, value: -days, to: today) ?? today
+        // Render exactly `days` cells ending today (start..today inclusive == days),
+        // not days+1 — otherwise the oldest column is mis-rendered (US-IOS101).
+        let startDate = calendar.date(byAdding: .day, value: -(days - 1), to: today) ?? today
         let enrollDay = enrolledSince.map { calendar.startOfDay(for: $0) }
 
         // Build check-in lookup by day
@@ -118,16 +130,16 @@ struct CalendarHeatmapView: View {
             }
         }
 
-        // Parse scheduled time for "late" detection
-        let scheduledMinutes = parseTimeToMinutes(scheduledTime ?? "08:00")
-        let lateThreshold = scheduledMinutes + 120 // 2 hours after scheduled = "late"
-
         // Build entries
         var entries: [DayEntry] = []
         var current = startDate
         while current <= today {
             let status: DayStatus
             let tooltip: String
+
+            // Resolve the "late" threshold per day from the schedule (weekday vs
+            // weekend vs custom), not a single weekday time for every day.
+            let lateThreshold = scheduledMinutes(for: current, calendar: calendar) + 120
 
             if current > today {
                 status = .future
@@ -190,7 +202,8 @@ struct CalendarHeatmapView: View {
     private func monthLabels() -> [(offset: Int, name: String, weeks: Int)] {
         let calendar = Calendar.forTimezone(timezone)
         let today = calendar.startOfDay(for: Date())
-        let startDate = calendar.date(byAdding: .day, value: -days, to: today) ?? today
+        // Match buildGrid's exact `days`-cell window (US-IOS101).
+        let startDate = calendar.date(byAdding: .day, value: -(days - 1), to: today) ?? today
 
         var labels: [(offset: Int, name: String, weeks: Int)] = []
         var current = startDate
@@ -201,12 +214,20 @@ struct CalendarHeatmapView: View {
         let monthFormatter = DateFormatter()
         monthFormatter.dateFormat = "MMM"
 
+        // Number of week-columns a run of `dayCount` days occupies — round UP so a
+        // partial trailing week still gets a column, otherwise month labels are
+        // undersized and drift left of their cells (US-IOS101).
+        func weekColumns(_ dayCount: Int) -> Int {
+            max(1, Int((Double(dayCount) / 7.0).rounded(.up)))
+        }
+
         while current <= today {
             let month = calendar.component(.month, from: current)
             if month != currentMonth {
                 let prevDay = calendar.date(byAdding: .day, value: -1, to: current) ?? current
-                labels.append((offset: offset, name: monthFormatter.string(from: prevDay), weeks: max(1, weekCount / 7)))
-                offset += weekCount / 7
+                let w = weekColumns(weekCount)
+                labels.append((offset: offset, name: monthFormatter.string(from: prevDay), weeks: w))
+                offset += w
                 weekCount = 0
                 currentMonth = month
             }
@@ -214,7 +235,7 @@ struct CalendarHeatmapView: View {
             guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
             current = next
         }
-        labels.append((offset: offset, name: monthFormatter.string(from: today), weeks: max(1, weekCount / 7)))
+        labels.append((offset: offset, name: monthFormatter.string(from: today), weeks: weekColumns(weekCount)))
 
         return labels
     }
@@ -229,6 +250,15 @@ struct CalendarHeatmapView: View {
         case .noData: return Color(.systemGray5)
         case .future: return Color(.systemGray6)
         }
+    }
+
+    /// In-cell glyph color. The 'late' cell is yellow, on which white is nearly
+    /// invisible — use a dark glyph there so on-time/late/missed aren't
+    /// distinguishable by fill color alone. Full opacity under Increase Contrast
+    /// (US-IOS106).
+    private func symbolColor(_ status: DayStatus) -> Color {
+        let base: Color = (status == .late) ? Color(red: 0.35, green: 0.25, blue: 0.0) : .white
+        return contrast == .increased ? base : base.opacity(status == .late ? 1.0 : 0.9)
     }
 
     private func symbolForStatus(_ status: DayStatus) -> String {
@@ -247,12 +277,36 @@ struct CalendarHeatmapView: View {
                     .fill(color)
                     .frame(width: 10, height: 10)
                 if !symbol.isEmpty {
+                    // Dark glyph on the yellow "Late" swatch (US-IOS106).
                     Text(symbol)
-                        .font(.system(size: 6, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.9))
+                        .font(.system(size: legendSymbolSize, weight: .bold))
+                        .foregroundStyle(symbol == "!" ? Color(red: 0.35, green: 0.25, blue: 0.0) : .white)
                 }
             }
+            // Lead with the label text so the legend isn't color-only.
             Text(label)
+        }
+    }
+
+    /// Scheduled minutes-of-day for a given date, resolved against the receiver's
+    /// schedule type (US-IOS101). Falls back to the single `scheduledTime`.
+    private func scheduledMinutes(for date: Date, calendar: Calendar) -> Int {
+        let fallback = parseTimeToMinutes(scheduledTime ?? "08:00")
+        guard let settings else { return fallback }
+        let weekday = calendar.component(.weekday, from: date) // 1=Sun…7=Sat
+        switch settings.scheduleType {
+        case .daily:
+            return parseTimeToMinutes(settings.checkinTime)
+        case .weekdayWeekend:
+            let isWeekend = (weekday == 1 || weekday == 7)
+            let time = isWeekend ? (settings.weekendCheckinTime ?? settings.checkinTime) : settings.checkinTime
+            return parseTimeToMinutes(time)
+        case .custom:
+            let key = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][weekday - 1]
+            if let earliest = settings.customSchedule?.times(forDayKey: key).first {
+                return parseTimeToMinutes(earliest)
+            }
+            return fallback
         }
     }
 

@@ -10,7 +10,23 @@ struct StreakChip: View {
     let streakDays: Int
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.colorSchemeContrast) private var contrast
     @State private var sparklePhase: CGFloat = 0
+
+    /// Flame color, darkened under Increase Contrast so it doesn't wash out on
+    /// the cream chip (US-IOS106).
+    private var flameColor: Color {
+        contrast == .increased
+            ? Color(red: 0.78, green: 0.30, blue: 0.02)
+            : Color(red: 0.976, green: 0.451, blue: 0.086)
+    }
+
+    /// Light-mode streak-number color, darkened under Increase Contrast.
+    private var numberColorLight: Color {
+        contrast == .increased
+            ? Color(red: 0.44, green: 0.13, blue: 0.04)
+            : Color(red: 0.604, green: 0.204, blue: 0.071)
+    }
 
     private static let milestones: Set<Int> = [7, 14, 30, 60, 100, 180, 365]
 
@@ -30,12 +46,10 @@ struct StreakChip: View {
         HStack(spacing: 4) {
             Image(systemName: "flame.fill")
                 .font(.caption2.weight(.bold))
-                .foregroundStyle(Color(red: 0.976, green: 0.451, blue: 0.086))
+                .foregroundStyle(flameColor)
             Text("\(streakDays)")
                 .font(.caption.weight(.bold))
-                .foregroundStyle(scheme == .dark
-                    ? DailyOKColor.goldLight
-                    : Color(red: 0.604, green: 0.204, blue: 0.071))
+                .foregroundStyle(scheme == .dark ? DailyOKColor.goldLight : numberColorLight)
                 .contentTransition(.numericText(value: Double(streakDays)))
         }
         .padding(.horizontal, 8)

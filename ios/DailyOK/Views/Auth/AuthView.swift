@@ -85,6 +85,9 @@ struct AuthView: View {
                     }
                     .padding(24)
                     .glassCard(style: .regular, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level4)
+                    // Announce inline auth errors to VoiceOver when they appear
+                    // (US-IOS105).
+                    .announce(authViewModel.errorMessage) { $0 }
 
                     Spacer()
 
@@ -115,6 +118,19 @@ struct AuthView: View {
 
     // MARK: - Phone Auth (Primary — simplest for receivers)
 
+    /// Renders the lockout countdown so a locked-out user understands why Send /
+    /// Verify do nothing, instead of tapping into the void (US-IOS103).
+    @ViewBuilder
+    private var lockoutNotice: some View {
+        if let message = authViewModel.authLockoutMessage {
+            Text(message)
+                .font(.footnote)
+                .foregroundStyle(.orange)
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.updatesFrequently)
+        }
+    }
+
     private var phoneAuthSection: some View {
         VStack(spacing: 16) {
             if authViewModel.isAwaitingOTP {
@@ -139,7 +155,17 @@ struct AuthView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.green)
-                .disabled(authViewModel.isLoading)
+                .disabled(authViewModel.isLoading || authViewModel.authLockoutSecondsRemaining > 0)
+
+                // Resend the code (with a cooldown) — previously the only escape
+                // was "Use a different number" (US-IOS103).
+                Button(authViewModel.otpResendCooldown > 0
+                       ? "Resend code in \(authViewModel.otpResendCooldown)s"
+                       : "Resend code") {
+                    Task { await authViewModel.resendPhoneOTP() }
+                }
+                .font(.footnote)
+                .disabled(authViewModel.otpResendCooldown > 0 || authViewModel.isLoading)
 
                 Button("Use a different number") {
                     authViewModel.isAwaitingOTP = false
@@ -148,6 +174,8 @@ struct AuthView: View {
                 }
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+
+                lockoutNotice
             } else {
                 // Step 1: Enter phone number
                 Text("Sign in with your phone number")
@@ -172,7 +200,9 @@ struct AuthView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.green)
-                .disabled(authViewModel.isLoading)
+                .disabled(authViewModel.isLoading || authViewModel.authLockoutSecondsRemaining > 0)
+
+                lockoutNotice
 
                 // Apple sign-in as secondary option
                 SignInWithAppleButton(.signIn) { request in
@@ -310,10 +340,14 @@ struct AuthView: View {
                 if reduceMotion {
                     isSignUp.toggle()
                     authViewModel.errorMessage = nil
+                    // Also clear the reset-password confirmation so it doesn't
+                    // linger across the Sign In / Sign Up switch (US-IOS103).
+                    authViewModel.resetPasswordMessage = nil
                 } else {
                     withAnimation {
                         isSignUp.toggle()
                         authViewModel.errorMessage = nil
+                        authViewModel.resetPasswordMessage = nil
                     }
                 }
             } label: {

@@ -66,7 +66,7 @@ struct CheckInWidgetView: View {
             .accessibilityLabel(homeAccessibilityLabel)
         } else {
             VStack(spacing: 10) {
-                Button(intent: CheckInIntent()) {
+                Button(intent: CheckInIntent(source: "widget")) {
                     Label("I'm OK", systemImage: "checkmark.circle.fill")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
@@ -103,7 +103,7 @@ struct CheckInWidgetView: View {
             if entry.hasCheckedInToday {
                 Image(systemName: "checkmark.circle.fill").font(.title2)
             } else {
-                Button(intent: CheckInIntent()) {
+                Button(intent: CheckInIntent(source: "widget")) {
                     Image(systemName: "hand.tap.fill").font(.title3)
                 }
                 .buttonStyle(.plain)
@@ -134,7 +134,7 @@ struct CheckInWidgetView: View {
                 }
             }
         } else {
-            Button(intent: CheckInIntent()) {
+            Button(intent: CheckInIntent(source: "widget")) {
                 Label("I'm OK", systemImage: "checkmark.circle.fill")
                     .font(.headline).frame(maxWidth: .infinity)
             }

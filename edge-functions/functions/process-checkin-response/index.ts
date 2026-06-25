@@ -2,7 +2,7 @@ import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification } from "../../shared/apns.ts";
 import { sendFCMNotification, buildFCMAlertPayload } from "../../shared/fcm.ts";
 import type { AuthResult } from "../../shared/auth.ts";
-import { isValidUUID, validateLocationFields, sanitizeDisplayName, truncateString } from "../../shared/validation.ts";
+import { isValidUUID, validateLocationFields, sanitizeDisplayName, truncateString, coerceNumericFields } from "../../shared/validation.ts";
 
 /**
  * Returns UTC ISO timestamps for the start and end of "today" in the given
@@ -62,6 +62,10 @@ interface ProcessCheckinRequest {
 
 export async function handleProcessCheckinResponse(req: Request, auth: AuthResult): Promise<Response> {
   const body: ProcessCheckinRequest = await req.json();
+  // Defensive: accept numeric fields whether sent as numbers (current clients)
+  // or quoted strings (pre-US-IOS078 builds still in the wild).
+  coerceNumericFields(body as Record<string, unknown>,
+    ["latitude", "longitude", "location_accuracy_meters", "battery_level"]);
 
   let requestId = body.checkin_request_id;
   let receiverId = body.receiver_id;
@@ -103,13 +107,16 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
   // slot_key identifies which scheduled window this check-in satisfies so a
   // receiver with multiple windows/day (US-IOS048) doesn't collapse to one row.
   // Keep it short and stable (e.g. "08:00"); absent = legacy day-level check-in.
-  const slotKey = body.slot_key ? truncateString(body.slot_key, 20) : null;
+  let slotKey = body.slot_key ? truncateString(body.slot_key, 20) : null;
 
-  // If responding by request ID, look it up
+  // If responding by request ID, look it up. Inherit the request's slot_key so a
+  // notification tap satisfies the specific window it was sent for, matching the
+  // per-window dispatch in migration 00047 (US-IOS089) — unless the client
+  // explicitly supplied one.
   if (requestId && !receiverId) {
     const { data: request } = await supabaseAdmin
       .from("checkin_requests")
-      .select("receiver_id, family_id")
+      .select("receiver_id, family_id, slot_key")
       .eq("id", requestId)
       .single();
 
@@ -122,6 +129,9 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
 
     receiverId = request.receiver_id;
     familyId = request.family_id;
+    if (slotKey === null && request.slot_key) {
+      slotKey = truncateString(request.slot_key as string, 20);
+    }
   }
 
   if (!receiverId || !familyId) {

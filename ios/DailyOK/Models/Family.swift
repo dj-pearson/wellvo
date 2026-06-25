@@ -45,6 +45,15 @@ struct Family: Codable, Identifiable {
         case maxViewers = "max_viewers"
         case createdAt = "created_at"
     }
+
+    /// True once a grandfathered Free-tier family's free window has lapsed
+    /// (migration 00019 sets a 90-day deadline). Paid features should be gated
+    /// and an upgrade prompt shown past this point (US-IOS097). A nil deadline
+    /// means no grandfather window applies (so never "expired").
+    var isFreeTierExpired: Bool {
+        guard subscriptionTier == .free, let deadline = freeTierExpiresAt else { return false }
+        return deadline < Date()
+    }
 }
 
 struct FamilyMember: Codable, Identifiable {

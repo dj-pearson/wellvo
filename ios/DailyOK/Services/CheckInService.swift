@@ -23,42 +23,44 @@ actor CheckInService {
             throw CheckInError.notAuthenticated
         }
 
-        var body: [String: String] = [
-            "receiver_id": session.user.id.uuidString.lowercased(),
-            "family_id": familyId.uuidString.lowercased(),
-            "source": source.rawValue,
-            "response_type": responseType.rawValue,
+        var body: [String: JSONValue] = [
+            "receiver_id": .string(session.user.id.uuidString.lowercased()),
+            "family_id": .string(familyId.uuidString.lowercased()),
+            "source": .string(source.rawValue),
+            "response_type": .string(responseType.rawValue),
         ]
 
         // US-IOS048: which scheduled window this check-in satisfies. Absent for
         // single-window receivers (preserves legacy one-per-day dedup).
-        if let slotKey { body["slot_key"] = slotKey }
-        if let mood = mood { body["mood"] = mood.rawValue }
+        if let slotKey { body["slot_key"] = .string(slotKey) }
+        if let mood = mood { body["mood"] = .string(mood.rawValue) }
         if let loc = location {
-            // Validate location bounds before sending
+            // Validate location bounds before sending. Numeric fields go on the
+            // wire as JSON numbers (US-IOS078) — the server validators require
+            // typeof === "number".
             if loc.latitude >= -90 && loc.latitude <= 90 &&
                loc.longitude >= -180 && loc.longitude <= 180 {
-                body["latitude"] = String(loc.latitude)
-                body["longitude"] = String(loc.longitude)
+                body["latitude"] = .double(loc.latitude)
+                body["longitude"] = .double(loc.longitude)
                 if let accuracy = loc.accuracy, accuracy >= 0, accuracy <= 100000 {
-                    body["location_accuracy_meters"] = String(accuracy)
+                    body["location_accuracy_meters"] = .double(accuracy)
                 }
             }
         }
         if let battery = batteryLevel, battery >= 0, battery <= 1 {
-            body["battery_level"] = String(battery)
+            body["battery_level"] = .double(battery)
         }
         if let locationLabel {
-            body["location_label"] = locationLabel
+            body["location_label"] = .string(locationLabel)
         }
         if let kidResponseType {
-            body["kid_response_type"] = kidResponseType
+            body["kid_response_type"] = .string(kidResponseType)
         }
 
         // Use the edge function which handles location, response type, and alerts
         let result: CheckInResponse = try await EdgeFunctionsClient.invoke(
             "process-checkin-response",
-            body: body
+            json: body
         )
         return result.checkin
     }
@@ -72,20 +74,20 @@ actor CheckInService {
         batteryLevel: Double? = nil
     ) async throws {
         do {
-            var body: [String: String] = [
-                "checkin_request_id": requestId,
-                "source": source.rawValue,
-                "response_type": responseType.rawValue,
+            var body: [String: JSONValue] = [
+                "checkin_request_id": .string(requestId),
+                "source": .string(source.rawValue),
+                "response_type": .string(responseType.rawValue),
             ]
             if let loc = location {
-                body["latitude"] = String(loc.latitude)
-                body["longitude"] = String(loc.longitude)
+                body["latitude"] = .double(loc.latitude)
+                body["longitude"] = .double(loc.longitude)
                 if let accuracy = loc.accuracy {
-                    body["location_accuracy_meters"] = String(accuracy)
+                    body["location_accuracy_meters"] = .double(accuracy)
                 }
             }
             if let battery = batteryLevel {
-                body["battery_level"] = String(battery)
+                body["battery_level"] = .double(battery)
             }
 
             // Retry transient failures with backoff — a tapped "I'm OK" from the
@@ -94,7 +96,7 @@ actor CheckInService {
             try await NetworkRetry.execute {
                 try await EdgeFunctionsClient.invoke(
                     "process-checkin-response",
-                    body: body
+                    json: body
                 )
             }
         } catch {

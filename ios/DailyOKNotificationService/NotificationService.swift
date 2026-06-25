@@ -82,10 +82,15 @@ class NotificationService: UNNotificationServiceExtension {
         let body: [String: String] = ["checkin_request_id": checkinRequestId]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        let task = URLSession.shared.dataTask(with: request) { _, _, _ in
-            completion()
+        // Route through the pinned session (not URLSession.shared) so a
+        // pin MISMATCH fails closed — the confirm call is never sent to an
+        // un-pinned (possible MITM) host. We still deliver the notification
+        // either way (US-IOS080/US-IOS086). CertificatePinning.swift is compiled
+        // into this extension target.
+        Task {
+            defer { completion() }
+            _ = try? await PinnedURLSession.shared.data(for: request)
         }
-        task.resume()
     }
 
     // MARK: - Shared Keychain access

@@ -90,6 +90,11 @@ struct ReceiverHomeView: View {
                             pendingRequestBanner.padding(.horizontal)
                         }
                         checkInButton
+                            // Announce a snooze confirmation / error to VoiceOver
+                            // when it appears (attached to a persistent view so
+                            // the nil->text change is observed) — US-IOS105.
+                            .announce(viewModel.snoozeConfirmation) { $0 }
+                            .announce(viewModel.errorMessage) { $0 }
                         if viewModel.hasPendingRequest && viewModel.canSnooze {
                             snoozeButton.padding(.horizontal)
                         }
@@ -228,6 +233,11 @@ struct ReceiverHomeView: View {
         // "you're all set" card reflects the now-persisted check-in (or
         // vice-versa if the server rejected it).
         .onReceive(NotificationCenter.default.publisher(for: OfflineCheckInService.didSyncCheckIns)) { _ in
+            Task { await viewModel.loadStatus() }
+        }
+        // A check-in tapped on the Apple Watch should immediately flip the phone
+        // to "all set" rather than keep prompting (US-IOS082).
+        .onReceive(NotificationCenter.default.publisher(for: PhoneWatchSync.didReceiveWatchCheckIn)) { _ in
             Task { await viewModel.loadStatus() }
         }
         .alert("Sign Out", isPresented: $showSignOutConfirmation) {
@@ -537,8 +547,11 @@ struct ReceiverHomeView: View {
                             Text(mood.label)
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .minimumScaleFactor(0.8)
+                                .lineLimit(2)
                         }
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, minHeight: 44) // 44pt min + wrap/scale at large sizes (US-IOS105)
                         .padding(.vertical, 8)
                         .glassPill(style: .thin)
                     }

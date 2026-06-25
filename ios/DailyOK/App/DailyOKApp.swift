@@ -61,6 +61,21 @@ struct DailyOKApp: App {
                 guard appState.currentUserRole == nil else { return }
                 appState.pendingInviteToken = token
             }
+        case "dashboard":
+            // Owner status widget tap (dailyok://dashboard) — jump to the
+            // dashboard tab (US-IOS091).
+            appState.selectedTab = .dashboard
+        case "checkin":
+            // Check-in widget / Control Center control tap (dailyok://checkin).
+            // Opening the app is the action: a signed-in receiver lands on their
+            // check-in home, and a not-signed-in user is routed to AuthView by
+            // ContentView (authState == .unauthenticated). Handled explicitly so
+            // it no longer falls through to `default` (which silently reopened
+            // the last screen — US-IOS091). For a signed-in owner, make sure a
+            // stale pairing-entry sheet isn't blocking the dashboard.
+            if authViewModel.currentUser != nil {
+                appState.showPairingCodeEntry = false
+            }
         case "standdown":
             // From an escalation Live Activity "Stand down" button. The custom
             // URL scheme is public, so anything could invoke this — require an
@@ -77,6 +92,12 @@ struct DailyOKApp: App {
                     }
                     do {
                         try await CheckInService.shared.cancelEscalation(receiverId: receiverId, familyId: familyId)
+                        // End the Live Activity immediately on success so the
+                        // owner isn't left with a running overdue timer for a
+                        // resolved escalation (US-IOS081).
+                        await MainActor.run {
+                            EscalationActivityManager.end(receiverId: receiverId.uuidString)
+                        }
                     } catch {
                         Log.general.error("Standdown deep link failed: \(error.localizedDescription, privacy: .public)")
                     }
@@ -101,6 +122,12 @@ struct DailyOKApp: App {
                 // Sync queued check-ins and refresh the push token.
                 await offlineService.syncPendingCheckIns()
                 await reRegisterPushToken()
+                // Re-anchor last_seen on foreground — the heartbeat timer is
+                // suspended while backgrounded (US-IOS098).
+                HeartbeatService.shared.appBecameActive()
+                // Reconcile any verified-but-unsynced subscription to the backend
+                // once per launch (reinstall / interrupted purchase) — US-IOS095.
+                await SubscriptionService.shared.reconcileEntitlementsToBackendOnce()
                 // Non-urgent / best-effort work last.
                 await AnalyticsService.shared.track(.appOpened)
                 // A genuine pin MISMATCH (device-trusted but un-pinned CA) is

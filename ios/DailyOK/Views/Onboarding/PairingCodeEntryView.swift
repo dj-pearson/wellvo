@@ -9,7 +9,9 @@ struct PairingCodeEntryView: View {
     @State private var isSubmitting = false
     @State private var errorMessage: String?
     @State private var joinedSuccessfully = false
-    @State private var checkinTimeDisplay = "8:00 AM"
+    // nil until the server tells us the real time — never assert a fabricated
+    // "8:00 AM" the receiver might not actually be scheduled for (US-IOS112).
+    @State private var checkinTimeDisplay: String?
     // Persist attempt/lockout state so backing out and reopening the screen can't
     // reset the 10-attempt / 15-minute lockout (matches AuthViewModel's approach).
     @AppStorage("dailyok.pairing.failedAttempts") private var failedAttempts = 0
@@ -154,7 +156,8 @@ struct PairingCodeEntryView: View {
                 .fontWeight(.bold)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
 
-            Text("Your daily check-in is at **\(checkinTimeDisplay)**.\nJust tap \"I'm OK\" when you get the notification.")
+            Text(checkinTimeDisplay.map { "Your daily check-in is at **\($0)**.\nJust tap \"I'm OK\" when you get the notification." }
+                 ?? "We'll remind you each day.\nJust tap \"I'm OK\" when you get the notification.")
                 .font(.title3)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)

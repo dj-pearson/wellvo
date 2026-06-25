@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAMID.com.wellvo.ios",
+        "paths": [
+          "/invite/*",
+          "/join/*",
+          "NOT /privacy",
+          "NOT /terms",
+          "NOT /support"
+        ]
+      }
+    ]
+  }
+}

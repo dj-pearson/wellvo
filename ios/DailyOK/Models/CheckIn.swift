@@ -9,6 +9,11 @@ enum Mood: String, Codable, CaseIterable {
     case hungry
     case scared
     case havingFun = "having_fun"
+    /// A mood value this app version doesn't recognize (e.g. one the server
+    /// added later — the enum already grew once in migration 00014). Decoded
+    /// here instead of silently coercing to `.neutral`, and excluded from mood
+    /// analytics so it can't skew the breakdown (US-IOS101).
+    case unknown
 
     var emoji: String {
         switch self {
@@ -20,6 +25,7 @@ enum Mood: String, Codable, CaseIterable {
         case .hungry: return "🍕"
         case .scared: return "😰"
         case .havingFun: return "🎉"
+        case .unknown: return "❓"
         }
     }
 
@@ -33,6 +39,7 @@ enum Mood: String, Codable, CaseIterable {
         case .hungry: return "Hungry"
         case .scared: return "Scared"
         case .havingFun: return "Having Fun"
+        case .unknown: return "Unknown"
         }
     }
 
@@ -47,7 +54,7 @@ enum Mood: String, Codable, CaseIterable {
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let rawValue = try container.decode(String.self)
-        self = Mood(rawValue: rawValue) ?? .neutral
+        self = Mood(rawValue: rawValue) ?? .unknown
     }
 }
 
@@ -115,12 +122,34 @@ enum CheckInSource: String, Codable {
     case onDemand = "on_demand"
     case needHelp = "need_help"
     case callMe = "call_me"
+    // Out-of-process surfaces (US-IOS107). Backed by checkin_source enum values
+    // added in migration 00046.
+    case widget
+    case control
+    case siri
+
+    // Forgiving decode: a row written by Android, a future server source, or a
+    // notification action this build doesn't recognize must NOT throw (which
+    // would surface a thrown check-in error for a check-in the server already
+    // recorded, and stall the offline sync loop). Unknown → `.app` (US-IOS087).
+    // These raw values are now a tolerant contract.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = CheckInSource(rawValue: raw) ?? .app
+    }
 }
 
 enum CheckInResponseType: String, Codable {
     case ok
     case needHelp = "need_help"
     case callMe = "call_me"
+
+    // Unknown → `.ok` so an unrecognized response_type isn't shown as a scary
+    // failure for a check-in that actually succeeded (US-IOS087).
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = CheckInResponseType(rawValue: raw) ?? .ok
+    }
 }
 
 enum CheckInRequestStatus: String, Codable {

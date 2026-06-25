@@ -8,8 +8,15 @@ import Foundation
 enum WatchOfflineQueue {
     private static let key = "watch_pending_checkin"
 
+    /// A pending marker only counts if it was stamped *today* (local day). A
+    /// marker left over from a previous day is stale — the day already rolled
+    /// over, so it would make today falsely look already-checked-in. Reading it
+    /// here clears the stale marker (US-IOS090).
     static var hasPending: Bool {
-        SharedAppGroup.defaults?.object(forKey: key) != nil
+        guard let stamped = SharedAppGroup.defaults?.object(forKey: key) as? Date else { return false }
+        if Calendar.current.isDateInToday(stamped) { return true }
+        clear()
+        return false
     }
 
     /// When the pending check-in was first attempted (for display/debugging).

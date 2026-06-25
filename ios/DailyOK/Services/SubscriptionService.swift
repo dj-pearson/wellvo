@@ -12,6 +12,17 @@ final class SubscriptionService: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
 
+    /// The grandfather deadline for a legacy Free-tier family, mirrored from the
+    /// loaded `Family` so feature gating can honor it (US-IOS097). Set this when
+    /// the family loads. nil = no grandfather window.
+    @Published var freeTierExpiresAt: Date?
+
+    /// Whether the grandfathered Free-tier window has lapsed.
+    var isFreeTierExpired: Bool {
+        guard currentTier == .free, let deadline = freeTierExpiresAt else { return false }
+        return deadline < Date()
+    }
+
     // MARK: - Product IDs (update these to match your App Store Connect configuration)
 
     struct ProductIDs {
@@ -37,6 +48,9 @@ final class SubscriptionService: ObservableObject {
     }
 
     private var updateTask: Task<Void, Never>?
+    /// Guards the once-per-launch backend reconcile so foregrounding doesn't
+    /// re-push entitlements on every resume.
+    private var hasReconciledThisLaunch = false
 
     init() {
         updateTask = Task {
@@ -113,10 +127,15 @@ final class SubscriptionService: ObservableObject {
         case .success(let verification):
             let transaction = try checkVerified(verification)
             await updatePurchasedProducts()
-            await transaction.finish()
 
-            // Sync to backend with retry
+            // Sync to the backend BEFORE finishing the transaction. If we finish
+            // first and the process is killed mid-sync, StoreKit can't redeliver
+            // (it's already finished) and the family stays un-upgraded until a
+            // manual restore (US-IOS095). Finishing after the sync means an
+            // interrupted sync leaves the transaction unfinished, so it's
+            // redelivered via Transaction.updates / currentEntitlements.
             await syncSubscriptionToBackend(transaction)
+            await transaction.finish()
 
             return transaction
 
@@ -163,7 +182,31 @@ final class SubscriptionService: ObservableObject {
             errorMessage = "Failed to restore purchases."
         }
         await updatePurchasedProducts()
+        // Restore must also re-provision the backend: a reinstalled user has a
+        // valid StoreKit entitlement but the server never recorded it, so
+        // without this their seats/features never come back (US-IOS095).
+        await reconcileEntitlementsToBackend()
         isLoading = false
+    }
+
+    /// Push every currently-entitled transaction to the backend so a
+    /// verified-but-unsynced subscription (reinstall, interrupted purchase,
+    /// restore) provisions server-side without a fresh purchase. The webhook is
+    /// idempotent, so re-sending an already-recorded entitlement is harmless.
+    /// Safe to call on launch and after restore.
+    /// Once-per-launch reconcile, safe to call on every foreground.
+    func reconcileEntitlementsToBackendOnce() async {
+        guard !hasReconciledThisLaunch else { return }
+        hasReconciledThisLaunch = true
+        await reconcileEntitlementsToBackend()
+    }
+
+    func reconcileEntitlementsToBackend() async {
+        for await result in Transaction.currentEntitlements {
+            guard let transaction = try? checkVerified(result) else { continue }
+            if let expiry = transaction.expirationDate, expiry <= Date() { continue }
+            await syncSubscriptionToBackend(transaction)
+        }
     }
 
     /// Check if the user has access to a specific feature tier.
@@ -179,6 +222,12 @@ final class SubscriptionService: ObservableObject {
         case .free:
             return true
         case .caregiver:
+            // A grandfathered Free-tier family keeps Caregiver-level access until
+            // its free window lapses; once expired, paid features are gated and
+            // the owner is prompted to upgrade (US-IOS097).
+            if currentTier == .free {
+                return freeTierExpiresAt != nil && !isFreeTierExpired
+            }
             return currentTier == .caregiver
                 || currentTier == .family
                 || currentTier == .familyPlus
@@ -187,6 +236,28 @@ final class SubscriptionService: ObservableObject {
         case .familyPlus:
             return currentTier == .familyPlus
         }
+    }
+
+    /// The tier a subscription product belongs to (nil for add-ons).
+    func tier(forProductID id: String) -> SubscriptionTier? {
+        if ProductIDs.familyPlus.contains(id) { return .familyPlus }
+        if ProductIDs.family.contains(id) { return .family }
+        if ProductIDs.caregiver.contains(id) { return .caregiver }
+        return nil
+    }
+
+    /// Relationship of a plan row to the active tier, for paywall labeling
+    /// (US-IOS096).
+    enum PlanRelation { case current, upgrade, switchPlan, none }
+
+    func relation(forProductID id: String) -> PlanRelation {
+        if purchasedProductIDs.contains(id) { return .current }
+        guard let rowTier = tier(forProductID: id), currentTier != .free else { return .none }
+        let rank: (SubscriptionTier) -> Int = {
+            switch $0 { case .free: return 0; case .caregiver: return 1; case .family: return 2; case .familyPlus: return 3 }
+        }
+        if rank(rowTier) > rank(currentTier) { return .upgrade }
+        return .switchPlan // same-tier different billing, or a downgrade
     }
 
     // MARK: - Private

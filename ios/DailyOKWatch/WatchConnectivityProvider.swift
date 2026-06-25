@@ -27,11 +27,15 @@ final class WatchConnectivityProvider: NSObject, ObservableObject, WCSessionDele
     /// widgets can refresh. `transferUserInfo` is queued and delivered reliably.
     func notifyPhoneOfCheckIn() {
         guard WCSession.isSupported() else { return }
+        // transferUserInfo traps if the session isn't activated yet — guard it
+        // (US-IOS090).
+        guard WCSession.default.activationState == .activated else { return }
         WCSession.default.transferUserInfo(["watch_checked_in": true])
     }
 
     private func applyContext(_ context: [String: Any]) {
         guard let data = context["checkin_state"] as? Data else { return }
+        let previous = SharedCheckInStore.load()
         if data.isEmpty {
             SharedCheckInStore.clear()
             SharedKeychain.clearTokens()
@@ -52,8 +56,16 @@ final class WatchConnectivityProvider: NSObject, ObservableObject, WCSessionDele
                 SharedKeychain.clearTokens()
             }
         }
-        // The complication reads the same snapshot — refresh it too.
-        WidgetCenter.shared.reloadAllTimelines()
+        // The complication reads the same snapshot — but only reload it when a
+        // glanceable field actually changed. Reloading on every context push can
+        // exhaust the watchOS complication update budget, after which it stops
+        // updating entirely (US-IOS107).
+        let current = SharedCheckInStore.load()
+        let glanceChanged = previous?.hasCheckedInToday != current?.hasCheckedInToday
+            || previous?.lastCheckInAt != current?.lastCheckInAt
+        if glanceChanged {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
         DispatchQueue.main.async { self.revision += 1 }
     }
 

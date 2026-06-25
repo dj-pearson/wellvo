@@ -21,6 +21,17 @@ struct OnboardingCarousel: View {
     @State private var currentIndex: Int = 0
 
     var body: some View {
+        // Guard against an empty page list: `pages.count - 1` below would be -1,
+        // breaking the CTA logic and letting the index walk out of bounds
+        // (US-IOS112).
+        if pages.isEmpty {
+            Color(.systemBackground)
+        } else {
+            content
+        }
+    }
+
+    private var content: some View {
         VStack(spacing: 0) {
             HStack {
                 Spacer()
@@ -51,6 +62,10 @@ struct OnboardingCarousel: View {
                 }
             }
             .padding(.vertical, 16)
+            // The dots are decorative; expose a single "Page X of N" element to
+            // VoiceOver instead (US-IOS112).
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Page \(currentIndex + 1) of \(pages.count)")
 
             Button {
                 if currentIndex == pages.count - 1 {

@@ -18,14 +18,26 @@ final class HeartbeatService {
         // heartbeat tick.
         UIDevice.current.isBatteryMonitoringEnabled = true
 
+        // Idempotent: if the periodic timer is already running, don't fire a
+        // second initial heartbeat or schedule a duplicate timer (US-IOS098).
+        guard timer == nil else { return }
+
         // Send initial heartbeat
         Task { await sendHeartbeat() }
 
         // Schedule periodic heartbeats
-        timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             Task { await self?.sendHeartbeat() }
         }
+    }
+
+    /// Re-anchor `last_seen_at` when the app returns to the foreground. The
+    /// repeating Timer is suspended while backgrounded, so without this a
+    /// receiver who opens the app after hours away still looks stale until the
+    /// next tick fires (US-IOS098). Safe to call any time the app becomes active.
+    func appBecameActive() {
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        Task { await sendHeartbeat() }
     }
 
     func stop() {
@@ -39,16 +51,18 @@ final class HeartbeatService {
         let batteryLevel = UIDevice.current.batteryLevel
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
 
-        var body: [String: String] = [:]
+        var body: [String: JSONValue] = [:]
         if batteryLevel >= 0 {
-            body["battery_level"] = String(Double(batteryLevel))
+            // battery_level on the wire as a JSON number (US-IOS078); the
+            // heartbeat validator requires typeof === "number".
+            body["battery_level"] = .double(Double(batteryLevel))
         }
         if let version = appVersion {
-            body["app_version"] = version
+            body["app_version"] = .string(version)
         }
 
         do {
-            try await EdgeFunctionsClient.invoke("heartbeat", body: body)
+            try await EdgeFunctionsClient.invoke("heartbeat", json: body)
         } catch {
             // Heartbeat drives the owner's "last seen" — a silent failure makes a
             // receiver look inactive. Log it (non-fatal; next tick retries).

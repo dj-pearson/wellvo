@@ -8,11 +8,14 @@ enum KeychainService {
     static func save(key: String, value: String) -> Bool {
         guard let data = value.data(using: .utf8) else { return false }
 
-        // Delete any existing item first
+        // Delete any existing item first. kSecUseDataProtectionKeychain pins every
+        // query to the modern data-protection keychain, consistent with
+        // SharedKeychain (US-IOS108).
         let deleteQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: serviceName,
             kSecAttrAccount as String: key,
+            kSecUseDataProtectionKeychain as String: true,
         ]
         SecItemDelete(deleteQuery as CFDictionary)
 
@@ -22,6 +25,7 @@ enum KeychainService {
             kSecAttrAccount as String: key,
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecUseDataProtectionKeychain as String: true,
         ]
 
         let status = SecItemAdd(addQuery as CFDictionary, nil)
@@ -35,6 +39,7 @@ enum KeychainService {
             kSecAttrAccount as String: key,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecUseDataProtectionKeychain as String: true,
         ]
 
         var result: AnyObject?
@@ -49,6 +54,7 @@ enum KeychainService {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: serviceName,
             kSecAttrAccount as String: key,
+            kSecUseDataProtectionKeychain as String: true,
         ]
         SecItemDelete(query as CFDictionary)
     }

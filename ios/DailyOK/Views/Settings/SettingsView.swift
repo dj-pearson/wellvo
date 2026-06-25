@@ -8,6 +8,7 @@ struct SettingsView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var subscriptionService = SubscriptionService.shared
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorSchemeContrast) private var contrast
     @State private var showDeleteConfirmation = false
     @State private var deleteConfirmText = ""
     @State private var showSignOutConfirmation = false
@@ -26,13 +27,16 @@ struct SettingsView: View {
                 Section("Account") {
                     if let user = authViewModel.currentUser {
                         HStack {
+                            // Higher-contrast avatar: a solid fill with white
+                            // initials under Increase Contrast, rather than green
+                            // initials on a 20%-green wash (US-IOS106).
                             Circle()
-                                .fill(Color.green.opacity(0.2))
+                                .fill(contrast == .increased ? DailyOKColor.green700 : Color.green.opacity(0.2))
                                 .frame(width: 40, height: 40)
                                 .overlay {
                                     Text(String(user.displayName.prefix(1)).uppercased())
                                         .fontWeight(.bold)
-                                        .foregroundStyle(.green)
+                                        .foregroundStyle(contrast == .increased ? .white : .green)
                                 }
 
                             VStack(alignment: .leading, spacing: 2) {
@@ -43,6 +47,7 @@ struct SettingsView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
+                        .accessibilityElement(children: .combine)
                     }
                 }
 
@@ -257,6 +262,17 @@ struct SettingsView: View {
                 }
             }
             .manageSubscriptionsSheet(isPresented: $showManageSubscriptions)
+            // settingsError is set on Export / Delete Account / not-signed-in but
+            // was rendered nowhere — a silently-failed Delete Account is serious.
+            // Surface it (VoiceOver announces alerts) — US-IOS094.
+            .alert("Something went wrong", isPresented: Binding(
+                get: { settingsError != nil },
+                set: { if !$0 { settingsError = nil } }
+            ), presenting: settingsError) { _ in
+                Button("OK", role: .cancel) { settingsError = nil }
+            } message: { message in
+                Text(message)
+            }
         }
     }
 
@@ -304,10 +320,15 @@ struct SettingsView: View {
 // MARK: - Data Retention Settings
 
 struct DataRetentionView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var retentionDays: Int = 365
     @State private var isLoading = true
     @State private var showSaved = false
     @State private var errorMessage: String?
+    /// True when the current value couldn't be read. We must NOT let the user
+    /// Save in this state — saving would clobber the real server value with the
+    /// 365 default (US-IOS094).
+    @State private var loadFailed = false
 
     private let retentionOptions = [90, 180, 365, 730]
 
@@ -324,11 +345,23 @@ struct DataRetentionView: View {
                 Text("Check-in records older than this will be automatically deleted. Default is 1 year.")
             }
 
+            if loadFailed {
+                Section {
+                    Label("Couldn't load your current setting.", systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                    Button("Retry") {
+                        Task { await loadRetention() }
+                    }
+                }
+            }
+
             Section {
                 Button("Save") {
                     Task { await saveRetention() }
                 }
-                .disabled(isLoading)
+                // Block Save while loading or after a failed load so we don't
+                // overwrite the real server value with the default (US-IOS094).
+                .disabled(isLoading || loadFailed)
             }
         }
         .scrollContentBackground(.hidden)
@@ -354,10 +387,18 @@ struct DataRetentionView: View {
             Text(errorMessage ?? "")
         }
         .task { await loadRetention() }
+        // Reload on foreground so a value changed elsewhere isn't re-saved stale
+        // (US-IOS111).
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active { Task { await loadRetention() } }
+        }
     }
 
     private func loadRetention() async {
+        isLoading = true
+        loadFailed = false
         guard let family = try? await FamilyService.shared.getFamily() else {
+            loadFailed = true
             isLoading = false
             return
         }
@@ -378,7 +419,9 @@ struct DataRetentionView: View {
                 .value
             retentionDays = result.dataRetentionDays
         } catch {
-            // Use default
+            // Don't silently fall back to the default and then let Save clobber
+            // the real server value — flag the failure and block Save.
+            loadFailed = true
         }
         isLoading = false
     }
@@ -498,7 +541,10 @@ struct SubscriptionView: View {
                             .font(.largeTitle)
                             .foregroundStyle(.secondary)
                             .accessibilityHidden(true)
-                        Text(subscriptionService.errorMessage ?? "Subscription options are unavailable right now.")
+                        // Load-failed state only — keep this distinct from the
+                        // purchase-failed alert so the same error isn't shown
+                        // twice (US-IOS096).
+                        Text("Subscription options are unavailable right now.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -563,18 +609,30 @@ struct SubscriptionView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            if subscriptionService.purchasedProductIDs.contains(product.id) {
+            // Frame every row relative to the active tier so a subscriber sees
+            // "Current Plan" / "Upgrade" / "Switch" instead of an undifferentiated
+            // "Subscribe" on every tier (US-IOS096).
+            switch subscriptionService.relation(forProductID: product.id) {
+            case .current:
                 Text("Current Plan")
                     .font(.caption)
                     .fontWeight(.bold)
                     .foregroundStyle(.green)
-            } else {
-                Button("Subscribe") {
-                    Task { await subscribe(product) }
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-                .disabled(subscriptionService.isLoading)
+            case .upgrade:
+                Button("Upgrade") { Task { await subscribe(product) } }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                    .disabled(subscriptionService.isLoading)
+            case .switchPlan:
+                Button("Switch to this plan") { Task { await subscribe(product) } }
+                    .buttonStyle(.bordered)
+                    .tint(.green)
+                    .disabled(subscriptionService.isLoading)
+            case .none:
+                Button("Subscribe") { Task { await subscribe(product) } }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                    .disabled(subscriptionService.isLoading)
             }
         }
         .padding(16)

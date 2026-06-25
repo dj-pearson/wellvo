@@ -98,11 +98,17 @@ struct PasswordStrengthIndicator: View {
             }
             .frame(height: 4)
             HStack {
+                // Keep the label readable as text (not color-only) — the colored
+                // bar already conveys strength; the word must stay legible under
+                // Increase Contrast and for color-blind users (US-IOS106).
                 Text(strength.label)
                     .font(.caption2)
-                    .foregroundStyle(strength.color)
+                    .foregroundStyle(.secondary)
                 Spacer()
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Password strength")
+        .accessibilityValue(strength.label)
     }
 }

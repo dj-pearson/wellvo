@@ -10,6 +10,8 @@ struct CheckInTrendChartView: View {
     var timezone: String? = nil
 
     private let chartHeight: CGFloat = 160
+    // Axis/label text scales with Dynamic Type instead of a fixed 9pt (US-IOS105).
+    @ScaledMetric(relativeTo: .caption2) private var labelSize: CGFloat = 9
 
     var body: some View {
         // Compute the buckets and bounds ONCE per body evaluation. These were
@@ -41,15 +43,15 @@ struct CheckInTrendChartView: View {
                         // Y-axis labels
                         VStack {
                             Text(formatHour(yMaxV))
-                                .font(.system(size: 9))
+                                .font(.system(size: labelSize))
                                 .foregroundStyle(.secondary)
                             Spacer()
                             Text(formatHour(yMidV))
-                                .font(.system(size: 9))
+                                .font(.system(size: labelSize))
                                 .foregroundStyle(.secondary)
                             Spacer()
                             Text(formatHour(yMinV))
-                                .font(.system(size: 9))
+                                .font(.system(size: labelSize))
                                 .foregroundStyle(.secondary)
                         }
                         .frame(width: 36, height: chartHeight)
@@ -107,18 +109,18 @@ struct CheckInTrendChartView: View {
                         Spacer().frame(width: 40)
                         if let first = points.first, let last = points.last {
                             Text(first.label)
-                                .font(.system(size: 9))
+                                .font(.system(size: labelSize))
                                 .foregroundStyle(.secondary)
                             Spacer()
                             if points.count > 2 {
                                 let mid = points[points.count / 2]
                                 Text(mid.label)
-                                    .font(.system(size: 9))
+                                    .font(.system(size: labelSize))
                                     .foregroundStyle(.secondary)
                                 Spacer()
                             }
                             Text(last.label)
-                                .font(.system(size: 9))
+                                .font(.system(size: labelSize))
                                 .foregroundStyle(.secondary)
                         }
                     }

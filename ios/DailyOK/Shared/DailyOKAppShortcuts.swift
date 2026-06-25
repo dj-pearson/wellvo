@@ -8,7 +8,7 @@ import AppIntents
 struct DailyOKAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
-            intent: CheckInIntent(),
+            intent: CheckInIntent(source: "siri"),
             phrases: [
                 "Check in with \(.applicationName)",
                 "I'm OK with \(.applicationName)",

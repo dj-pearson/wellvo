@@ -56,6 +56,18 @@ enum ReceiverCheckInStatus {
         }
     }
 
+    /// Stronger, deeper shades for Increase Contrast — the default `.yellow`
+    /// (pending) in particular is low-contrast on light surfaces (US-IOS106).
+    func color(increasedContrast: Bool) -> Color {
+        guard increasedContrast else { return color }
+        switch self {
+        case .checkedIn: return Color(red: 0.11, green: 0.47, blue: 0.15)
+        case .pending: return Color(red: 0.66, green: 0.46, blue: 0.03)
+        case .missed: return Color(red: 0.78, green: 0.0, blue: 0.0)
+        case .noData: return Color(.darkGray)
+        }
+    }
+
     var icon: String {
         switch self {
         case .checkedIn: return "checkmark.circle.fill"
@@ -118,6 +130,9 @@ final class DashboardViewModel: ObservableObject {
                 isLoading = false
                 return
             }
+            // Mirror the grandfather deadline so subscription gating can honor it
+            // (US-IOS097).
+            SubscriptionService.shared.freeTierExpiresAt = family.freeTierExpiresAt
 
             let members = try await FamilyService.shared.getFamilyMembers(familyId: family.id)
             let receivers = members.filter { $0.role == .receiver && $0.status == .active }
@@ -194,8 +209,10 @@ final class DashboardViewModel: ObservableObject {
 
                 let hasNotifications = notifiedUserIds.contains(receiver.userId)
 
-                // Collect last 7 days for weekly summary
-                let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date())
+                // Collect last 7 days for weekly summary, bucketed in the
+                // receiver's timezone so it matches the dashboard/heatmap window
+                // for an owner in a different region (US-IOS100).
+                let sevenDaysAgo = Calendar.forTimezone(receiverTz).date(byAdding: .day, value: -7, to: Date())
                     ?? Date().addingTimeInterval(-7 * 86_400)
                 let recentCheckIns = history.filter { $0.checkedInAt >= sevenDaysAgo }
                 weeklyCheckIns.append(contentsOf: recentCheckIns)
@@ -289,6 +306,10 @@ final class DashboardViewModel: ObservableObject {
             if let idx = receiverCards.firstIndex(where: { $0.id == receiverId }) {
                 receiverCards[idx].escalationStep = 0
             }
+            // End the Live Activity right away — only after the cancel succeeded,
+            // so a failed stand-down does NOT visually clear an active escalation
+            // (US-IOS081/US-IOS083).
+            EscalationActivityManager.end(receiverId: receiverId.uuidString)
         } catch {
             errorMessage = DailyOKError.network(error).localizedDescription
         }
@@ -547,10 +568,11 @@ final class DashboardViewModel: ObservableObject {
             avgTime = "--"
         }
 
-        // Mood breakdown
+        // Mood breakdown — exclude unrecognized server moods so they don't skew
+        // the wellness analytics (US-IOS101).
         var moodBreakdown: [Mood: Int] = [:]
         for checkIn in checkIns {
-            if let mood = checkIn.mood {
+            if let mood = checkIn.mood, mood != .unknown {
                 moodBreakdown[mood, default: 0] += 1
             }
         }

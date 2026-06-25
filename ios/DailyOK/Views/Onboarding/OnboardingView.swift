@@ -220,7 +220,9 @@ struct OnboardingView: View {
             .buttonStyle(.borderedProminent)
             .tint(DailyOKColor.green500)
             .controlSize(.large)
-            .disabled(viewModel.familyName.isEmpty || viewModel.isLoading)
+            // Disable on the TRIMMED name so a whitespace-only entry can't tap
+            // into a dead-end error (US-IOS104).
+            .disabled(viewModel.familyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading)
         }
         .padding(24)
         .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)

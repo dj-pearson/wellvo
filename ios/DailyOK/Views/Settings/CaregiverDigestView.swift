@@ -8,6 +8,7 @@ import os
 /// pg_cron job + `/send-digest` edge function; this screen only edits the
 /// preference. The in-app summary lives on the dashboard's weekly-summary card.
 struct CaregiverDigestView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var frequency: String = "off"
     @State private var hour: Int = 8
     @State private var isLoading = true
@@ -82,6 +83,10 @@ struct CaregiverDigestView: View {
             Text(errorMessage ?? "")
         }
         .task { await load() }
+        // Reload on foreground so a stale value isn't re-saved (US-IOS111).
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active { Task { await load() } }
+        }
     }
 
     private static func hourLabel(_ h: Int) -> String {

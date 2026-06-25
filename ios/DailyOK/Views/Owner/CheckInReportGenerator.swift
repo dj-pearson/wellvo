@@ -25,6 +25,19 @@ struct CheckInReportGenerator {
         let checkIns: [CheckIn]
         let periodDays: Int
         let generatedAt: Date
+        /// The receiver's IANA timezone. Days, streak, and average time must be
+        /// bucketed in the receiver's zone so the report matches the dashboard
+        /// for an owner in a different region (US-IOS100). nil = device zone.
+        let timezone: String?
+    }
+
+    /// A calendar fixed to the receiver's timezone (falls back to the device's).
+    private static func calendar(for timezone: String?) -> Calendar {
+        var calendar = Calendar.current
+        if let id = timezone, let tz = TimeZone(identifier: id) {
+            calendar.timeZone = tz
+        }
+        return calendar
     }
 
     static func generatePDF(from data: ReportData) -> Data {
@@ -64,9 +77,11 @@ struct CheckInReportGenerator {
             subtitle.draw(at: CGPoint(x: margin, y: yPosition), withAttributes: subtitleAttrs)
             yPosition += 22
 
+            let reportCalendar = Self.calendar(for: data.timezone)
+            dateFormatter.timeZone = reportCalendar.timeZone
             let periodEnd = dateFormatter.string(from: data.generatedAt)
             let periodStart = dateFormatter.string(from:
-                Calendar.current.date(byAdding: .day, value: -data.periodDays, to: data.generatedAt) ?? data.generatedAt
+                reportCalendar.date(byAdding: .day, value: -data.periodDays, to: data.generatedAt) ?? data.generatedAt
             )
             let period = "Period: \(periodStart) — \(periodEnd)"
             period.draw(at: CGPoint(x: margin, y: yPosition), withAttributes: subtitleAttrs)
@@ -76,8 +91,8 @@ struct CheckInReportGenerator {
             drawLine(in: context.cgContext, from: CGPoint(x: margin, y: yPosition), to: CGPoint(x: pageWidth - margin, y: yPosition))
             yPosition += 16
 
-            // Summary stats
-            let calendar = Calendar.current
+            // Summary stats (bucketed in the receiver's timezone).
+            let calendar = reportCalendar
             let totalDays = data.periodDays
             let totalCheckIns = data.checkIns.count
             // Consistency = days WITH at least one check-in over the period, not
@@ -98,7 +113,7 @@ struct CheckInReportGenerator {
                 "Days Checked In: \(daysWithCheckIn) / \(totalDays)",
                 "Total Check-Ins: \(totalCheckIns)",
                 "Consistency: \(String(format: "%.0f", consistency))%",
-                "Average Check-In Time: \(averageCheckInTime(data.checkIns))",
+                "Average Check-In Time: \(averageCheckInTime(data.checkIns, calendar: calendar))",
                 "Mood Breakdown: \(moodBreakdownString(data.checkIns))",
             ]
 
@@ -109,7 +124,7 @@ struct CheckInReportGenerator {
             yPosition += 12
 
             // Streak info
-            let streak = calculateStreak(data.checkIns)
+            let streak = calculateStreak(data.checkIns, calendar: calendar)
             "Current Streak: \(streak) day(s)".draw(at: CGPoint(x: margin + 16, y: yPosition), withAttributes: bodyAttrs)
             yPosition += 24
 
@@ -193,9 +208,8 @@ struct CheckInReportGenerator {
         context.strokePath()
     }
 
-    private static func averageCheckInTime(_ checkIns: [CheckIn]) -> String {
+    private static func averageCheckInTime(_ checkIns: [CheckIn], calendar: Calendar) -> String {
         guard !checkIns.isEmpty else { return "—" }
-        let calendar = Calendar.current
         let totalMinutes = checkIns.reduce(0) { sum, ci in
             let c = calendar.dateComponents([.hour, .minute], from: ci.checkedInAt)
             return sum + (c.hour ?? 0) * 60 + (c.minute ?? 0)
@@ -211,7 +225,7 @@ struct CheckInReportGenerator {
     private static func moodBreakdownString(_ checkIns: [CheckIn]) -> String {
         var counts: [String: Int] = [:]
         for ci in checkIns {
-            if let mood = ci.mood {
+            if let mood = ci.mood, mood != .unknown {
                 counts[mood.label, default: 0] += 1
             }
         }
@@ -219,9 +233,8 @@ struct CheckInReportGenerator {
         return counts.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
     }
 
-    private static func calculateStreak(_ checkIns: [CheckIn]) -> Int {
+    private static func calculateStreak(_ checkIns: [CheckIn], calendar: Calendar) -> Int {
         guard !checkIns.isEmpty else { return 0 }
-        let calendar = Calendar.current
         var streak = 0
         var currentDate = calendar.startOfDay(for: Date())
         let checkInDays = Set(checkIns.map { calendar.startOfDay(for: $0.checkedInAt) })

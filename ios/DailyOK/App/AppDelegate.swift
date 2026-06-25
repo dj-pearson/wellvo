@@ -19,6 +19,21 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         // check-in snapshot and can report wrist check-ins back to the phone.
         PhoneWatchSync.shared.activate()
 
+        // Observe wrist check-ins for the app lifetime. The hand-off was fully
+        // wired (watch -> didReceiveWatchCheckIn) but nothing listened, so a
+        // wrist check-in was invisible to the phone: its snapshot still said
+        // not-checked-in (could re-escalate) and the widgets didn't update
+        // (US-IOS082). On notify, optimistically mark today done (this also
+        // reloads all widget timelines + re-syncs the watch) and broadcast a
+        // refresh so a foregrounded receiver view reloads its status.
+        NotificationCenter.default.addObserver(
+            forName: PhoneWatchSync.didReceiveWatchCheckIn,
+            object: nil,
+            queue: .main
+        ) { _ in
+            SharedCheckInPublisher.markCheckedIn(at: Date())
+        }
+
         // Sync access token to shared App Group for Notification Service Extension
         Task { await SupabaseService.shared.syncAccessTokenToExtension() }
 
