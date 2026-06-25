@@ -59,6 +59,7 @@ actor AnalyticsService {
         // App lifecycle
         case appOpened = "app.opened"
         case appBackgrounded = "app.backgrounded"
+        case screenViewed = "app.screen_viewed"
 
         // Security
         case certificatePinningFailure = "security.certificate_pinning_failure"
@@ -88,8 +89,10 @@ actor AnalyticsService {
         TelemetryDeck.signal(event.rawValue, parameters: properties)
     }
 
-    /// Track a screen view.
+    /// Track a screen view. Emits a dedicated `app.screen_viewed` event rather
+    /// than `owner.dashboard_viewed`, which previously mis-tagged every screen
+    /// and polluted the dashboard-view metric.
     func trackScreen(_ name: String) {
-        track(.dashboardViewed, properties: ["screen": name])
+        track(.screenViewed, properties: ["screen": name])
     }
 }

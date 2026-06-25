@@ -70,17 +70,31 @@ enum SharedCheckInClient {
             try await postCheckIn(state: state, accessToken: tokens.accessToken, body: body)
         }
 
+        // Merge the done-state onto the FRESHEST snapshot (re-loaded inside
+        // update()) instead of saving the whole `state` captured at the top of
+        // this call: a concurrent phone `publish()` rewrites the entire snapshot
+        // (e.g. a new nextCheckInAt / displayName), and saving our stale copy
+        // would clobber it. update() is the single authoritative
+        // read-modify-write path for out-of-process writers (US-IOS129).
         let now = Date()
+        SharedCheckInStore.update { snapshot in
+            snapshot.hasCheckedInToday = true
+            snapshot.lastCheckInAt = now
+            // Drop a now-past reload anchor so a stale `nextCheckInAt` from a
+            // prior config can't delay the new-day flip on glanceable surfaces;
+            // the phone rewrites the real next time on its next `loadStatus`.
+            if let next = snapshot.nextCheckInAt, next <= now {
+                snapshot.nextCheckInAt = nil
+            }
+        }
+        // Reflect the merged result; fall back to a locally-updated copy if the
+        // snapshot was cleared concurrently (e.g. by sign-out).
+        if let merged = SharedCheckInStore.load() {
+            return merged
+        }
         state.hasCheckedInToday = true
         state.lastCheckInAt = now
-        // Drop a now-past reload anchor so a stale `nextCheckInAt` from a prior
-        // config can't delay the new-day flip on glanceable surfaces; the phone
-        // rewrites the real next time on its next `loadStatus`.
-        if let next = state.nextCheckInAt, next <= now {
-            state.nextCheckInAt = nil
-        }
         state.updatedAt = now
-        SharedCheckInStore.save(state)
         return state
     }
 

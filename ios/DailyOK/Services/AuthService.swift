@@ -318,15 +318,21 @@ actor AuthService {
         return user
     }
 
-    /// Check if the Apple credential is still valid (not revoked).
+    /// Check if the Apple credential is still valid (not revoked). Returns true
+    /// (stay signed in) for accounts that didn't use Sign in with Apple, and is
+    /// deliberately conservative: only a *genuine* `.revoked` state signs the
+    /// user out. `.notFound`/`.transferred` are ambiguous (and `.notFound` can
+    /// occur transiently), and a thrown error is treated as transient — none of
+    /// those should nuke an otherwise-valid Supabase session.
     /// Should be called on app launch and periodically.
     func checkAppleCredentialStatus() async -> Bool {
+        // Only meaningful for accounts linked to an Apple identity.
         guard let appleUserID = getPersistedAppleUserID() else { return true }
 
         let provider = ASAuthorizationAppleIDProvider()
         do {
             let state = try await provider.credentialState(forUserID: appleUserID)
-            return state == .authorized
+            return state != .revoked
         } catch {
             return true // Don't sign out on transient errors
         }

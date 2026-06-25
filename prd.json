@@ -4253,8 +4253,8 @@
         "handleCallReceiver wraps its Supabase query in do/catch and logs failures instead of silently dropping the 'Call Now' action (ios/DailyOK/App/AppDelegate.swift:213-235)"
       ],
       "priority": 225,
-      "passes": false,
-      "notes": "From the Lifecycle (#5,#6) and Services (#14) reviews."
+      "passes": true,
+      "notes": "From the Lifecycle (#5,#6) and Services (#14) reviews. | IMPLEMENTED: checkAppleCredentialStatus now returns true unless the state is genuinely .revoked (.notFound/.transferred/thrown errors no longer sign the user out); it already early-returns true for non-Apple accounts via getPersistedAppleUserID, so email/phone users are unaffected. AppDelegate.handleCallReceiver wraps its users query in do/catch + Log so an urgent 'Call Now' no longer silently no-ops (the bare try discarded the throw). Build verification pending CI."
     },
     {
       "id": "US-IOS127",
@@ -4292,8 +4292,8 @@
         "Shared snapshot read-modify-write is made safe against phone/extension interleaving (e.g. extension paths only ever use update(), phone publish is authoritative-last-write), documented at the call sites (ios/DailyOK/Shared/SharedCheckInState.swift:60-66; SharedCheckInClient.swift:43,73-76)"
       ],
       "priority": 228,
-      "passes": false,
-      "notes": "From the Lifecycle (#12), Services (#15), and Watch (#7) reviews. Bundled lower-risk correctness/quality items."
+      "passes": true,
+      "notes": "From the Lifecycle (#12), Services (#15), and Watch (#7) reviews. Bundled lower-risk correctness/quality items. | IMPLEMENTED (scoped): AnalyticsService gained a dedicated app.screen_viewed event so trackScreen no longer mis-tags every screen as owner.dashboard_viewed. SharedCheckInClient.checkIn now merges done-state via SharedCheckInStore.update() on the freshest snapshot instead of saving a stale captured copy, so a concurrent phone publish() isn't clobbered (update() is the authoritative out-of-process RMW path). The mood-slot-scoping AC was VERIFIED NOT A BUG: todayCheckInStatus orders checked_in_at DESC limit 1, so lastCheckIn is the latest window's row and setMood already targets it correctly — left unchanged. Build verification pending CI."
     },
     {
       "id": "US-IOS130",

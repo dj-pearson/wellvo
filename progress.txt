@@ -1417,3 +1417,23 @@ nothing silently.
 
 Open from this backlog: US-IOS120 (watch double-submit, deferred — needs device
 test), US-IOS121, US-IOS126, US-IOS127, US-IOS128, US-IOS129, US-IOS130.
+
+------------------------------------------------------------------------
+iOS deep-dive batch 4 (branch claude/ios-app-review-prd-416pqc)
+------------------------------------------------------------------------
+US-IOS126 — checkAppleCredentialStatus now signs out only on a genuine .revoked
+state (was: anything != .authorized), and already early-returns true for
+non-Apple accounts, so email/phone users can't be force-signed-out on an
+ambiguous/transient status. AppDelegate.handleCallReceiver wraps its query in
+do/catch so an urgent 'Call Now' no longer silently no-ops on failure.
+
+US-IOS129 — AnalyticsService.trackScreen emits a dedicated app.screen_viewed
+event instead of mis-tagging everything as owner.dashboard_viewed.
+SharedCheckInClient.checkIn merges done-state via SharedCheckInStore.update() on
+the freshest snapshot rather than saving a stale captured copy (no longer
+clobbers a concurrent phone publish). Mood-slot-scoping turned out NOT to be a
+bug (todayCheckInStatus returns the latest row, which setMood already targets);
+left unchanged.
+
+Open: US-IOS120, US-IOS121, US-IOS127, US-IOS128, US-IOS130 (each larger /
+needs backend or device testing).
