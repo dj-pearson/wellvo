@@ -433,6 +433,18 @@ struct InviteReceiverSheet: View {
     @State private var errorMessage: String?
     @State private var inviteSent = false
     @State private var showSetupGuide = false
+    @FocusState private var focusedField: Field?
+
+    private enum Field { case name, phone }
+
+    /// Mirror OnboardingViewModel.canInviteReceiver: require a non-empty trimmed
+    /// name and a plausible (>=10-digit) phone so we don't fire an SMS to garbage
+    /// like "abc"/"5" (US-IOS104).
+    private var canSendInvite: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && phone.filter(\.isNumber).count >= 10
+            && !isLoading
+    }
 
     let onComplete: () async -> Void
 
@@ -459,10 +471,14 @@ struct InviteReceiverSheet: View {
                     Section {
                         TextField("Name", text: $name)
                             .textContentType(.name)
+                            .submitLabel(.next)
+                            .focused($focusedField, equals: .name)
+                            .onSubmit { focusedField = .phone }
 
                         TextField("Phone Number", text: $phone)
                             .textContentType(.telephoneNumber)
                             .keyboardType(.phonePad)
+                            .focused($focusedField, equals: .phone)
                     } header: {
                         Text("Receiver Details")
                     } footer: {
@@ -550,7 +566,7 @@ struct InviteReceiverSheet: View {
                         Button("Send Invite") {
                             Task { await sendInvite() }
                         }
-                        .disabled(name.isEmpty || phone.isEmpty || isLoading)
+                        .disabled(!canSendInvite)
                     }
                 }
             }

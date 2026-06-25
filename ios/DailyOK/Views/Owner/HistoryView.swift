@@ -210,6 +210,11 @@ struct HistoryView: View {
         guard let receiver = selectedReceiver,
               let family = try? await FamilyService.shared.getFamily() else { return }
         isLoading = true
+        // Clear the previous receiver's data/schedule first so switching
+        // receivers doesn't briefly render the old data under the new name
+        // (US-IOS111).
+        checkIns = []
+        receiverSettings = nil
         checkIns = (try? await CheckInService.shared.checkInHistory(
             receiverId: receiver.userId,
             familyId: family.id,

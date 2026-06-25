@@ -315,6 +315,7 @@ struct SettingsView: View {
 // MARK: - Data Retention Settings
 
 struct DataRetentionView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var retentionDays: Int = 365
     @State private var isLoading = true
     @State private var showSaved = false
@@ -381,6 +382,11 @@ struct DataRetentionView: View {
             Text(errorMessage ?? "")
         }
         .task { await loadRetention() }
+        // Reload on foreground so a value changed elsewhere isn't re-saved stale
+        // (US-IOS111).
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active { Task { await loadRetention() } }
+        }
     }
 
     private func loadRetention() async {

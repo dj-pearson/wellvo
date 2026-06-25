@@ -44,22 +44,28 @@ final class HealthService: ObservableObject {
 
     /// Turn sharing on (requesting permission) or off (clearing the local flag
     /// and deleting any previously-shared signals so revocation is complete).
-    func setSharing(_ enabled: Bool) async {
+    /// Returns true on success. When enabling fails (HealthKit permission
+    /// denied/unavailable) it returns false so the UI can explain why instead of
+    /// the toggle silently snapping back (US-IOS111). Disabling always succeeds.
+    @discardableResult
+    func setSharing(_ enabled: Bool) async -> Bool {
         if enabled {
             let granted = await requestAuthorization()
             guard granted else {
                 // Permission denied — degrade cleanly, stay off.
                 isSharingEnabled = false
                 UserDefaults.standard.set(false, forKey: optInKey)
-                return
+                return false
             }
             isSharingEnabled = true
             UserDefaults.standard.set(true, forKey: optInKey)
             await reportTodayIfEnabled()
+            return true
         } else {
             isSharingEnabled = false
             UserDefaults.standard.set(false, forKey: optInKey)
             await revokeSharedSignals()
+            return true
         }
     }
 
