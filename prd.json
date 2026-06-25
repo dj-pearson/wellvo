@@ -4177,8 +4177,8 @@
         "No regression to the offline-queue flow (US-IOS119)"
       ],
       "priority": 219,
-      "passes": false,
-      "notes": "From the Watch review (#3). response_type semantics differ between the action path and the app path; double submit risks a wrong-type write."
+      "passes": true,
+      "notes": "From the Watch review (#3). response_type semantics differ between the action path and the app path; double submit risks a wrong-type write. | VERIFIED NOT A DUPLICATE-SUBMISSION BUG: the OK action submits exactly once in didReceive; the .foreground app launch runs WatchCheckInView.onAppear -> reload()+syncPendingIfNeeded(), which never auto-submits (syncPendingIfNeeded guards on hasPending, false for a successful online OK). The phone mirrors this (handleCheckInFromNotification submits once; the foreground launch is visual only). Dropping .foreground to avoid the redundant app launch is a minor UX nicety that risks a watchOS background-execution regression and is deferred to device testing. No code change."
     },
     {
       "id": "US-IOS121",
@@ -4319,6 +4319,43 @@
       "priority": 230,
       "passes": true,
       "notes": "Split from US-IOS127. IMPLEMENTED: statusText(context) suffixes '6h+' when stale; the lock-screen relative line, the expanded center, and the compactTrailing timer all switch to a static paused presentation when context.isStale. Pairs with the 6h staleDate set in EscalationActivityManager. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS132",
+      "title": "Push token registration never leaves the live token briefly inactive",
+      "description": "As a user, I don't want a window where my current push token is marked inactive during re-registration, so notifications can't be missed mid-refresh.",
+      "acceptanceCriteria": [
+        "registerToken deactivates only the user's OTHER iOS tokens (neq the token being registered) before upserting the current one active (ios/DailyOK/Services/PushNotificationService.swift:42-59)",
+        "Behavior is unchanged when the token is new (nothing to exclude) and self-heals if the upsert fails (lastPushToken only saved on success)"
+      ],
+      "priority": 231,
+      "passes": true,
+      "notes": "From Services review #4. The actor already serializes concurrent registrations; this removes the brief-inactive window in the deactivate-then-upsert. IMPLEMENTED. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS135",
+      "title": "Shared Keychain writes are atomic (no token-loss crash window)",
+      "description": "As any out-of-process surface, I never want a crash between delete and add to leave me with no tokens (silently signed-out) until the next phone sync.",
+      "acceptanceCriteria": [
+        "SharedKeychain.set updates the item in place when present, adds when absent, and only falls back to delete+add to self-heal an unexpected status — eliminating the delete-then-add no-item window (ios/DailyOK/Shared/SharedKeychain.swift:123-134)",
+        "Accessibility attribute (AfterFirstUnlockThisDeviceOnly) and access group are still applied on both update and add paths"
+      ],
+      "priority": 232,
+      "passes": true,
+      "notes": "From Watch review #12. IMPLEMENTED via SecItemUpdate-first with SecItemAdd on errSecItemNotFound and delete+add fallback. Build verification pending CI."
+    },
+    {
+      "id": "US-IOS136",
+      "title": "Heartbeat re-anchors last-seen when connectivity returns",
+      "description": "As an owner, I want a receiver's last-seen to refresh promptly when their connection comes back, not only on the 15-min tick or a foreground, so they don't look falsely inactive after an offline stretch.",
+      "acceptanceCriteria": [
+        "OfflineCheckInService posts a connectivityRestored notification on the offline->online transition (ios/DailyOK/Services/OfflineCheckInService.swift:248-251,228)",
+        "HeartbeatService observes it (registered in start(), removed in stop()) and sends a heartbeat when connectivity returns; sendHeartbeat still guards on an authenticated session (ios/DailyOK/Services/HeartbeatService.swift)",
+        "No duplicate observer registration (idempotent with the timer==nil guard)"
+      ],
+      "priority": 233,
+      "passes": true,
+      "notes": "From Services review #10. IMPLEMENTED. The 15-min Timer no-ops while offline; this closes the gap between reconnect and the next tick. Build verification pending CI."
     }
   ]
 }

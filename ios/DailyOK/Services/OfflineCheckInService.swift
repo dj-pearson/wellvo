@@ -226,6 +226,9 @@ final class OfflineCheckInService: ObservableObject {
     }
 
     static let didSyncCheckIns = Notification.Name("OfflineCheckInService.didSyncCheckIns")
+    /// Posted (on the main actor) when the network transitions from offline to
+    /// online, so services holding time-sensitive state can refresh.
+    static let connectivityRestored = Notification.Name("OfflineCheckInService.connectivityRestored")
 
     // MARK: - Private
 
@@ -245,9 +248,12 @@ final class OfflineCheckInService: ObservableObject {
                 let wasOffline = !(self?.isOnline ?? true)
                 self?.isOnline = path.status == .satisfied
 
-                // Sync when coming back online
+                // Sync when coming back online, and broadcast the transition so
+                // other services (e.g. the heartbeat) can refresh state that
+                // went stale during the offline stretch.
                 if wasOffline && path.status == .satisfied {
                     await self?.syncPendingCheckIns()
+                    NotificationCenter.default.post(name: OfflineCheckInService.connectivityRestored, object: nil)
                 }
             }
         }

@@ -1467,3 +1467,28 @@ context.isStale (the 6h staleDate), the Lock Screen + Dynamic Island now show
 'Overdue/Missed 6h+' and a static glyph instead of an unbounded counting timer.
 US-IOS127 now tracks only the backend APNs push-to-end (still open — needs an
 edge-function trigger + Live Activity push token registration).
+
+------------------------------------------------------------------------
+iOS deep-dive batch 6 (branch claude/ios-app-review-prd-416pqc)
+------------------------------------------------------------------------
+US-IOS120 — VERIFIED not a duplicate-submission bug: the watch OK action submits
+once in didReceive; the .foreground app launch never auto-submits (onAppear only
+reload()/syncPendingIfNeeded, guarded on hasPending). Phone mirrors this. No
+change; dropping .foreground is a UX nicety deferred to device testing.
+
+US-IOS132 — registerToken now deactivates only the user's OTHER iOS tokens
+(neq the new token) before upserting it active, so the live token is never
+briefly inactive (the actor already serialized concurrent calls).
+
+US-IOS135 — SharedKeychain.set updates in place (SecItemUpdate) first, adds when
+absent, and only delete+adds to self-heal — removing the delete-then-add window
+that could leave a surface with no tokens after an interruption.
+
+US-IOS136 — OfflineCheckInService posts connectivityRestored on offline->online;
+HeartbeatService observes it (registered in start, removed in stop) and
+re-anchors last_seen immediately, instead of waiting for the next 15-min tick.
+
+Investigated but intentionally NOT changed: FamilyService.getFamily caching
+(perf) — family.max_receivers/free_tier_expires_at gate subscription access and
+change via the purchase webhook, so a stale cache could block a just-purchased
+feature; not safe to do blind. Left as a future profiling-gated item.
