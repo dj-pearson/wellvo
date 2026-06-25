@@ -8,7 +8,7 @@ import AppIntents
 struct CheckInControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: "com.wellvo.ios.checkin.control") {
-            ControlWidgetButton(action: CheckInIntent()) {
+            ControlWidgetButton(action: CheckInIntent(source: "control")) {
                 Label("Check In", systemImage: "checkmark.circle.fill")
             }
         }

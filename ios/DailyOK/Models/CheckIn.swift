@@ -122,6 +122,11 @@ enum CheckInSource: String, Codable {
     case onDemand = "on_demand"
     case needHelp = "need_help"
     case callMe = "call_me"
+    // Out-of-process surfaces (US-IOS107). Backed by checkin_source enum values
+    // added in migration 00046.
+    case widget
+    case control
+    case siri
 
     // Forgiving decode: a row written by Android, a future server source, or a
     // notification action this build doesn't recognize must NOT throw (which
