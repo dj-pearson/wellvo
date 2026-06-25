@@ -115,12 +115,29 @@ enum CheckInSource: String, Codable {
     case onDemand = "on_demand"
     case needHelp = "need_help"
     case callMe = "call_me"
+
+    // Forgiving decode: a row written by Android, a future server source, or a
+    // notification action this build doesn't recognize must NOT throw (which
+    // would surface a thrown check-in error for a check-in the server already
+    // recorded, and stall the offline sync loop). Unknown → `.app` (US-IOS087).
+    // These raw values are now a tolerant contract.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = CheckInSource(rawValue: raw) ?? .app
+    }
 }
 
 enum CheckInResponseType: String, Codable {
     case ok
     case needHelp = "need_help"
     case callMe = "call_me"
+
+    // Unknown → `.ok` so an unrecognized response_type isn't shown as a scary
+    // failure for a check-in that actually succeeded (US-IOS087).
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = CheckInResponseType(rawValue: raw) ?? .ok
+    }
 }
 
 enum CheckInRequestStatus: String, Codable {

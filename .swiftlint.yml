@@ -1,0 +1,40 @@
+# SwiftLint configuration for the Daily OK iOS app (US-IOS092).
+#
+# Intentionally lenient to start: it establishes a CI gate without forcing a
+# large one-shot cleanup of the existing codebase. Tighten over time (and flip
+# the CI step to `--strict`) as violations are burned down.
+
+included:
+  - ios/DailyOK
+  - ios/DailyOKWidgets
+  - ios/DailyOKWatch
+  - ios/DailyOKWatchWidgets
+  - ios/DailyOKNotificationService
+  - ios/DailyOKTests
+  - ios/DailyOKUITests
+
+excluded:
+  - ios/DailyOK/Package.swift
+  - ios/.build
+  - ios/DerivedData
+
+# Keep the default rule set but disable the noisiest stylistic rules so the
+# initial gate is about real problems, not formatting churn.
+disabled_rules:
+  - line_length
+  - file_length
+  - type_body_length
+  - function_body_length
+  - cyclomatic_complexity
+  - identifier_name
+  - todo
+  - trailing_whitespace
+  - nesting
+  - large_tuple
+  - function_parameter_count
+
+# These catch genuine bugs — surface them as errors so they gate CI.
+force_cast: error
+force_try: error
+
+reporter: "github-actions-logging"

@@ -2,7 +2,9 @@ name: iOS E2E Tests
 
 on:
   pull_request:
-    branches: [main]
+    # Features merge into develop, so run iOS tests on develop PRs too — not
+    # just main — otherwise feature PRs get zero iOS coverage (US-IOS092).
+    branches: [main, develop]
     paths:
       - 'ios/**'
       - 'edge-functions/**'
@@ -10,6 +12,22 @@ on:
   workflow_dispatch:
 
 jobs:
+  swiftlint:
+    name: SwiftLint
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install SwiftLint
+        run: brew install swiftlint
+      - name: Lint iOS sources
+        working-directory: ios
+        # Uses the checked-in .swiftlint.yml. Non-strict: warnings don't fail the
+        # build yet, but rule violations configured as errors (and any future
+        # `--strict` flip) gate CI (US-IOS092).
+        run: swiftlint lint --config ../.swiftlint.yml
+
   api-integration-tests:
     name: API Integration Tests
     runs-on: ubuntu-latest
@@ -137,6 +155,8 @@ jobs:
         working-directory: ios
         run: |
           set -o pipefail
+          # No `|| true`: a broken compile must fail the job (US-IOS092).
+          # pipefail makes xcodebuild's exit code win over xcbeautify's.
           xcodebuild build-for-testing \
             -project DailyOK.xcodeproj \
             -scheme DailyOK \
@@ -144,7 +164,7 @@ jobs:
             -configuration Debug \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_ALLOWED=NO \
-            | xcbeautify || true
+            | xcbeautify
 
       - name: Run UI Tests
         working-directory: ios
@@ -155,13 +175,14 @@ jobs:
           APPLE_RECEIVER_DEMO_PASS: ${{ env.APPLE_RECEIVER_DEMO_PASS }}
         run: |
           set -o pipefail
+          # No `|| true`: a failing UI test must turn CI red (US-IOS092).
           xcodebuild test-without-building \
             -project DailyOK.xcodeproj \
             -scheme DailyOK \
             -destination "id=${{ env.DEVICE_ID }}" \
             -only-testing:DailyOKUITests \
             -resultBundlePath $RUNNER_TEMP/TestResults.xcresult \
-            | xcbeautify || true
+            | xcbeautify
 
       - name: Upload test results
         if: always()

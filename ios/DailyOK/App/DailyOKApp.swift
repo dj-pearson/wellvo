@@ -61,6 +61,21 @@ struct DailyOKApp: App {
                 guard appState.currentUserRole == nil else { return }
                 appState.pendingInviteToken = token
             }
+        case "dashboard":
+            // Owner status widget tap (dailyok://dashboard) — jump to the
+            // dashboard tab (US-IOS091).
+            appState.selectedTab = .dashboard
+        case "checkin":
+            // Check-in widget / Control Center control tap (dailyok://checkin).
+            // Opening the app is the action: a signed-in receiver lands on their
+            // check-in home, and a not-signed-in user is routed to AuthView by
+            // ContentView (authState == .unauthenticated). Handled explicitly so
+            // it no longer falls through to `default` (which silently reopened
+            // the last screen — US-IOS091). For a signed-in owner, make sure a
+            // stale pairing-entry sheet isn't blocking the dashboard.
+            if authViewModel.currentUser != nil {
+                appState.showPairingCodeEntry = false
+            }
         case "standdown":
             // From an escalation Live Activity "Stand down" button. The custom
             // URL scheme is public, so anything could invoke this — require an

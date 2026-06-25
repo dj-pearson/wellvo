@@ -11,7 +11,12 @@ enum Configuration {
             #if DEBUG
             return "http://localhost:8000"
             #else
-            return ""
+            // Fail fast instead of shipping an app with an empty base URL that
+            // silently can't reach the backend — every auth/check-in would fail
+            // against "". A missing key here means the CI plist injection broke;
+            // this crash is caught in TestFlight smoke, not by real users
+            // (US-IOS093). CI also hard-fails on an empty injected value.
+            fatalError("Missing SUPABASE_URL — Info.plist config was not injected at build time.")
             #endif
         }
         return value
@@ -41,7 +46,8 @@ enum Configuration {
             #if DEBUG
             return "your-anon-key-here"
             #else
-            return ""
+            // See supabaseURL — fail fast rather than ship a backend-less app.
+            fatalError("Missing SUPABASE_ANON_KEY — Info.plist config was not injected at build time.")
             #endif
         }
         return value

@@ -4,7 +4,7 @@
 Daily OK is a daily check-in app for families. Owners send check-in requests; Receivers tap "I'm OK." Escalation alerts fire if no response.
 
 ## Tech Stack
-- **iOS App**: Swift 5.9+, SwiftUI, MVVM, iOS 16+, StoreKit 2
+- **iOS App**: Swift 5.9+, SwiftUI, MVVM, iOS 18+, StoreKit 2 (deliberate floor; all targets + Package.swift pin 18.0 to use Live Activities/Control Center/App Intents without availability gating — US-IOS085)
 - **Android App**: Kotlin 1.9+, Jetpack Compose, MVVM, API 26+ (Android 8.0+), Google Play Billing
 - **Edge Functions**: Deno (TypeScript), single HTTP server routing to 7 function handlers
 - **Database**: PostgreSQL via self-hosted Supabase, RLS, pg_cron

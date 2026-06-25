@@ -137,14 +137,36 @@ jobs:
             echo "PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios"
           } > ios/DailyOK/BuildConfig.xcconfig
 
+          # Fail the build BEFORE injecting if either secret is empty — a blank
+          # value would otherwise ship an app that can't reach the backend
+          # (US-IOS093). The app also fatalErrors at runtime as a backstop.
+          if [ -z "${{ env.SUPABASE_URL }}" ]; then
+            echo "::error::SUPABASE_URL is empty — refusing to build a backend-less app." >&2
+            exit 1
+          fi
+          if [ -z "${{ env.SUPABASE_ANON_KEY }}" ]; then
+            echo "::error::SUPABASE_ANON_KEY is empty — refusing to build a backend-less app." >&2
+            exit 1
+          fi
+
           # Write Supabase config directly to Info.plist using PlistBuddy.
           # xcconfig treats "//" as comments, which truncates JWT tokens (anon key).
-          /usr/libexec/PlistBuddy -c "Set :SUPABASE_URL ${{ env.SUPABASE_URL }}" ios/DailyOK/Info.plist
-          /usr/libexec/PlistBuddy -c "Set :SUPABASE_ANON_KEY ${{ env.SUPABASE_ANON_KEY }}" ios/DailyOK/Info.plist
+          # Add-or-Set: a missing key is a hard error, not a silent no-op, so a
+          # renamed/removed Info.plist key can't ship blank (US-IOS093).
+          /usr/libexec/PlistBuddy -c "Set :SUPABASE_URL ${{ env.SUPABASE_URL }}" ios/DailyOK/Info.plist \
+            || /usr/libexec/PlistBuddy -c "Add :SUPABASE_URL string ${{ env.SUPABASE_URL }}" ios/DailyOK/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :SUPABASE_ANON_KEY ${{ env.SUPABASE_ANON_KEY }}" ios/DailyOK/Info.plist \
+            || /usr/libexec/PlistBuddy -c "Add :SUPABASE_ANON_KEY string ${{ env.SUPABASE_ANON_KEY }}" ios/DailyOK/Info.plist
 
-          # Verify
-          echo "SUPABASE_URL: $(/usr/libexec/PlistBuddy -c 'Print :SUPABASE_URL' ios/DailyOK/Info.plist)"
-          echo "SUPABASE_ANON_KEY length: $(echo -n '${{ env.SUPABASE_ANON_KEY }}' | wc -c | tr -d ' ')"
+          # Verify the injected values are non-empty (defensive double-check).
+          INJECTED_URL="$(/usr/libexec/PlistBuddy -c 'Print :SUPABASE_URL' ios/DailyOK/Info.plist)"
+          INJECTED_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPABASE_ANON_KEY' ios/DailyOK/Info.plist)"
+          if [ -z "$INJECTED_URL" ] || [ -z "$INJECTED_KEY" ]; then
+            echo "::error::Info.plist Supabase config is empty after injection." >&2
+            exit 1
+          fi
+          echo "SUPABASE_URL: $INJECTED_URL"
+          echo "SUPABASE_ANON_KEY length: $(echo -n "$INJECTED_KEY" | wc -c | tr -d ' ')"
 
       - name: Set version and build number
         run: |
