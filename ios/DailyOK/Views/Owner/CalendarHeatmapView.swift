@@ -20,8 +20,14 @@ struct CalendarHeatmapView: View {
     /// nil, falls back to the single `scheduledTime` for every day.
     var settings: ReceiverSettings? = nil
 
-    private let cellSize: CGFloat = 14
-    private let spacing: CGFloat = 3
+    @Environment(\.colorSchemeContrast) private var contrast
+    // Scale the grid with Dynamic Type instead of fixed point sizes so the
+    // heatmap remains legible at larger text sizes (US-IOS105).
+    @ScaledMetric(relativeTo: .caption2) private var cellSize: CGFloat = 14
+    @ScaledMetric(relativeTo: .caption2) private var spacing: CGFloat = 3
+    @ScaledMetric(relativeTo: .caption2) private var symbolSize: CGFloat = 7
+    @ScaledMetric(relativeTo: .caption2) private var dayLabelSize: CGFloat = 9
+    @ScaledMetric(relativeTo: .caption2) private var legendSymbolSize: CGFloat = 6
 
     var body: some View {
         // Compute the grid and month labels once per body evaluation instead of
@@ -49,7 +55,7 @@ struct CalendarHeatmapView: View {
                 VStack(spacing: spacing) {
                     ForEach(["", "M", "", "W", "", "F", ""], id: \.self) { label in
                         Text(label)
-                            .font(.system(size: 9))
+                            .font(.system(size: dayLabelSize))
                             .foregroundStyle(.secondary)
                             .frame(width: 14, height: cellSize)
                     }
@@ -66,8 +72,8 @@ struct CalendarHeatmapView: View {
                                     .frame(width: cellSize, height: cellSize)
 
                                 Text(symbolForStatus(entry.status))
-                                    .font(.system(size: 7, weight: .bold))
-                                    .foregroundStyle(.white.opacity(0.9))
+                                    .font(.system(size: symbolSize, weight: .bold))
+                                    .foregroundStyle(symbolColor(entry.status))
                             }
                             .help(entry.tooltip)
                             .accessibilityLabel(entry.tooltip.isEmpty ? "No data" : entry.tooltip)
@@ -246,6 +252,15 @@ struct CalendarHeatmapView: View {
         }
     }
 
+    /// In-cell glyph color. The 'late' cell is yellow, on which white is nearly
+    /// invisible — use a dark glyph there so on-time/late/missed aren't
+    /// distinguishable by fill color alone. Full opacity under Increase Contrast
+    /// (US-IOS106).
+    private func symbolColor(_ status: DayStatus) -> Color {
+        let base: Color = (status == .late) ? Color(red: 0.35, green: 0.25, blue: 0.0) : .white
+        return contrast == .increased ? base : base.opacity(status == .late ? 1.0 : 0.9)
+    }
+
     private func symbolForStatus(_ status: DayStatus) -> String {
         switch status {
         case .onTime: return "\u{2713}"
@@ -262,11 +277,13 @@ struct CalendarHeatmapView: View {
                     .fill(color)
                     .frame(width: 10, height: 10)
                 if !symbol.isEmpty {
+                    // Dark glyph on the yellow "Late" swatch (US-IOS106).
                     Text(symbol)
-                        .font(.system(size: 6, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.9))
+                        .font(.system(size: legendSymbolSize, weight: .bold))
+                        .foregroundStyle(symbol == "!" ? Color(red: 0.35, green: 0.25, blue: 0.0) : .white)
                 }
             }
+            // Lead with the label text so the legend isn't color-only.
             Text(label)
         }
     }
