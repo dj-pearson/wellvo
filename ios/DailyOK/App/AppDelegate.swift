@@ -2,6 +2,37 @@ import UIKit
 import UserNotifications
 import os
 
+/// Where a tapped notification action should route. Extracted from the
+/// `didReceive` handler so the action-identifier → behavior mapping is a pure,
+/// unit-testable function (US-IOS110) instead of an inline switch buried in a
+/// UNUserNotificationCenterDelegate callback.
+enum NotificationRoute: Equatable {
+    /// A check-in response of the given type (I'm OK / Need Help / Call Me).
+    case checkIn(CheckInResponseType)
+    /// Defer escalation without opening the app.
+    case snooze
+    /// Owner taps "Call Now" on an urgent alert.
+    case callReceiver
+    /// Body tap / default action — open the app (and confirm delivery).
+    case openApp
+    /// An action this build doesn't handle.
+    case none
+
+    /// Map a `UNNotificationResponse.actionIdentifier` to a route. Mirrors the
+    /// categories registered in `registerNotificationCategories()`.
+    static func route(for actionIdentifier: String) -> NotificationRoute {
+        switch actionIdentifier {
+        case "CHECKIN_OK_ACTION": return .checkIn(.ok)
+        case "CHECKIN_NEED_HELP_ACTION": return .checkIn(.needHelp)
+        case "CHECKIN_CALL_ME_ACTION": return .checkIn(.callMe)
+        case "CHECKIN_SNOOZE_ACTION": return .snooze
+        case "CALL_RECEIVER_ACTION": return .callReceiver
+        case UNNotificationDefaultActionIdentifier: return .openApp
+        default: return .none
+        }
+    }
+}
+
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     func application(
@@ -85,24 +116,19 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     ) {
         let userInfo = response.notification.request.content.userInfo
 
-        switch response.actionIdentifier {
-        case "CHECKIN_OK_ACTION":
-            handleCheckInFromNotification(userInfo: userInfo, responseType: .ok)
-        case "CHECKIN_NEED_HELP_ACTION":
-            handleCheckInFromNotification(userInfo: userInfo, responseType: .needHelp)
-        case "CHECKIN_CALL_ME_ACTION":
-            handleCheckInFromNotification(userInfo: userInfo, responseType: .callMe)
-        case "CHECKIN_SNOOZE_ACTION":
+        switch NotificationRoute.route(for: response.actionIdentifier) {
+        case .checkIn(let responseType):
+            handleCheckInFromNotification(userInfo: userInfo, responseType: responseType)
+        case .snooze:
             handleSnoozeFromNotification(userInfo: userInfo)
-        case "CALL_RECEIVER_ACTION":
+        case .callReceiver:
             handleCallReceiver(userInfo: userInfo)
-        case UNNotificationDefaultActionIdentifier:
-            // User tapped notification body — open app
-            // Also confirm delivery
+        case .openApp:
+            // User tapped notification body — open app and confirm delivery.
             if let requestId = userInfo["checkin_request_id"] as? String {
                 Task { await CheckInService.shared.confirmDelivery(checkinRequestId: requestId) }
             }
-        default:
+        case .none:
             break
         }
 

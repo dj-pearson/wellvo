@@ -23,8 +23,45 @@ actor CheckInService {
             throw CheckInError.notAuthenticated
         }
 
+        let body = Self.makeCheckInBody(
+            receiverId: session.user.id,
+            familyId: familyId,
+            mood: mood,
+            source: source,
+            responseType: responseType,
+            location: location,
+            batteryLevel: batteryLevel,
+            locationLabel: locationLabel,
+            kidResponseType: kidResponseType,
+            slotKey: slotKey
+        )
+
+        // Use the edge function which handles location, response type, and alerts
+        let result: CheckInResponse = try await EdgeFunctionsClient.invoke(
+            "process-checkin-response",
+            json: body
+        )
+        return result.checkin
+    }
+
+    /// Build the `process-checkin-response` request body. Extracted as a pure
+    /// function so the wire encoding — numeric fields as JSON numbers (US-IOS078),
+    /// out-of-range location/battery dropped, optional slot/mood/label inclusion
+    /// — is unit-testable without a live session or network (US-IOS110).
+    static func makeCheckInBody(
+        receiverId: UUID,
+        familyId: UUID,
+        mood: Mood?,
+        source: CheckInSource,
+        responseType: CheckInResponseType,
+        location: CheckInLocation?,
+        batteryLevel: Double?,
+        locationLabel: String?,
+        kidResponseType: String?,
+        slotKey: String?
+    ) -> [String: JSONValue] {
         var body: [String: JSONValue] = [
-            "receiver_id": .string(session.user.id.uuidString.lowercased()),
+            "receiver_id": .string(receiverId.uuidString.lowercased()),
             "family_id": .string(familyId.uuidString.lowercased()),
             "source": .string(source.rawValue),
             "response_type": .string(responseType.rawValue),
@@ -56,13 +93,7 @@ actor CheckInService {
         if let kidResponseType {
             body["kid_response_type"] = .string(kidResponseType)
         }
-
-        // Use the edge function which handles location, response type, and alerts
-        let result: CheckInResponse = try await EdgeFunctionsClient.invoke(
-            "process-checkin-response",
-            json: body
-        )
-        return result.checkin
+        return body
     }
 
     /// Respond to a specific check-in request (from notification)
@@ -272,7 +303,9 @@ struct CheckInLocation {
     let accuracy: Double?
 }
 
-private struct CheckInResponse: Codable {
+// Internal (not private) so the round-trip decode through the test transport is
+// exercisable from the unit tests (US-IOS110).
+struct CheckInResponse: Codable {
     let success: Bool
     let checkin: CheckIn
 }

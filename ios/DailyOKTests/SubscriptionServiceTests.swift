@@ -1,8 +1,51 @@
 import XCTest
+import StoreKit
 @testable import DailyOK
 
 /// Tests for subscription tier mapping and entitlement logic
 final class SubscriptionServiceTests: XCTestCase {
+
+    // MARK: - StoreKit-driven display pricing (US-IOS044 / US-IOS110)
+
+    func testPeriodSuffixForEachKnownUnit() {
+        // A non-.month unit must format too — App Store guideline 3.1 prices have
+        // to reflect the real renewal period, not a hardcoded "/mo".
+        XCTAssertEqual(SubscriptionService.periodSuffix(for: .day), "day")
+        XCTAssertEqual(SubscriptionService.periodSuffix(for: .week), "wk")
+        XCTAssertEqual(SubscriptionService.periodSuffix(for: .month), "mo")
+        XCTAssertEqual(SubscriptionService.periodSuffix(for: .year), "yr")
+    }
+
+    func testPriceWithPeriodComposesSuffix() {
+        XCTAssertEqual(
+            SubscriptionService.priceWithPeriod(displayPrice: "$3.99", periodUnit: .month),
+            "$3.99/mo"
+        )
+        XCTAssertEqual(
+            SubscriptionService.priceWithPeriod(displayPrice: "59,99 €", periodUnit: .year),
+            "59,99 €/yr"
+        )
+        // A locale-formatted price string is passed through untouched aside from
+        // the appended suffix (no hardcoded currency assumptions).
+        XCTAssertEqual(
+            SubscriptionService.priceWithPeriod(displayPrice: "￥600", periodUnit: .week),
+            "￥600/wk"
+        )
+    }
+
+    func testPriceWithPeriodReturnsBarePriceForNonSubscriptionProduct() {
+        // nil period unit = a one-time add-on (no renewal) -> no "/" suffix, never
+        // a malformed "$0.99/".
+        XCTAssertEqual(
+            SubscriptionService.priceWithPeriod(displayPrice: "$0.99", periodUnit: nil),
+            "$0.99"
+        )
+    }
+
+    // Note: the `@unknown default` branch of `periodSuffix` (a hypothetical future
+    // StoreKit unit) is unreachable from a test — the enum has no inhabitant to
+    // construct — but `priceWithPeriod` documents/guards its effect: an empty
+    // suffix collapses to the bare price, verified above via the nil-unit path.
 
     // MARK: - Product ID Constants
 

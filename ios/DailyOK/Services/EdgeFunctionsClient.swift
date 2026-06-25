@@ -165,7 +165,19 @@ enum EdgeFunctionsClient {
         _ = try await rawInvoke(name, httpBody: try encoder.encode(json))
     }
 
+    /// Test-only transport seam (US-IOS110). When set, `rawInvoke` routes through
+    /// this closure instead of the network, so `CheckInService` (and any other
+    /// caller) can be exercised request→response without a live server, real
+    /// auth, or certificate pinning. It receives the function name and the
+    /// encoded request body and returns the raw response `Data`. Production code
+    /// never sets this, so the real `PinnedURLSession` path is unchanged.
+    static var testTransport: (@Sendable (_ name: String, _ httpBody: Data?) async throws -> Data)?
+
     private static func rawInvoke(_ name: String, httpBody: Data?) async throws -> Data {
+        if let testTransport {
+            return try await testTransport(name, httpBody)
+        }
+
         guard let url = URL(string: "\(Configuration.edgeFunctionsURL)/\(name)") else {
             throw DailyOKError.unknown(NSError(domain: "EdgeFunctions", code: -1))
         }
