@@ -139,12 +139,18 @@ struct ReceiverSettingsView: View {
                         if isSendingManual {
                             ProgressView()
                         } else if showManualSent {
-                            Image(systemName: "checkmark.circle.fill")
+                            // Not icon-only — pair the checkmark with a word so it
+                            // reads for everyone (US-IOS105).
+                            Label("Sent", systemImage: "checkmark.circle.fill")
+                                .labelStyle(.titleAndIcon)
+                                .font(.subheadline)
                                 .foregroundStyle(.green)
                         }
                     }
                 }
                 .disabled(isSendingManual)
+                // Announce the success to VoiceOver (US-IOS105).
+                .announce(showManualSent) { $0 ? "Check-in request sent" : nil }
             } header: {
                 Text("Notification Controls")
             } footer: {

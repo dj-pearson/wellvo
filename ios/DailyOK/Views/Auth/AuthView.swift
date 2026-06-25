@@ -85,6 +85,9 @@ struct AuthView: View {
                     }
                     .padding(24)
                     .glassCard(style: .regular, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level4)
+                    // Announce inline auth errors to VoiceOver when they appear
+                    // (US-IOS105).
+                    .announce(authViewModel.errorMessage) { $0 }
 
                     Spacer()
 

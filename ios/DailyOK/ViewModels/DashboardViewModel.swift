@@ -56,6 +56,18 @@ enum ReceiverCheckInStatus {
         }
     }
 
+    /// Stronger, deeper shades for Increase Contrast — the default `.yellow`
+    /// (pending) in particular is low-contrast on light surfaces (US-IOS106).
+    func color(increasedContrast: Bool) -> Color {
+        guard increasedContrast else { return color }
+        switch self {
+        case .checkedIn: return Color(red: 0.11, green: 0.47, blue: 0.15)
+        case .pending: return Color(red: 0.66, green: 0.46, blue: 0.03)
+        case .missed: return Color(red: 0.78, green: 0.0, blue: 0.0)
+        case .noData: return Color(.darkGray)
+        }
+    }
+
     var icon: String {
         switch self {
         case .checkedIn: return "checkmark.circle.fill"

@@ -90,6 +90,11 @@ struct ReceiverHomeView: View {
                             pendingRequestBanner.padding(.horizontal)
                         }
                         checkInButton
+                            // Announce a snooze confirmation / error to VoiceOver
+                            // when it appears (attached to a persistent view so
+                            // the nil->text change is observed) — US-IOS105.
+                            .announce(viewModel.snoozeConfirmation) { $0 }
+                            .announce(viewModel.errorMessage) { $0 }
                         if viewModel.hasPendingRequest && viewModel.canSnooze {
                             snoozeButton.padding(.horizontal)
                         }

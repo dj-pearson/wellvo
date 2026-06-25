@@ -8,6 +8,7 @@ struct SettingsView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var subscriptionService = SubscriptionService.shared
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorSchemeContrast) private var contrast
     @State private var showDeleteConfirmation = false
     @State private var deleteConfirmText = ""
     @State private var showSignOutConfirmation = false
@@ -26,13 +27,16 @@ struct SettingsView: View {
                 Section("Account") {
                     if let user = authViewModel.currentUser {
                         HStack {
+                            // Higher-contrast avatar: a solid fill with white
+                            // initials under Increase Contrast, rather than green
+                            // initials on a 20%-green wash (US-IOS106).
                             Circle()
-                                .fill(Color.green.opacity(0.2))
+                                .fill(contrast == .increased ? DailyOKColor.green700 : Color.green.opacity(0.2))
                                 .frame(width: 40, height: 40)
                                 .overlay {
                                     Text(String(user.displayName.prefix(1)).uppercased())
                                         .fontWeight(.bold)
-                                        .foregroundStyle(.green)
+                                        .foregroundStyle(contrast == .increased ? .white : .green)
                                 }
 
                             VStack(alignment: .leading, spacing: 2) {
@@ -43,6 +47,7 @@ struct SettingsView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
+                        .accessibilityElement(children: .combine)
                     }
                 }
 

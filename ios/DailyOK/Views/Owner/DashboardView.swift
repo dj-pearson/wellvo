@@ -275,6 +275,7 @@ struct StatBubble: View {
 // MARK: - Today's Timeline Card
 
 struct TodayTimelineCard: View {
+    @Environment(\.colorSchemeContrast) private var contrast
     let cards: [ReceiverStatusCard]
 
     var body: some View {
@@ -286,7 +287,7 @@ struct TodayTimelineCard: View {
                 HStack(spacing: 12) {
                     ZStack {
                         Circle()
-                            .fill(card.status.color)
+                            .fill(card.status.color(increasedContrast: contrast == .increased))
                             .frame(width: 10, height: 10)
 
                         Image(systemName: timelineStatusIcon(for: card))
@@ -312,7 +313,7 @@ struct TodayTimelineCard: View {
                         } else {
                             Text(card.status.label)
                                 .font(.caption)
-                                .foregroundStyle(card.status.color)
+                                .foregroundStyle(card.status.color(increasedContrast: contrast == .increased))
                         }
                     }
 
@@ -354,7 +355,7 @@ struct TodayTimelineCard: View {
                     let progress = CGFloat(hour * 60 + minute) / (24 * 60)
 
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(card.status.color)
+                        .fill(card.status.color(increasedContrast: contrast == .increased))
                         .frame(width: max(4, geometry.size.width * progress), height: 4)
                 }
             }
@@ -366,6 +367,7 @@ struct TodayTimelineCard: View {
 // MARK: - Receiver Status Card
 
 struct ReceiverStatusCardView: View {
+    @Environment(\.colorSchemeContrast) private var contrast
     let card: ReceiverStatusCard
     var isReadOnly: Bool = false
     /// Returns true when the on-demand request was actually sent, so the card can
@@ -387,12 +389,12 @@ struct ReceiverStatusCardView: View {
             HStack {
                 // Avatar
                 Circle()
-                    .fill(card.status.color.opacity(0.2))
+                    .fill(card.status.color(increasedContrast: contrast == .increased).opacity(0.2))
                     .frame(width: 50, height: 50)
                     .overlay {
                         Image(systemName: card.status.icon)
                             .font(.title2)
-                            .foregroundStyle(card.status.color)
+                            .foregroundStyle(card.status.color(increasedContrast: contrast == .increased))
                     }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -415,7 +417,7 @@ struct ReceiverStatusCardView: View {
                         Text(card.status.label)
                             .font(.subheadline)
                     }
-                    .foregroundStyle(card.status.color)
+                    .foregroundStyle(card.status.color(increasedContrast: contrast == .increased))
 
                     // US-IOS017: supplementary passive signal — never a substitute
                     // for the check-in above, just a calm extra reassurance.
