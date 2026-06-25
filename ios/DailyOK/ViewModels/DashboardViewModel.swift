@@ -289,6 +289,10 @@ final class DashboardViewModel: ObservableObject {
             if let idx = receiverCards.firstIndex(where: { $0.id == receiverId }) {
                 receiverCards[idx].escalationStep = 0
             }
+            // End the Live Activity right away — only after the cancel succeeded,
+            // so a failed stand-down does NOT visually clear an active escalation
+            // (US-IOS081/US-IOS083).
+            EscalationActivityManager.end(receiverId: receiverId.uuidString)
         } catch {
             errorMessage = DailyOKError.network(error).localizedDescription
         }

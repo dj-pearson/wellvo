@@ -77,6 +77,12 @@ struct DailyOKApp: App {
                     }
                     do {
                         try await CheckInService.shared.cancelEscalation(receiverId: receiverId, familyId: familyId)
+                        // End the Live Activity immediately on success so the
+                        // owner isn't left with a running overdue timer for a
+                        // resolved escalation (US-IOS081).
+                        await MainActor.run {
+                            EscalationActivityManager.end(receiverId: receiverId.uuidString)
+                        }
                     } catch {
                         Log.general.error("Standdown deep link failed: \(error.localizedDescription, privacy: .public)")
                     }
@@ -101,6 +107,9 @@ struct DailyOKApp: App {
                 // Sync queued check-ins and refresh the push token.
                 await offlineService.syncPendingCheckIns()
                 await reRegisterPushToken()
+                // Re-anchor last_seen on foreground — the heartbeat timer is
+                // suspended while backgrounded (US-IOS098).
+                HeartbeatService.shared.appBecameActive()
                 // Non-urgent / best-effort work last.
                 await AnalyticsService.shared.track(.appOpened)
                 // A genuine pin MISMATCH (device-trusted but un-pinned CA) is

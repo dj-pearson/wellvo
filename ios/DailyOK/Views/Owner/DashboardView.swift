@@ -148,6 +148,23 @@ struct DashboardView: View {
                 }
                 .dailyokGlassSheet(style: .regular)
             }
+            // When cards are loaded, on-demand action failures (check-on,
+            // stand-down, dismiss/acknowledge alert, refresh) would otherwise be
+            // invisible — the inline error surface only shows in the empty state.
+            // Surface them in a non-blocking alert so a silently-failed stand-down
+            // can't read as success (US-IOS083). VoiceOver announces alerts.
+            .alert(
+                "Something went wrong",
+                isPresented: Binding(
+                    get: { viewModel.errorMessage != nil && !viewModel.receiverCards.isEmpty },
+                    set: { if !$0 { viewModel.errorMessage = nil } }
+                ),
+                presenting: viewModel.errorMessage
+            ) { _ in
+                Button("OK", role: .cancel) { viewModel.errorMessage = nil }
+            } message: { message in
+                Text(message)
+            }
         }
     }
 
@@ -693,7 +710,7 @@ struct AlertsBannerView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
 
-                            if let driftHours = alert.data?["drift_hours"] as? Double {
+                            if let driftHours = alert.data?["drift_hours"]?.doubleValue {
                                 Text("Shifted by \(String(format: "%.1f", driftHours)) hours")
                                     .font(.caption2)
                                     .foregroundStyle(.orange)

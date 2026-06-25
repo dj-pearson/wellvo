@@ -14,7 +14,7 @@ import Foundation
 /// string and every location-bearing check-in / report-location 400'd
 /// (US-IOS078). Callers with numeric fields use the `json:` overloads and wrap
 /// values explicitly, e.g. `["latitude": .double(lat), "family_id": .string(id)]`.
-enum JSONValue: Encodable {
+enum JSONValue: Codable {
     case string(String)
     case int(Int)
     case double(Double)
@@ -30,6 +30,39 @@ enum JSONValue: Encodable {
         case .bool(let v): try c.encode(v)
         case .null: try c.encodeNil()
         }
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        if c.decodeNil() {
+            self = .null
+        } else if let v = try? c.decode(Bool.self) {
+            self = .bool(v)
+        } else if let v = try? c.decode(Int.self) {
+            self = .int(v)
+        } else if let v = try? c.decode(Double.self) {
+            self = .double(v)
+        } else if let v = try? c.decode(String.self) {
+            self = .string(v)
+        } else {
+            self = .null
+        }
+    }
+
+    /// Numeric value as a Double regardless of whether it arrived as an int,
+    /// double, or numeric string. `nil` for non-numeric values.
+    var doubleValue: Double? {
+        switch self {
+        case .int(let v): return Double(v)
+        case .double(let v): return v
+        case .string(let v): return Double(v)
+        default: return nil
+        }
+    }
+
+    var stringValue: String? {
+        if case .string(let v) = self { return v }
+        return nil
     }
 }
 

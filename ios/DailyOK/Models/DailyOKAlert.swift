@@ -7,7 +7,13 @@ struct DailyOKAlert: Codable, Identifiable {
     let type: String
     let title: String
     let message: String
-    let data: [String: Double]?
+    /// Heterogeneous JSON payload. Was `[String: Double]?`, which threw a type
+    /// mismatch on low_battery / stale_heartbeat alerts that carry a string
+    /// `last_seen_at` — and because the dashboard decodes the whole alerts array
+    /// at once, one such alert blanked the entire list (US-IOS079). Now decoded
+    /// as `[String: JSONValue]?` and forgiving: a malformed payload falls back to
+    /// nil instead of throwing.
+    let data: [String: JSONValue]?
     var isRead: Bool
     let createdAt: Date
     // US-IOS013 multi-caregiver acknowledgement. Nullable / additive — older
@@ -28,5 +34,23 @@ struct DailyOKAlert: Codable, Identifiable {
         case acknowledgedBy = "acknowledged_by"
         case acknowledgedAt = "acknowledged_at"
         case acknowledgedByName = "acknowledged_by_name"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        familyId = try c.decode(UUID.self, forKey: .familyId)
+        receiverId = try c.decode(UUID.self, forKey: .receiverId)
+        type = try c.decode(String.self, forKey: .type)
+        title = try c.decode(String.self, forKey: .title)
+        message = try c.decode(String.self, forKey: .message)
+        // Forgiving: never let an unexpected `data` shape throw and blank the
+        // whole alerts list.
+        data = (try? c.decodeIfPresent([String: JSONValue].self, forKey: .data)) ?? nil
+        isRead = try c.decodeIfPresent(Bool.self, forKey: .isRead) ?? false
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        acknowledgedBy = try c.decodeIfPresent(UUID.self, forKey: .acknowledgedBy)
+        acknowledgedAt = try c.decodeIfPresent(Date.self, forKey: .acknowledgedAt)
+        acknowledgedByName = try c.decodeIfPresent(String.self, forKey: .acknowledgedByName)
     }
 }

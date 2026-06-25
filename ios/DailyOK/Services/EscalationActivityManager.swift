@@ -14,6 +14,10 @@ enum EscalationActivityManager {
         UserDefaults.standard.object(forKey: toggleKey) as? Bool ?? true
     }
 
+    /// How long after the due time a still-running activity is marked stale by
+    /// the system, so a resolved-but-not-ended timer doesn't count up forever.
+    private static let staleWindow: TimeInterval = 6 * 60 * 60
+
     /// Reconcile live activities with the current dashboard state.
     static func sync(cards: [ReceiverStatusCard], familyId: UUID) {
         #if canImport(ActivityKit)
@@ -53,7 +57,7 @@ enum EscalationActivityManager {
                 // Only push an update when something actually changed — avoids
                 // redundant ActivityKit churn on every (frequent) dashboard reload.
                 guard existing.content.state != state else { continue }
-                Task { await existing.update(ActivityContent(state: state, staleDate: nil)) }
+                Task { await existing.update(ActivityContent(state: state, staleDate: dueSince.addingTimeInterval(staleWindow))) }
             } else {
                 let attributes = EscalationActivityAttributes(
                     receiverName: card.name,
@@ -67,12 +71,26 @@ enum EscalationActivityManager {
                     // them so the owner isn't left thinking escalation is visible.
                     _ = try Activity.request(
                         attributes: attributes,
-                        content: ActivityContent(state: state, staleDate: nil)
+                        content: ActivityContent(state: state, staleDate: dueSince.addingTimeInterval(staleWindow))
                     )
                 } catch {
                     Log.general.error("Failed to start escalation Live Activity: \(error.localizedDescription, privacy: .public)")
                 }
             }
+        }
+        #endif
+    }
+
+    /// Immediately end any Live Activity for a specific receiver. Call this the
+    /// moment a stand-down succeeds (deep link or in-app) so the owner isn't left
+    /// staring at a running overdue timer for a situation they already resolved
+    /// (US-IOS081) — don't wait for the next dashboard reload.
+    static func end(receiverId: String) {
+        #if canImport(ActivityKit)
+        guard #available(iOS 16.2, *) else { return }
+        for activity in Activity<EscalationActivityAttributes>.activities
+        where activity.attributes.receiverId == receiverId {
+            Task { await activity.end(nil, dismissalPolicy: .immediate) }
         }
         #endif
     }

@@ -230,6 +230,11 @@ struct ReceiverHomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: OfflineCheckInService.didSyncCheckIns)) { _ in
             Task { await viewModel.loadStatus() }
         }
+        // A check-in tapped on the Apple Watch should immediately flip the phone
+        // to "all set" rather than keep prompting (US-IOS082).
+        .onReceive(NotificationCenter.default.publisher(for: PhoneWatchSync.didReceiveWatchCheckIn)) { _ in
+            Task { await viewModel.loadStatus() }
+        }
         .alert("Sign Out", isPresented: $showSignOutConfirmation) {
             Button("Sign Out", role: .destructive) {
                 DailyOKHaptics.warning()
