@@ -4258,16 +4258,16 @@
     },
     {
       "id": "US-IOS127",
-      "title": "End/refresh the escalation Live Activity remotely when resolved",
+      "title": "Remotely end the escalation Live Activity when resolved server-side",
       "description": "As an owner, I want an escalation Live Activity to stop showing 'Overdue' with a running timer once the receiver checks in, even if my app is closed, so the most anxiety-inducing surface reflects reality.",
       "acceptanceCriteria": [
-        "When an escalation resolves server-side, the receiver's Live Activity is ended/updated via an APNs liveactivity push (or background refresh), not only on the owner's next dashboard load (ios/DailyOK/Services/EscalationActivityManager.swift:41,52; edge-functions side)",
-        "While stale (>6h) the compact/Dynamic Island presentation shows a static 'Overdue 6h+'/paused state rather than an unbounded counting timer (ios/DailyOKWidgets/EscalationLiveActivity.swift:79)",
-        "Backward-compatible: no breaking change to existing push token contract (push_tokens.platform) per CLAUDE.md"
+        "When an escalation resolves server-side (receiver checks in / stands down) while the owner's app is closed, the receiver's Live Activity is ended/updated via an APNs liveactivity push, not only on the owner's next dashboard load (ios/DailyOK/Services/EscalationActivityManager.swift:52; edge-functions side)",
+        "Register and store the Live Activity push-to-start / per-activity push tokens and target them from the escalation-resolve path",
+        "Backward-compatible: no breaking change to the push_tokens.platform contract per CLAUDE.md"
       ],
       "priority": 226,
       "passes": false,
-      "notes": "From the Watch review (#5,#11). Larger: needs a Live Activity push token registration + an edge-function trigger. May span releases."
+      "notes": "From the Watch review (#5,#11). Larger: needs a Live Activity push token registration + an edge-function trigger. May span releases. | The client-side stale visual (former AC#2) was delivered as US-IOS131. This story now covers ONLY the backend/APNs push-to-end, which needs an edge-function trigger + Live Activity push token registration and spans releases — left open."
     },
     {
       "id": "US-IOS128",
@@ -4307,6 +4307,18 @@
       "priority": 229,
       "passes": false,
       "notes": "Split from US-IOS122. Perf-only; deliberately gated on profiling because the current progressive render (fast first paint, then enrich) is a reasonable design and the cross-receiver concurrency touches shared accumulators."
+    },
+    {
+      "id": "US-IOS131",
+      "title": "Live Activity stale-state visual (stop the unbounded timer)",
+      "description": "As an owner, once an escalation Live Activity goes stale (>6h with no update), I want it to read as 'stuck' rather than keep an ever-growing live timer running at my most anxious moment.",
+      "acceptanceCriteria": [
+        "When context.isStale, the Lock Screen + Dynamic Island show 'Overdue/Missed 6h+' and a static glyph instead of the live .timer/.relative (ios/DailyOKWidgets/EscalationLiveActivity.swift:29,33,57,61,79)",
+        "Non-stale presentation is unchanged"
+      ],
+      "priority": 230,
+      "passes": true,
+      "notes": "Split from US-IOS127. IMPLEMENTED: statusText(context) suffixes '6h+' when stale; the lock-screen relative line, the expanded center, and the compactTrailing timer all switch to a static paused presentation when context.isStale. Pairs with the 6h staleDate set in EscalationActivityManager. Build verification pending CI."
     }
   ]
 }

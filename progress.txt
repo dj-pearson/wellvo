@@ -1461,3 +1461,9 @@ US-IOS127 (remote Live Activity end — needs an edge-function/APNs liveactivity
 push, spans releases), US-IOS130 (dashboard perf — gated on profiling).
 Pre-existing US-IOS044 (String Catalog — Xcode tooling) and US-IOS109
 (Associated Domains — Apple portal) remain blocked on non-headless work.
+
+US-IOS131 (split from US-IOS127) — Live Activity stale visual: when
+context.isStale (the 6h staleDate), the Lock Screen + Dynamic Island now show
+'Overdue/Missed 6h+' and a static glyph instead of an unbounded counting timer.
+US-IOS127 now tracks only the backend APNs push-to-end (still open — needs an
+edge-function trigger + Live Activity push token registration).
