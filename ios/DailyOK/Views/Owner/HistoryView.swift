@@ -127,7 +127,7 @@ struct HistoryView: View {
                                                 .foregroundStyle(.secondary)
 
                                             if let mood = checkIn.mood {
-                                                Text(moodEmoji(mood))
+                                                Text(mood.emoji)
                                             }
                                         }
                                     }
@@ -203,7 +203,16 @@ struct HistoryView: View {
         guard let family = try? await FamilyService.shared.getFamily() else { return }
         let allMembers = try? await FamilyService.shared.getFamilyMembers(familyId: family.id)
         members = allMembers?.filter { $0.role == .receiver && $0.status == .active } ?? []
-        if selectedReceiver == nil { selectedReceiver = members.first }
+        // Re-resolve the selection against the freshly-fetched list: keep it if
+        // that receiver still exists (refreshing to the new instance), otherwise
+        // fall back to the first. Without this, a receiver removed from the
+        // family stays "selected" and we'd render their stale history under a
+        // name that's no longer in the picker.
+        if let current = selectedReceiver, let stillPresent = members.first(where: { $0.id == current.id }) {
+            selectedReceiver = stillPresent
+        } else {
+            selectedReceiver = members.first
+        }
         await loadHistory()
     }
 
@@ -266,9 +275,6 @@ struct HistoryView: View {
         showPDFShare = true
     }
 
-    private func moodEmoji(_ mood: Mood) -> String {
-        mood.emoji
-    }
 }
 
 // MARK: - UIKit ShareSheet wrapper

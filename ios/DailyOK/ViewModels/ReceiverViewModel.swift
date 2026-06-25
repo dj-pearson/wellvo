@@ -75,10 +75,18 @@ final class ReceiverViewModel: ObservableObject {
         if let loadTask {
             return await loadTask.value
         }
-        let task = Task { await performLoadStatus() }
+        // Clear the handle from inside the task (via the trailing assignment)
+        // rather than after `await task.value`: the caller is usually a view's
+        // `.task`, cancelled on disappear. If it's torn down at the suspension
+        // below, a caller-side `loadTask = nil` would never run and every later
+        // loadStatus() would return the cached completed task instantly — the
+        // receiver's status would stop refreshing. The task clears itself.
+        let task = Task { [weak self] in
+            await self?.performLoadStatus()
+            self?.loadTask = nil
+        }
         loadTask = task
         await task.value
-        loadTask = nil
     }
 
     private func performLoadStatus() async {

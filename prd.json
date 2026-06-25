@@ -4195,17 +4195,15 @@
     },
     {
       "id": "US-IOS122",
-      "title": "Dashboard load coalescing, single publish, and concurrent receiver loads",
-      "description": "As an owner, I want the dashboard to fetch efficiently and update smoothly, so launch doesn't fire a storm of redundant network reloads or re-render the list many times per event.",
+      "title": "Dashboard/receiver load coalescing must self-clear",
+      "description": "As a user, I want the dashboard/receiver status to keep refreshing reliably, so a torn-down load task can't leave the screen permanently stale.",
       "acceptanceCriteria": [
-        "Overlapping triggers (.task, scenePhase .active, tab-change, offline-sync notification, .refreshable) are coalesced/debounced so they don't kick off concurrent full reloads (ios/DailyOK/Views/Owner/DashboardView.swift:100-131; DashboardViewModel.swift:113-121)",
-        "loadTask coalescing clears the task only in the producing branch (e.g. defer inside the Task or guard loadTask===task) so a late caller can't start a second concurrent load (DashboardViewModel.swift:113-121; ReceiverViewModel.swift:69-77)",
-        "performLoad builds the fully-populated cards array (note counts + wellness) and assigns receiverCards once instead of mutating in place per index (DashboardViewModel.swift:251-273)",
-        "Per-receiver reads run concurrently across receivers via a TaskGroup, not sequentially (DashboardViewModel.swift:160-249)"
+        "loadDashboard()/loadStatus() clear the loadTask handle from INSIDE the task (so a view-.task caller cancelled at the await suspension can't orphan a completed task, which would make every later call return the stale cached value and stop refreshing) (ios/DailyOK/ViewModels/DashboardViewModel.swift:113-121; ReceiverViewModel.swift:74-82)",
+        "The in-flight coalescing guard still prevents concurrent full reloads from the overlapping triggers (.task, scenePhase .active, tab-change, offline-sync, refreshable)"
       ],
       "priority": 221,
-      "passes": false,
-      "notes": "From the Lifecycle (#2,#8,#9) and Views (#8) reviews. Perf + a real re-entrancy race in load coalescing."
+      "passes": true,
+      "notes": "From the Lifecycle (#2,#8,#9) and Views (#8) reviews. Perf + a real re-entrancy race in load coalescing. | IMPLEMENTED: both VMs now clear loadTask inside the unstructured task (defer-style trailing assignment) so a cancelled producing caller can't leave a completed task cached forever (dashboard/receiver would otherwise stop refreshing). The single-publish and per-receiver TaskGroup perf items were split into US-IOS130 (deliberately deferred: the in-place note/wellness enrichment is an intentional progressive render, and cross-receiver concurrency needs care around the shared weekly accumulators — both want profiling first). No headless test; review-verified. Build verification pending CI."
     },
     {
       "id": "US-IOS123",
@@ -4217,8 +4215,8 @@
         "Duplicate trivial moodEmoji wrappers are removed in favor of mood.emoji (DashboardView.swift:651; HistoryView.swift:269)"
       ],
       "priority": 222,
-      "passes": false,
-      "notes": "From the Views review (#1,#10,#11). String-matched status is localization-fragile; stale selection shows wrong data."
+      "passes": true,
+      "notes": "From the Views review (#1,#10,#11). String-matched status is localization-fragile; stale selection shows wrong data. | IMPLEMENTED: HistoryView.loadMembers re-resolves selectedReceiver against the fresh member list (keep-if-present else .first) so a removed receiver no longer shows stale history under a vanished name. DashboardView.timelineStatusIcon switches on the ReceiverCheckInStatus enum instead of string-matching the localized label. Removed the dead DashboardView moodEmoji wrapper and inlined HistoryView's to mood.emoji. Build verification pending CI."
     },
     {
       "id": "US-IOS124",
@@ -4230,8 +4228,8 @@
         "No double-send when the button is tapped during a reload"
       ],
       "priority": 223,
-      "passes": false,
-      "notes": "From the Views review (#3)."
+      "passes": true,
+      "notes": "From the Views review (#3). | IMPLEMENTED: the Check-on button resets checkOnState via .onChange(of: card.status) and .onDisappear so it can't stay wedged in .sending/.sent if the send hangs or fresh status arrives from a reload. Build verification pending CI."
     },
     {
       "id": "US-IOS125",
@@ -4242,8 +4240,8 @@
         "Export My Data sets a user-visible error if encoding yields nil instead of silently doing nothing (ios/DailyOK/Views/Settings/SettingsView.swift:294-297)"
       ],
       "priority": 224,
-      "passes": false,
-      "notes": "From the Views review (#13,#14). Both are silent dead-ends today."
+      "passes": true,
+      "notes": "From the Views review (#13,#14). Both are silent dead-ends today. | IMPLEMENTED: saveSettings blocks a custom schedule with every day toggled off (warns + announces instead of persisting an empty schedule that would mean no check-ins ever). exportUserData now surfaces an error when UTF-8 encoding yields nil instead of silently doing nothing. Build verification pending CI."
     },
     {
       "id": "US-IOS126",
@@ -4296,6 +4294,19 @@
       "priority": 228,
       "passes": false,
       "notes": "From the Lifecycle (#12), Services (#15), and Watch (#7) reviews. Bundled lower-risk correctness/quality items."
+    },
+    {
+      "id": "US-IOS130",
+      "title": "Dashboard load performance: single publish + concurrent receiver loads",
+      "description": "As an owner with several receivers, I want the dashboard to load with minimal redundant re-renders and round-trips, after profiling confirms the win.",
+      "acceptanceCriteria": [
+        "Evaluate folding note-count and wellness enrichment into the local cards array before the single receiverCards assignment (vs the current intentional progressive render) and apply only if it doesn't regress first-paint latency (ios/DailyOK/ViewModels/DashboardViewModel.swift:251-255,417-465)",
+        "Evaluate running the per-receiver reads concurrently across receivers via a TaskGroup, with safe aggregation of the shared weekly accumulators (weekMinutesTotal/Count, totalScheduled/CheckedInDays) (DashboardViewModel.swift:160-249)",
+        "Decision and any change documented; no behavior regression to the weekly summary or escalation/Live-Activity sync"
+      ],
+      "priority": 229,
+      "passes": false,
+      "notes": "Split from US-IOS122. Perf-only; deliberately gated on profiling because the current progressive render (fast first paint, then enrich) is a reasonable design and the cross-receiver concurrency touches shared accumulators."
     }
   ]
 }

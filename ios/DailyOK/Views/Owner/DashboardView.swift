@@ -333,12 +333,14 @@ struct TodayTimelineCard: View {
         if card.checkedInTime != nil {
             return "checkmark.circle"
         }
-        // Use the card's status label to differentiate pending vs missed
-        let label = card.status.label.lowercased()
-        if label.contains("miss") {
-            return "xmark.circle"
+        // Switch on the status enum directly rather than string-matching its
+        // localized label (which would silently break under localization or a
+        // copy change like "didn't respond").
+        switch card.status {
+        case .checkedIn: return "checkmark.circle"
+        case .missed: return "xmark.circle"
+        case .pending, .noData: return "clock"
         }
-        return "clock"
     }
 
     private func timelineBar(for card: ReceiverStatusCard) -> some View {
@@ -611,6 +613,13 @@ struct ReceiverStatusCardView: View {
                 .disabled(checkOnState != .idle)
                 .accessibilityLabel(alreadyChecked ? "Request another update from \(card.name)" : "Check on \(card.name)")
                 .accessibilityHint("Sends an immediate check-in notification")
+                // Backstops so the button can never get wedged in .sending/.sent
+                // (e.g. the send hangs, or fresh status arrives from a reload):
+                // reset when this card's status changes, and on teardown.
+                .onChange(of: card.status) { _ in
+                    if checkOnState != .idle { checkOnState = .idle }
+                }
+                .onDisappear { checkOnState = .idle }
             }
 
             // One-tap reach the receiver directly — useful for any caregiver
@@ -646,10 +655,6 @@ struct ReceiverStatusCardView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(card.name), \(card.status.label), \(card.streak) day streak")
     }
-}
-
-private func moodEmoji(_ mood: Mood) -> String {
-    mood.emoji
 }
 
 private func locationLabelDisplay(_ rawValue: String) -> String {

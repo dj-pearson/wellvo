@@ -1391,3 +1391,29 @@ fire online (syncPendingIfNeeded guards on hasPending, which is false for a
 successful online OK), and dropping .foreground from the OK action risks a
 watchOS background-execution regression that can't be tested headlessly. Left
 open for a dedicated, device-tested change.
+
+------------------------------------------------------------------------
+iOS deep-dive batch 3 (branch claude/ios-app-review-prd-416pqc)
+------------------------------------------------------------------------
+US-IOS122 (load coalescing self-clear) — loadDashboard()/loadStatus() cleared
+their loadTask handle in the caller AFTER `await task.value`. When the producing
+caller is a view's .task (cancelled on disappear) and is torn down at that
+suspension, loadTask was never cleared, so every later call returned the cached
+completed task instantly and the screen stopped refreshing. Both VMs now clear
+loadTask from inside the unstructured task. Perf ACs (single-publish, TaskGroup)
+split into US-IOS130 (deferred pending profiling).
+
+US-IOS123 — HistoryView.loadMembers re-resolves selectedReceiver against the
+fresh list (a removed receiver no longer shows stale history under a vanished
+name); DashboardView.timelineStatusIcon switches on the status enum instead of
+string-matching the localized label; removed dead/duplicate moodEmoji wrappers.
+
+US-IOS124 — Check-on button resets via .onChange(of: card.status)/.onDisappear
+so it can't wedge in .sending/.sent.
+
+US-IOS125 — custom schedule Save blocked when all days are off (would mean no
+check-ins ever); data export surfaces an error on nil encoding instead of doing
+nothing silently.
+
+Open from this backlog: US-IOS120 (watch double-submit, deferred — needs device
+test), US-IOS121, US-IOS126, US-IOS127, US-IOS128, US-IOS129, US-IOS130.
