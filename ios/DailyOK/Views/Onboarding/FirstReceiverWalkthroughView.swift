@@ -7,6 +7,7 @@ import SwiftUI
 /// Steps: Welcome → How it works → Receiver details (form) → Invite sent
 struct FirstReceiverWalkthroughView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var currentStep: WalkthroughStep = .welcome
     @State private var name = ""
     @State private var phone = ""
@@ -69,7 +70,7 @@ struct FirstReceiverWalkthroughView: View {
                           ? DailyOKColor.brand
                           : Color(.systemGray4))
                     .frame(width: step == currentStep ? 28 : 10, height: 8)
-                    .animation(DailyOKMotion.smoothSpring, value: currentStep)
+                    .animation(reduceMotion ? nil : DailyOKMotion.smoothSpring, value: currentStep)
             }
         }
         .accessibilityElement()
@@ -355,7 +356,7 @@ struct FirstReceiverWalkthroughView: View {
     private func advance(by delta: Int) {
         guard let next = WalkthroughStep(rawValue: currentStep.rawValue + delta) else { return }
         focusedField = nil
-        withAnimation(DailyOKMotion.smoothSpring) {
+        withAnimation(reduceMotion ? nil : DailyOKMotion.smoothSpring) {
             currentStep = next
         }
     }

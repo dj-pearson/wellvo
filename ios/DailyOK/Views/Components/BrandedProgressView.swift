@@ -37,14 +37,26 @@ struct BrandedProgressView: View {
         }
         .accessibilityElement()
         .accessibilityLabel("Loading")
-        .onAppear {
-            guard isActive, !reduceMotion else { return }
-            withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
-                rotation = 360
+        .onAppear { updateAnimation() }
+        // Start/stop with isActive so the repeatForever animation isn't left
+        // spinning forever after the spinner is logically done (US-IOS112).
+        .onChange(of: isActive) { _ in updateAnimation() }
+    }
+
+    private func updateAnimation() {
+        guard isActive, !reduceMotion else {
+            // Stop: drop back to the resting state without an ongoing animation.
+            withAnimation(.default) {
+                rotation = 0
+                pulse = 0.9
             }
-            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
-                pulse = 1.1
-            }
+            return
+        }
+        withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
+            rotation = 360
+        }
+        withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+            pulse = 1.1
         }
     }
 }

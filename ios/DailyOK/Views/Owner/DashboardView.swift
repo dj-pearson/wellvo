@@ -724,8 +724,11 @@ struct AlertsBannerView: View {
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundStyle(.secondary)
+                                .frame(minWidth: 44, minHeight: 44) // 44pt tap target (US-IOS112)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Dismiss alert")
                     }
 
                     if let onAcknowledge {

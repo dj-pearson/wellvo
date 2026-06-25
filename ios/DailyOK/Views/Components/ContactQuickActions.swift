@@ -25,13 +25,28 @@ struct ContactQuickActions: View {
                 action(title: "Text", systemImage: "message.fill", tint: .indigo, urlString: "sms:\(number)")
             }
             .padding(.top, 2)
+        } else {
+            // Don't render a blank gap in an escalation moment — say so plainly
+            // (US-IOS112).
+            Label("No phone number on file", systemImage: "phone.badge.plus")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 2)
+                .accessibilityLabel("No phone number on file for \(name)")
         }
     }
 
     @ViewBuilder
     private func action(title: String, systemImage: String, tint: Color, urlString: String) -> some View {
-        if let url = URL(string: urlString) {
-            Link(destination: url) {
+        // Only offer an action this device can actually perform (e.g. FaceTime /
+        // tel on an iPad with no SIM would silently no-op), and confirm with a
+        // haptic only when the open succeeds (US-IOS112).
+        if let url = URL(string: urlString), UIApplication.shared.canOpenURL(url) {
+            Button {
+                UIApplication.shared.open(url) { success in
+                    if success { DailyOKHaptics.light() }
+                }
+            } label: {
                 VStack(spacing: 4) {
                     Image(systemName: systemImage)
                         .font(.title3)
@@ -44,7 +59,7 @@ struct ContactQuickActions: View {
                 .glassPill(style: .thin)
                 .foregroundStyle(tint)
             }
-            .simultaneousGesture(TapGesture().onEnded { DailyOKHaptics.light() })
+            .buttonStyle(.plain)
             .accessibilityLabel("\(title) \(name)")
         }
     }

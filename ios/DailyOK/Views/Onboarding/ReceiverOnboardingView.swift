@@ -9,7 +9,9 @@ struct ReceiverOnboardingView: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State private var currentStep = 0
     @State private var isProcessing = false
-    @State private var checkinTimeDisplay = "8:00 AM"
+    // nil until the server provides the real time — never fabricate "8:00 AM"
+    // (US-IOS112).
+    @State private var checkinTimeDisplay: String?
     @State private var ownerName = "Your family"
     @State private var errorMessage: String?
     /// True when a token-based invite failed to redeem. Blocks the false "All set"
@@ -33,7 +35,7 @@ struct ReceiverOnboardingView: View {
                         Capsule()
                             .fill(step <= currentStep ? DailyOKColor.green500 : Color.secondary.opacity(0.3))
                             .frame(width: step == currentStep ? 24 : 8, height: 8)
-                            .animation(DailyOKMotion.smoothSpring, value: currentStep)
+                            .animation(reduceMotion ? nil : DailyOKMotion.smoothSpring, value: currentStep)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -91,7 +93,8 @@ struct ReceiverOnboardingView: View {
                 .fontWeight(.bold)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
 
-            Text("Every day at **\(checkinTimeDisplay)**, we'll send you a notification.")
+            Text(checkinTimeDisplay.map { "Every day at **\($0)**, we'll send you a notification." }
+                 ?? "We'll remind you each day with a notification.")
                 .font(.title3)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)

@@ -49,12 +49,16 @@ struct EmptyStateView: View {
             }
 
             if let secondaryActionLabel, let onSecondaryAction {
+                // A bordered affordance, not color-only tappable text, so it
+                // reads as a button (and for Increase Contrast users) — US-IOS112.
                 Button(action: onSecondaryAction) {
                     Text(secondaryActionLabel)
-                        .font(.subheadline)
-                        .frame(minHeight: 44) // match the 44pt minimum tap target
+                        .font(.subheadline.weight(.medium))
+                        .frame(minWidth: 120, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
-                .foregroundStyle(DailyOKColor.brand)
+                .buttonStyle(.bordered)
+                .tint(DailyOKColor.brand)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
