@@ -11,7 +11,7 @@
 		<string>$(AppIdentifierPrefix)com.wellvo.ios.shared</string>
 	</array>
 	<key>aps-environment</key>
-	<string>production</string>
+	<string>$(APS_ENVIRONMENT)</string>
 	<key>com.apple.developer.applesignin</key>
 	<array>
 		<string>Default</string>

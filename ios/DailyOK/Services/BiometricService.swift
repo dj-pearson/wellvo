@@ -34,14 +34,18 @@ actor BiometricService {
 
     // MARK: - Authentication
 
-    /// Prompt user for biometric authentication. Returns true if successful.
+    /// Prompt user for authentication. Returns true if successful.
+    ///
+    /// Uses `.deviceOwnerAuthentication` (not `…WithBiometrics`) so the system
+    /// falls back to the device passcode automatically: the "Use Passcode"
+    /// affordance actually works, and a biometric lockout (too many failed Face
+    /// ID attempts) can't permanently strand the user out of the app (US-IOS108).
     func authenticate(reason: String = "Unlock Daily OK") async -> Bool {
         let context = LAContext()
-        context.localizedFallbackTitle = "Use Passcode"
 
         do {
             return try await context.evaluatePolicy(
-                .deviceOwnerAuthenticationWithBiometrics,
+                .deviceOwnerAuthentication,
                 localizedReason: reason
             )
         } catch {

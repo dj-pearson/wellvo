@@ -15,7 +15,9 @@ import os
 /// - Only non-sensitive diagnostics (counts, states, fixed strings) should be
 ///   `.public`.
 enum Log {
-    private static let subsystem = "net.dailyok.app"
+    // Match the app's real bundle identifier so logs filter by it (US-IOS108) —
+    // the brand display name is "Daily OK" but the bundle id is com.wellvo.ios.
+    private static let subsystem = "com.wellvo.ios"
 
     static let auth = Logger(subsystem: subsystem, category: "auth")
     static let checkIn = Logger(subsystem: subsystem, category: "checkin")
