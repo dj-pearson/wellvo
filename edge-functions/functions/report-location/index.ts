@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
-import { isValidUUID, validateLocationFields, isValidLatitude, isValidLongitude } from "../../shared/validation.ts";
+import { isValidUUID, validateLocationFields, isValidLatitude, isValidLongitude, coerceNumericFields } from "../../shared/validation.ts";
 
 interface ReportLocationRequest {
   family_id: string;
@@ -40,6 +40,10 @@ export async function handleReportLocation(req: Request, auth: AuthResult): Prom
   }
 
   const body: ReportLocationRequest = await req.json();
+  // Defensive: accept numeric fields whether sent as numbers (current clients)
+  // or quoted strings (pre-US-IOS078 builds still in the wild).
+  coerceNumericFields(body as unknown as Record<string, unknown>,
+    ["latitude", "longitude", "accuracy_meters", "battery_level"]);
   const { family_id, latitude, longitude, accuracy_meters, battery_level } = body;
 
   // Validate required fields and formats

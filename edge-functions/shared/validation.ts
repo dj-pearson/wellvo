@@ -69,6 +69,27 @@ export function isValidTimezone(tz: string): boolean {
 }
 
 /**
+ * Coerce numeric request fields that an older client may have sent as JSON
+ * strings (e.g. {"latitude":"37.77"}) into real numbers, in-place.
+ *
+ * iOS builds shipped before the US-IOS078 fix sent latitude/longitude/
+ * battery_level/accuracy as quoted strings; the validators above require
+ * `typeof === "number"`, so without this every location-bearing check-in and
+ * report-location from those builds 400s. Current builds send real numbers and
+ * pass through untouched. Non-numeric junk is left as-is so validation still
+ * rejects it. Defensive secondary per CLAUDE.md §B (server tolerates both shapes).
+ */
+export function coerceNumericFields(body: Record<string, unknown>, keys: string[]): void {
+  for (const key of keys) {
+    const v = body[key];
+    if (typeof v === "string" && v.trim() !== "") {
+      const n = Number(v);
+      if (!isNaN(n)) body[key] = n;
+    }
+  }
+}
+
+/**
  * Validate and return an error Response if any of the checks fail.
  * Returns null if all validations pass.
  */

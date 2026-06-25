@@ -98,10 +98,16 @@ class LocationService: NSObject, CLLocationManagerDelegate {
 
         guard let loc = location else { return nil }
 
+        // Coarsen to ~110 m before it leaves this method so EVERY foreground /
+        // check-in consumer uploads only approximate position — matching the
+        // background path and the Coarse-only declaration in PrivacyInfo.xcprivacy
+        // (US-IOS086). kCLLocationAccuracyHundredMeters is only a request, so the
+        // coarsening is applied explicitly here and accuracy can't claim finer
+        // than what we actually upload.
         return CheckInLocation(
-            latitude: loc.coordinate.latitude,
-            longitude: loc.coordinate.longitude,
-            accuracy: loc.horizontalAccuracy
+            latitude: coarsen(loc.coordinate.latitude),
+            longitude: coarsen(loc.coordinate.longitude),
+            accuracy: loc.horizontalAccuracy >= 0 ? max(loc.horizontalAccuracy, 110) : nil
         )
     }
 
@@ -114,19 +120,19 @@ class LocationService: NSObject, CLLocationManagerDelegate {
         guard location.latitude >= -90, location.latitude <= 90,
               location.longitude >= -180, location.longitude <= 180 else { return }
 
-        var body: [String: String] = [
-            "family_id": familyId.uuidString,
-            "latitude": String(location.latitude),
-            "longitude": String(location.longitude),
+        var body: [String: JSONValue] = [
+            "family_id": .string(familyId.uuidString),
+            "latitude": .double(location.latitude),
+            "longitude": .double(location.longitude),
         ]
         if let accuracy = location.accuracy, accuracy >= 0, accuracy <= 100000 {
-            body["accuracy_meters"] = String(accuracy)
+            body["accuracy_meters"] = .double(accuracy)
         }
         if let battery = batteryLevel, battery >= 0, battery <= 1 {
-            body["battery_level"] = String(battery)
+            body["battery_level"] = .double(battery)
         }
 
-        try? await EdgeFunctionsClient.invoke("report-location", body: body)
+        try? await EdgeFunctionsClient.invoke("report-location", json: body)
     }
 
     // MARK: - CLLocationManagerDelegate
@@ -166,25 +172,25 @@ class LocationService: NSObject, CLLocationManagerDelegate {
         let batteryLevel = UIDevice.current.batteryLevel
         let battery: Double? = (batteryLevel >= 0 && batteryLevel <= 1) ? Double(batteryLevel) : nil
 
-        var body: [String: String] = [
-            "family_id": familyId.uuidString,
-            "latitude": String(lat),
-            "longitude": String(lng),
+        var body: [String: JSONValue] = [
+            "family_id": .string(familyId.uuidString),
+            "latitude": .double(lat),
+            "longitude": .double(lng),
         ]
         let accuracy = location.horizontalAccuracy
         if accuracy >= 0, accuracy <= 100000 {
             // Reported accuracy can't be finer than the coarsening we applied.
-            body["accuracy_meters"] = String(max(accuracy, 110))
+            body["accuracy_meters"] = .double(max(accuracy, 110))
         }
         if let battery = battery {
-            body["battery_level"] = String(battery)
+            body["battery_level"] = .double(battery)
         }
 
         // Use a background task to ensure the network call completes
         let bgTask = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
 
         Task {
-            try? await EdgeFunctionsClient.invoke("report-location", body: body)
+            try? await EdgeFunctionsClient.invoke("report-location", json: body)
             if bgTask != .invalid {
                 UIApplication.shared.endBackgroundTask(bgTask)
             }

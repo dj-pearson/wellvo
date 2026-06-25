@@ -2,7 +2,7 @@ import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification } from "../../shared/apns.ts";
 import { sendFCMNotification, buildFCMAlertPayload } from "../../shared/fcm.ts";
 import type { AuthResult } from "../../shared/auth.ts";
-import { isValidUUID, validateLocationFields, sanitizeDisplayName, truncateString } from "../../shared/validation.ts";
+import { isValidUUID, validateLocationFields, sanitizeDisplayName, truncateString, coerceNumericFields } from "../../shared/validation.ts";
 
 /**
  * Returns UTC ISO timestamps for the start and end of "today" in the given
@@ -62,6 +62,10 @@ interface ProcessCheckinRequest {
 
 export async function handleProcessCheckinResponse(req: Request, auth: AuthResult): Promise<Response> {
   const body: ProcessCheckinRequest = await req.json();
+  // Defensive: accept numeric fields whether sent as numbers (current clients)
+  // or quoted strings (pre-US-IOS078 builds still in the wild).
+  coerceNumericFields(body as Record<string, unknown>,
+    ["latitude", "longitude", "location_accuracy_meters", "battery_level"]);
 
   let requestId = body.checkin_request_id;
   let receiverId = body.receiver_id;

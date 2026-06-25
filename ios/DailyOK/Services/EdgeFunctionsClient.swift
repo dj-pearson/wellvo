@@ -6,10 +6,55 @@ import Foundation
 /// `<SUPABASE_URL>/functions/v1/...` (Supabase-hosted Edge Functions).
 /// Our Deno server runs in a separate Coolify container reachable at
 /// `Configuration.edgeFunctionsURL`.
+/// A minimal JSON value for request bodies that must mix strings and numbers.
+///
+/// The edge-function validators require numeric fields (latitude, longitude,
+/// battery_level, …) to arrive as real JSON numbers (`typeof === "number"`),
+/// not quoted strings. A plain `[String: String]` body forced everything to a
+/// string and every location-bearing check-in / report-location 400'd
+/// (US-IOS078). Callers with numeric fields use the `json:` overloads and wrap
+/// values explicitly, e.g. `["latitude": .double(lat), "family_id": .string(id)]`.
+enum JSONValue: Encodable {
+    case string(String)
+    case int(Int)
+    case double(Double)
+    case bool(Bool)
+    case null
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        switch self {
+        case .string(let v): try c.encode(v)
+        case .int(let v): try c.encode(v)
+        case .double(let v): try c.encode(v)
+        case .bool(let v): try c.encode(v)
+        case .null: try c.encodeNil()
+        }
+    }
+}
+
+extension JSONValue: ExpressibleByStringLiteral, ExpressibleByIntegerLiteral,
+                     ExpressibleByFloatLiteral, ExpressibleByBooleanLiteral {
+    init(stringLiteral value: String) { self = .string(value) }
+    init(integerLiteral value: Int) { self = .int(value) }
+    init(floatLiteral value: Double) { self = .double(value) }
+    init(booleanLiteral value: Bool) { self = .bool(value) }
+}
+
 enum EdgeFunctionsClient {
     struct HTTPError: LocalizedError {
         let status: Int
         let body: String
+        /// Seconds the server asked us to wait before retrying (parsed from the
+        /// `Retry-After` header on 429/503), if present. Honored by NetworkRetry.
+        let retryAfter: TimeInterval?
+
+        init(status: Int, body: String, retryAfter: TimeInterval? = nil) {
+            self.status = status
+            self.body = body
+            self.retryAfter = retryAfter
+        }
+
         var errorDescription: String? {
             "Edge function error \(status): \(body)"
         }
@@ -55,7 +100,8 @@ enum EdgeFunctionsClient {
         _ name: String,
         body: [String: String]? = nil
     ) async throws -> T {
-        let data = try await rawInvoke(name, body: body)
+        let httpBody = try body.map { try encoder.encode($0) }
+        let data = try await rawInvoke(name, httpBody: httpBody)
         return try decoder.decode(T.self, from: data)
     }
 
@@ -64,10 +110,29 @@ enum EdgeFunctionsClient {
         _ name: String,
         body: [String: String]? = nil
     ) async throws {
-        _ = try await rawInvoke(name, body: body)
+        let httpBody = try body.map { try encoder.encode($0) }
+        _ = try await rawInvoke(name, httpBody: httpBody)
     }
 
-    private static func rawInvoke(_ name: String, body: [String: String]?) async throws -> Data {
+    /// Invoke an edge function with a heterogeneous JSON body (numbers stay
+    /// numbers). Use for location/battery payloads — see `JSONValue`.
+    static func invoke<T: Decodable>(
+        _ name: String,
+        json: [String: JSONValue]
+    ) async throws -> T {
+        let data = try await rawInvoke(name, httpBody: try encoder.encode(json))
+        return try decoder.decode(T.self, from: data)
+    }
+
+    /// Invoke an edge function with a heterogeneous JSON body, ignoring the response.
+    static func invoke(
+        _ name: String,
+        json: [String: JSONValue]
+    ) async throws {
+        _ = try await rawInvoke(name, httpBody: try encoder.encode(json))
+    }
+
+    private static func rawInvoke(_ name: String, httpBody: Data?) async throws -> Data {
         guard let url = URL(string: "\(Configuration.edgeFunctionsURL)/\(name)") else {
             throw DailyOKError.unknown(NSError(domain: "EdgeFunctions", code: -1))
         }
@@ -84,11 +149,7 @@ enum EdgeFunctionsClient {
             request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
         }
 
-        if let body {
-            request.httpBody = try encoder.encode(body)
-        } else {
-            request.httpBody = Data("{}".utf8)
-        }
+        request.httpBody = httpBody ?? Data("{}".utf8)
 
         let (data, response) = try await PinnedURLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else {
@@ -105,9 +166,19 @@ enum EdgeFunctionsClient {
 
         guard (200..<300).contains(http.statusCode) else {
             let bodyString = String(data: data, encoding: .utf8) ?? ""
-            throw HTTPError(status: http.statusCode, body: bodyString)
+            let retryAfter = parseRetryAfter(http.value(forHTTPHeaderField: "Retry-After"))
+            throw HTTPError(status: http.statusCode, body: bodyString, retryAfter: retryAfter)
         }
 
         return data
+    }
+
+    /// Parse a `Retry-After` header value. Supports the delta-seconds form
+    /// (e.g. "120"); the HTTP-date form is uncommon for our API and is ignored.
+    private static func parseRetryAfter(_ value: String?) -> TimeInterval? {
+        guard let value = value?.trimmingCharacters(in: .whitespaces), let seconds = Double(value) else {
+            return nil
+        }
+        return seconds >= 0 ? seconds : nil
     }
 }

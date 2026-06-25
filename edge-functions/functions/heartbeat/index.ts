@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
-import { isValidBatteryLevel, truncateString } from "../../shared/validation.ts";
+import { isValidBatteryLevel, truncateString, coerceNumericFields } from "../../shared/validation.ts";
 
 interface HeartbeatRequest {
   battery_level?: number;
@@ -21,6 +21,8 @@ export async function handleHeartbeat(req: Request, auth: AuthResult): Promise<R
   }
 
   const body: HeartbeatRequest = await req.json();
+  // Defensive: accept battery_level as a number or a quoted string (US-IOS078).
+  coerceNumericFields(body as Record<string, unknown>, ["battery_level"]);
 
   const updates: Record<string, unknown> = {
     last_seen_at: new Date().toISOString(),

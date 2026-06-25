@@ -13,16 +13,43 @@ interface SubscriptionUpdate {
 }
 
 // Product ID → tier + seat limits.
-// Keep this in sync with iOS `SubscriptionService.ProductIDs`, Android
-// `SubscriptionService.PRODUCT_IDS`, and docs/PRICING_RESEARCH.md §6.1.
+//
+// Two product-ID namespaces are recognized:
+//   - `net.wellvo.*`  — the iOS App Store Connect source of truth (bundle id
+//     com.wellvo.ios). iOS `SubscriptionService.ProductIDs` sends these.
+//   - `net.dailyok.*` — the original namespace still registered for Android
+//     Google Play (`SubscriptionService.PRODUCT_IDS`) and any historical/
+//     sandbox iOS purchase.
+//
+// Per CLAUDE.md §E we never stop recognizing a product ID a subscriber may
+// still hold, so BOTH namespaces map to the same tiers. iOS purchases were
+// 400ing ("Unknown product_id") because only the dailyok namespace was known.
+// FOLLOW-UP: unify on a single namespace once Google Play products are
+// re-registered under net.wellvo.* (requires Play Console work).
+const CAREGIVER = { tier: "caregiver", maxReceivers: 1, maxViewers: 3 };
+const FAMILY = { tier: "family", maxReceivers: 3, maxViewers: 5 };
+const FAMILY_PLUS = { tier: "family_plus", maxReceivers: 6, maxViewers: 10 };
+
 const TIER_MAP: Record<string, { tier: string; maxReceivers: number; maxViewers: number }> = {
-  "net.dailyok.caregiver.monthly": { tier: "caregiver", maxReceivers: 1, maxViewers: 3 },
-  "net.dailyok.caregiver.yearly": { tier: "caregiver", maxReceivers: 1, maxViewers: 3 },
-  "net.dailyok.family.monthly": { tier: "family", maxReceivers: 3, maxViewers: 5 },
-  "net.dailyok.family.yearly": { tier: "family", maxReceivers: 3, maxViewers: 5 },
-  "net.dailyok.familyplus.monthly": { tier: "family_plus", maxReceivers: 6, maxViewers: 10 },
-  "net.dailyok.familyplus.yearly": { tier: "family_plus", maxReceivers: 6, maxViewers: 10 },
+  // iOS / App Store Connect (source of truth)
+  "net.wellvo.caregiver.monthly": CAREGIVER,
+  "net.wellvo.caregiver.yearly": CAREGIVER,
+  "net.wellvo.family.monthly": FAMILY,
+  "net.wellvo.family.yearly": FAMILY,
+  "net.wellvo.familyplus.monthly": FAMILY_PLUS,
+  "net.wellvo.familyplus.yearly": FAMILY_PLUS,
+  // Android / Google Play + historical iOS sandbox
+  "net.dailyok.caregiver.monthly": CAREGIVER,
+  "net.dailyok.caregiver.yearly": CAREGIVER,
+  "net.dailyok.family.monthly": FAMILY,
+  "net.dailyok.family.yearly": FAMILY,
+  "net.dailyok.familyplus.monthly": FAMILY_PLUS,
+  "net.dailyok.familyplus.yearly": FAMILY_PLUS,
 };
+
+// Add-on product IDs, both namespaces.
+const ADDON_RECEIVER_IDS = new Set(["net.wellvo.addon.receiver", "net.dailyok.addon.receiver"]);
+const ADDON_VIEWER_IDS = new Set(["net.wellvo.addon.viewer", "net.dailyok.addon.viewer"]);
 
 export async function handleSubscriptionWebhook(req: Request, auth: AuthResult): Promise<Response> {
   const body: SubscriptionUpdate = await req.json();
@@ -30,10 +57,10 @@ export async function handleSubscriptionWebhook(req: Request, auth: AuthResult):
 
   const tierInfo = TIER_MAP[product_id];
   if (!tierInfo) {
-    if (product_id === "net.dailyok.addon.receiver") {
+    if (ADDON_RECEIVER_IDS.has(product_id)) {
       return handleAddonReceiver(body, auth);
     }
-    if (product_id === "net.dailyok.addon.viewer") {
+    if (ADDON_VIEWER_IDS.has(product_id)) {
       return handleAddonViewer(body, auth);
     }
 

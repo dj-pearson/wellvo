@@ -120,7 +120,12 @@ final class AuthViewModel: ObservableObject {
                     authState = .unauthenticated
                     clearFormFields()
                 case .tokenRefreshed:
-                    break // Session silently refreshed
+                    // Supabase access tokens last ~1h. Re-mirror the refreshed
+                    // token into the shared Keychain so the Notification Service
+                    // Extension, widgets, Siri, and watch keep a valid token —
+                    // otherwise confirm-delivery / background check-ins start
+                    // 401ing after the first refresh (US-IOS084).
+                    await SupabaseService.shared.syncAccessTokenToExtension()
                 default:
                     break
                 }
