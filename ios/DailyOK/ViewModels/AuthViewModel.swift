@@ -26,6 +26,9 @@ final class AuthViewModel: ObservableObject {
     @Published var phoneNumber = ""
     @Published var otpCode = ""
     @Published var isAwaitingOTP = false
+    /// Seconds remaining before the user can request another SMS code. 0 = ready.
+    @Published var otpResendCooldown = 0
+    private var resendTimer: Task<Void, Never>?
 
     // Password reset
     @Published var isResettingPassword = false
@@ -356,12 +359,31 @@ final class AuthViewModel: ObservableObject {
             try await AuthService.shared.sendPhoneOTP(phone: phoneNumber)
             isAwaitingOTP = true
             otpVerifyAttempts = 0
+            startResendCooldown()
         } catch {
             errorMessage = "Could not send verification code. Please try again."
             recordFailedAttempt()
         }
 
         isLoading = false
+    }
+
+    /// Re-send the SMS code (US-IOS103). No-op while the cooldown is active so we
+    /// don't spam the SMS gateway (and hit its rate limit).
+    func resendPhoneOTP() async {
+        guard otpResendCooldown == 0 else { return }
+        await sendPhoneOTP()
+    }
+
+    private func startResendCooldown() {
+        resendTimer?.cancel()
+        otpResendCooldown = 30
+        resendTimer = Task {
+            while !Task.isCancelled, otpResendCooldown > 0 {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                otpResendCooldown -= 1
+            }
+        }
     }
 
     func verifyPhoneOTP() async {
