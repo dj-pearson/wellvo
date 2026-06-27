@@ -6,7 +6,8 @@
     </linearGradient>
   </defs>
   <rect width="1200" height="630" fill="url(#bg)" />
-  <text x="600" y="260" font-family="Inter, system-ui, sans-serif" font-size="80" font-weight="700" fill="white" text-anchor="middle">Daily OK</text>
-  <text x="600" y="340" font-family="Inter, system-ui, sans-serif" font-size="36" font-weight="400" fill="rgba(255,255,255,0.9)" text-anchor="middle">Daily Check-In for Families</text>
-  <text x="600" y="420" font-family="Inter, system-ui, sans-serif" font-size="28" font-weight="500" fill="rgba(255,255,255,0.75)" text-anchor="middle">One tap. Peace of mind.</text>
+  <text x="600" y="250" font-family="Inter, system-ui, sans-serif" font-size="80" font-weight="700" fill="white" text-anchor="middle">Daily OK</text>
+  <text x="600" y="330" font-family="Inter, system-ui, sans-serif" font-size="36" font-weight="400" fill="rgba(255,255,255,0.9)" text-anchor="middle">Senior Check-In App</text>
+  <text x="600" y="410" font-family="Inter, system-ui, sans-serif" font-size="28" font-weight="500" fill="rgba(255,255,255,0.78)" text-anchor="middle">Know your aging parent is OK — every day.</text>
+  <text x="600" y="455" font-family="Inter, system-ui, sans-serif" font-size="22" font-weight="400" fill="rgba(255,255,255,0.65)" text-anchor="middle">One tap. No pendant, no GPS tracking.</text>
 </svg>

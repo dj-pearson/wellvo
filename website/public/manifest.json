@@ -1,7 +1,7 @@
 {
-  "name": "Daily OK — Daily Check-In",
+  "name": "Daily OK — Senior Check-In",
   "short_name": "Daily OK",
-  "description": "The simplest daily check-in app for families. One tap. Peace of mind.",
+  "description": "The simplest senior check-in app: a once-a-day \"I'm OK\" for your aging parent, with escalating alerts if they miss it. One tap. Peace of mind.",
   "start_url": "/",
   "display": "standalone",
   "theme_color": "#2ECC71",

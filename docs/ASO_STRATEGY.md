@@ -1,8 +1,8 @@
 # Daily OK — iOS App Store Ranking & ASO Strategy
 
 **Owner:** Pearson Media LLC
-**Status:** Proposed (pending approval of repositioning decision in §2)
-**Last updated:** 2026-06-12
+**Status:** Approved — seniors-led (decision 2026-06-27; see `docs/SEO_STRATEGY.md`). Web + AI surfaces now match this metadata direction.
+**Last updated:** 2026-06-27
 **Goal:** Increase App Store **impressions** and organic installs by ranking for more of the searches our buyers actually type, and by converting more of the impressions we already get.
 
 > This plan **supersedes** the metadata values in `docs/APP_STORE_CONNECT_AND_SUPABASE_SETUP.md §1.3` once approved. None of it changes the app binary except the in-app review prompt (§6) and optional Custom Product Page deep links (§5), which ride the normal `develop → release` flow. Everything else is App Store Connect configuration.
@@ -34,7 +34,7 @@ The product serves seniors, teens, and any loved one. **ASO metadata can't be al
 - **Recommended:** lead the **name + subtitle** with senior/elderly/safety language. Keep teens/couples/long-distance in the **description body** and dedicated **Custom Product Pages** (§5), so we lose no positioning — we just stop diluting the highest-weight fields.
 - **Alternative (if leadership wants to stay broad):** use the broad name variant in §3 and accept lower search relevance per term.
 
-Everything below assumes the recommended path. **This is the one call that needs sign-off before we ship metadata.**
+Everything below assumes the recommended path. **Decision (2026-06-27): approved — seniors-led.** The web marketing site, `llms.txt`/`llms-full.txt`, structured data, and `robots.txt` were transitioned to match (see `docs/SEO_STRATEGY.md`); teen/couples positioning is retained in the description body, Custom Product Pages, and the still-indexed `/child-safety` web funnel.
 
 ---
 

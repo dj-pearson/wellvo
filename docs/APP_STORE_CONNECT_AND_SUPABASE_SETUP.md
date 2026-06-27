@@ -69,9 +69,9 @@ back into the fields below and submit a metadata-only update (reusing the build)
 #### App Store Description
 
 ```
-Know your loved ones are OK — every single day.
+Know your aging parent is OK — every single day.
 
-Daily OK is the simplest way to stay connected to the people you care about most. Set up a daily check-in for your aging parent, teenager, or anyone you worry about. They get one notification. They tap one button. You get peace of mind.
+Daily OK is the simplest senior check-in app. Set up a once-a-day "I'm OK" for your aging parent — they tap one big button (or reply right from the notification), and you get peace of mind. If they miss a check-in, escalating alerts make sure someone knows. No pendant, no GPS tracking, no cameras. The same gentle daily check-in also works for a teenager or anyone else you worry about.
 
 HOW IT WORKS
 
