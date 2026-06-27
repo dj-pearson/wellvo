@@ -11,7 +11,7 @@ export default function Footer() {
         <div className="footer-grid">
           <div className="footer-brand">
             <div className="footer-logo">
-              <div className="logo-icon">W</div>
+              <div className="logo-icon">D</div>
               <span className="logo-text">Daily OK</span>
             </div>
             <p className="footer-tagline">One tap. Peace of mind.</p>
