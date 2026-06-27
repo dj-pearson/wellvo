@@ -35,6 +35,15 @@ const STATIC_HEAD = `
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#2ECC71" />
     <meta name="apple-itunes-app" content="app-id=6760836697, app-argument=https://dailyok.net" />
+    <!--
+      Search-engine ownership verification. Paste the token from each console and
+      uncomment the matching line (or verify via DNS instead). IndexNow (Bing +
+      Yandex instant indexing) is wired via /582a8472440f4527fa1c063dc552bde1.txt
+      and the deploy ping — see docs/SEO_STRATEGY.md §5 and scripts/indexnow-ping.mjs.
+      Google Search Console:  <meta name="google-site-verification" content="PASTE_GSC_TOKEN" />
+      Bing Webmaster Tools:   <meta name="msvalidate.01" content="PASTE_BING_TOKEN" />
+      Yandex Webmaster:       <meta name="yandex-verification" content="PASTE_YANDEX_TOKEN" />
+    -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -44,12 +53,27 @@ const STATIC_HEAD = `
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
         "name": "Daily OK",
+        "alternateName": "Daily OK: Senior Check-In",
         "applicationCategory": "HealthApplication",
         "applicationSubCategory": "Caregiving",
         "operatingSystem": "iOS, Android",
-        "description": "Daily check-in app for families caring for elderly parents with dementia, children, and long-distance loved ones. One tap to confirm safety. Escalating alerts if no response.",
+        "description": "Daily OK is a senior check-in app: adult children set up a once-a-day \\"I'm OK\\" for an aging parent and get escalating alerts the moment they miss it. No pendant, no GPS tracking, no cameras, no wearables. The same gentle daily check-in also works for teens and any loved one you worry about.",
         "url": "https://dailyok.net",
         "downloadUrl": "https://apps.apple.com/us/app/dailyok-daily-check-in/id6760836697",
+        "image": "https://dailyok.net/og-image.png",
+        "screenshot": "https://dailyok.net/og-image.png",
+        "audience": {
+          "@type": "Audience",
+          "audienceType": "Adult children and family caregivers of aging parents and seniors"
+        },
+        "featureList": [
+          "Once-a-day one-tap \\"I'm OK\\" check-in",
+          "Escalating alerts when a check-in is missed",
+          "No GPS tracking, cameras, or wearables",
+          "Large-button, senior-friendly receiver screen",
+          "Check-in history, streaks, and mood trends",
+          "Shareable PDF reports for healthcare providers"
+        ],
         "offers": [
           { "@type": "Offer", "price": "3.99", "priceCurrency": "USD", "name": "Caregiver monthly" },
           { "@type": "Offer", "price": "6.99", "priceCurrency": "USD", "name": "Family monthly" },
@@ -62,20 +86,24 @@ const STATIC_HEAD = `
         "name": "Daily OK",
         "url": "https://dailyok.net",
         "logo": "https://dailyok.net/icon-512.png",
+        "sameAs": [
+          "https://apps.apple.com/us/app/dailyok-daily-check-in/id6760836697"
+        ],
         "contactPoint": { "@type": "ContactPoint", "email": "support@dailyok.net", "contactType": "customer support" }
       },
       {
         "@context": "https://schema.org",
         "@type": "WebSite",
         "name": "Daily OK",
+        "alternateName": "Daily OK: Senior Check-In",
         "url": "https://dailyok.net"
       }
     ]
     </script>
     <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "YOUR_CF_ANALYTICS_TOKEN"}'></script>`
 
-const DEFAULT_TITLE = '<title>Daily OK — Daily Check-In App for Families & Caregivers</title>'
-const DEFAULT_DESCRIPTION = '<meta name="description" content="Daily OK is the simplest daily check-in app for families caring for aging parents, children, and long-distance loved ones. One tap. Peace of mind." />'
+const DEFAULT_TITLE = '<title>Daily OK — Senior Check-In App for Aging Parents</title>'
+const DEFAULT_DESCRIPTION = '<meta name="description" content="Daily OK is the senior check-in app: a once-a-day &quot;I&#39;m OK&quot; for an aging parent, with escalating alerts if they miss it. No pendant, no GPS tracking. Works for teens and any loved one too." />'
 
 /**
  * React Helmet Async's server-side capture doesn't reliably fire under

@@ -21,24 +21,24 @@ export default function Home() {
   return (
     <>
       <SEO
-        title="Daily OK — Daily Check-In App for Families & Caregivers | Elderly Parent & Child Safety"
-        description="Daily OK is the simplest daily check-in app for families caring for aging parents with dementia, children playing outside, and long-distance loved ones. One tap confirms safety. Escalating alerts if no response. Plans from $3.99/mo with a free trial."
+        title="Daily OK — Senior Check-In App for Aging Parents | Daily &quot;I'm OK&quot; & Care Alerts"
+        description="Daily OK is the senior check-in app: set up a once-a-day &quot;I'm OK&quot; for an aging parent and get escalating alerts the moment they miss it. No pendant, no GPS tracking, no cameras. Works for teens and any loved one you worry about, too. From $3.99/mo with a free trial."
         path="/"
-        keywords="daily check-in app, elderly parent check-in, dementia caregiver app, child safety check-in, family wellness app, aging parent monitoring, senior safety app, kids check-in app, caregiver app for elderly, family safety app, alzheimers caregiver tool, check on elderly parents, child wellness check, latchkey kid safety"
+        keywords="senior check-in app, check-in app for elderly, daily check-in app for seniors, check-in app for elderly parents, elderly safety app, aging parent check-in, wellness check app, welfare check elderly parent, medical alert alternative, aging in place app, dementia caregiver app, caregiver app for elderly, check on elderly parents, teen check-in app"
       />
 
       {/* Hero */}
       <section className="hero">
         <div className="container hero-inner">
-          <div className="hero-badge">Daily Check-In App for Families & Caregivers</div>
+          <div className="hero-badge">Senior Check-In App for Aging Parents</div>
           <h1 className="hero-title">
-            Know your loved ones are OK —{' '}
+            Know your aging parent is OK —{' '}
             <span className="hero-highlight">every single day</span>
           </h1>
           <p className="hero-subtitle">
-            Whether you're caring for an aging parent with dementia, keeping tabs on your kids
-            playing outside, or staying connected across the miles — Daily OK gives you peace of
-            mind with a single daily check-in. One notification. One tap. That's it.
+            Daily OK gives you a reliable daily signal that your aging parent is OK — one
+            notification, one tap, no pendant or GPS tracking. The same gentle daily check-in
+            works for a teen or anyone else you worry about, too.
           </p>
           <div className="hero-actions">
             <a
@@ -70,7 +70,7 @@ export default function Home() {
             <div className="proof-divider" />
             <div className="proof-item">
               <strong>Ages 13–95</strong>
-              <span>Designed for everyone</span>
+              <span>Senior-friendly by design</span>
             </div>
             <div className="proof-divider" />
             <div className="proof-item">
