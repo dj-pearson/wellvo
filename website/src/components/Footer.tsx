@@ -16,7 +16,8 @@ export default function Footer() {
             </div>
             <p className="footer-tagline">One tap. Peace of mind.</p>
             <p className="footer-desc">
-              The simplest daily check-in app for families who care about each other's wellness.
+              The simplest senior check-in app — a once-a-day &quot;I&apos;m OK&quot; for your
+              aging parent, with alerts if they miss it. Works for teens and any loved one, too.
             </p>
           </div>
 
@@ -30,9 +31,12 @@ export default function Footer() {
           </div>
 
           <div className="footer-col">
-            <h4>Use Cases</h4>
+            <h4>Senior Check-In</h4>
+            <Link to="/check-in-app-for-elderly">Check-In App for Elderly</Link>
+            <Link to="/daily-check-in-app-for-seniors">Daily Check-In for Seniors</Link>
+            <Link to="/peace-of-mind-app-for-elderly-parents">Peace of Mind for Parents</Link>
             <Link to="/elderly-care">Elderly Parent Care</Link>
-            <Link to="/child-safety">Child Safety</Link>
+            <Link to="/child-safety">Child &amp; Teen Safety</Link>
           </div>
 
           <div className="footer-col">
