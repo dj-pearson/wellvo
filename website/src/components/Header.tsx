@@ -37,6 +37,14 @@ export default function Header() {
             Home
           </Link>
           <Link
+            to="/elderly-care"
+            className={`nav-link ${isActive('/elderly-care') ? 'active' : ''}`}
+            aria-current={isActive('/elderly-care') ? 'page' : undefined}
+            onClick={() => setMenuOpen(false)}
+          >
+            For Seniors
+          </Link>
+          <Link
             to="/pricing"
             className={`nav-link ${isActive('/pricing') ? 'active' : ''}`}
             aria-current={isActive('/pricing') ? 'page' : undefined}
