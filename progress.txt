@@ -1563,3 +1563,60 @@ AC#2 (StoreKit pricing): VERIFIED - 0 hardcoded $3.99/$6.99/$9.99 literals; Onbo
 AC#3 (locale-aware formatting): VERIFIED (prior slice) - locale-aware display formatters, POSIX-locked wire formatters protecting the HH:mm backend contract.
 AC#4 (pseudoloc clipping): STATIC AUDIT DONE - no clipping risk found. Only two user-facing .lineLimit(1) text labels (FloatingBottomNav tab label, ReceiverHomeView "I'm OK" button) both mitigate via .minimumScaleFactor (0.8/0.5); nav label also hides at accessibility Dynamic Type sizes. All fixed .frame(width:) are non-text (icons/rings/chart cells/page-dots/spacers).
 Note: Live Xcode GUI render in Accented/Double-Length pseudolanguage remains a recommended human QA confirmation (cannot run headlessly) but is not an implementation gap. No source code changed this iteration - verification + tracking only.
+
+--- Iteration: US-IOS127 (2026-06-26) ---
+Status: IMPLEMENTED - Remotely end the escalation Live Activity when resolved server-side
+Branch: claude/ios127-liveactivity-remote-end
+Context: First passes:false story is US-IOS109 (priority 208), but it is genuinely
+  blocked on Apple-Developer-portal-only work (associated-domains entitlement +
+  real Team ID + Critical Alerts grant) that breaks code signing if committed
+  prematurely. Re-verified this iteration that ALL committable code/web/docs are
+  already complete (AASA file + /.well-known/_headers JSON content-type +
+  hex-validated unverified-token deep-link handler + brand/id split in CLAUDE.md).
+  Nothing left to commit there, so advanced the loop to the next story with real
+  committable engineering: US-IOS127.
+
+Files created:
+  supabase/migrations/00048_live_activity_push_tokens.sql
+  edge-functions/shared/live-activity.ts
+  edge-functions/functions/register-live-activity-token/index.ts
+  ios/DailyOK/Services/LiveActivityTokenService.swift
+Files changed:
+  edge-functions/shared/apns.ts (sendLiveActivityUpdate)
+  edge-functions/server.ts (route /register-live-activity-token)
+  edge-functions/functions/process-checkin-response/index.ts (end on check-in)
+  edge-functions/functions/cancel-escalation/index.ts (end on stand-down)
+  ios/DailyOK/Services/EscalationActivityManager.swift (pushType:.token + track)
+  ios/DailyOK.xcodeproj/project.pbxproj (register LiveActivityTokenService, B/F1C00027)
+
+What it does: a running owner escalation Live Activity now ends via an APNs
+  liveactivity push the moment the escalation resolves server-side (receiver
+  checks in -> process-checkin-response; owner stands down -> cancel-escalation),
+  even when the owner's app is closed — instead of lingering as a stale "Overdue"
+  timer on the Lock Screen until the next dashboard load.
+
+Architecture:
+  - DB: NEW additive `live_activity_push_tokens` table (token_type 'update' per-
+    activity | 'start' push-to-start). Does NOT reuse/alter push_tokens or its
+    platform contract (CLAUDE.md §D). Owner-scoped RLS; service role reads.
+  - Edge: /register-live-activity-token upserts/deactivates tokens (family-owner
+    authz for 'update'); shared/live-activity.ts endEscalationLiveActivities() is
+    best-effort and never throws to the resolve handlers; apns.ts
+    sendLiveActivityUpdate() uses apns-push-type liveactivity + .push-type.
+    liveactivity topic, event "end" with immediate dismissal-date, content-state
+    with epoch-seconds dueSince (ActivityKit decodes Date from epoch seconds).
+  - iOS: EscalationActivityManager requests activities with pushType:.token and
+    tracks them via LiveActivityTokenService (NSLock-guarded registry, mirrors the
+    US-IOS118 LocationService pattern); observes pushTokenUpdates/activityState
+    Updates to register/deactivate per-activity tokens, and pushToStartTokenUpdates
+    (iOS 17.2+) to store the owner push-to-start token for a future server-start.
+
+Backward-compat (CLAUDE.md): all changes additive. DEPLOY ORDER — edge (migration
+  + endpoint, a no-op until tokens exist) must reach prod before/with the iOS build
+  that registers tokens. push_tokens.platform contract untouched.
+
+Verification: `deno check` clean for all touched/new edge files (pre-existing
+  blog-*/send-notification type errors are unrelated and predate this change). iOS
+  has no headless Swift toolchain here — Xcode build verification pending CI.
+  Server-initiated START (consuming the stored push-to-start token) is beyond the
+  ACs and a deliberate future enhancement.

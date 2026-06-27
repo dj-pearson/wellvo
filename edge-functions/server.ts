@@ -33,6 +33,7 @@ import { handleUndoCheckin } from "./functions/undo-checkin/index.ts";
 import { handleEscalationTick } from "./functions/escalation-tick/index.ts";
 import { handleOnDemandCheckin } from "./functions/on-demand-checkin/index.ts";
 import { handleCancelEscalation } from "./functions/cancel-escalation/index.ts";
+import { handleRegisterLiveActivityToken } from "./functions/register-live-activity-token/index.ts";
 import { handleSubscriptionWebhook } from "./functions/subscription-webhook/index.ts";
 import { handleInviteReceiver } from "./functions/invite-receiver/index.ts";
 import { handleSubscriptionCancellation } from "./functions/subscription-cancellation/index.ts";
@@ -76,6 +77,7 @@ const routes: Record<string, FunctionHandler> = {
   "/escalation-tick": handleEscalationTick,
   "/on-demand-checkin": handleOnDemandCheckin,
   "/cancel-escalation": handleCancelEscalation,
+  "/register-live-activity-token": handleRegisterLiveActivityToken,
   "/subscription-webhook": handleSubscriptionWebhook,
   "/invite-receiver": handleInviteReceiver,
   "/subscription-cancellation": handleSubscriptionCancellation,

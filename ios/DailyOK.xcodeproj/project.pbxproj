@@ -121,6 +121,7 @@
 		B1C00023 /* PhoneWatchSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00023; };
 		B1C00024 /* SharedOwnerPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00024; };
 		B1C00025 /* EscalationActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00025; };
+		B1C00027 /* LiveActivityTokenService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00027; };
 		/* UI Tests */
 		B2U00001 /* DailyOKUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00001; };
 		B2U00002 /* OwnerFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2U00002; };
@@ -288,6 +289,7 @@
 		F1S00009 /* CertificatePinning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertificatePinning.swift; sourceTree = "<group>"; };
 		F1C00024 /* SharedOwnerPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedOwnerPublisher.swift; sourceTree = "<group>"; };
 		F1C00025 /* EscalationActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscalationActivityManager.swift; sourceTree = "<group>"; };
+		F1C00027 /* LiveActivityTokenService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityTokenService.swift; sourceTree = "<group>"; };
 		F1C00022 /* SharedCheckInPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedCheckInPublisher.swift; sourceTree = "<group>"; };
 		F1C00023 /* PhoneWatchSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneWatchSync.swift; sourceTree = "<group>"; };
 		/* Resources */
@@ -698,6 +700,7 @@
 				F1C00022 /* SharedCheckInPublisher.swift */,
 				F1C00024 /* SharedOwnerPublisher.swift */,
 				F1C00025 /* EscalationActivityManager.swift */,
+				F1C00027 /* LiveActivityTokenService.swift */,
 				F1C00007 /* SubscriptionService.swift */,
 				F1C00026 /* ForceUpdateState.swift */,
 				F1C00008 /* SupabaseService.swift */,
@@ -1137,6 +1140,7 @@
 				B1S00007 /* EscalationActivityAttributes.swift in Sources */,
 				B1C00024 /* SharedOwnerPublisher.swift in Sources */,
 				B1C00025 /* EscalationActivityManager.swift in Sources */,
+				B1C00027 /* LiveActivityTokenService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

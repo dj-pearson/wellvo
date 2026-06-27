@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID } from "../../shared/validation.ts";
+import { endEscalationLiveActivities } from "../../shared/live-activity.ts";
 
 interface CancelEscalationRequest {
   receiver_id: string;
@@ -69,6 +70,11 @@ export async function handleCancelEscalation(req: Request, auth: AuthResult): Pr
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
+
+  // Stand-down resolves the escalation — end any running owner Live Activity now
+  // (e.g. one started on another of the owner's devices) so it stops showing a
+  // stale "Overdue" timer even if that device's app is closed (US-IOS127).
+  await endEscalationLiveActivities(family_id, receiver_id);
 
   return new Response(
     JSON.stringify({ success: true, cancelled: updated?.length ?? 0 }),

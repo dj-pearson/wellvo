@@ -104,6 +104,73 @@ export async function sendPushNotification(
   };
 }
 
+/**
+ * Send an ActivityKit Live Activity update/end via APNs (US-IOS127).
+ *
+ * Targets a per-activity push token (from `activity.pushTokenUpdates`), NOT a
+ * device token, and uses the dedicated liveactivity push type + topic suffix.
+ * `event: "end"` with a past/now `dismissal-date` removes the activity from the
+ * Lock Screen immediately. `content-state` must match the iOS `ContentState`
+ * shape; ActivityKit decodes `Date` fields from Unix epoch SECONDS (numbers).
+ */
+export async function sendLiveActivityUpdate(
+  activityPushToken: string,
+  options: {
+    event: "update" | "end";
+    contentState: Record<string, unknown>;
+    /** Unix epoch seconds. Defaults to now. Stamps the state's recency. */
+    timestamp?: number;
+    /** Unix epoch seconds; only meaningful for `event: "end"`. Past = immediate. */
+    dismissalDate?: number;
+    /** Unix epoch seconds after which the activity is considered stale. */
+    staleDate?: number;
+    priority?: number;
+  }
+): Promise<{ success: boolean; statusCode: number; reason?: string }> {
+  const token = await getAPNsToken();
+  const url = `${APNS_HOST}/3/device/${activityPushToken}`;
+  const now = Math.floor(Date.now() / 1000);
+
+  const aps: Record<string, unknown> = {
+    timestamp: options.timestamp ?? now,
+    event: options.event,
+    "content-state": options.contentState,
+  };
+  if (options.event === "end") {
+    // Default to immediate dismissal so a resolved alarm clears at once.
+    aps["dismissal-date"] = options.dismissalDate ?? now;
+  }
+  if (options.staleDate != null) {
+    aps["stale-date"] = options.staleDate;
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `bearer ${token}`,
+    // Live Activity pushes target the bundle id's liveactivity push-type topic.
+    "apns-topic": `${BUNDLE_ID}.push-type.liveactivity`,
+    "apns-push-type": "liveactivity",
+    "apns-priority": String(options.priority ?? 10),
+    "Content-Type": "application/json",
+  };
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ aps }),
+  });
+
+  if (response.ok) {
+    return { success: true, statusCode: response.status };
+  }
+
+  const errorBody = await response.json().catch(() => ({}));
+  return {
+    success: false,
+    statusCode: response.status,
+    reason: (errorBody as Record<string, string>).reason || "Unknown error",
+  };
+}
+
 export function buildCheckinPayload(
   receiverName: string,
   requestId: string,

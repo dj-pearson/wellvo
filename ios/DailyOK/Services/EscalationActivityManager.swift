@@ -58,6 +58,9 @@ enum EscalationActivityManager {
             return
         }
 
+        // Keep the push-to-start token mirrored to the backend (US-IOS127).
+        LiveActivityTokenService.shared.startObservingPushToStartToken()
+
         let escalating = escalatingCards(from: cards)
         let escalatingIds = Set(escalating.map { $0.id.uuidString })
 
@@ -88,6 +91,9 @@ enum EscalationActivityManager {
             )
 
             if let existing {
+                // Ensure we mirror this activity's push token even if it was
+                // started in a previous app session (US-IOS127).
+                LiveActivityTokenService.shared.track(existing)
                 // Only push an update when something actually changed — avoids
                 // redundant ActivityKit churn on every (frequent) dashboard reload.
                 guard existing.content.state != state else { continue }
@@ -103,10 +109,15 @@ enum EscalationActivityManager {
                     // Synchronous throwing API — surface failures (e.g. exceeding
                     // the system Live Activity cap) instead of silently dropping
                     // them so the owner isn't left thinking escalation is visible.
-                    _ = try Activity.request(
+                    // Request a push token (.token) so the backend can end this
+                    // activity when the escalation resolves while the app is
+                    // closed (US-IOS127).
+                    let activity = try Activity.request(
                         attributes: attributes,
-                        content: ActivityContent(state: state, staleDate: staleDate(after: dueSince))
+                        content: ActivityContent(state: state, staleDate: staleDate(after: dueSince)),
+                        pushType: .token
                     )
+                    LiveActivityTokenService.shared.track(activity)
                 } catch {
                     Log.general.error("Failed to start escalation Live Activity: \(error.localizedDescription, privacy: .public)")
                 }
