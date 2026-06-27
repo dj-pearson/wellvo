@@ -165,8 +165,9 @@ struct CheckInTrendChartView: View {
         let bucketCount = max(1, days / bucketSize)
 
         var points: [DataPoint] = []
+        // Locale-aware axis labels: weekday for week views, month/day otherwise (US-IOS044).
         let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = days <= 7 ? "EEE" : "M/d"
+        dateFormatter.setLocalizedDateFormatFromTemplate(days <= 7 ? "EEE" : "Md")
         dateFormatter.timeZone = calendar.timeZone
 
         for bucket in 0..<bucketCount {

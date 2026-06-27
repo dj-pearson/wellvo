@@ -373,7 +373,10 @@ struct FirstReceiverWalkthroughView: View {
                 return
             }
 
+            // Wire format for the backend — POSIX-locked to keep the 24h "HH:mm"
+            // contract stable across user locales (US-IOS044).
             let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
             formatter.dateFormat = "HH:mm"
 
             try await FamilyService.shared.inviteReceiver(

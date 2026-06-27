@@ -211,8 +211,9 @@ struct CalendarHeatmapView: View {
         var weekCount = 0
         var offset = 0
 
+        // Locale-aware abbreviated month name (US-IOS044).
         let monthFormatter = DateFormatter()
-        monthFormatter.dateFormat = "MMM"
+        monthFormatter.setLocalizedDateFormatFromTemplate("MMM")
 
         // Number of week-columns a run of `dayCount` days occupies — round UP so a
         // partial trailing week still gets a column, otherwise month labels are

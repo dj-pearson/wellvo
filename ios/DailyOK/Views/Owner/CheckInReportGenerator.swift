@@ -161,10 +161,13 @@ struct CheckInReportGenerator {
             let rowFont = UIFont.systemFont(ofSize: 10)
             let rowAttrs: [NSAttributedString.Key: Any] = [.font: rowFont, .foregroundColor: inkPrimary]
 
+            // Locale-aware date/time in the exported report (US-IOS044).
             let dateFmt = DateFormatter()
-            dateFmt.dateFormat = "MMM d, yyyy"
+            dateFmt.dateStyle = .medium
+            dateFmt.timeStyle = .none
             let timeFmt = DateFormatter()
-            timeFmt.dateFormat = "h:mm a"
+            timeFmt.dateStyle = .none
+            timeFmt.timeStyle = .short
 
             for checkIn in data.checkIns.sorted(by: { $0.checkedInAt > $1.checkedInAt }) {
                 if yPosition > pageHeight - margin - 30 {

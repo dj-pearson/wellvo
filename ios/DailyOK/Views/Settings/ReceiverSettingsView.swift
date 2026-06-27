@@ -66,8 +66,11 @@ struct ReceiverSettingsView: View {
         return s.hour != e.hour || s.minute != e.minute
     }
 
+    // Wire format for backend payloads (check-in time, weekend time, quiet hours).
+    // POSIX-locked so the 24h "HH:mm" contract is stable across user locales (US-IOS044).
     private let timeFormatter: DateFormatter = {
         let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "HH:mm"
         return f
     }()
@@ -479,8 +482,10 @@ struct ReceiverSettingsView: View {
 
             settings = loaded
 
-            // Parse time string to Date
+            // Parse wire-format time strings from the backend. POSIX-locked so
+            // parsing the fixed 24h format never fails under a user locale (US-IOS044).
             let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
             formatter.dateFormat = "HH:mm:ss"
             if let time = formatter.date(from: loaded.checkinTime) {
                 checkinTime = time

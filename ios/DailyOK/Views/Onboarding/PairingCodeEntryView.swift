@@ -240,10 +240,15 @@ struct PairingCodeEntryView: View {
     }
 
     private func formatCheckinTime(_ time: String) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        guard let date = formatter.date(from: time) else { return time }
-        formatter.dateFormat = "h:mm a"
-        return formatter.string(from: date)
+        // `time` is the wire format "HH:mm" — parse with a fixed POSIX formatter,
+        // then render locale-aware short time for display (US-IOS044).
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.dateFormat = "HH:mm"
+        guard let date = parser.date(from: time) else { return time }
+        let display = DateFormatter()
+        display.timeStyle = .short
+        display.dateStyle = .none
+        return display.string(from: date)
     }
 }

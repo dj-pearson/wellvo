@@ -94,7 +94,10 @@ final class OnboardingViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
+        // Wire format for the backend — POSIX-locked so user region settings can't
+        // alter the 24h "HH:mm" contract (e.g. Arabic-Indic digits) — US-IOS044.
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "HH:mm"
         let timeString = formatter.string(from: checkinTime)
 

@@ -1492,3 +1492,33 @@ Investigated but intentionally NOT changed: FamilyService.getFamily caching
 (perf) — family.max_receivers/free_tier_expires_at gate subscription access and
 change via the purchase webhook, so a stale cache could block a just-purchased
 feature; not safe to do blind. Left as a future profiling-gated item.
+
+------------------------------------------------------------------------
+US-IOS044 localization slice (branch claude/ios044-localization) [2026-06-26]
+------------------------------------------------------------------------
+Locale-aware date/number formatting (AC#3) — DONE. Split every user-facing
+DateFormatter into two intents:
+  - DISPLAY formatters now locale-aware: DashboardViewModel avg check-in time
+    (timeStyle .short), CalendarHeatmapView month labels and CheckInTrendChartView
+    axes (setLocalizedDateFormatFromTemplate), CheckInReportGenerator PDF
+    dates/times (dateStyle/timeStyle), and the onboarding check-in-time display
+    helpers in PairingCodeEntryView/ReceiverOnboardingView (timeStyle .short).
+  - WIRE formatters POSIX-locked (en_US_POSIX) to protect the backend HH:mm
+    contract: invite checkinTime in OnboardingViewModel, FirstReceiverWalkthrough,
+    FamilyView; the parse helpers in PairingCodeEntry/ReceiverOnboarding; and the
+    ReceiverSettings timeFormatter + load parser (checkin/weekend/quiet-hours).
+  - ISO8601 formatters and HealthService yyyy-MM-dd left as-is (already wire/POSIX).
+
+String Catalog infrastructure (AC#1 foundation) — DONE. Added
+ios/DailyOK/Localizable.xcstrings and registered it in the pbxproj the same way
+Assets.xcassets is (file ref text.json.xcstrings + build file + main-app group +
+main-app Resources phase). Set LOCALIZATION_PREFERS_STRING_CATALOGS=YES on both
+main-app configs; SWIFT_EMIT_LOC_STRINGS was already YES. With the catalog
+present, every SwiftUI Text("...") literal auto-localizes and is extracted on build.
+
+Kept passes:false. Remaining for a follow-up iteration: (1) wrap non-Text
+user-facing String literals (errorMessage assignments, alert strings,
+accessibility-label Strings) in String(localized:) so they extract into the
+catalog; (2) AC#4 pseudolocalization clipping pass — requires the Xcode GUI
+(Scheme > Run > App Language: Double-Length / Accented Pseudolanguage), cannot
+be run in this headless environment.
