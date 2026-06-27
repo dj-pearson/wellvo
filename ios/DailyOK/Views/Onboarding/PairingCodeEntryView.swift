@@ -187,7 +187,7 @@ struct PairingCodeEntryView: View {
         // Honor an active, persisted lockout.
         if let lockoutEnd = lockoutUntil, Date() < lockoutEnd {
             let remaining = Int(lockoutEnd.timeIntervalSinceNow / 60) + 1
-            errorMessage = "Too many failed attempts. Try again in \(remaining) minute\(remaining == 1 ? "" : "s")."
+            errorMessage = String(localized: "Too many failed attempts. Try again in \(remaining) minute\(remaining == 1 ? "" : "s").")
             return
         }
         // A lapsed lockout resets the counter for a fresh run of attempts.
@@ -214,9 +214,9 @@ struct PairingCodeEntryView: View {
                 failedAttempts += 1
                 if failedAttempts >= 10 {
                     lockoutUntilEpoch = Date().addingTimeInterval(15 * 60).timeIntervalSince1970
-                    errorMessage = "Too many failed attempts. Try again in 15 minutes."
+                    errorMessage = String(localized: "Too many failed attempts. Try again in 15 minutes.")
                 } else {
-                    errorMessage = "\(error) (\(10 - failedAttempts) attempts remaining)"
+                    errorMessage = String(localized: "\(error) (\(10 - failedAttempts) attempts remaining)")
                 }
             } else if response.success == true {
                 failedAttempts = 0
@@ -230,10 +230,10 @@ struct PairingCodeEntryView: View {
                     withAnimation { joinedSuccessfully = true }
                 }
             } else {
-                errorMessage = "Something went wrong. Please try again."
+                errorMessage = String(localized: "Something went wrong. Please try again.")
             }
         } catch {
-            errorMessage = "Could not connect. Please check your internet and try again."
+            errorMessage = String(localized: "Could not connect. Please check your internet and try again.")
         }
 
         isSubmitting = false

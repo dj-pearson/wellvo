@@ -265,7 +265,7 @@ struct FamilyView: View {
             )
             DailyOKHaptics.success()
             let name = member.user?.displayName ?? "them"
-            UIAccessibility.post(notification: .announcement, argument: "Invite re-sent to \(name)")
+            UIAccessibility.post(notification: .announcement, argument: String(localized: "Invite re-sent to \(name)"))
             withAnimation { resendToast = "Invite re-sent to \(name)" }
             try? await Task.sleep(nanoseconds: 2_500_000_000)
             withAnimation { resendToast = nil }
@@ -579,7 +579,7 @@ struct InviteReceiverSheet: View {
 
     private func sendInvite() async {
         guard let family = try? await FamilyService.shared.getFamily() else {
-            errorMessage = "Family not found"
+            errorMessage = String(localized: "Family not found")
             return
         }
 

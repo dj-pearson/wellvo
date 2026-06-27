@@ -131,7 +131,7 @@ struct CaregiverDigestView: View {
                 .execute()
 
             DailyOKHaptics.success()
-            UIAccessibility.post(notification: .announcement, argument: "Digest settings saved")
+            UIAccessibility.post(notification: .announcement, argument: String(localized: "Digest settings saved"))
             withAnimation { showSaved = true }
             try? await Task.sleep(for: .seconds(1.5))
             withAnimation { showSaved = false }
@@ -139,7 +139,7 @@ struct CaregiverDigestView: View {
             Log.settings.error("Failed to save digest prefs: \(error.localizedDescription, privacy: .public)")
             DailyOKHaptics.error()
             errorMessage = DailyOKError.network(error).localizedDescription
-            UIAccessibility.post(notification: .announcement, argument: "Couldn't save digest settings")
+            UIAccessibility.post(notification: .announcement, argument: String(localized: "Couldn't save digest settings"))
         }
     }
 }

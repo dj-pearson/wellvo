@@ -78,7 +78,7 @@ struct CelebrationOverlay: View {
                         }
                     }
                     // Announce for VoiceOver users, who may never have the element focused.
-                    UIAccessibility.post(notification: .announcement, argument: "Success")
+                    UIAccessibility.post(notification: .announcement, argument: String(localized: "Success"))
 
                     // Cancellable auto-dismiss: bail if the overlay was hidden early
                     // so we don't mutate state or call onComplete on a torn-down view.

@@ -46,11 +46,11 @@ final class OnboardingViewModel: ObservableObject {
     func createFamily() async {
         let trimmed = familyName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            errorMessage = "Please enter a family name"
+            errorMessage = String(localized: "Please enter a family name")
             return
         }
         guard trimmed.count <= 100 else {
-            errorMessage = "Family name must be 100 characters or fewer"
+            errorMessage = String(localized: "Family name must be 100 characters or fewer")
             return
         }
         familyName = trimmed
@@ -77,16 +77,16 @@ final class OnboardingViewModel: ObservableObject {
 
     func inviteReceiver() async {
         guard let family = createdFamily else {
-            errorMessage = "Please fill in all fields"
+            errorMessage = String(localized: "Please fill in all fields")
             return
         }
         let trimmedName = receiverName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else {
-            errorMessage = "Please enter their name"
+            errorMessage = String(localized: "Please enter their name")
             return
         }
         guard receiverPhone.filter(\.isNumber).count >= 10 else {
-            errorMessage = "Please enter a valid phone number"
+            errorMessage = String(localized: "Please enter a valid phone number")
             return
         }
         receiverName = trimmedName

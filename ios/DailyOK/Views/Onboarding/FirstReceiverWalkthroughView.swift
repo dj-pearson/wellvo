@@ -369,7 +369,7 @@ struct FirstReceiverWalkthroughView: View {
 
         do {
             guard let family = try await FamilyService.shared.getFamily() else {
-                errorMessage = "Couldn't find your family. Try restarting the app."
+                errorMessage = String(localized: "Couldn't find your family. Try restarting the app.")
                 return
             }
 

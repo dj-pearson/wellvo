@@ -147,7 +147,7 @@ final class AuthViewModel: ObservableObject {
             // non-cryptographic UUID nonce. Leaving currentRawNonce nil makes the
             // result handler reject the credential and ask the user to retry.
             currentRawNonce = nil
-            errorMessage = "Couldn't start a secure sign-in. Please try again."
+            errorMessage = String(localized: "Couldn't start a secure sign-in. Please try again.")
             return
         }
         currentRawNonce = rawNonce
@@ -181,12 +181,12 @@ final class AuthViewModel: ObservableObject {
         switch result {
         case .success(let authorization):
             guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-                errorMessage = "Invalid Apple credential"
+                errorMessage = String(localized: "Invalid Apple credential")
                 isLoading = false
                 return
             }
             guard let rawNonce = currentRawNonce else {
-                errorMessage = "Sign-in security check failed. Please try again."
+                errorMessage = String(localized: "Sign-in security check failed. Please try again.")
                 isLoading = false
                 return
             }
@@ -226,7 +226,7 @@ final class AuthViewModel: ObservableObject {
         request.requestedScopes = [.email]
         guard let rawNonce = Self.randomNonceString() else {
             currentRawNonce = nil
-            linkAppleMessage = "Couldn't start a secure sign-in. Please try again."
+            linkAppleMessage = String(localized: "Couldn't start a secure sign-in. Please try again.")
             return
         }
         currentRawNonce = rawNonce
@@ -241,12 +241,12 @@ final class AuthViewModel: ObservableObject {
         switch result {
         case .success(let authorization):
             guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-                linkAppleMessage = "Invalid Apple credential"
+                linkAppleMessage = String(localized: "Invalid Apple credential")
                 isLinkingApple = false
                 return
             }
             guard let rawNonce = currentRawNonce else {
-                linkAppleMessage = "Security check failed. Please try again."
+                linkAppleMessage = String(localized: "Security check failed. Please try again.")
                 isLinkingApple = false
                 return
             }
@@ -254,7 +254,7 @@ final class AuthViewModel: ObservableObject {
                 try await AuthService.shared.linkAppleID(credential: credential, rawNonce: rawNonce)
                 currentRawNonce = nil
                 hasLinkedApple = true
-                linkAppleMessage = "Apple ID linked successfully!"
+                linkAppleMessage = String(localized: "Apple ID linked successfully!")
             } catch {
                 linkAppleMessage = error.localizedDescription
             }
@@ -272,7 +272,7 @@ final class AuthViewModel: ObservableObject {
 
     func signInWithEmail() async {
         guard !email.isEmpty, !password.isEmpty else {
-            errorMessage = "Please fill in all fields"
+            errorMessage = String(localized: "Please fill in all fields")
             return
         }
         guard !isLockedOut() else { return }
@@ -307,15 +307,15 @@ final class AuthViewModel: ObservableObject {
 
     func signUpWithEmail() async {
         guard !email.isEmpty, !password.isEmpty, !displayName.isEmpty else {
-            errorMessage = "Please fill in all fields"
+            errorMessage = String(localized: "Please fill in all fields")
             return
         }
         guard isValidEmail(email) else {
-            errorMessage = "Please enter a valid email address"
+            errorMessage = String(localized: "Please enter a valid email address")
             return
         }
         guard passwordMeetsPolicy else {
-            errorMessage = "Password must be 10+ characters with an uppercase letter, a lowercase letter, and a number."
+            errorMessage = String(localized: "Password must be 10+ characters with an uppercase letter, a lowercase letter, and a number.")
             return
         }
         guard !isLockedOut() else { return }
@@ -347,7 +347,7 @@ final class AuthViewModel: ObservableObject {
     func sendPhoneOTP() async {
         let cleaned = phoneNumber.filter(\.isNumber)
         guard cleaned.count >= 10 else {
-            errorMessage = "Please enter a valid phone number"
+            errorMessage = String(localized: "Please enter a valid phone number")
             return
         }
         guard !isLockedOut() else { return }
@@ -361,7 +361,7 @@ final class AuthViewModel: ObservableObject {
             otpVerifyAttempts = 0
             startResendCooldown()
         } catch {
-            errorMessage = "Could not send verification code. Please try again."
+            errorMessage = String(localized: "Could not send verification code. Please try again.")
             recordFailedAttempt()
         }
 
@@ -388,14 +388,14 @@ final class AuthViewModel: ObservableObject {
 
     func verifyPhoneOTP() async {
         guard otpCode.count == 6 else {
-            errorMessage = "Please enter the 6-digit code"
+            errorMessage = String(localized: "Please enter the 6-digit code")
             return
         }
         guard !isLockedOut() else { return }
 
         otpVerifyAttempts += 1
         if otpVerifyAttempts > Self.maxOTPAttempts {
-            errorMessage = "Too many attempts. Please request a new code."
+            errorMessage = String(localized: "Too many attempts. Please request a new code.")
             isAwaitingOTP = false
             otpCode = ""
             otpVerifyAttempts = 0
@@ -412,7 +412,7 @@ final class AuthViewModel: ObservableObject {
             clearFormFields()
             await checkBiometricSetupPrompt()
         } catch {
-            errorMessage = "Invalid code. Please try again. (\(Self.maxOTPAttempts - otpVerifyAttempts) attempts remaining)"
+            errorMessage = String(localized: "Invalid code. Please try again. (\(Self.maxOTPAttempts - otpVerifyAttempts) attempts remaining)")
             otpCode = ""
             recordFailedAttempt()
         }
@@ -424,13 +424,13 @@ final class AuthViewModel: ObservableObject {
 
     func sendPasswordReset() async {
         guard !email.isEmpty else {
-            errorMessage = "Please enter your email address"
+            errorMessage = String(localized: "Please enter your email address")
             return
         }
         guard isValidEmail(email) else {
             // Don't show the "link sent" success for an obviously-wrong address —
             // the user would wait for an email that can never arrive.
-            errorMessage = "Please enter a valid email address"
+            errorMessage = String(localized: "Please enter a valid email address")
             return
         }
 
@@ -441,10 +441,10 @@ final class AuthViewModel: ObservableObject {
         do {
             try await AuthService.shared.resetPassword(email: email)
             // Always show same message to avoid user enumeration
-            resetPasswordMessage = "If an account exists with that email, you'll receive a password reset link."
+            resetPasswordMessage = String(localized: "If an account exists with that email, you'll receive a password reset link.")
         } catch {
             // Don't reveal whether the email exists
-            resetPasswordMessage = "If an account exists with that email, you'll receive a password reset link."
+            resetPasswordMessage = String(localized: "If an account exists with that email, you'll receive a password reset link.")
         }
 
         isResettingPassword = false
@@ -521,7 +521,7 @@ final class AuthViewModel: ObservableObject {
         let isValid = await AuthService.shared.checkAppleCredentialStatus()
         if !isValid {
             await signOut()
-            errorMessage = "Your Apple ID access was revoked. Please sign in again."
+            errorMessage = String(localized: "Your Apple ID access was revoked. Please sign in again.")
         }
     }
 
@@ -534,7 +534,7 @@ final class AuthViewModel: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor in
                 await self?.signOut()
-                self?.errorMessage = "Your Apple ID access was revoked. Please sign in again."
+                self?.errorMessage = String(localized: "Your Apple ID access was revoked. Please sign in again.")
             }
         }
     }
@@ -593,7 +593,7 @@ final class AuthViewModel: ObservableObject {
                     break
                 }
                 authLockoutSecondsRemaining = remaining
-                authLockoutMessage = "Too many failed attempts. Try again in \(remaining)s."
+                authLockoutMessage = String(localized: "Too many failed attempts. Try again in \(remaining)s.")
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
         }

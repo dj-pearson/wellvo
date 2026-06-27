@@ -581,7 +581,7 @@ struct ReceiverStatusCardView: View {
                         if sent {
                             checkOnState = .sent
                             DailyOKHaptics.success()
-                            UIAccessibility.post(notification: .announcement, argument: "Request sent to \(card.name)")
+                            UIAccessibility.post(notification: .announcement, argument: String(localized: "Request sent to \(card.name)"))
                             try? await Task.sleep(nanoseconds: 2_500_000_000)
                             checkOnState = .idle
                         } else {

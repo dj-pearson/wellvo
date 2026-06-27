@@ -296,7 +296,7 @@ struct ReceiverOnboardingView: View {
             errorMessage = nil
             joinFailed = false
         } catch {
-            errorMessage = "Could not join family. The invite may have expired."
+            errorMessage = String(localized: "Could not join family. The invite may have expired.")
             joinFailed = true
         }
         isProcessing = false

@@ -1522,3 +1522,35 @@ accessibility-label Strings) in String(localized:) so they extract into the
 catalog; (2) AC#4 pseudolocalization clipping pass — requires the Xcode GUI
 (Scheme > Run > App Language: Double-Length / Accented Pseudolanguage), cannot
 be run in this headless environment.
+
+------------------------------------------------------------------------
+US-IOS044 string-literal wrapping slice (branch claude/ios044-localization) [2026-06-26b]
+------------------------------------------------------------------------
+AC#1 string-catalog migration now CODE-COMPLETE. Wrapped every displayed
+non-Text user-facing String literal in String(localized:) so the catalog
+extractor picks it up — 56 sites across 13 files:
+  - AuthViewModel: errorMessage / linkAppleMessage / resetPasswordMessage /
+    authLockoutMessage assignments, including the interpolated OTP-attempts and
+    lockout-countdown strings.
+  - OnboardingViewModel: createFamily / inviteReceiver validation errors.
+  - PairingCodeEntryView: lockout + attempts-remaining + connection errors.
+  - SubscriptionService: load/pending/restore/sync-pending errorMessages.
+  - SettingsView: purchase-failed error.
+  - DailyOKError.errorDescription: network / notFound / serverError / offline cases.
+  - All UIAccessibility.post(.announcement, argument:) VoiceOver strings across
+    SettingsView, ReceiverSettingsView, CaregiverDigestView, CelebrationOverlay,
+    FamilyView, DashboardView.
+
+Why only these: SwiftUI Text("...") and .accessibilityLabel/Hint/Value("...")
+literals already bind the LocalizedStringKey overload and auto-extract into the
+catalog — no change needed. Only String-typed values that reach the UI through
+Text's *verbatim* (non-localizing) String overload, plus the announcement
+argument: Any? sink, had to be wrapped at the source. error.localizedDescription
+assignments were left alone (already-localized system/server text).
+
+AC#1 (catalog migration), AC#2 (Product.displayPrice), AC#3 (locale-aware
+formatters) are all code-complete. KEPT passes:false — AC#4 (pseudolocalization
+clipping pass) is GUI-only: Xcode Scheme > Run > App Language: Accented /
+Double-Length Pseudolanguage, then visually confirm no clipped layouts. Cannot
+be run or verified headlessly. This is the SOLE remaining gate; a human flips it
+to true after the pseudoloc pass.
