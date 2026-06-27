@@ -73,7 +73,7 @@ final class SubscriptionService: ObservableObject {
             products = try await Product.products(for: ProductIDs.all)
                 .sorted { $0.price < $1.price }
         } catch {
-            errorMessage = "Failed to load subscription options."
+            errorMessage = String(localized: "Failed to load subscription options.")
             Log.subscription.error("Failed to load products: \(error.localizedDescription, privacy: .public)")
         }
         isLoading = false
@@ -166,7 +166,7 @@ final class SubscriptionService: ObservableObject {
             return nil
 
         case .pending:
-            errorMessage = "Purchase is pending approval."
+            errorMessage = String(localized: "Purchase is pending approval.")
             return nil
 
         @unknown default:
@@ -202,7 +202,7 @@ final class SubscriptionService: ObservableObject {
         do {
             try await AppStore.sync()
         } catch {
-            errorMessage = "Failed to restore purchases."
+            errorMessage = String(localized: "Failed to restore purchases.")
         }
         await updatePurchasedProducts()
         // Restore must also re-provision the backend: a reinstalled user has a
@@ -352,7 +352,7 @@ final class SubscriptionService: ObservableObject {
                 await syncSubscriptionToBackend(transaction, attempt: attempt + 1)
             } else {
                 Log.subscription.error("Failed to sync subscription after \(maxRetries, privacy: .public) attempts: \(error.localizedDescription, privacy: .public)")
-                errorMessage = "Subscription activated but sync pending. It will retry automatically."
+                errorMessage = String(localized: "Subscription activated but sync pending. It will retry automatically.")
             }
         }
     }

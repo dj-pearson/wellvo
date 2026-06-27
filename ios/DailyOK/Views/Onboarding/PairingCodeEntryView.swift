@@ -187,7 +187,7 @@ struct PairingCodeEntryView: View {
         // Honor an active, persisted lockout.
         if let lockoutEnd = lockoutUntil, Date() < lockoutEnd {
             let remaining = Int(lockoutEnd.timeIntervalSinceNow / 60) + 1
-            errorMessage = "Too many failed attempts. Try again in \(remaining) minute\(remaining == 1 ? "" : "s")."
+            errorMessage = String(localized: "Too many failed attempts. Try again in \(remaining) minute\(remaining == 1 ? "" : "s").")
             return
         }
         // A lapsed lockout resets the counter for a fresh run of attempts.
@@ -214,9 +214,9 @@ struct PairingCodeEntryView: View {
                 failedAttempts += 1
                 if failedAttempts >= 10 {
                     lockoutUntilEpoch = Date().addingTimeInterval(15 * 60).timeIntervalSince1970
-                    errorMessage = "Too many failed attempts. Try again in 15 minutes."
+                    errorMessage = String(localized: "Too many failed attempts. Try again in 15 minutes.")
                 } else {
-                    errorMessage = "\(error) (\(10 - failedAttempts) attempts remaining)"
+                    errorMessage = String(localized: "\(error) (\(10 - failedAttempts) attempts remaining)")
                 }
             } else if response.success == true {
                 failedAttempts = 0
@@ -230,20 +230,25 @@ struct PairingCodeEntryView: View {
                     withAnimation { joinedSuccessfully = true }
                 }
             } else {
-                errorMessage = "Something went wrong. Please try again."
+                errorMessage = String(localized: "Something went wrong. Please try again.")
             }
         } catch {
-            errorMessage = "Could not connect. Please check your internet and try again."
+            errorMessage = String(localized: "Could not connect. Please check your internet and try again.")
         }
 
         isSubmitting = false
     }
 
     private func formatCheckinTime(_ time: String) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        guard let date = formatter.date(from: time) else { return time }
-        formatter.dateFormat = "h:mm a"
-        return formatter.string(from: date)
+        // `time` is the wire format "HH:mm" — parse with a fixed POSIX formatter,
+        // then render locale-aware short time for display (US-IOS044).
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.dateFormat = "HH:mm"
+        guard let date = parser.date(from: time) else { return time }
+        let display = DateFormatter()
+        display.timeStyle = .short
+        display.dateStyle = .none
+        return display.string(from: date)
     }
 }

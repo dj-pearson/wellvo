@@ -440,7 +440,7 @@ struct DataRetentionView: View {
                 .execute()
 
             DailyOKHaptics.success()
-            UIAccessibility.post(notification: .announcement, argument: "Saved")
+            UIAccessibility.post(notification: .announcement, argument: String(localized: "Saved"))
             withAnimation {
                 showSaved = true
             }
@@ -452,7 +452,7 @@ struct DataRetentionView: View {
             Log.settings.error("Failed to save retention: \(error.localizedDescription, privacy: .public)")
             DailyOKHaptics.error()
             errorMessage = DailyOKError.network(error).localizedDescription
-            UIAccessibility.post(notification: .announcement, argument: "Couldn't save data retention")
+            UIAccessibility.post(notification: .announcement, argument: String(localized: "Couldn't save data retention"))
         }
     }
 }
@@ -651,7 +651,7 @@ struct SubscriptionView: View {
         do {
             _ = try await subscriptionService.purchase(product)
         } catch {
-            subscriptionService.errorMessage = "Purchase couldn't be completed. Please try again."
+            subscriptionService.errorMessage = String(localized: "Purchase couldn't be completed. Please try again.")
             Log.subscription.error("Purchase failed: \(error.localizedDescription, privacy: .public)")
         }
         // Surface any message the service set (failure, pending, sync-pending).

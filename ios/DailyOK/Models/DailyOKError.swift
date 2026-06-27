@@ -13,15 +13,15 @@ enum DailyOKError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .network(let error):
-            return "Network error: \(error.localizedDescription)"
+            return String(localized: "Network error: \(error.localizedDescription)")
         case .auth(let message):
             return message
         case .notFound(let resource):
-            return "\(resource) not found."
+            return String(localized: "\(resource) not found.")
         case .serverError(let message):
-            return "Server error: \(message)"
+            return String(localized: "Server error: \(message)")
         case .offline:
-            return "You appear to be offline. Your action will be completed when you reconnect."
+            return String(localized: "You appear to be offline. Your action will be completed when you reconnect.")
         case .unknown(let error):
             return error.localizedDescription
         }

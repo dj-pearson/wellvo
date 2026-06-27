@@ -66,8 +66,11 @@ struct ReceiverSettingsView: View {
         return s.hour != e.hour || s.minute != e.minute
     }
 
+    // Wire format for backend payloads (check-in time, weekend time, quiet hours).
+    // POSIX-locked so the 24h "HH:mm" contract is stable across user locales (US-IOS044).
     private let timeFormatter: DateFormatter = {
         let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "HH:mm"
         return f
     }()
@@ -479,8 +482,10 @@ struct ReceiverSettingsView: View {
 
             settings = loaded
 
-            // Parse time string to Date
+            // Parse wire-format time strings from the backend. POSIX-locked so
+            // parsing the fixed 24h format never fails under a user locale (US-IOS044).
             let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
             formatter.dateFormat = "HH:mm:ss"
             if let time = formatter.date(from: loaded.checkinTime) {
                 checkinTime = time
@@ -548,9 +553,9 @@ struct ReceiverSettingsView: View {
         // `?? false` semantics buildCustomSchedule actually persists.)
         if scheduleType == .custom,
            !DaySchedule.allDays.contains(where: { dayEnabled[$0.key] ?? false }) {
-            errorMessage = "Turn on at least one day — otherwise this person will never get a check-in request."
+            errorMessage = String(localized: "Turn on at least one day — otherwise this person will never get a check-in request.")
             DailyOKHaptics.error()
-            UIAccessibility.post(notification: .announcement, argument: "Select at least one check-in day")
+            UIAccessibility.post(notification: .announcement, argument: String(localized: "Select at least one check-in day"))
             return
         }
 
@@ -609,7 +614,7 @@ struct ReceiverSettingsView: View {
             // Confirm the save for sighted, haptic, AND VoiceOver users — the
             // green capsule alone is invisible to VoiceOver.
             DailyOKHaptics.success()
-            UIAccessibility.post(notification: .announcement, argument: "Settings saved")
+            UIAccessibility.post(notification: .announcement, argument: String(localized: "Settings saved"))
             if reduceMotion {
                 showSavedConfirmation = true
             } else {
@@ -624,7 +629,7 @@ struct ReceiverSettingsView: View {
         } catch {
             errorMessage = DailyOKError.network(error).localizedDescription
             DailyOKHaptics.error()
-            UIAccessibility.post(notification: .announcement, argument: "Couldn't save settings")
+            UIAccessibility.post(notification: .announcement, argument: String(localized: "Couldn't save settings"))
         }
 
         isSaving = false

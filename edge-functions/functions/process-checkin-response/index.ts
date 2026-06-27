@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification } from "../../shared/apns.ts";
+import { endEscalationLiveActivities } from "../../shared/live-activity.ts";
 import { sendFCMNotification, buildFCMAlertPayload } from "../../shared/fcm.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID, validateLocationFields, sanitizeDisplayName, truncateString, coerceNumericFields } from "../../shared/validation.ts";
@@ -543,6 +544,11 @@ async function markRequestsAndRespond(
     .eq("receiver_id", receiverId)
     .eq("family_id", familyId)
     .eq("status", "pending");
+
+  // The escalation is resolved — end any running owner Live Activity now so a
+  // closed-app owner's Lock Screen stops showing a stale "Overdue" timer
+  // (US-IOS127). Best-effort; never blocks/fails the check-in response.
+  await endEscalationLiveActivities(familyId, receiverId);
 
   return new Response(
     JSON.stringify({ success: true, checkin: checkIn }),

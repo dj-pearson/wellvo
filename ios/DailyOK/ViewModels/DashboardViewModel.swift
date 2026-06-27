@@ -563,8 +563,10 @@ final class DashboardViewModel: ObservableObject {
         if let avgMinutes = avgCheckInMinutes {
             let hour = avgMinutes / 60
             let minute = avgMinutes % 60
+            // Locale-aware short time (12h in en_US, 24h in e.g. fr_FR) — US-IOS044.
             let formatter = DateFormatter()
-            formatter.dateFormat = "h:mm a"
+            formatter.timeStyle = .short
+            formatter.dateStyle = .none
             var components = DateComponents()
             components.hour = hour
             components.minute = minute
