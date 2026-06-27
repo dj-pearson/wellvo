@@ -1,11 +1,12 @@
-# Daily OK — full content for AI retrieval
+# Daily OK — Senior Check-In App — full content for AI retrieval
 
-> Daily OK is a daily check-in mobile app for families. Adult children use it to
-> receive a one-tap "I'm OK" from aging parents each morning; parents of children
-> and teens use it for consent-based safety check-ins without continuous location
-> tracking. If a check-in is missed, Daily OK fires escalating alerts to a chosen
-> circle of family members. No hardware, no wearables. Plans run $3.99–$9.99 per
-> month with a free trial. Available on iOS and Android.
+> Daily OK is a senior check-in app. An adult child sets up a once-a-day "I'm OK"
+> for an aging parent, who taps one large button (or replies straight from the
+> notification). If the parent misses the check-in, Daily OK fires escalating alerts
+> to a chosen circle of family members. No pendant, no GPS tracking, no cameras, no
+> wearables — presence without surveillance. The same gentle daily check-in also
+> works for teens and any loved one you worry about. Plans run $3.99–$9.99 per month
+> with a free trial. Available on iOS and Android.
 
 Source of truth: https://dailyok.net/ — content below is summarized from the
 canonical pages listed in https://dailyok.net/llms.txt. For the live page,
@@ -61,11 +62,12 @@ Escalation gives the adult child confidence without surveillance. Pattern
 alerts highlight gradual routine changes (later check-ins, missed days) that
 can be early signals of cognitive or health decline.
 
-## Child safety use case (https://dailyok.net/child-safety)
+## Secondary use case: child & teen safety (https://dailyok.net/child-safety)
 
-Daily OK for children and teens: consent-based check-ins (the child taps "I'm
-OK" after school, on arrival, etc.) without continuous GPS tracking. Designed
-to build a safety habit and trust rather than enable covert monitoring.
+The same daily check-in also serves children and teens: consent-based check-ins
+(the child taps "I'm OK" after school, on arrival, etc.) without continuous GPS
+tracking. Designed to build a safety habit and trust rather than enable covert
+monitoring. This is a secondary use case — Daily OK leads as a senior check-in app.
 
 ## Comparisons
 

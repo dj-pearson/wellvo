@@ -3,6 +3,8 @@ import { Helmet } from 'react-helmet-async'
 const APP_STORE_URL = 'https://apps.apple.com/us/app/dailyok-daily-check-in/id6760836697'
 const SITE_URL = 'https://dailyok.net'
 const DEFAULT_IMAGE = `${SITE_URL}/og-image.png`
+const DEFAULT_IMAGE_ALT =
+  'Daily OK — the senior check-in app: a once-a-day "I\'m OK" from your aging parent, with alerts if they miss it.'
 
 interface SEOProps {
   title: string
@@ -37,6 +39,7 @@ export default function SEO({
       <meta property="og:type" content={ogType} />
       <meta property="og:url" content={fullUrl} />
       <meta property="og:image" content={DEFAULT_IMAGE} />
+      <meta property="og:image:alt" content={DEFAULT_IMAGE_ALT} />
       <meta property="og:site_name" content="Daily OK" />
 
       {/* Twitter */}
@@ -44,6 +47,7 @@ export default function SEO({
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={DEFAULT_IMAGE} />
+      <meta name="twitter:image:alt" content={DEFAULT_IMAGE_ALT} />
 
       {/* Structured Data */}
       {jsonLd && (

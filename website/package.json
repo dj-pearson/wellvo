@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && vike prerender && node scripts/generate-sitemap.mjs",
+    "build": "tsc -b && vite build && vike prerender && node scripts/generate-sitemap.mjs && node scripts/indexnow-ping.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",

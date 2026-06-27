@@ -1,14 +1,15 @@
-# Daily OK
+# Daily OK — Senior Check-In App
 
-> Daily OK is a daily check-in mobile app for families. Adult children use it to
-> receive a one-tap "I'm OK" from aging parents each morning; parents of children
-> and teens use it for consent-based safety check-ins without continuous location
-> tracking. If a check-in is missed, Daily OK fires escalating alerts to a chosen
-> circle of family members. No hardware, no wearables. Plans run $3.99–$9.99 per
-> month with a free trial. Available on iOS and Android.
+> Daily OK is a senior check-in app. An adult child sets up a once-a-day "I'm OK"
+> for an aging parent, who taps one large button (or replies straight from the
+> notification). If the parent misses the check-in, Daily OK fires escalating alerts
+> to a chosen circle of family members. No pendant, no GPS tracking, no cameras, no
+> wearables — presence without surveillance. The same gentle daily check-in also
+> works for teens and any loved one you worry about. Plans run $3.99–$9.99 per month
+> with a free trial. Available on iOS and Android.
 
 <!--
-Canonical 75-word product description (count verified). Until the entity-authority
+Canonical senior-led product description. Until the entity-authority
 profiles exist (Wikidata, Crunchbase, G2, Capterra), this file is the source of
 truth for the canonical description.
 TODO (marketing follow-up, tracked in pSEO.md §7): register the matching 75-word
@@ -16,15 +17,17 @@ string on Wikidata / Crunchbase / G2 / Capterra so the entity description is
 consistent across the web, then keep this block in sync.
 -->
 
-## Core pages
-- [Daily OK — home / how it works](https://dailyok.net/): What Daily OK is, the one-tap check-in flow, escalation, and who it is for.
-- [Pricing](https://dailyok.net/pricing): Caregiver ($3.99/mo), Family ($6.99/mo) and Family+ ($9.99/mo, Critical Alerts) plans, all with a 7-day free trial.
-- [Support](https://dailyok.net/support): Help, contact, and common setup questions.
-- [Elderly care use case](https://dailyok.net/elderly-care): Using Daily OK to check in on an aging parent living alone, including dementia-progression pattern alerts.
-- [Child safety use case](https://dailyok.net/child-safety): Consent-based check-ins for children and teens without continuous location tracking.
+## Core pages (senior check-in)
+- [Daily OK — home / how it works](https://dailyok.net/): What the senior check-in app is, the one-tap "I'm OK" flow, escalation, and who it is for.
 - [Check-in app for elderly](https://dailyok.net/check-in-app-for-elderly): What a daily check-in app for the elderly is and how it compares to pendants, trackers, and phone calls.
 - [Daily check-in app for seniors](https://dailyok.net/daily-check-in-app-for-seniors): How a check-in app supports aging in place and where it fits vs monitored care.
 - [Peace-of-mind app for elderly parents](https://dailyok.net/peace-of-mind-app-for-elderly-parents): The adult-child perspective — reducing caregiver worry without surveillance.
+- [Elderly care use case](https://dailyok.net/elderly-care): Using Daily OK to check in on an aging parent living alone, including dementia-progression pattern alerts.
+- [Pricing](https://dailyok.net/pricing): Caregiver ($3.99/mo), Family ($6.99/mo) and Family+ ($9.99/mo, Critical Alerts) plans, all with a 7-day free trial.
+- [Support](https://dailyok.net/support): Help, contact, and common setup questions.
+
+## Secondary use cases
+- [Child & teen safety use case](https://dailyok.net/child-safety): The same consent-based daily check-in for children and teens, without continuous location tracking.
 
 ## Comparisons
 - [Daily OK vs Life Alert](https://dailyok.net/compare/daily-ok-vs-life-alert): Daily check-in app vs medical-alert pendant — cost, hardware, escalation.

@@ -1,7 +1,7 @@
-# Daily OK — https://dailyok.net
-# AI search crawlers are explicitly welcomed: we want Daily OK to be
-# citable in ChatGPT / Claude / Perplexity / Google AI Overview answers
-# to caregiver queries. Admin / auth surfaces are excluded for every bot.
+# Daily OK — Senior Check-In App — https://dailyok.net
+# We want Daily OK cited in ChatGPT / Claude / Perplexity / Google AI Overviews /
+# Bing Copilot for senior & caregiver queries. AI + search crawlers are explicitly
+# welcomed; only admin / auth / app surfaces are excluded for every bot.
 
 User-agent: *
 Allow: /
@@ -11,23 +11,25 @@ Disallow: /account/
 Disallow: /admin
 Disallow: /admin/
 
+# --- AI assistants & AI-search crawlers (explicitly welcomed) ---
 User-agent: GPTBot
-Allow: /
-Disallow: /app/
-Disallow: /api/
-Disallow: /account/
-Disallow: /admin
-Disallow: /admin/
-
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
 User-agent: ClaudeBot
-Allow: /
-Disallow: /app/
-Disallow: /api/
-Disallow: /account/
-Disallow: /admin
-Disallow: /admin/
-
+User-agent: Claude-SearchBot
+User-agent: Claude-User
 User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: Amazonbot
+User-agent: Bytespider
+User-agent: CCBot
+User-agent: cohere-ai
+User-agent: Meta-ExternalAgent
+User-agent: Meta-ExternalFetcher
+User-agent: Diffbot
+User-agent: Timpibot
 Allow: /
 Disallow: /app/
 Disallow: /api/
@@ -35,7 +37,12 @@ Disallow: /account/
 Disallow: /admin
 Disallow: /admin/
 
-User-agent: Google-Extended
+# --- Search engine crawlers ---
+User-agent: Googlebot
+User-agent: Bingbot
+User-agent: Applebot
+User-agent: YandexBot
+User-agent: DuckDuckBot
 Allow: /
 Disallow: /app/
 Disallow: /api/
