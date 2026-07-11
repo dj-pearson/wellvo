@@ -207,8 +207,21 @@ struct PairingCodeEntryView: View {
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
         }
 
+        // The submit runs on a Task not tied to this view's lifecycle, and the
+        // backoff above can sleep up to 16s. If the user tapped Back during the
+        // wait (or the redeem below), don't submit or mutate the persisted
+        // attempt/lockout state for a screen they've already left.
+        guard appState.showPairingCodeEntry else {
+            isSubmitting = false
+            return
+        }
+
         do {
             let response = try await FamilyService.shared.redeemPairingCode(code)
+            guard appState.showPairingCodeEntry else {
+                isSubmitting = false
+                return
+            }
 
             if let error = response.error {
                 failedAttempts += 1
