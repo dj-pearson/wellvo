@@ -38,7 +38,13 @@ final class OfflineCheckInService: ObservableObject {
     // MARK: - Queue a Check-In (Offline)
 
     func queueCheckIn(familyId: UUID, receiverId: UUID, mood: Mood?, source: CheckInSource) throws {
-        guard let context = sharedContext else { return }
+        // Never treat an unpersisted check-in as "queued, will sync". If the
+        // SwiftData store failed to initialize (disk full, migration error), the
+        // old `guard let … else { return }` returned silently — the caller reported
+        // success, nothing was saved, and on reconnect there was no row to sync, so
+        // the owner escalated falsely. Recover the container if we can; otherwise
+        // throw so the failure surfaces to the user instead of vanishing.
+        let context = try ensureContext()
 
         // Per-day dedup: an anxious receiver who doesn't see immediate
         // confirmation may tap "I'm OK" several times while offline. Each tap
@@ -225,6 +231,16 @@ final class OfflineCheckInService: ObservableObject {
         }
     }
 
+    /// Raised when the offline queue's backing store can't be opened, so a failed
+    /// online check-in can't be persisted for later sync. Surfaced to the caller
+    /// instead of being swallowed.
+    enum OfflineQueueError: LocalizedError {
+        case storeUnavailable
+        var errorDescription: String? {
+            String(localized: "Couldn't save your check-in on this device. Please try again when you have a connection.")
+        }
+    }
+
     static let didSyncCheckIns = Notification.Name("OfflineCheckInService.didSyncCheckIns")
     /// Posted (on the main actor) when the network transitions from offline to
     /// online, so services holding time-sensitive state can refresh.
@@ -240,6 +256,17 @@ final class OfflineCheckInService: ObservableObject {
         } catch {
             Log.offline.error("Failed to create SwiftData container: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    /// Return the shared model context, retrying container creation once if the
+    /// initial setup at `init` failed transiently. Throws `OfflineQueueError`
+    /// rather than returning `nil` so a caller never silently drops a check-in it
+    /// believes it queued (which would falsely escalate the owner).
+    private func ensureContext() throws -> ModelContext {
+        if let context = sharedContext { return context }
+        setupModelContainer()
+        if let context = sharedContext { return context }
+        throw DailyOKError.unknown(OfflineQueueError.storeUnavailable)
     }
 
     private func startNetworkMonitoring() {

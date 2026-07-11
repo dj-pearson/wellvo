@@ -270,4 +270,108 @@ final class ModelTests: XCTestCase {
     func testNilRequestIsNotActivelyPending() {
         XCTAssertFalse(ReceiverViewModel.isActivelyPending(nil))
     }
+
+    // MARK: - Forgiving enum decode (backward compatibility)
+    //
+    // Persistent server enums must tolerate values a shipped build doesn't know
+    // (per CLAUDE.md). A newer backend value must NOT throw the whole struct
+    // decode — that previously took down the owner dashboard / receiver status.
+
+    private func iso8601Decoder() -> JSONDecoder {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .iso8601
+        return d
+    }
+
+    func testFamilyDecodesUnknownTierAndStatusWithoutThrowing() throws {
+        let json = """
+        {
+            "id": "11111111-1111-1111-1111-111111111111",
+            "name": "Test Family",
+            "owner_id": "22222222-2222-2222-2222-222222222222",
+            "subscription_tier": "galaxy_ultra",
+            "subscription_status": "paused",
+            "max_receivers": 1,
+            "max_viewers": 3,
+            "created_at": "2026-01-01T00:00:00Z"
+        }
+        """.data(using: .utf8)!
+        let family = try iso8601Decoder().decode(Family.self, from: json)
+        XCTAssertEqual(family.subscriptionTier, .free)
+        XCTAssertEqual(family.subscriptionStatus, .active)
+    }
+
+    func testFamilyMemberDecodesUnknownRoleAndStatusWithoutThrowing() throws {
+        let json = """
+        {
+            "id": "33333333-3333-3333-3333-333333333333",
+            "family_id": "44444444-4444-4444-4444-444444444444",
+            "user_id": "55555555-5555-5555-5555-555555555555",
+            "role": "superadmin",
+            "status": "pending_review"
+        }
+        """.data(using: .utf8)!
+        let member = try iso8601Decoder().decode(FamilyMember.self, from: json)
+        XCTAssertEqual(member.role, .viewer)          // fail closed to least privilege
+        XCTAssertEqual(member.status, .deactivated)   // treat unknown as not-active
+    }
+
+    func testAppUserDecodesNullTimezoneWithoutThrowing() throws {
+        let json = """
+        {
+            "id": "66666666-6666-6666-6666-666666666666",
+            "email": "test@example.com",
+            "phone": null,
+            "display_name": "Test User",
+            "role": "receiver",
+            "avatar_url": null,
+            "timezone": null,
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-03-18T00:00:00Z"
+        }
+        """.data(using: .utf8)!
+        let user = try iso8601Decoder().decode(AppUser.self, from: json)
+        XCTAssertNil(user.timezone)
+        XCTAssertEqual(user.role, .receiver)
+    }
+
+    func testCheckInRequestDecodesUnknownStatusAsExpired() throws {
+        let json = """
+        {
+            "id": "77777777-7777-7777-7777-777777777777",
+            "family_id": "88888888-8888-8888-8888-888888888888",
+            "receiver_id": "99999999-9999-9999-9999-999999999999",
+            "requested_by": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            "type": "recurring_beta",
+            "status": "acknowledged",
+            "created_at": "2026-06-10T08:00:00Z",
+            "escalation_step": 0
+        }
+        """.data(using: .utf8)!
+        let req = try iso8601Decoder().decode(CheckInRequest.self, from: json)
+        XCTAssertEqual(req.status, .expired)   // never a phantom .pending escalation
+        XCTAssertEqual(req.type, .scheduled)
+    }
+
+    func testReceiverSettingsDecodesUnknownScheduleTypeAsDaily() throws {
+        let json = """
+        {
+            "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            "family_member_id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+            "checkin_time": "08:00",
+            "timezone": "America/Chicago",
+            "grace_period_minutes": 30,
+            "reminder_interval_minutes": 15,
+            "escalation_enabled": true,
+            "quiet_hours_start": "22:00",
+            "quiet_hours_end": "07:00",
+            "mood_tracking_enabled": true,
+            "sms_escalation_enabled": false,
+            "is_active": true,
+            "schedule_type": "biweekly"
+        }
+        """.data(using: .utf8)!
+        let settings = try JSONDecoder().decode(ReceiverSettings.self, from: json)
+        XCTAssertEqual(settings.scheduleType, .daily)
+    }
 }

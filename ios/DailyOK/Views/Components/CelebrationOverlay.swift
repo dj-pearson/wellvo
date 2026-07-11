@@ -62,14 +62,20 @@ struct CelebrationOverlay: View {
                 .accessibilityAddTraits(.isStaticText)
                 .accessibilityLabel("Success")
                 .onAppear {
-                    if !reduceMotion {
-                        confettiPieces = ConfettiPiece.spawn(count: 36)
-                    }
-                    withAnimation(DailyOKMotion.bouncySpring) {
+                    if reduceMotion {
+                        // Honor the documented contract: a static reveal, no
+                        // bounce/scale, for users who enabled Reduce Motion to
+                        // avoid vestibular discomfort. (The entrance spring and
+                        // the 1.2x dismiss scale below were previously applied
+                        // unconditionally, contradicting the doc comment.)
                         scale = 1.0
                         opacity = 1.0
-                    }
-                    if !reduceMotion {
+                    } else {
+                        confettiPieces = ConfettiPiece.spawn(count: 36)
+                        withAnimation(DailyOKMotion.bouncySpring) {
+                            scale = 1.0
+                            opacity = 1.0
+                        }
                         withAnimation(.easeOut(duration: DailyOKMotion.durationExtraLong + 0.2)) {
                             ringProgress = 1.0
                         }
@@ -88,7 +94,8 @@ struct CelebrationOverlay: View {
                         guard !Task.isCancelled, isVisible else { return }
                         withAnimation(.easeIn(duration: DailyOKMotion.durationShort)) {
                             opacity = 0
-                            scale = 1.2
+                            // Fade only under Reduce Motion; no scale-up.
+                            if !reduceMotion { scale = 1.2 }
                         }
                         try? await Task.sleep(nanoseconds: UInt64(DailyOKMotion.durationShort * 1_000_000_000))
                         guard !Task.isCancelled, isVisible else { return }

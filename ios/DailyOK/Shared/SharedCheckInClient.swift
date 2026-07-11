@@ -79,8 +79,10 @@ enum SharedCheckInClient {
         // update()) instead of saving the whole `state` captured at the top of
         // this call: a concurrent phone `publish()` rewrites the entire snapshot
         // (e.g. a new nextCheckInAt / displayName), and saving our stale copy
-        // would clobber it. update() is the single authoritative
-        // read-modify-write path for out-of-process writers (US-IOS129).
+        // would clobber it. This narrows — but does not fully close — the
+        // cross-process write race (App Group writes aren't coordinated; see
+        // SharedCheckInStore.update). The monotonic hasCheckedInToday flip is the
+        // safety-relevant field and is resilient to a lost write (US-IOS129).
         let now = Date()
         SharedCheckInStore.update { snapshot in
             snapshot.hasCheckedInToday = true
@@ -155,6 +157,18 @@ enum SharedCheckInClient {
         }
 
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            // The refresh may have failed because a SIBLING surface (main app,
+            // widget, another App Intent) refreshed concurrently and rotated this
+            // refresh token out from under us — Supabase invalidates the old
+            // token on use. Before declaring the session dead (which tells an
+            // actually-signed-in user to "sign back in on your iPhone"), re-read
+            // the shared Keychain: if that other surface already mirrored a fresh,
+            // non-expired token, adopt it instead of forcing a spurious sign-out.
+            if let reloaded = SharedKeychain.loadTokens(),
+               reloaded.refreshToken != tokens.refreshToken,
+               !reloaded.isAccessTokenExpired {
+                return reloaded
+            }
             throw SharedCheckInError.sessionExpired
         }
 

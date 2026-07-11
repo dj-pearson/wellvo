@@ -32,7 +32,13 @@ struct SegmentedCodeField: View {
                 get: { code },
                 set: { newValue in
                     let filtered = String(newValue.filter(\.isNumber).prefix(length))
-                    if filtered != code { code = filtered }
+                    // Only act on an actual change. Firing onComplete on every
+                    // set-with-count==length re-triggered auto-submit when the
+                    // field was already full and the user pressed another digit
+                    // (filtered == code, no visible change) — re-submitting the
+                    // same code between attempts and pushing toward lockout faster.
+                    guard filtered != code else { return }
+                    code = filtered
                     if filtered.count == length { onComplete?() }
                 }
             ))

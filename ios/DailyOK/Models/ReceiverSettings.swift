@@ -6,6 +6,16 @@ enum ScheduleType: String, Codable, CaseIterable {
     case weekdayWeekend = "weekday_weekend"
     case custom
 
+    // Forgiving decode: `decodeIfPresent(...) ?? .daily` at the call site only
+    // tolerates a missing/null value — a present but unknown `schedule_type`
+    // (e.g. a future "biweekly") still threw, and because settings decode as an
+    // array, one unknown value dropped schedule-awareness for every receiver in
+    // the batch. Unknown → `.daily`. No new case, so the picker is unchanged.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = ScheduleType(rawValue: raw) ?? .daily
+    }
+
     var label: String {
         switch self {
         case .daily: return "Every Day"

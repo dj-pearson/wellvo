@@ -223,7 +223,10 @@ struct WeeklySummaryCard: View {
                     Text("Moods:")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    ForEach(Array(summary.moodBreakdown.keys), id: \.self) { mood in
+                    // Iterate in the enum's declared order, not the dictionary's
+                    // nondeterministic key order (which reshuffled the mood chips
+                    // on every refresh/redraw).
+                    ForEach(Mood.allCases.filter { summary.moodBreakdown[$0] != nil }, id: \.self) { mood in
                         HStack(spacing: 2) {
                             Text(mood.emoji)
                             Text("\(summary.moodBreakdown[mood] ?? 0)")

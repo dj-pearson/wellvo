@@ -80,6 +80,18 @@ enum SharedCheckInStore {
     }
 
     /// Mutate the existing snapshot in place. No-op if none exists yet.
+    ///
+    /// NOTE: this load→mutate→save is NOT serialized across processes. The app,
+    /// widgets, Control Center, App Intents, and the watch all write this App
+    /// Group value, so a concurrent full-snapshot `save(...)` from the phone can
+    /// land between this `load()` and `save(...)` and be lost. Today that only
+    /// risks `nextCheckInAt` being briefly clobbered/resurrected (a cosmetic
+    /// new-day rollover glitch on glanceable surfaces) — the safety-relevant
+    /// `hasCheckedInToday = true` flip is monotonic, so a lost write self-heals
+    /// on the next `load`. A robust fix would coordinate these writes with
+    /// `NSFileCoordinator`; deferred until it can be exercised on-device across
+    /// the extension surfaces (tight time budgets there make a blind change
+    /// risky).
     static func update(_ mutate: (inout SharedCheckInState) -> Void) {
         guard var state = load() else { return }
         mutate(&state)

@@ -75,6 +75,10 @@ final class AuthViewModel: ObservableObject {
 
     /// Supabase auth state listener handle
     private var authStateTask: Task<Void, Never>?
+    /// Token for the block-based Apple-revocation observer. `removeObserver(self)`
+    /// does NOT remove block observers (self isn't the observer — this token is),
+    /// so it must be retained and removed explicitly.
+    private var appleRevocationObserver: NSObjectProtocol?
 
     init() {
         Task {
@@ -87,6 +91,9 @@ final class AuthViewModel: ObservableObject {
 
     deinit {
         authStateTask?.cancel()
+        if let appleRevocationObserver {
+            NotificationCenter.default.removeObserver(appleRevocationObserver)
+        }
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -104,8 +111,17 @@ final class AuthViewModel: ObservableObject {
                 HeartbeatService.shared.stop()
             }
         } catch {
-            authState = .unauthenticated
-            HeartbeatService.shared.stop()
+            // A thrown error means the auth session may still be valid but the
+            // profile fetch failed transiently (network blip on foreground /
+            // resume). Do NOT sign the user out over that — keep the existing
+            // authenticated session if we already have a user. Only fall back to
+            // unauthenticated on a cold start where we never loaded a profile.
+            if currentUser != nil {
+                authState = .authenticated
+            } else {
+                authState = .unauthenticated
+                HeartbeatService.shared.stop()
+            }
         }
     }
 
@@ -527,7 +543,7 @@ final class AuthViewModel: ObservableObject {
 
     /// Listen for the system notification that fires when Apple credential is revoked.
     private func registerForAppleRevocationNotification() {
-        NotificationCenter.default.addObserver(
+        appleRevocationObserver = NotificationCenter.default.addObserver(
             forName: ASAuthorizationAppleIDProvider.credentialRevokedNotification,
             object: nil,
             queue: .main

@@ -9,6 +9,18 @@ enum SubscriptionTier: String, Codable {
     case caregiver
     case family
     case familyPlus = "family_plus"
+
+    // Forgiving decode (backward-compat rule): a tier this build doesn't know —
+    // a future paid tier returned to an older app — must NOT throw the whole
+    // `Family` decode. That previously took down the owner dashboard and the
+    // receiver's status/check-in for every installed older build. Unknown →
+    // `.free`: real feature gating uses the StoreKit-derived
+    // `SubscriptionService.currentTier`, and a future-tier family carries no
+    // free-tier grandfather deadline, so nothing is wrongly gated.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = SubscriptionTier(rawValue: raw) ?? .free
+    }
 }
 
 enum SubscriptionStatus: String, Codable {
@@ -16,6 +28,14 @@ enum SubscriptionStatus: String, Codable {
     case expired
     case gracePeriod = "grace_period"
     case cancelled
+
+    // Forgiving decode: an unknown status (e.g. a future "paused"/"trial") must
+    // not throw the `Family` decode. Unknown → `.active` (nothing gates on this
+    // field today; the neutral choice avoids a false expiry banner).
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = SubscriptionStatus(rawValue: raw) ?? .active
+    }
 }
 
 struct Family: Codable, Identifiable {

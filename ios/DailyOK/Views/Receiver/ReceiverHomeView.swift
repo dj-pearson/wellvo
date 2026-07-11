@@ -425,6 +425,15 @@ struct ReceiverHomeView: View {
                     buttonScale = 1.05
                 }
             }
+            .onDisappear {
+                // Reset to base so a later re-insertion of this button (e.g. after
+                // Undo re-shows it) actually animates again. Without this,
+                // isPulsing/buttonScale stay at their end-state values and the
+                // next onAppear animates to the already-current values — a no-op —
+                // leaving the button static.
+                isPulsing = false
+                buttonScale = 1.0
+            }
 
             if viewModel.isCheckingIn {
                 ProgressView("Checking in...")

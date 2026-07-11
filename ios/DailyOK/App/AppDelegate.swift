@@ -296,24 +296,47 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 )
             } catch {
                 Log.checkIn.error("Notification check-in response failed: \(error.localizedDescription, privacy: .public)")
-                // If the device is genuinely offline, persist the check-in so it
-                // syncs later instead of being lost. Only for a plain "I'm OK" —
-                // urgent responses (need help / call me) must reach the server
-                // live, so we don't silently defer them. Mirrors the app-button
-                // path's "queue only when offline" guard to avoid duplicate
-                // inserts hitting the daily unique index.
-                let isOnline = await OfflineCheckInService.shared.isOnline
-                if responseType == .ok, !isOnline {
+                // Decide offline-vs-hard-error from the ERROR itself, not the
+                // asynchronously-updated `isOnline` flag — NWPathMonitor often
+                // hasn't flipped to offline yet when the radio drops mid-request,
+                // which previously left a genuine-offline check-in un-queued (the
+                // exact false-escalation risk we want to avoid). Mirrors
+                // `OfflineCheckInService.performCheckIn`.
+                let connectivity = OfflineCheckInService.isConnectivityError(error)
+                if responseType == .ok, connectivity {
+                    // Offline plain "I'm OK": persist so it syncs later. The
+                    // per-day dedup on both the queue and the edge function keeps
+                    // this from creating a duplicate if the phone also checks in.
+                    var queued = false
                     if let family = try? await FamilyService.shared.getFamily(),
                        let session = try? await SupabaseService.shared.client.auth.session {
-                        try? await OfflineCheckInService.shared.queueCheckIn(
-                            familyId: family.id,
-                            receiverId: session.user.id,
-                            mood: nil,
-                            source: .notification
-                        )
+                        do {
+                            try await OfflineCheckInService.shared.queueCheckIn(
+                                familyId: family.id,
+                                receiverId: session.user.id,
+                                mood: nil,
+                                source: .notification
+                            )
+                            queued = true
+                        } catch {
+                            Log.checkIn.error("Failed to queue offline notification check-in: \(error.localizedDescription, privacy: .public)")
+                        }
                     }
+                    if !queued {
+                        // Couldn't even persist it — don't let the receiver believe
+                        // their check-in landed.
+                        await PushNotificationService.shared.presentCheckInResponseFailed(urgent: false)
+                    }
+                } else if connectivity {
+                    // Offline urgent response (need help / call me). We deliberately
+                    // do NOT queue an urgent signal for silent later delivery — it
+                    // must reach the owner live — but the receiver must know it
+                    // didn't send so they can retry or reach out another way.
+                    await PushNotificationService.shared.presentCheckInResponseFailed(urgent: true)
                 }
+                // A non-connectivity error means the server received and rejected
+                // the request (e.g. already resolved) — no phantom-success risk,
+                // so no extra alert.
             }
         }
     }

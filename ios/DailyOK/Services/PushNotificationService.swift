@@ -50,7 +50,14 @@ actor PushNotificationService {
                 .neq("token", value: token)
                 .execute()
 
-            // Register (or re-activate) the current token.
+            // Register (or re-activate) the current token. Pin the conflict
+            // target to the UNIQUE(user_id, token) constraint — without
+            // onConflict, PostgREST resolves against the primary key `id`, which
+            // isn't in this payload, so the upsert becomes an INSERT that
+            // violates UNIQUE(user_id, token) for a returning user whose row
+            // already exists (e.g. reinstall reusing the same APNs token, or the
+            // row we just deactivated above). That threw, so the token was never
+            // re-activated and the user silently stopped receiving pushes.
             try await supabase
                 .from("push_tokens")
                 .upsert([
@@ -58,7 +65,7 @@ actor PushNotificationService {
                     "token": token,
                     "platform": "ios",
                     "is_active": "true",
-                ])
+                ], onConflict: "user_id,token")
                 .execute()
 
             _ = KeychainService.save(key: "lastPushToken", value: token)
@@ -105,5 +112,27 @@ actor PushNotificationService {
     func cancelLocalCheckinFallback() {
         UNUserNotificationCenter.current()
             .removePendingNotificationRequests(withIdentifiers: [Self.fallbackReminderId])
+    }
+
+    /// Immediately alert the receiver that a notification check-in response
+    /// couldn't be sent. A tap on "I'm OK" / "I Need Help" / "Call Me" from the
+    /// lock screen while offline previously failed silently — the receiver (and,
+    /// for an urgent response, they alone) had no way to know their family was
+    /// never notified. This surfaces that so they can retry or reach out another
+    /// way instead of assuming the message got through.
+    func presentCheckInResponseFailed(urgent: Bool) async {
+        let content = UNMutableNotificationContent()
+        content.title = urgent ? "Your response didn't send" : "Check-in didn't go through"
+        content.body = urgent
+            ? "You appear to be offline, so your family wasn't notified. Open Daily OK to try again, or reach them another way."
+            : "You appear to be offline and we couldn't save your check-in. Please open Daily OK and try again."
+        content.sound = .default
+        // nil trigger = deliver immediately.
+        let request = UNNotificationRequest(
+            identifier: "checkin-response-failed",
+            content: content,
+            trigger: nil
+        )
+        try? await UNUserNotificationCenter.current().add(request)
     }
 }

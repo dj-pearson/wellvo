@@ -159,10 +159,22 @@ struct CheckInTrendChartView: View {
     private static func computeDataPoints(checkIns: [CheckIn], days: Int, timezone: String? = nil) -> [DataPoint] {
         let calendar = Calendar.forTimezone(timezone)
         let today = calendar.startOfDay(for: Date())
+        // Anchor the window to END today: the exclusive upper bound is the start
+        // of tomorrow, and the window is exactly `days` days ending today. The
+        // old math used integer division for the bucket count and anchored to the
+        // oldest day, which silently dropped the most recent days — the last 2 of
+        // a 30-day view, and TODAY entirely on the 7-day view — from both the
+        // chart and its summary stats (a real problem for a provider-facing view).
+        guard let endExclusive = calendar.date(byAdding: .day, value: 1, to: today),
+              let windowStart = calendar.date(byAdding: .day, value: -(days - 1), to: today) else {
+            return []
+        }
 
-        // Group check-ins by week
+        // Group check-ins by day (week views) or week (longer ranges).
         let bucketSize = days <= 7 ? 1 : 7
-        let bucketCount = max(1, days / bucketSize)
+        // Ceiling so a range that isn't a whole multiple of the bucket size still
+        // covers its most recent (partial) bucket.
+        let bucketCount = Int((Double(days) / Double(bucketSize)).rounded(.up))
 
         var points: [DataPoint] = []
         // Locale-aware axis labels: weekday for week views, month/day otherwise (US-IOS044).
@@ -171,10 +183,13 @@ struct CheckInTrendChartView: View {
         dateFormatter.timeZone = calendar.timeZone
 
         for bucket in 0..<bucketCount {
-            guard let bucketStart = calendar.date(byAdding: .day, value: -(days - bucket * bucketSize), to: today),
-                  let bucketEnd = calendar.date(byAdding: .day, value: bucketSize, to: bucketStart) else {
+            guard let bucketStart = calendar.date(byAdding: .day, value: bucket * bucketSize, to: windowStart) else {
                 continue
             }
+            // Clamp the final bucket so it ends at tomorrow's start (inclusive of
+            // today) rather than running past the window.
+            let rawEnd = calendar.date(byAdding: .day, value: bucketSize, to: bucketStart) ?? endExclusive
+            let bucketEnd = min(rawEnd, endExclusive)
 
             let bucketCheckIns = checkIns.filter { ci in
                 ci.checkedInAt >= bucketStart && ci.checkedInAt < bucketEnd

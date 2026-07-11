@@ -29,6 +29,17 @@
 			</array>
 		</dict>
 	</array>
+	<!--
+	  Schemes the app probes with canOpenURL before offering a quick action.
+	  tel:/sms: are on the system exempt list, but facetime/facetime-audio must
+	  be declared here or canOpenURL always returns false — which silently hid
+	  the FaceTime button in the escalation quick-actions on every device.
+	-->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>facetime</string>
+		<string>facetime-audio</string>
+	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Daily OK can attach your approximate location to a check-in so your family group knows you're in your usual area. This is optional — Daily OK works without it.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

@@ -61,6 +61,15 @@ enum Mood: String, Codable, CaseIterable {
 enum ReceiverMode: String, Codable, CaseIterable {
     case standard
     case kid
+
+    // Forgiving decode: a future receiver mode must not throw the whole
+    // `ReceiverSettings` decode (which would revert every receiver in a batch
+    // to standard mode). Unknown → `.standard`. No new case, so the picker's
+    // `allCases` is unchanged.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = ReceiverMode(rawValue: raw) ?? .standard
+    }
 }
 
 enum LocationLabel: String, Codable, CaseIterable {
@@ -157,11 +166,29 @@ enum CheckInRequestStatus: String, Codable {
     case checkedIn = "checked_in"
     case missed
     case expired
+
+    // Forgiving decode: an unknown status (a future backend value) must not
+    // throw the whole `CheckInRequest` decode. The consumers wrap that query in
+    // `try?`, so a throw silently made the owner's escalation banner / Live
+    // Activity and the receiver's "waiting" banner disappear. Unknown →
+    // `.expired` so the request is treated as inactive — never a phantom
+    // `.pending` escalation or a false `.checkedIn` resolution.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = CheckInRequestStatus(rawValue: raw) ?? .expired
+    }
 }
 
 enum CheckInRequestType: String, Codable {
     case scheduled
     case onDemand = "on_demand"
+
+    // Forgiving decode: an unknown request type must not throw the
+    // `CheckInRequest` decode. Unknown → `.scheduled`.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = CheckInRequestType(rawValue: raw) ?? .scheduled
+    }
 }
 
 struct CheckIn: Codable, Identifiable {
