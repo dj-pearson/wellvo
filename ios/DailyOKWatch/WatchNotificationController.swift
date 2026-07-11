@@ -71,6 +71,16 @@ final class WatchNotificationController: NSObject, UNUserNotificationCenterDeleg
                 // as "saved" (US-IOS090).
                 WatchOfflineQueue.enqueue(type: type)
                 WidgetCenter.shared.reloadAllTimelines()
+            } catch SharedCheckInError.locked {
+                // The phone has biometric lock on and, while backgrounded,
+                // withheld the shared session tokens — so the wrist tap can't
+                // reach the server right now. This is NOT a terminal failure:
+                // when the owner next unlocks their phone it re-mirrors the
+                // tokens to the watch and the queued marker flushes. Dropping it
+                // here (the old bare `catch`) silently lost the check-in and
+                // falsely escalated the owner.
+                WatchOfflineQueue.enqueue(type: type)
+                WidgetCenter.shared.reloadAllTimelines()
             } catch {
                 // sessionExpired / notSignedIn / other — don't queue; the user
                 // must open the iPhone to restore the session.

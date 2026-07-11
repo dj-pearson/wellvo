@@ -106,4 +106,26 @@ actor PushNotificationService {
         UNUserNotificationCenter.current()
             .removePendingNotificationRequests(withIdentifiers: [Self.fallbackReminderId])
     }
+
+    /// Immediately alert the receiver that a notification check-in response
+    /// couldn't be sent. A tap on "I'm OK" / "I Need Help" / "Call Me" from the
+    /// lock screen while offline previously failed silently — the receiver (and,
+    /// for an urgent response, they alone) had no way to know their family was
+    /// never notified. This surfaces that so they can retry or reach out another
+    /// way instead of assuming the message got through.
+    func presentCheckInResponseFailed(urgent: Bool) async {
+        let content = UNMutableNotificationContent()
+        content.title = urgent ? "Your response didn't send" : "Check-in didn't go through"
+        content.body = urgent
+            ? "You appear to be offline, so your family wasn't notified. Open Daily OK to try again, or reach them another way."
+            : "You appear to be offline and we couldn't save your check-in. Please open Daily OK and try again."
+        content.sound = .default
+        // nil trigger = deliver immediately.
+        let request = UNNotificationRequest(
+            identifier: "checkin-response-failed",
+            content: content,
+            trigger: nil
+        )
+        try? await UNUserNotificationCenter.current().add(request)
+    }
 }
