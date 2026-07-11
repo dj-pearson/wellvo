@@ -63,6 +63,14 @@ enum Streaks {
             return day
         })
 
+        // NOTE (review finding, deferred): today is counted in the denominator
+        // even before its scheduled window elapses, so an evening-scheduled
+        // receiver who checked in every prior day can show a dip (e.g. 6/7 = 85%)
+        // until they check in today. Excluding in-progress-today is a product
+        // decision, not a clear bug — it conflicts with the codified
+        // `testConsistencyBucketsInProvidedTimezone` semantics (a 1-day window
+        // with no check-in today is intentionally 0%, not vacuously 100%) and
+        // needs a decision + test update before changing.
         let pct = Double(days.count) / Double(windowDays) * 100
         return max(0, min(100, Int(pct)))
     }
@@ -176,6 +184,9 @@ enum Streaks {
             return (0, 0, 0)
         }
 
+        // NOTE (review finding, deferred): today is included as a scheduled day
+        // even before its window elapses (see consistencyPercent above) — same
+        // product decision, deferred for the same reason.
         // Enumerate the scheduled days within the window.
         var scheduledDays: [Date] = []
         var cursor = windowStart

@@ -33,9 +33,23 @@ struct ComplicationProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ComplicationEntry>) -> Void) {
-        let entry = ComplicationEntry.from(SharedCheckInStore.load())
-        // Refresh roughly every 15 minutes; a completed check-in or a new
+        let state = SharedCheckInStore.load()
+        let now = Date()
+        var entries = [ComplicationEntry.from(state, date: now)]
+
+        // Add an entry anchored at the next local midnight. `isCheckedIn(asOf:)`
+        // is day-scoped, so recomputing at that instant flips "Checked in" back
+        // to "Check in" exactly at the day boundary — even if WidgetKit doesn't
+        // get a refresh slot for a while. The old single-entry timeline kept
+        // showing a stale green "all set" past midnight until the ~15-min refresh
+        // landed, so a receiver glancing at the wrist could skip a real check-in.
+        let cal = Calendar.current
+        if let nextMidnight = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now)) {
+            entries.append(ComplicationEntry.from(state, date: nextMidnight))
+        }
+
+        // Still refresh roughly every 15 minutes; a completed check-in or a new
         // snapshot from the phone also triggers WidgetCenter reloads.
-        completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(15 * 60))))
+        completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(15 * 60))))
     }
 }
