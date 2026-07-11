@@ -121,11 +121,19 @@ struct CalendarHeatmapView: View {
         let startDate = calendar.date(byAdding: .day, value: -(days - 1), to: today) ?? today
         let enrollDay = enrolledSince.map { calendar.startOfDay(for: $0) }
 
-        // Build check-in lookup by day
+        // Build check-in lookup by day, keeping the EARLIEST check-in for each
+        // day — it's what determines on-time vs late. `checkIns` isn't
+        // guaranteed sorted ascending, so a plain first-wins could let an
+        // afternoon check-in represent a day that also had an on-time morning one
+        // and paint it "late".
         var checkInByDay: [Date: CheckIn] = [:]
         for checkIn in checkIns {
             let day = calendar.startOfDay(for: checkIn.checkedInAt)
-            if checkInByDay[day] == nil {
+            if let existing = checkInByDay[day] {
+                if checkIn.checkedInAt < existing.checkedInAt {
+                    checkInByDay[day] = checkIn
+                }
+            } else {
                 checkInByDay[day] = checkIn
             }
         }

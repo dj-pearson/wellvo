@@ -179,6 +179,12 @@ struct ReceiverSettingsView: View {
             } header: {
                 Text("Check-In Schedule")
             }
+            // Populate a default time for every enabled day the moment the user
+            // switches to Custom, so the DatePickers are backed by real (stable)
+            // state and edits stick — instead of relying on a per-render fallback.
+            .onChange(of: scheduleType) { _, newValue in
+                if newValue == .custom { ensureCustomTimesPopulated() }
+            }
 
             // Schedule Details (varies by type)
             switch scheduleType {
@@ -386,7 +392,14 @@ struct ReceiverSettingsView: View {
                     }
 
                     if dayEnabled[day.key] ?? true {
-                        let entries = dayTimes[day.key] ?? [TimeEntry(time: defaultTimeDate())]
+                        // Read dayTimes directly — it's populated proactively on
+                        // load and when switching to Custom (ensureCustomTimesPopulated).
+                        // The old `?? [TimeEntry(...)]` fallback synthesized a
+                        // NEW-identity entry every render, which churned ForEach
+                        // identity AND made the DatePicker setter a no-op (its
+                        // `guard var arr = dayTimes[day.key]` was nil), so edits
+                        // were silently discarded until a day was toggled off/on.
+                        let entries = dayTimes[day.key] ?? []
                         // Keyed by entry.id (stable), not array offset, so removing
                         // a middle window doesn't rebind the wrong row (US-IOS104).
                         ForEach(entries) { entry in
@@ -486,9 +499,19 @@ struct ReceiverSettingsView: View {
             // parsing the fixed 24h format never fails under a user locale (US-IOS044).
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_US_POSIX")
+            // Accept both HH:mm:ss and HH:mm — if the backend ever returns a
+            // seconds-less time, the strict single-format parse returned nil and
+            // left checkinTime at its current-wall-clock default, which a later
+            // Save would then persist as the daily time (matches the weekend /
+            // quiet-hours fields, which already try both).
             formatter.dateFormat = "HH:mm:ss"
             if let time = formatter.date(from: loaded.checkinTime) {
                 checkinTime = time
+            } else {
+                formatter.dateFormat = "HH:mm"
+                if let time = formatter.date(from: loaded.checkinTime) {
+                    checkinTime = time
+                }
             }
 
             gracePeriod = loaded.gracePeriodMinutes
@@ -538,12 +561,28 @@ struct ReceiverSettingsView: View {
                 if let start = formatter.date(from: qStart) { quietHoursStart = start }
                 if let end = formatter.date(from: qEnd) { quietHoursEnd = end }
             }
+            // If the loaded schedule is custom but carried no per-day times (e.g.
+            // schedule_type=custom with an empty custom_schedule), seed defaults so
+            // the pickers are editable rather than dead.
+            if scheduleType == .custom { ensureCustomTimesPopulated() }
             hasLoaded = true
         } catch {
             errorMessage = DailyOKError.network(error).localizedDescription
             loadFailed = true
         }
         isLoading = false
+    }
+
+    /// Ensure every enabled day has at least one editable check-in window when a
+    /// custom schedule is active. Backs the DatePickers with real, stable state
+    /// (keyed by TimeEntry.id) so edits persist, rather than a body-level
+    /// fallback that re-mints identity each render.
+    private func ensureCustomTimesPopulated() {
+        for day in DaySchedule.allDays where (dayEnabled[day.key] ?? true) {
+            if dayTimes[day.key]?.isEmpty ?? true {
+                dayTimes[day.key] = [TimeEntry(time: defaultTimeDate())]
+            }
+        }
     }
 
     private func saveSettings() async {
