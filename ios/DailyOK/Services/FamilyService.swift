@@ -175,10 +175,13 @@ actor FamilyService {
     func checkAutoJoin() async throws -> AutoJoinResult? {
         let data: AutoJoinResponse = try await EdgeFunctionsClient.invoke("auto-join", body: [:])
 
-        guard data.matched else { return nil }
+        // A match with no family_id is not actionable — emitting an empty string
+        // would just make a downstream UUID(uuidString:) fail. Treat it as "no
+        // match" instead.
+        guard data.matched, let familyId = data.familyId, !familyId.isEmpty else { return nil }
 
         return AutoJoinResult(
-            familyId: data.familyId ?? "",
+            familyId: familyId,
             role: data.role ?? "receiver",
             checkinTime: data.checkinTime
         )
