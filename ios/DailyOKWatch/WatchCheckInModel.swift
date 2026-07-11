@@ -80,8 +80,16 @@ final class WatchCheckInModel: ObservableObject {
 
     /// Flush a queued check-in when connectivity returns (called on launch,
     /// foreground, and when a fresh snapshot arrives from the phone).
+    /// Re-entrancy guard: onAppear, onChange(revision), and onChange(scenePhase)
+    /// can all fire in the same runloop on reconnect. Set on the main actor
+    /// before the first await so overlapping calls bail instead of each POSTing
+    /// the queued check-in and clearing the queue.
+    private var isSyncing = false
+
     func syncPendingIfNeeded() async {
-        guard WatchOfflineQueue.hasPending, !isCheckingIn else { return }
+        guard WatchOfflineQueue.hasPending, !isCheckingIn, !isSyncing else { return }
+        isSyncing = true
+        defer { isSyncing = false }
         // Flush with the queued response type so a help/call request isn't
         // downgraded to a plain "OK" on sync (US-IOS119).
         let queuedType = WatchOfflineQueue.pendingType
