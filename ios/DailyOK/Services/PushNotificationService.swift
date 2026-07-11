@@ -50,7 +50,14 @@ actor PushNotificationService {
                 .neq("token", value: token)
                 .execute()
 
-            // Register (or re-activate) the current token.
+            // Register (or re-activate) the current token. Pin the conflict
+            // target to the UNIQUE(user_id, token) constraint — without
+            // onConflict, PostgREST resolves against the primary key `id`, which
+            // isn't in this payload, so the upsert becomes an INSERT that
+            // violates UNIQUE(user_id, token) for a returning user whose row
+            // already exists (e.g. reinstall reusing the same APNs token, or the
+            // row we just deactivated above). That threw, so the token was never
+            // re-activated and the user silently stopped receiving pushes.
             try await supabase
                 .from("push_tokens")
                 .upsert([
@@ -58,7 +65,7 @@ actor PushNotificationService {
                     "token": token,
                     "platform": "ios",
                     "is_active": "true",
-                ])
+                ], onConflict: "user_id,token")
                 .execute()
 
             _ = KeychainService.save(key: "lastPushToken", value: token)
