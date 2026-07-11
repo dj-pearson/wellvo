@@ -14,6 +14,9 @@ struct CaregiverDigestView: View {
     @State private var isLoading = true
     @State private var showSaved = false
     @State private var errorMessage: String?
+    /// True when the current preference couldn't be read. Saving is blocked while
+    /// set so a failed load can't overwrite the real server value with defaults.
+    @State private var loadFailed = false
 
     private struct DigestPrefs: Encodable {
         let digest_frequency: String
@@ -53,11 +56,21 @@ struct CaregiverDigestView: View {
                 }
             }
 
+            if loadFailed {
+                Section {
+                    Label("Couldn't load your current summary setting. Saving is turned off so it isn't overwritten.", systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(DailyOKColor.warning)
+                    Button("Retry") {
+                        Task { await load() }
+                    }
+                }
+            }
+
             Section {
                 Button("Save") {
                     Task { await save() }
                 }
-                .disabled(isLoading)
+                .disabled(isLoading || loadFailed)
             }
         }
         .scrollContentBackground(.hidden)
@@ -101,6 +114,7 @@ struct CaregiverDigestView: View {
     }
 
     private func load() async {
+        loadFailed = false
         guard let session = try? await SupabaseService.shared.client.auth.session else {
             isLoading = false
             return
@@ -116,7 +130,12 @@ struct CaregiverDigestView: View {
             frequency = row.digestFrequency ?? "off"
             hour = row.digestHour ?? 8
         } catch {
-            // Defaults (off / 8am) — backward compatible if columns are absent.
+            // Couldn't read the current preference (network blip / RLS). Do NOT
+            // silently fall back to defaults and leave Save enabled — a Save
+            // would overwrite the real value (e.g. "daily") with "off". Flag it,
+            // block Save, and offer Retry (mirrors DataRetentionView, US-IOS111).
+            Log.settings.error("Failed to load digest prefs: \(error.localizedDescription, privacy: .public)")
+            loadFailed = true
         }
         isLoading = false
     }

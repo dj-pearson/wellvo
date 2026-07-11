@@ -219,16 +219,22 @@ actor AuthService {
 
     /// Fetch existing user profile, or create one if it doesn't exist yet.
     private func findOrCreateUserProfile(userId: UUID, email: String?, displayName: String?, phone: String? = nil) async throws -> AppUser {
-        // Try to find existing profile
-        let existing: AppUser? = try? await supabase
+        // Distinguish "profile doesn't exist" (empty result) from "the lookup
+        // failed" (network blip / RLS / timeout). The old `try?` + `.single()`
+        // collapsed BOTH to nil, which then fell through to the upsert below and
+        // — because the row already existed — OVERWROTE the real display_name
+        // with "User" and re-set the email. Fetch as an array with a limit so a
+        // genuine not-found is an empty array, while a transient error THROWS and
+        // propagates instead of clobbering the profile.
+        let existing: [AppUser] = try await supabase
             .from("users")
             .select()
             .eq("id", value: userId.uuidString)
-            .single()
+            .limit(1)
             .execute()
             .value
 
-        if let existing { return existing }
+        if let existing = existing.first { return existing }
 
         // Profile doesn't exist — create it
         var fields: [String: String] = [
@@ -304,10 +310,18 @@ actor AuthService {
         try await supabase.auth.signOut()
     }
 
+    /// Resolve the signed-in user's profile.
+    ///
+    /// Returns `nil` ONLY when there is no auth session (genuinely signed out).
+    /// When a session IS present but the profile fetch fails transiently, this
+    /// THROWS rather than returning nil — the previous `try?` -> nil made a
+    /// network blip on foreground indistinguishable from a signed-out state and
+    /// bounced a logged-in user to the sign-in screen. Callers must not treat a
+    /// thrown error here as "signed out" (see `AuthViewModel.checkSession`).
     func currentSession() async throws -> AppUser? {
         guard let session = try? await supabase.auth.session else { return nil }
 
-        let user: AppUser? = try? await supabase
+        let user: AppUser = try await supabase
             .from("users")
             .select()
             .eq("id", value: session.user.id.uuidString)

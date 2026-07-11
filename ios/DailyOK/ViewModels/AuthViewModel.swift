@@ -104,8 +104,17 @@ final class AuthViewModel: ObservableObject {
                 HeartbeatService.shared.stop()
             }
         } catch {
-            authState = .unauthenticated
-            HeartbeatService.shared.stop()
+            // A thrown error means the auth session may still be valid but the
+            // profile fetch failed transiently (network blip on foreground /
+            // resume). Do NOT sign the user out over that — keep the existing
+            // authenticated session if we already have a user. Only fall back to
+            // unauthenticated on a cold start where we never loaded a profile.
+            if currentUser != nil {
+                authState = .authenticated
+            } else {
+                authState = .unauthenticated
+                HeartbeatService.shared.stop()
+            }
         }
     }
 

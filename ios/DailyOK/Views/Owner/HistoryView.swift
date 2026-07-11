@@ -13,6 +13,11 @@ struct HistoryView: View {
     @State private var pdfData: Data?
     @State private var isExporting = false
     @State private var exportError: String?
+    /// Set when the check-in history fetch fails, so a network error renders a
+    /// distinct "couldn't load" + Retry surface instead of the genuine
+    /// "no check-in history yet" empty state (which falsely implies the receiver
+    /// never checked in).
+    @State private var loadError = false
 
     /// Calendar weekday numbers (1=Sun…7=Sat) the selected receiver is scheduled
     /// to check in on, so the heatmap doesn't paint unscheduled/paused days as
@@ -72,6 +77,19 @@ struct HistoryView: View {
 
                     if isLoading {
                         HistorySkeletonView()
+                    } else if loadError {
+                        VStack(spacing: 12) {
+                            EmptyStateView(
+                                systemImage: "wifi.exclamationmark",
+                                title: "Couldn't load history",
+                                message: "We couldn't reach the server. Check your connection and try again."
+                            )
+                            Button("Retry") {
+                                Task { await loadHistory() }
+                            }
+                            .buttonStyle(.pressable)
+                        }
+                        .padding(.top, 20)
                     } else if checkIns.isEmpty {
                         EmptyStateView(
                             systemImage: "calendar.badge.exclamationmark",
@@ -220,16 +238,27 @@ struct HistoryView: View {
         guard let receiver = selectedReceiver,
               let family = try? await FamilyService.shared.getFamily() else { return }
         isLoading = true
+        loadError = false
         // Clear the previous receiver's data/schedule first so switching
         // receivers doesn't briefly render the old data under the new name
         // (US-IOS111).
         checkIns = []
         receiverSettings = nil
-        checkIns = (try? await CheckInService.shared.checkInHistory(
-            receiverId: receiver.userId,
-            familyId: family.id,
-            days: selectedDays
-        )) ?? []
+        do {
+            checkIns = try await CheckInService.shared.checkInHistory(
+                receiverId: receiver.userId,
+                familyId: family.id,
+                days: selectedDays
+            )
+        } catch {
+            // Distinguish a fetch failure from a genuinely-empty history — the
+            // old `try? ... ?? []` collapsed both to an empty list and showed
+            // "No check-in history", implying the receiver never checked in.
+            Log.general.error("Failed to load check-in history: \(error.localizedDescription, privacy: .public)")
+            loadError = true
+            isLoading = false
+            return
+        }
 
         // Load receiver settings for scheduled time
         receiverSettings = try? await SupabaseService.shared.client
