@@ -241,13 +241,27 @@ class LocationService: NSObject, CLLocationManagerDelegate {
             body["battery_level"] = .double(battery)
         }
 
-        // Use a background task to ensure the network call completes
-        let bgTask = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
+        // Use a background task to ensure the network call completes. Provide a
+        // real expiration handler: if the OS reclaims background time before the
+        // upload finishes, end the task cleanly rather than being force-terminated
+        // with it outstanding (a nil handler). Both the handler and the
+        // completion below run on the main thread, so the shared bgTask isn't
+        // raced.
+        var bgTask: UIBackgroundTaskIdentifier = .invalid
+        bgTask = UIApplication.shared.beginBackgroundTask(withName: "report-location") {
+            if bgTask != .invalid {
+                UIApplication.shared.endBackgroundTask(bgTask)
+                bgTask = .invalid
+            }
+        }
 
         Task {
             try? await EdgeFunctionsClient.invoke("report-location", json: body)
-            if bgTask != .invalid {
-                UIApplication.shared.endBackgroundTask(bgTask)
+            await MainActor.run {
+                if bgTask != .invalid {
+                    UIApplication.shared.endBackgroundTask(bgTask)
+                    bgTask = .invalid
+                }
             }
         }
     }

@@ -75,6 +75,10 @@ final class AuthViewModel: ObservableObject {
 
     /// Supabase auth state listener handle
     private var authStateTask: Task<Void, Never>?
+    /// Token for the block-based Apple-revocation observer. `removeObserver(self)`
+    /// does NOT remove block observers (self isn't the observer — this token is),
+    /// so it must be retained and removed explicitly.
+    private var appleRevocationObserver: NSObjectProtocol?
 
     init() {
         Task {
@@ -87,6 +91,9 @@ final class AuthViewModel: ObservableObject {
 
     deinit {
         authStateTask?.cancel()
+        if let appleRevocationObserver {
+            NotificationCenter.default.removeObserver(appleRevocationObserver)
+        }
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -536,7 +543,7 @@ final class AuthViewModel: ObservableObject {
 
     /// Listen for the system notification that fires when Apple credential is revoked.
     private func registerForAppleRevocationNotification() {
-        NotificationCenter.default.addObserver(
+        appleRevocationObserver = NotificationCenter.default.addObserver(
             forName: ASAuthorizationAppleIDProvider.credentialRevokedNotification,
             object: nil,
             queue: .main
