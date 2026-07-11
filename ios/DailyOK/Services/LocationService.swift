@@ -25,7 +25,18 @@ class LocationService: NSObject, CLLocationManagerDelegate {
 
     /// The family ID to report background location updates for.
     /// Set this when the receiver logs in and their family is known.
-    var activeFamilyId: UUID?
+    ///
+    /// Written from the caller's thread (`startBackgroundMonitoring`) and read on
+    /// Core Location's delegate queue (`didUpdateLocations` /
+    /// `didChangeAuthorization`), so access is serialized behind `stateLock` — a
+    /// bare `UUID?` read/write across threads is a data race (a torn read could
+    /// report a background location to the wrong/nil family, or trap).
+    var activeFamilyId: UUID? {
+        get { stateLock.withLock { _activeFamilyId } }
+        set { stateLock.withLock { _activeFamilyId = newValue } }
+    }
+    private let stateLock = NSLock()
+    private var _activeFamilyId: UUID?
 
     /// Whether background monitoring is currently active.
     private(set) var isMonitoringSignificantChanges = false

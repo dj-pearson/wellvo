@@ -155,6 +155,18 @@ enum SharedCheckInClient {
         }
 
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            // The refresh may have failed because a SIBLING surface (main app,
+            // widget, another App Intent) refreshed concurrently and rotated this
+            // refresh token out from under us — Supabase invalidates the old
+            // token on use. Before declaring the session dead (which tells an
+            // actually-signed-in user to "sign back in on your iPhone"), re-read
+            // the shared Keychain: if that other surface already mirrored a fresh,
+            // non-expired token, adopt it instead of forcing a spurious sign-out.
+            if let reloaded = SharedKeychain.loadTokens(),
+               reloaded.refreshToken != tokens.refreshToken,
+               !reloaded.isAccessTokenExpired {
+                return reloaded
+            }
             throw SharedCheckInError.sessionExpired
         }
 
