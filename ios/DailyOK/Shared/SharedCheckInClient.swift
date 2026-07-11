@@ -79,8 +79,10 @@ enum SharedCheckInClient {
         // update()) instead of saving the whole `state` captured at the top of
         // this call: a concurrent phone `publish()` rewrites the entire snapshot
         // (e.g. a new nextCheckInAt / displayName), and saving our stale copy
-        // would clobber it. update() is the single authoritative
-        // read-modify-write path for out-of-process writers (US-IOS129).
+        // would clobber it. This narrows — but does not fully close — the
+        // cross-process write race (App Group writes aren't coordinated; see
+        // SharedCheckInStore.update). The monotonic hasCheckedInToday flip is the
+        // safety-relevant field and is resilient to a lost write (US-IOS129).
         let now = Date()
         SharedCheckInStore.update { snapshot in
             snapshot.hasCheckedInToday = true
