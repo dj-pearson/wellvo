@@ -70,7 +70,7 @@ describe("Owner Flow", () => {
       const res = await callEdgeFunction<{ success: boolean }>("/heartbeat", {
         accessToken: owner.accessToken,
         body: {
-          battery_level: 85,
+          battery_level: 0.85,
           app_version: "1.0.0",
         },
       });

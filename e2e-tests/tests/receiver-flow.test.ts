@@ -128,7 +128,7 @@ describe("Receiver Flow", () => {
           latitude: 40.7128,
           longitude: -74.006,
           accuracy_meters: 15,
-          battery_level: 72,
+          battery_level: 0.72,
         },
       });
 
@@ -146,7 +146,7 @@ describe("Receiver Flow", () => {
       const res = await callEdgeFunction<{ success: boolean }>("/heartbeat", {
         accessToken: receiver.accessToken,
         body: {
-          battery_level: 65,
+          battery_level: 0.65,
           app_version: "1.0.0",
         },
       });

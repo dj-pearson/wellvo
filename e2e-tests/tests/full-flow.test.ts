@@ -166,7 +166,7 @@ describe("Full E2E Flow: Receiver Urgent Response", () => {
         longitude: -74.006,
         location_accuracy_meters: 5,
         location_label: "school",
-        battery_level: 80,
+        battery_level: 0.80,
       },
     });
 
