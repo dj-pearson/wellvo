@@ -53,7 +53,10 @@ final class ScheduleResolverTests: XCTestCase {
         if let quietEnd { dict["quiet_hours_end"] = quietEnd }
         if let customSchedule { dict["custom_schedule"] = customSchedule }
 
+        // swiftlint:disable:next force_try — fixture dict is a compile-time-known
+        // literal; a failure here is a broken test, so crashing is correct.
         let data = try! JSONSerialization.data(withJSONObject: dict)
+        // swiftlint:disable:next force_try — see above.
         return try! JSONDecoder().decode(ReceiverSettings.self, from: data)
     }
 
@@ -134,7 +137,10 @@ final class ScheduleResolverTests: XCTestCase {
             "audio_confirmation_enabled": false,
             "custom_schedule": custom,
         ]
+        // swiftlint:disable:next force_try — fixture dict is a compile-time-known
+        // literal; a failure here is a broken test, so crashing is correct.
         let data = try! JSONSerialization.data(withJSONObject: dict)
+        // swiftlint:disable:next force_try — see above.
         return try! JSONDecoder().decode(ReceiverSettings.self, from: data)
     }
 
