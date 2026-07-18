@@ -2,22 +2,47 @@
 """Patch project.pbxproj Release configs for manual Distribution signing in CI.
 
 Usage:
-    python3 patch_signing.py <main_uuid> <widgets_uuid> <watch_uuid> <watch_widgets_uuid>
+    python3 patch_signing.py <main_uuid> <widgets_uuid> <watch_uuid> \
+        <watch_widgets_uuid> <nse_uuid>
 
 Writes CODE_SIGN_STYLE=Manual, CODE_SIGN_IDENTITY="Apple Distribution", and
-PROVISIONING_PROFILE_SPECIFIER=<uuid> into the four app-target Release build
-configurations (BC000004/10/12/14).  SPM package targets live in DerivedData
+PROVISIONING_PROFILE_SPECIFIER=<uuid> into the five app-target Release build
+configurations (BC000004/10/12/14/16).  SPM package targets live in DerivedData
 (not in project.pbxproj), so they keep their own Automatic signing and never
 conflict with the Distribution identity.
+
+Every embedded target with a distinct bundle id needs its own profile.  The
+NotificationService extension (com.wellvo.ios.NotificationService, BC000016) was
+added later than the original four; if its config is left on Automatic signing
+the archive fails with "No profiles ... were found ... Automatic signing is
+disabled" because CI runs xcodebuild without -allowProvisioningUpdates.
 """
 import sys
+
+if len(sys.argv) < 6:
+    sys.exit(
+        'patch_signing.py: expected 5 profile UUIDs '
+        '(main, widgets, watch, watch_widgets, nse), got '
+        f'{len(sys.argv) - 1}'
+    )
 
 config_profiles = {
     'BC000004': sys.argv[1],   # DailyOK (main app)
     'BC000010': sys.argv[2],   # DailyOKWidgets
     'BC000012': sys.argv[3],   # DailyOKWatch
     'BC000014': sys.argv[4],   # DailyOKWatchWidgets
+    'BC000016': sys.argv[5],   # DailyOKNotificationService
 }
+
+# A blank UUID would silently inject PROVISIONING_PROFILE_SPECIFIER = "" and
+# fail deep inside xcodebuild.  Fail here with a clear pointer instead.
+for config_id, uuid in config_profiles.items():
+    if not uuid.strip():
+        sys.exit(
+            f'patch_signing.py: empty provisioning profile UUID for {config_id}. '
+            'A matching PROVISIONING_PROFILE_*_BASE64 secret is missing or '
+            'decoded to an invalid profile.'
+        )
 
 with open('DailyOK.xcodeproj/project.pbxproj', 'r') as f:
     lines = f.readlines()
