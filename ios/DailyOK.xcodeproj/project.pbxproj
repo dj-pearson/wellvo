@@ -186,6 +186,7 @@
 		BEMB0003 /* DailyOKWatchWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F6P00001; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		/* Notification Service Extension sources */
 		B7F00001 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F00001; };
+		B7S00001 /* SharedAppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00001; };
 		B7S00009 /* CertificatePinning.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00009; };
 		B7R00004 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F7F00004; };
 		/* Embed the notification service extension into the app */
@@ -1232,6 +1233,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B7F00001 /* NotificationService.swift in Sources */,
+				B7S00001 /* SharedAppGroup.swift in Sources */,
 				B7S00009 /* CertificatePinning.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
