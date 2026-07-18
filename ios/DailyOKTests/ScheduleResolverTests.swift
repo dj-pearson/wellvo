@@ -53,8 +53,10 @@ final class ScheduleResolverTests: XCTestCase {
         if let quietEnd { dict["quiet_hours_end"] = quietEnd }
         if let customSchedule { dict["custom_schedule"] = customSchedule }
 
-        let data = try! JSONSerialization.data(withJSONObject: dict)
-        return try! JSONDecoder().decode(ReceiverSettings.self, from: data)
+        // Fixture dict is a compile-time-known literal; a failure here means a
+        // broken test, so crashing is the intended behaviour.
+        let data = try! JSONSerialization.data(withJSONObject: dict) // swiftlint:disable:this force_try
+        return try! JSONDecoder().decode(ReceiverSettings.self, from: data) // swiftlint:disable:this force_try
     }
 
     // 2026-06-10 is a Wednesday, 2026-06-13 a Saturday (UTC).
@@ -134,8 +136,10 @@ final class ScheduleResolverTests: XCTestCase {
             "audio_confirmation_enabled": false,
             "custom_schedule": custom,
         ]
-        let data = try! JSONSerialization.data(withJSONObject: dict)
-        return try! JSONDecoder().decode(ReceiverSettings.self, from: data)
+        // Fixture dict is a compile-time-known literal; a failure here means a
+        // broken test, so crashing is the intended behaviour.
+        let data = try! JSONSerialization.data(withJSONObject: dict) // swiftlint:disable:this force_try
+        return try! JSONDecoder().decode(ReceiverSettings.self, from: data) // swiftlint:disable:this force_try
     }
 
     func testMultiWindowResolvesEarliestUpcomingSlot() {

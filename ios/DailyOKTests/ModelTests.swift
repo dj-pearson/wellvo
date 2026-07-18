@@ -244,10 +244,12 @@ final class ModelTests: XCTestCase {
             let f = ISO8601DateFormatter()
             dict["snoozed_until"] = f.string(from: snoozedUntil)
         }
-        let data = try! JSONSerialization.data(withJSONObject: dict)
+        // Fixture dict is a compile-time-known literal; a failure here means a
+        // broken test, so crashing is the intended behaviour.
+        let data = try! JSONSerialization.data(withJSONObject: dict) // swiftlint:disable:this force_try
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return try! decoder.decode(CheckInRequest.self, from: data)
+        return try! decoder.decode(CheckInRequest.self, from: data) // swiftlint:disable:this force_try
     }
 
     func testSnoozedRequestIsNotActivelyPending() {
