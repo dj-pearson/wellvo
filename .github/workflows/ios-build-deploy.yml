@@ -109,6 +109,21 @@ jobs:
           NSE_UUID=$(extract_uuid $RUNNER_TEMP/pp_nse.mobileprovision)
           echo "Profile UUIDs: main=$MAIN_UUID widgets=$WIDGETS_UUID watch=$WATCH_UUID watchwidgets=$WATCH_WIDGETS_UUID nse=$NSE_UUID"
 
+          # Fail fast with an actionable message if any profile failed to decode.
+          # An empty UUID means the matching PROVISIONING_PROFILE_*_BASE64 secret
+          # is missing or decoded to an invalid profile; without it the archive
+          # dies deep inside xcodebuild ("No profiles ... were found").
+          missing=""
+          [ -z "$MAIN_UUID" ]          && missing="$missing PROVISIONING_PROFILE_BASE64"
+          [ -z "$WIDGETS_UUID" ]       && missing="$missing PROVISIONING_PROFILE_WIDGETS_BASE64"
+          [ -z "$WATCH_UUID" ]         && missing="$missing PROVISIONING_PROFILE_WATCH_BASE64"
+          [ -z "$WATCH_WIDGETS_UUID" ] && missing="$missing PROVISIONING_PROFILE_WATCH_WIDGETS_BASE64"
+          [ -z "$NSE_UUID" ]           && missing="$missing PROVISIONING_PROFILE_NSE_BASE64"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing/invalid provisioning profile secret(s):$missing. Add them to Infisical (prod/dailyok) as base64-encoded .mobileprovision files."
+            exit 1
+          fi
+
           echo "MAIN_PROFILE_UUID=$MAIN_UUID"                   >> $GITHUB_ENV
           echo "WIDGETS_PROFILE_UUID=$WIDGETS_UUID"             >> $GITHUB_ENV
           echo "WATCH_PROFILE_UUID=$WATCH_UUID"                 >> $GITHUB_ENV
@@ -116,7 +131,7 @@ jobs:
           echo "NSE_PROFILE_UUID=$NSE_UUID"                     >> $GITHUB_ENV
 
           python3 ../.github/scripts/patch_signing.py \
-            "$MAIN_UUID" "$WIDGETS_UUID" "$WATCH_UUID" "$WATCH_WIDGETS_UUID"
+            "$MAIN_UUID" "$WIDGETS_UUID" "$WATCH_UUID" "$WATCH_WIDGETS_UUID" "$NSE_UUID"
 
       - name: Resolve Swift Package dependencies
         working-directory: ios
@@ -197,10 +212,11 @@ jobs:
           set -o pipefail
           # The patch step above wrote CODE_SIGN_STYLE=Manual, CODE_SIGN_IDENTITY=
           # "Apple Distribution", and PROVISIONING_PROFILE_SPECIFIER=<UUID> into the
-          # four app-target Release configs in project.pbxproj.  SPM package targets
-          # are not in that file, so they keep their own Automatic (Development) signing
-          # and are never affected by the Distribution identity.  No global signing
-          # overrides are needed here.
+          # five app-target Release configs in project.pbxproj (main app, widgets,
+          # watch, watch widgets, and the NotificationService extension).  SPM package
+          # targets are not in that file, so they keep their own Automatic (Development)
+          # signing and are never affected by the Distribution identity.  No global
+          # signing overrides are needed here.
           xcodebuild archive \
             -project DailyOK.xcodeproj \
             -scheme DailyOK \
