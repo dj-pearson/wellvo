@@ -121,7 +121,13 @@ final class OfflineCheckInService: ObservableObject {
     /// True when the error represents a loss of connectivity (as opposed to a
     /// server/auth/client error). Used to decide whether to optimistically queue
     /// a check-in for later sync.
-    static func isConnectivityError(_ error: Error) -> Bool {
+    ///
+    /// `nonisolated`: this is a pure classifier over its `Error` argument and
+    /// touches no main-actor state, so it must not inherit the enclosing class's
+    /// `@MainActor` isolation — otherwise synchronous nonisolated callers (e.g.
+    /// the unit tests) fail to compile under Swift 6 with "call to main
+    /// actor-isolated static method in a synchronous nonisolated context".
+    nonisolated static func isConnectivityError(_ error: Error) -> Bool {
         if error is NetworkError { return true }
         // `respondToCheckIn` (and other callers) re-wrap thrown errors as
         // `DailyOKError.network(_)` / `.unknown(_)` before they reach here, so a
