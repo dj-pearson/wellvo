@@ -30,6 +30,10 @@ final class OnboardingViewModel: ObservableObject {
     /// Drives the inline recovery UI (Open Settings / Continue anyway) instead of
     /// silently walking the user into the "All set" screen with a broken core feature.
     @Published var notificationDenied = false
+    /// Set once the invite record is created; drives the native Messages composer
+    /// so the invite is sent from the owner's own number (not our Twilio A2P
+    /// number). The step only advances after the composer reports a real send.
+    @Published var pendingInvite: InviteDetails?
 
     var createdFamily: Family?
 
@@ -102,18 +106,32 @@ final class OnboardingViewModel: ObservableObject {
         let timeString = formatter.string(from: checkinTime)
 
         do {
-            try await FamilyService.shared.inviteReceiver(
+            // Create the invite record, then hand the composed message to the
+            // native Messages composer instead of advancing immediately — the
+            // owner sends it from their own number.
+            pendingInvite = try await FamilyService.shared.inviteReceiver(
                 familyId: family.id,
                 name: receiverName,
                 phone: receiverPhone,
                 checkinTime: timeString
             )
-            advance()
         } catch {
             errorMessage = error.localizedDescription
         }
 
         isLoading = false
+    }
+
+    /// Called when the native invite composer closes. Advance only on a real
+    /// send; otherwise keep the owner on the form so they can try again (the
+    /// invite record already exists, so a resend just re-composes the text).
+    func handleInviteComposerFinish(sent: Bool) {
+        if sent {
+            errorMessage = nil
+            advance()
+        } else {
+            errorMessage = String(localized: "Message not sent. Tap Send Invite to try again.")
+        }
     }
 
     func requestNotificationPermission() async {

@@ -200,8 +200,8 @@ export default function Home() {
               </div>
               <h3>Family Management</h3>
               <p>
-                Invite family members via SMS or QR code. Assign roles —
-                Receivers check in, Viewers monitor dashboards.
+                Invite family members with a quick text from your phone. Assign
+                roles — Receivers check in, Viewers monitor dashboards.
               </p>
             </div>
 

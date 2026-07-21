@@ -1,5 +1,4 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
-import { sendSMS } from "../../shared/sms.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID, isValidTime24H, isValidTimezone, truncateString, sanitizeDisplayName } from "../../shared/validation.ts";
 
@@ -142,18 +141,23 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   // Generate deep link (kept as fallback for QR/link sharing)
   const inviteLink = `https://dailyok.net/invite?token=${inviteToken}`;
 
-  // Send SMS invite to receiver
-  // The receiver just needs to download the app and sign in with this phone number —
-  // auto-join will match them to this invite automatically.
+  // Invitation delivery is now a *native* send from the Owner's own device
+  // (iOS Messages composer). We deliberately DO NOT send this invite through
+  // Twilio: an invite goes to a person who has not opted into our A2P 10DLC
+  // campaign, so it can't ride the approved sender. The Twilio campaign is
+  // reserved for escalation alerts (a clean, single-purpose use case).
+  //
+  // The app auto-joins the receiver by matching the phone number they sign in
+  // with, so the record above is all the backend needs. Here we return a
+  // pre-composed message body (P2P — no STOP/HELP footer, since it comes from
+  // the Owner's personal number) that the app drops into the native composer.
   // The pairing code is included so they can set up on an iPad or other device.
   const safeName = sanitizeDisplayName(name);
-  const smsBody =
-    `${safeName}, your family wants to check in with you daily using Daily OK. ` +
-    `Download the app and sign in with this phone number to get started: ` +
-    `https://apps.apple.com/app/daily-ok/id6742044109\n\n` +
-    `Setting up on an iPad? Use this code: ${pairingCode}\n\n` +
-    `Reply STOP to opt out. Msg&data rates may apply.`;
-  const smsResult = await sendSMS(phone, smsBody);
+  const inviteMessage =
+    `Hi ${safeName}! I'd like to check in with you every day using Daily OK. ` +
+    `Download the app and sign in with this phone number and we'll be ` +
+    `connected automatically: https://apps.apple.com/app/daily-ok/id6742044109\n\n` +
+    `Setting up on an iPad? Use this code: ${pairingCode}`;
 
   return new Response(
     JSON.stringify({
@@ -161,7 +165,11 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
       invite_token: inviteToken,
       invite_link: inviteLink,
       pairing_code: pairingCode,
-      sms_sent: smsResult.success,
+      // The Owner's device delivers the invite natively; the server never sends
+      // it. Kept for response-shape compatibility with older clients.
+      sms_sent: false,
+      // Pre-composed body for the native Messages composer (additive field).
+      invite_message: inviteMessage,
     }),
     { headers: { "Content-Type": "application/json" } }
   );
