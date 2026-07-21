@@ -25,6 +25,11 @@ import { verifyRequest, type AuthResult } from "./shared/auth.ts";
 import { checkRateLimit, checkServiceRoleRateLimit } from "./shared/rate-limiter.ts";
 import { logInfo, logError, withRequestLogging } from "./shared/logger.ts";
 import { isBelowMinimum, forceUpdatePayload } from "./shared/config.ts";
+import { initSentry } from "./shared/sentry.ts";
+
+// Initialize error reporting before we start serving so every logError() and
+// the top-level handler catch routes to the Daily OK Sentry project.
+initSentry();
 
 // Import function handlers
 import { handleSendCheckinNotification } from "./functions/send-checkin-notification/index.ts";
