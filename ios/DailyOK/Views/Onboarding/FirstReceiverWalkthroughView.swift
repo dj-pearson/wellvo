@@ -14,6 +14,8 @@ struct FirstReceiverWalkthroughView: View {
     @State private var checkinTime = Self.defaultCheckinTime
     @State private var isLoading = false
     @State private var errorMessage: String?
+    /// Drives the native Messages composer once the invite record exists.
+    @State private var pendingInvite: InviteDetails?
     @FocusState private var focusedField: FormField?
 
     let onInviteSent: () async -> Void
@@ -46,6 +48,9 @@ struct FirstReceiverWalkthroughView: View {
                 .animation(DailyOKMotion.smoothSpring, value: currentStep)
 
                 footer
+            }
+            .inviteComposer(item: $pendingInvite) { sent in
+                handleInviteComposerFinish(sent: sent)
             }
             .background(AmbientBackground(tone: .calm))
             .navigationTitle(currentStep == .inviteSent ? "All Set" : "Add Your First Member")
@@ -205,7 +210,7 @@ struct FirstReceiverWalkthroughView: View {
                     Text("Invite sent to \(name)!")
                         .font(.title3.weight(.bold))
                         .multilineTextAlignment(.center)
-                    Text("They'll get a text at \(phone) with a link to download Daily OK.")
+                    Text("Your text to \(phone) is on its way with a link to download Daily OK.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -218,7 +223,7 @@ struct FirstReceiverWalkthroughView: View {
                 Text("What \(displayName) does next:")
                     .font(.headline)
 
-                ReceiverFlowRow(number: 1, icon: "message.fill", text: "Opens the text message you triggered.")
+                ReceiverFlowRow(number: 1, icon: "message.fill", text: "Opens the text message you sent them.")
                 ReceiverFlowRow(number: 2, icon: "arrow.down.app.fill", text: "Taps the link to download Daily OK.")
                 ReceiverFlowRow(number: 3, icon: "phone.fill", text: "Signs in with the same phone number — no codes to type.")
                 ReceiverFlowRow(number: 4, icon: "bell.badge.fill", text: "Allows notifications so they get the daily reminder.")
@@ -379,7 +384,10 @@ struct FirstReceiverWalkthroughView: View {
             formatter.locale = Locale(identifier: "en_US_POSIX")
             formatter.dateFormat = "HH:mm"
 
-            try await FamilyService.shared.inviteReceiver(
+            // Create the invite record, then present the native composer so the
+            // owner sends the text from their own number. Advance to the success
+            // step only after the composer reports a real send.
+            let invite = try await FamilyService.shared.inviteReceiver(
                 familyId: family.id,
                 name: name.trimmingCharacters(in: .whitespaces),
                 phone: phone.trimmingCharacters(in: .whitespaces),
@@ -387,13 +395,24 @@ struct FirstReceiverWalkthroughView: View {
             )
 
             await onInviteSent()
-            DailyOKHaptics.success()
-            withAnimation(DailyOKMotion.smoothSpring) {
-                currentStep = .inviteSent
-            }
+            pendingInvite = invite
         } catch {
             DailyOKHaptics.error()
             errorMessage = DailyOKError.network(error).localizedDescription
+        }
+    }
+
+    /// Called when the native invite composer closes. Advance to the "invite
+    /// sent" step only on a real send; otherwise keep the owner on the form.
+    private func handleInviteComposerFinish(sent: Bool) {
+        guard sent else {
+            errorMessage = String(localized: "Message not sent. Tap Send Invite to try again.")
+            return
+        }
+        errorMessage = nil
+        DailyOKHaptics.success()
+        withAnimation(DailyOKMotion.smoothSpring) {
+            currentStep = .inviteSent
         }
     }
 

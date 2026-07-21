@@ -17,6 +17,10 @@ struct FamilyView: View {
     @State private var resendingMemberId: UUID?
     /// Transient success toast after a re-send.
     @State private var resendToast: String?
+    /// Invite record re-created for a resend; drives the native Messages composer.
+    @State private var pendingResendInvite: InviteDetails?
+    /// Display name of the member being re-invited, for the post-send toast.
+    @State private var resendTargetName: String?
 
     /// Receivers currently occupying a slot (active or pending invite). Excludes
     /// deactivated receivers so a removed member doesn't silently push the owner
@@ -188,6 +192,9 @@ struct FamilyView: View {
                 InviteReceiverSheet { await loadData() }
                     .dailyokGlassSheet(style: .regular)
             }
+            .inviteComposer(item: $pendingResendInvite) { sent in
+                handleResendComposerFinish(sent: sent)
+            }
             .sheet(isPresented: $showPaywall) {
                 // Wrap in a NavigationStack so the paywall has a title bar and an
                 // explicit Done button (App Review expects a dismissible paywall).
@@ -257,21 +264,34 @@ struct FamilyView: View {
         // silently resetting it to a hardcoded 08:00 on every re-send.
         let checkinTime = await currentCheckinTime(for: member)
         do {
-            try await FamilyService.shared.inviteReceiver(
+            // Re-create the invite record, then present the native composer so
+            // the owner re-sends the text from their own number.
+            let invite = try await FamilyService.shared.inviteReceiver(
                 familyId: family.id,
                 name: member.user?.displayName ?? "Family Member",
                 phone: member.user?.phone ?? "",
                 checkinTime: checkinTime
             )
-            DailyOKHaptics.success()
-            let name = member.user?.displayName ?? "them"
-            UIAccessibility.post(notification: .announcement, argument: String(localized: "Invite re-sent to \(name)"))
-            withAnimation { resendToast = "Invite re-sent to \(name)" }
-            try? await Task.sleep(nanoseconds: 2_500_000_000)
-            withAnimation { resendToast = nil }
+            resendTargetName = member.user?.displayName ?? "them"
+            pendingResendInvite = invite
         } catch {
             DailyOKHaptics.error()
             errorMessage = DailyOKError.network(error).localizedDescription
+        }
+    }
+
+    /// Called when the resend composer closes. Surface the success toast only on
+    /// a real send.
+    private func handleResendComposerFinish(sent: Bool) {
+        let name = resendTargetName ?? "them"
+        resendTargetName = nil
+        guard sent else { return }
+        DailyOKHaptics.success()
+        UIAccessibility.post(notification: .announcement, argument: String(localized: "Invite re-sent to \(name)"))
+        withAnimation { resendToast = "Invite re-sent to \(name)" }
+        Task {
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            withAnimation { resendToast = nil }
         }
     }
 
@@ -433,6 +453,8 @@ struct InviteReceiverSheet: View {
     @State private var errorMessage: String?
     @State private var inviteSent = false
     @State private var showSetupGuide = false
+    /// Drives the native Messages composer once the invite record exists.
+    @State private var pendingInvite: InviteDetails?
     @FocusState private var focusedField: Field?
 
     private enum Field { case name, phone }
@@ -461,7 +483,7 @@ struct InviteReceiverSheet: View {
                                 .foregroundStyle(.green)
 
                             InstructionRow(number: 1, text: "Enter their name and phone number below")
-                            InstructionRow(number: 2, text: "They'll receive a text with an App Store link")
+                            InstructionRow(number: 2, text: "Your Messages app opens with a ready-to-send text — you tap send")
                             InstructionRow(number: 3, text: "They download the app and sign in with that same phone number")
                             InstructionRow(number: 4, text: "The app automatically connects them — no codes needed")
                         }
@@ -494,7 +516,7 @@ struct InviteReceiverSheet: View {
                     }
 
                     Section {
-                        Text("By tapping Send Invite, you confirm you have this person's consent to receive a one-time SMS from Daily OK with a link to download the app. Msg & data rates may apply. They can reply STOP to opt out or HELP for assistance. See our Privacy Policy (dailyok.net/privacy) and Terms of Use (dailyok.net/terms).")
+                        Text("Tapping Send Invite opens your Messages app with a prewritten text to this person — it's sent from your own phone number, and you choose whether to send it. Standard message rates may apply. See our Privacy Policy (dailyok.net/privacy) and Terms of Use (dailyok.net/terms).")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -517,7 +539,7 @@ struct InviteReceiverSheet: View {
                             Text("Invite Sent to \(name)!")
                                 .font(.headline)
 
-                            Text("A text message has been sent to \(phone) with instructions to download and set up the app.")
+                            Text("Your text to \(phone) is on its way with instructions to download and set up the app.")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
@@ -574,6 +596,14 @@ struct InviteReceiverSheet: View {
                 ReceiverSetupGuideView(receiverName: name)
                     .dailyokGlassSheet(style: .thick)
             }
+            .inviteComposer(item: $pendingInvite) { sent in
+                if sent {
+                    errorMessage = nil
+                    inviteSent = true
+                } else {
+                    errorMessage = String(localized: "Message not sent. Tap Send Invite to try again.")
+                }
+            }
         }
     }
 
@@ -584,6 +614,7 @@ struct InviteReceiverSheet: View {
         }
 
         isLoading = true
+        errorMessage = nil
         // Wire format for the backend — POSIX-locked to keep the 24h "HH:mm"
         // contract stable across user locales (US-IOS044).
         let formatter = DateFormatter()
@@ -591,14 +622,17 @@ struct InviteReceiverSheet: View {
         formatter.dateFormat = "HH:mm"
 
         do {
-            try await FamilyService.shared.inviteReceiver(
+            // Create the invite record, then present the native composer so the
+            // owner sends the text from their own number. The success state is
+            // shown only after the composer reports a real send.
+            let invite = try await FamilyService.shared.inviteReceiver(
                 familyId: family.id,
                 name: name,
                 phone: phone,
                 checkinTime: formatter.string(from: checkinTime)
             )
             await onComplete()
-            inviteSent = true
+            pendingInvite = invite
         } catch {
             errorMessage = error.localizedDescription
         }

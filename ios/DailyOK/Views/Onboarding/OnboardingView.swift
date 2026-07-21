@@ -287,6 +287,9 @@ struct OnboardingView: View {
         .padding(24)
         .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
         .padding()
+        .inviteComposer(item: $viewModel.pendingInvite) { sent in
+            viewModel.handleInviteComposerFinish(sent: sent)
+        }
     }
 
     private var notificationsStep: some View {

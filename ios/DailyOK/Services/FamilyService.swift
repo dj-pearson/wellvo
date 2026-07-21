@@ -131,8 +131,19 @@ actor FamilyService {
         return members
     }
 
-    func inviteReceiver(familyId: UUID, name: String, phone: String, checkinTime: String) async throws {
-        try await EdgeFunctionsClient.invoke(
+    /// Create a pending invite for a receiver and return everything the app
+    /// needs to deliver it *natively* from the owner's own device.
+    ///
+    /// The invitation is no longer sent server-side via Twilio: an invite goes
+    /// to someone who hasn't opted into our A2P 10DLC campaign, so it can't ride
+    /// the approved sender (Twilio won't approve it). Instead the backend just
+    /// records the invite (so phone-based auto-join works) and hands back a
+    /// pre-composed message the caller drops into the iOS Messages composer, so
+    /// the text comes from the owner's personal number. The Twilio campaign is
+    /// reserved for escalation alerts only.
+    @discardableResult
+    func inviteReceiver(familyId: UUID, name: String, phone: String, checkinTime: String) async throws -> InviteDetails {
+        let response: InviteResponse = try await EdgeFunctionsClient.invoke(
             "invite-receiver",
             body: [
                 "family_id": familyId.uuidString,
@@ -140,6 +151,21 @@ actor FamilyService {
                 "phone": phone,
                 "checkin_time": checkinTime,
             ]
+        )
+
+        // Prefer the server-composed body (keeps the copy in one place), but
+        // fall back to a locally-built message so an older backend that doesn't
+        // return `invite_message` still produces a sendable invite.
+        let message = response.inviteMessage ?? InviteDetails.fallbackMessage(
+            name: name,
+            pairingCode: response.pairingCode
+        )
+
+        return InviteDetails(
+            phone: phone,
+            message: message,
+            pairingCode: response.pairingCode,
+            inviteLink: response.inviteLink
         )
     }
 
@@ -185,6 +211,52 @@ actor FamilyService {
             role: data.role ?? "receiver",
             checkinTime: data.checkinTime
         )
+    }
+}
+
+/// Everything the UI needs to hand an invite to the native iOS Messages
+/// composer. `Identifiable` so views can drive a `.sheet(item:)` from it.
+struct InviteDetails: Identifiable {
+    let id = UUID()
+    /// Recipient phone number, as the owner typed it (the composer normalizes).
+    let phone: String
+    /// Pre-composed message body — App Store link + optional pairing code.
+    let message: String
+    let pairingCode: String?
+    let inviteLink: String?
+
+    /// Local fallback body used only when the backend doesn't return a
+    /// server-composed `invite_message` (older edge-functions build). Kept in
+    /// sync with the server copy in `invite-receiver`. No STOP/HELP footer — this
+    /// is a person-to-person message from the owner's own number, not A2P.
+    static func fallbackMessage(name: String, pairingCode: String?) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let greeting = trimmed.isEmpty ? "Hi!" : "Hi \(trimmed)!"
+        var body =
+            "\(greeting) I'd like to check in with you every day using Daily OK. " +
+            "Download the app and sign in with this phone number and we'll be " +
+            "connected automatically: https://apps.apple.com/app/daily-ok/id6742044109"
+        if let code = pairingCode, !code.isEmpty {
+            body += "\n\nSetting up on an iPad? Use this code: \(code)"
+        }
+        return body
+    }
+}
+
+/// Raw decode of the `invite-receiver` response.
+struct InviteResponse: Decodable {
+    let success: Bool?
+    let inviteToken: String?
+    let inviteLink: String?
+    let pairingCode: String?
+    let inviteMessage: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case inviteToken = "invite_token"
+        case inviteLink = "invite_link"
+        case pairingCode = "pairing_code"
+        case inviteMessage = "invite_message"
     }
 }
 

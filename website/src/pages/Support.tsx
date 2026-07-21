@@ -8,7 +8,7 @@ import './Support.css'
 const faqs = [
   {
     q: 'How do I set up Daily OK for my family?',
-    a: 'Download Daily OK from the App Store, create an account, and set up your family group. Then invite your loved ones via SMS or QR code — they\'ll receive a link to join automatically.',
+    a: 'Download Daily OK from the App Store, create an account, and set up your family group. Then invite your loved ones by sending them a text — the app opens your Messages app with a prewritten invite you send from your own phone. When they download the app and sign in with that number, they\'re connected automatically.',
   },
   {
     q: 'What happens if my loved one misses a check-in?',
@@ -28,7 +28,7 @@ const faqs = [
   },
   {
     q: 'How do I add more family members?',
-    a: 'From your Owner dashboard, tap "Add Member" and choose to invite via SMS link or QR code. If you need more members than your plan allows, you can purchase add-on slots.',
+    a: 'From your Owner dashboard, tap "Invite Family Member" and enter their name and phone number. The app opens your Messages app with a ready-to-send invite text that goes from your own phone. If you need more members than your plan allows, you can purchase add-on slots.',
   },
   {
     q: 'What are Critical Alerts?',

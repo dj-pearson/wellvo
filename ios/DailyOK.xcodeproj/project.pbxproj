@@ -107,6 +107,7 @@
 		B1F0001B /* StreakBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0001B; };
 		B1F0001C /* ContactQuickActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0001C; };
 		B1F0001D /* SegmentedCodeField.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F0001D; };
+		B1F00030 /* InviteMessageComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F00030; };
 		/* Shared (App Intents / widget / watch hand-off) */
 		B1S00001 /* SharedAppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00001; };
 		B1S00002 /* SharedCheckInState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00002; };
@@ -278,6 +279,7 @@
 		F1F0001B /* StreakBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakBadge.swift; sourceTree = "<group>"; };
 		F1F0001C /* ContactQuickActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactQuickActions.swift; sourceTree = "<group>"; };
 		F1F0001D /* SegmentedCodeField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentedCodeField.swift; sourceTree = "<group>"; };
+		F1F00030 /* InviteMessageComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteMessageComposer.swift; sourceTree = "<group>"; };
 		/* Shared (App Intents / widget / watch hand-off) */
 		F1S00001 /* SharedAppGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedAppGroup.swift; sourceTree = "<group>"; };
 		F1S00002 /* SharedCheckInState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedCheckInState.swift; sourceTree = "<group>"; };
@@ -774,6 +776,7 @@
 				F1F0001B /* StreakBadge.swift */,
 				F1F0001C /* ContactQuickActions.swift */,
 				F1F0001D /* SegmentedCodeField.swift */,
+				F1F00030 /* InviteMessageComposer.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -1128,6 +1131,7 @@
 				B1F0001B /* StreakBadge.swift in Sources */,
 				B1F0001C /* ContactQuickActions.swift in Sources */,
 				B1F0001D /* SegmentedCodeField.swift in Sources */,
+				B1F00030 /* InviteMessageComposer.swift in Sources */,
 				B1S00001 /* SharedAppGroup.swift in Sources */,
 				B1S00002 /* SharedCheckInState.swift in Sources */,
 				B1S00003 /* SharedCheckInClient.swift in Sources */,

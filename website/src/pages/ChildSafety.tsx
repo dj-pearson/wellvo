@@ -221,7 +221,7 @@ export default function ChildSafety() {
               <div className="cs-step-num">1</div>
               <div className="cs-step-icon"><Users size={28} /></div>
               <h3>Set up your family</h3>
-              <p>Create your account and invite your children via SMS or QR code. Set each child's check-in time based on their schedule.</p>
+              <p>Create your account and invite your children with a quick text from your own phone. Set each child's check-in time based on their schedule.</p>
             </div>
             <div className="cs-step">
               <div className="cs-step-num">2</div>
