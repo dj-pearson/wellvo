@@ -3,6 +3,8 @@
  * Outputs one JSON object per line, compatible with Docker json-file log driver.
  */
 
+import { captureError } from "./sentry.ts";
+
 type LogLevel = "info" | "warn" | "error";
 
 interface LogEntry {
@@ -60,6 +62,9 @@ export function logError(message: string, error?: unknown, fields?: Partial<LogE
     entry.error = String(error);
   }
   emit(entry);
+  // Route every error-level log to Sentry for platform-wide error tracking.
+  // No-op until initSentry() has run; never throws.
+  captureError(message, error, fields as Record<string, unknown> | undefined);
 }
 
 /**

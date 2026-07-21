@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@sentry/react": "^8.55.2",
     "@supabase/supabase-js": "^2.47.10",
     "@tiptap/extension-image": "^2.11.3",
     "@tiptap/extension-link": "^2.11.3",

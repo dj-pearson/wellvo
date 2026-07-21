@@ -4,8 +4,13 @@ import { BrowserRouter } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
 import { AdminAuthProvider } from '../src/admin/AdminAuthProvider'
 import ErrorBoundary from '../src/components/ErrorBoundary'
+import { initSentry } from '../src/lib/sentry'
 import type { PageContextClient } from 'vike/types'
 import Page from './+Page'
+
+// Route browser errors to the Daily OK Sentry project. Runs once on first
+// client render; prerender/SSR (onRenderHtml) never calls this.
+initSentry()
 
 let rendered = false
 
