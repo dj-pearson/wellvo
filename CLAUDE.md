@@ -265,3 +265,21 @@ iOS and Android both persist data on-device (Keychain / EncryptedSharedPreferenc
 - [ ] If it touches mobile on-device persistence (Room, UserDefaults, Keychain keys), is there a migration / shim for users upgrading from the previous build?
 - [ ] If it removes anything, has the deprecation flow run for at least one full release cycle?
 - [ ] PR description names which release this is targeted at and which `MIN_SUPPORTED_*_VERSION` it assumes.
+
+<!-- SELVEDGE:START -->
+## Pearson Media — shared context
+
+*Managed from the vault. Edit `14 - Resources/Shared CLAUDE Block.md` in the vault; direct edits between these markers are overwritten once a sync exists. Everything outside them is yours and is never touched.*
+
+**The memory vault.** Portfolio-wide memory lives in the **Hermes** vault at `<your-home>\Documents\Hermes` (`C:\Users\dpearson\Documents\Hermes` on this machine; remote: https://github.com/dj-pearson/Hermes). It holds the profile, the map of all ten projects, and cross-project knowledge. Read `VAULT-INDEX.md` there when a task needs context beyond this repo. This repo's own `CLAUDE.md`, `~/.claude` memory, and skills remain authoritative for work inside it — the vault supplements them, never replaces them.
+
+**Name the project.** Pearson Media runs ten projects on a shared stack. Never say "the app," "the repo," or "production" without naming which one. A right answer about the wrong project is a wrong answer.
+
+**The shared stack.** React + TypeScript + Vite, Tailwind, shadcn/ui, self-hosted Supabase, Cloudflare Pages, Coolify on Contabo, Stripe. A problem solved in one repo is usually already solved for this one — check the vault before solving it twice.
+
+**Secrets are references, never values.** Never write a password, key, or token value into a note, summary, commit, or setup doc; name where it's stored instead. Loose credential files exist under your `Documents` folder (`C:\Users\dpearson\Documents` on this machine) — never read one into a document.
+
+**Never delete what Claude Code relies on.** Repo `CLAUDE.md` files, `~/.claude/projects/*/memory/`, `.claude/skills/`, settings. Copy from them freely; removing or stubbing them is Dj's call alone.
+
+**Evidence only.** Verify state from the actual file or command before claiming anything is done or in place. If unsure, say so and go find out.
+<!-- SELVEDGE:END -->
