@@ -1,7 +1,30 @@
-import { lazy, Suspense } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useRef } from 'react'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import Layout from './components/Layout'
 import { AdminAuthProvider } from './admin/AdminAuthProvider'
+
+/**
+ * On client-side navigation, scroll to top and move focus to the main
+ * landmark so keyboard and screen-reader users land on the new page instead
+ * of the now-unmounted link they clicked (WCAG 2.4.3 Focus Order). Skips the
+ * initial render so first paint / hydration doesn't steal focus.
+ */
+function RouteFocusManager() {
+  const { pathname } = useLocation()
+  const isFirstRender = useRef(true)
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    window.scrollTo(0, 0)
+    const main = document.getElementById('main-content')
+    main?.focus()
+  }, [pathname])
+
+  return null
+}
 
 const Home = lazy(() => import('./pages/Home'))
 const Privacy = lazy(() => import('./pages/Privacy'))
@@ -55,6 +78,7 @@ function LoadingSpinner() {
 function App() {
   return (
     <AdminAuthProvider>
+      <RouteFocusManager />
       <Suspense fallback={<LoadingSpinner />}>
         <Routes>
           {/* Public marketing + blog */}

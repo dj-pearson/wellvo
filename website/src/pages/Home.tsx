@@ -263,7 +263,7 @@ export default function Home() {
           <div className="no-tracking-grid">
             <div className="no-track-item">
               <div className="no-icon"><MapPin size={24} /></div>
-              <h4>Location Is Optional</h4>
+              <h3>Location Is Optional</h3>
               <p>
                 Receivers can choose to attach a location pin to their check-in. Location is
                 only collected with your permission, never sold, and can be turned off at any
@@ -272,17 +272,17 @@ export default function Home() {
             </div>
             <div className="no-track-item">
               <div className="no-icon"><Camera size={24} /></div>
-              <h4>No Cameras or Sensors</h4>
+              <h3>No Cameras or Sensors</h3>
               <p>No video, no audio monitoring, no wearables required.</p>
             </div>
             <div className="no-track-item">
               <div className="no-icon"><Mic size={24} /></div>
-              <h4>No Microphone Access</h4>
+              <h3>No Microphone Access</h3>
               <p>We never request or use the microphone.</p>
             </div>
             <div className="no-track-item">
               <div className="no-icon"><Shield size={24} /></div>
-              <h4>GDPR & CCPA/CPRA Compliant</h4>
+              <h3>GDPR & CCPA/CPRA Compliant</h3>
               <p>Full data export, deletion, and retention controls — yours to manage.</p>
             </div>
           </div>
@@ -300,7 +300,7 @@ export default function Home() {
           <div className="use-cases-grid">
             <div className="use-case">
               <div className="use-case-emoji" role="img" aria-label="Elderly woman">👵</div>
-              <h4>Aging Parents & Dementia Care</h4>
+              <h3>Aging Parents & Dementia Care</h3>
               <p>
                 Adult children checking on parents living alone — especially those with
                 early-stage dementia or Alzheimer's. A simple, dignified daily wellness check
@@ -310,7 +310,7 @@ export default function Home() {
             </div>
             <div className="use-case">
               <div className="use-case-emoji" role="img" aria-label="Children playing">👦</div>
-              <h4>Kids & Teens</h4>
+              <h3>Kids & Teens</h3>
               <p>
                 Parents of children playing outside, walking home from school, or staying home
                 alone. A quick daily check-in so you know they're safe — without hovering.
@@ -319,7 +319,7 @@ export default function Home() {
             </div>
             <div className="use-case">
               <div className="use-case-emoji" role="img" aria-label="Globe">🌍</div>
-              <h4>Long-Distance Families</h4>
+              <h3>Long-Distance Families</h3>
               <p>
                 Stay connected with family across states or countries. A daily "I'm OK" signal
                 that bridges the distance and eases the worry.
@@ -327,7 +327,7 @@ export default function Home() {
             </div>
             <div className="use-case">
               <div className="use-case-emoji" role="img" aria-label="Stethoscope">🩺</div>
-              <h4>Family & Professional Caregivers</h4>
+              <h3>Family & Professional Caregivers</h3>
               <p>
                 Whether you're a professional caregiver or a family member coordinating care,
                 Daily OK provides a reliable daily wellness signal with history and PDF reports

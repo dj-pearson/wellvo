@@ -136,7 +136,7 @@ export default function Pricing() {
               >
                 {plan.highlight && <div className="plan-badge">Most Popular</div>}
                 <div className="plan-header">
-                  <h3>{plan.name}</h3>
+                  <h2>{plan.name}</h2>
                   <div className="plan-price">
                     <span className="price-amount">{plan.price}</span>
                     <span className="price-period">{plan.period}</span>
@@ -241,7 +241,7 @@ export default function Pricing() {
             {addons.map((addon) => (
               <div key={addon.name} className="addon-card">
                 <div>
-                  <h4>{addon.name}</h4>
+                  <h3>{addon.name}</h3>
                   <p>{addon.description}</p>
                 </div>
                 <div className="addon-price">
@@ -263,7 +263,7 @@ export default function Pricing() {
           <div className="faq-grid">
             {pricingFaqs.map((faq) => (
               <div key={faq.q} className="faq-item">
-                <h4>{faq.q}</h4>
+                <h3>{faq.q}</h3>
                 <p>
                   {faq.a}
                   {faq.q === 'Is my data safe?' && (

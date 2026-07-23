@@ -3,7 +3,7 @@ import './Legal.css'
 
 export default function Terms() {
   return (
-    <main className="legal-page">
+    <div className="legal-page">
       <SEO
         title="Terms of Use"
         description="Daily OK terms of use. Subscription terms, acceptable use, dispute resolution, and arbitration agreement for the daily family check-in app."
@@ -404,6 +404,6 @@ export default function Terms() {
           </section>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

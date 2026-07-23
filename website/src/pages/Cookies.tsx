@@ -3,7 +3,7 @@ import './Legal.css'
 
 export default function Cookies() {
   return (
-    <main className="legal-page">
+    <div className="legal-page">
       <SEO
         title="Cookie Notice"
         description="How Daily OK uses (and does not use) cookies and similar technologies on our website and apps."
@@ -12,14 +12,16 @@ export default function Cookies() {
       <div className="container">
         <div className="legal-content">
           <h1>Cookie Notice</h1>
-          <p className="legal-updated">Last updated: April 13, 2026</p>
+          <p className="legal-updated">Last updated: July 23, 2026</p>
 
           <section>
             <h2>Overview</h2>
             <p>
               Daily OK is built around the principle of data minimization. We do not use
-              advertising cookies, behavioral-tracking cookies, or third-party marketing
-              pixels on our website (dailyok.net) or in our mobile apps.
+              advertising cookies or third-party marketing pixels on our website
+              (dailyok.net) or in our mobile apps. The only cookies that are not strictly
+              necessary are the optional analytics cookies described below, which are set
+              only if you consent.
             </p>
           </section>
 
@@ -49,8 +51,25 @@ export default function Cookies() {
               are popular. Cloudflare Web Analytics{' '}
               <strong>does not set cookies, does not use fingerprinting, and does not
               collect personally identifiable information.</strong> Because no cookies or
-              persistent identifiers are set, no consent prompt is required under the EU
+              persistent identifiers are set, it runs without a consent prompt under the EU
               ePrivacy Directive or comparable laws.
+            </p>
+
+            <h3>Analytics Cookies (Optional — Only With Your Consent)</h3>
+            <p>
+              With your consent, we also use <strong>Google Analytics (GA4)</strong>,
+              provided by Google LLC, to understand how visitors use the site so we can
+              improve it. Google Analytics sets first-party cookies (such as{' '}
+              <code>_ga</code>) and transfers data to Google. We enable IP anonymization and
+              do not use Google Analytics for advertising.
+            </p>
+            <p>
+              Google Analytics is <strong>off by default</strong>. When you first visit the
+              site we show a consent banner; Google Analytics is only loaded if you choose{' '}
+              <em>Accept analytics</em>. If you decline — or if your browser sends a Global
+              Privacy Control (GPC) signal — Google Analytics is never loaded. You can change
+              your mind at any time by clearing this site's browser storage, which resets the
+              banner so you can choose again.
             </p>
 
             <h3>Categories We Do Not Use</h3>
@@ -58,7 +77,7 @@ export default function Cookies() {
               <li>Advertising or remarketing cookies</li>
               <li>Cross-site tracking pixels (Facebook Pixel, Google Ads, etc.)</li>
               <li>Third-party social-media share buttons that load tracking scripts</li>
-              <li>Session-replay or behavioral analytics tools</li>
+              <li>Session-replay tools (heatmaps or mouse-movement recording)</li>
             </ul>
           </section>
 
@@ -85,10 +104,10 @@ export default function Cookies() {
           <section>
             <h2>Changes to This Notice</h2>
             <p>
-              If we ever introduce a new technology that requires consent (for example,
-              optional product analytics that set a cookie), we will update this notice and
-              present a consent banner before the technology is loaded. Any change will be
-              reflected in the "Last updated" date above.
+              If we introduce a new technology that requires consent, we will update this
+              notice and present it in the consent banner before the technology is loaded, so
+              you can accept or decline. Any change will be reflected in the "Last updated"
+              date above.
             </p>
           </section>
 
@@ -101,6 +120,6 @@ export default function Cookies() {
           </section>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

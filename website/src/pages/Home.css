@@ -323,7 +323,7 @@
   margin: 0 auto 16px;
 }
 
-.no-track-item h4 {
+.no-track-item h3 {
   font-size: 16px;
   color: var(--white);
   margin-bottom: 6px;
@@ -358,7 +358,7 @@
   margin-bottom: 12px;
 }
 
-.use-case h4 {
+.use-case h3 {
   font-size: 17px;
   font-weight: 600;
   color: var(--gray-900);
