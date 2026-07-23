@@ -27,7 +27,7 @@ export default function Header() {
           <img src="/Logo.svg" alt="Daily OK" style={{ height: '36px', width: 'auto' }} />
         </Link>
 
-        <nav className={`nav ${menuOpen ? 'nav-open' : ''}`} role="navigation" aria-label="Main navigation">
+        <nav id="primary-navigation" className={`nav ${menuOpen ? 'nav-open' : ''}`} role="navigation" aria-label="Main navigation">
           <Link
             to="/"
             className={`nav-link ${isActive('/') ? 'active' : ''}`}
@@ -83,6 +83,7 @@ export default function Header() {
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Toggle menu"
           aria-expanded={menuOpen}
+          aria-controls="primary-navigation"
         >
           {menuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>

@@ -3,7 +3,7 @@ import './Legal.css'
 
 export default function Privacy() {
   return (
-    <main className="legal-page">
+    <div className="legal-page">
       <SEO
         title="Privacy Policy"
         description="Daily OK privacy policy. Transparent data practices, optional location, GDPR, CCPA/CPRA, COPPA, and state privacy law compliance."
@@ -226,6 +226,7 @@ export default function Privacy() {
               <li><strong>Contabo / Coolify (VPS hosting)</strong> — hosts our edge functions in the European Union.</li>
               <li><strong>Cloudflare</strong> — content delivery, DDoS protection, and privacy-first web analytics.</li>
               <li><strong>TelemetryDeck</strong> — aggregate, hashed analytics for the iOS and Android apps. User identifiers are one-way hashed before leaving the device; no personal information is transmitted.</li>
+              <li><strong>Sentry</strong> — application error and crash reporting for our apps, website, and backend, used to detect and fix defects. Configured not to send personal information by default; may process technical data such as IP address and error context.</li>
               <li><strong>Apple Push Notification service (APNs)</strong> — delivery of iOS push notifications.</li>
               <li><strong>Google Firebase Cloud Messaging (FCM)</strong> — delivery of Android push notifications.</li>
               <li><strong>Twilio (SMS)</strong> — escalation text messages where SMS fallback is enabled.</li>
@@ -416,6 +417,6 @@ export default function Privacy() {
           </section>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

@@ -3,7 +3,7 @@ import './Legal.css'
 
 export default function Cookies() {
   return (
-    <main className="legal-page">
+    <div className="legal-page">
       <SEO
         title="Cookie Notice"
         description="How Daily OK uses (and does not use) cookies and similar technologies on our website and apps."
@@ -101,6 +101,6 @@ export default function Cookies() {
           </section>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

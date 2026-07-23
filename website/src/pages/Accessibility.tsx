@@ -11,7 +11,7 @@ export default function Accessibility() {
         path="/accessibility"
         keywords="accessible check-in app, voiceover support, elderly friendly app, senior friendly iPhone app, large text app for seniors"
       />
-    <main className="legal-page">
+    <div className="legal-page">
       <div className="container">
         <div className="legal-content">
           <h1>Accessibility Statement</h1>
@@ -43,8 +43,9 @@ export default function Accessibility() {
                 without loss of content or functionality.
               </li>
               <li>
-                <strong>Dark mode support</strong> — a full dark appearance is available to
-                reduce eye strain and improve readability in low-light settings.
+                <strong>Dark mode support (mobile app)</strong> — the iOS app offers a full
+                dark appearance to reduce eye strain and improve readability in low-light
+                settings.
               </li>
               <li>
                 <strong>Color-independent status indicators</strong> — we use icons alongside
@@ -95,7 +96,7 @@ export default function Accessibility() {
           </section>
         </div>
       </div>
-    </main>
+    </div>
     </>
   )
 }

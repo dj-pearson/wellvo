@@ -7,7 +7,9 @@ export default function Layout() {
     <>
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <Header />
-      <main id="main-content">
+      {/* tabIndex=-1 makes this a programmatic focus target for the skip link
+          and for RouteFocusManager on SPA navigation (WCAG 2.4.3). */}
+      <main id="main-content" tabIndex={-1}>
         <Outlet />
       </main>
       <Footer />

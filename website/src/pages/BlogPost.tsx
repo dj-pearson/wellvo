@@ -156,7 +156,7 @@ export default function BlogPost() {
           <h1>{post.title}</h1>
           {post.excerpt && <p className="blog-article-lede">{post.excerpt}</p>}
           {post.featured_image_url && (
-            <img src={post.featured_image_url} alt="" className="blog-article-hero" />
+            <img src={post.featured_image_url} alt={post.title} className="blog-article-hero" />
           )}
 
           <div className="blog-article-body" dangerouslySetInnerHTML={{ __html: safeHtml }} />

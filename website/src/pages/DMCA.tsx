@@ -3,7 +3,7 @@ import './Legal.css'
 
 export default function DMCA() {
   return (
-    <main className="legal-page">
+    <div className="legal-page">
       <SEO
         title="DMCA Copyright Policy"
         description="How to submit a copyright takedown notice or counter-notice for content on Daily OK."
@@ -110,6 +110,6 @@ export default function DMCA() {
           </section>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

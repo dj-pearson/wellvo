@@ -80,7 +80,7 @@ export default function Support() {
           <div className="contact-grid">
             <div className="contact-card">
               <Mail size={28} />
-              <h3>Email Support</h3>
+              <h2>Email Support</h2>
               <p>Get help from our team. We typically respond within 24 hours.</p>
               <a href="mailto:support@dailyok.net" className="btn btn-secondary">
                 support@dailyok.net
@@ -88,7 +88,7 @@ export default function Support() {
             </div>
             <div className="contact-card">
               <MessageCircle size={28} />
-              <h3>In-App Support</h3>
+              <h2>In-App Support</h2>
               <p>Family+ subscribers get priority support directly within the app.</p>
               <Link to="/pricing" className="btn btn-secondary">
                 View Plans
@@ -96,7 +96,7 @@ export default function Support() {
             </div>
             <div className="contact-card">
               <FileText size={28} />
-              <h3>Legal & Privacy</h3>
+              <h2>Legal & Privacy</h2>
               <p>Questions about your data, privacy rights, or our policies.</p>
               <a href="mailto:privacy@dailyok.net" className="btn btn-secondary">
                 privacy@dailyok.net
@@ -127,7 +127,7 @@ export default function Support() {
       <section className="section support-cta">
         <div className="container">
           <div className="support-cta-card">
-            <h3>Still need help?</h3>
+            <h2>Still need help?</h2>
             <p>
               Our support team is here for you. Reach out anytime and we'll get back
               to you as soon as possible.

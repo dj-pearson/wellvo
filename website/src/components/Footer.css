@@ -87,17 +87,17 @@
 }
 
 .footer-note {
-  color: var(--gray-500);
+  /* gray-400 (#9ca3af) clears 4.5:1 on gray-900; gray-500 was ~3.7:1 (fails 1.4.3). */
+  color: var(--gray-400);
 }
 
 .footer-admin-link {
-  color: var(--gray-500);
-  opacity: 0.6;
-  transition: opacity 0.15s ease;
+  /* No opacity dimming — it dropped effective contrast below 2:1 (fails 1.4.3). */
+  color: var(--gray-400);
+  transition: color 0.15s ease;
 }
 
 .footer-admin-link:hover {
-  opacity: 1;
   color: var(--green-400);
 }
 
