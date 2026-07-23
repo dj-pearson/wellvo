@@ -20,13 +20,12 @@ interface HelmetContext {
 // from body → head after render by extractHeadTags().
 const STATIC_HEAD = `
     <meta charset="UTF-8" />
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-J2H67EW9JY"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-J2H67EW9JY');
-    </script>
+    <!--
+      Google Analytics is intentionally NOT loaded here. GA4 sets cookies and
+      requires prior opt-in consent under the EU ePrivacy Directive / GDPR, so
+      it is injected client-side only after the visitor accepts via the cookie
+      consent banner. See src/lib/consent.ts and src/components/CookieConsent.tsx.
+    -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png" />

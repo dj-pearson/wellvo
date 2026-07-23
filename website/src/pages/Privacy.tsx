@@ -13,7 +13,7 @@ export default function Privacy() {
       <div className="container">
         <div className="legal-content">
           <h1>Privacy Policy</h1>
-          <p className="legal-updated">Last updated: June 15, 2026</p>
+          <p className="legal-updated">Last updated: July 23, 2026</p>
 
           <section>
             <h2>Introduction</h2>
@@ -34,7 +34,7 @@ export default function Privacy() {
             <h2>Summary of Key Practices</h2>
             <ul>
               <li>We do not sell or "share" personal information for cross-context behavioral advertising.</li>
-              <li>We do not use third-party advertising or tracking SDKs.</li>
+              <li>We do not use third-party advertising SDKs or cross-company tracking. Optional website analytics (Google Analytics) runs only if you consent to it.</li>
               <li>Location is optional and only collected with your in-app permission.</li>
               <li>You can export or delete your data at any time from app settings.</li>
               <li>We honor opt-out and deletion requests for residents of all U.S. states with applicable privacy laws.</li>
@@ -86,8 +86,10 @@ export default function Privacy() {
                 usage counts and crash reports. Our mobile apps use TelemetryDeck, which
                 one-way hashes identifiers on the device before sending, and our website uses
                 Cloudflare Web Analytics, which does not set cookies or identify individuals.
-                Neither provider is used for advertising, and we do not share usage data with
-                data brokers.
+                In addition, if you consent via our cookie banner, the website uses Google
+                Analytics (GA4) with IP anonymization; Google Analytics is not loaded unless
+                you accept, and never for advertising. None of these providers are used for
+                advertising, and we do not share usage data with data brokers.
               </li>
               <li>
                 <strong>Log Data:</strong> Server logs (IP address, request path, status, and
@@ -225,6 +227,7 @@ export default function Privacy() {
               <li><strong>Supabase (PostgreSQL hosting and authentication)</strong> — primary application database, encrypted at rest.</li>
               <li><strong>Contabo / Coolify (VPS hosting)</strong> — hosts our edge functions in the European Union.</li>
               <li><strong>Cloudflare</strong> — content delivery, DDoS protection, and privacy-first web analytics.</li>
+              <li><strong>Google LLC (Google Analytics)</strong> — optional website usage analytics, loaded only with your consent. Configured with IP anonymization and not used for advertising.</li>
               <li><strong>TelemetryDeck</strong> — aggregate, hashed analytics for the iOS and Android apps. User identifiers are one-way hashed before leaving the device; no personal information is transmitted.</li>
               <li><strong>Sentry</strong> — application error and crash reporting for our apps, website, and backend, used to detect and fix defects. Configured not to send personal information by default; may process technical data such as IP address and error context.</li>
               <li><strong>Apple Push Notification service (APNs)</strong> — delivery of iOS push notifications.</li>
@@ -356,10 +359,13 @@ export default function Privacy() {
           <section>
             <h2>Cookies and Similar Technologies</h2>
             <p>
-              The Daily OK website does not use advertising cookies or third-party tracking
+              The Daily OK website does not use advertising cookies or cross-site tracking
               cookies. We use a small number of strictly necessary technologies to operate the
               site (for example, session storage for navigation state) and a privacy-first
-              analytics provider that does not set cookies. See our{' '}
+              analytics provider that does not set cookies. With your consent, we also use
+              Google Analytics, which sets first-party analytics cookies; it is off by default
+              and loaded only if you accept our cookie banner (and never if your browser sends
+              a Global Privacy Control signal). See our{' '}
               <a href="/cookies">Cookie Notice</a> for details.
             </p>
           </section>

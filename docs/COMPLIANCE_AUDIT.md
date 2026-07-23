@@ -16,13 +16,13 @@ However, the audit found **one critical legal contradiction** and **two material
 
 | # | Issue | Area | Severity | Status |
 |---|-------|------|----------|--------|
-| A | **Google Analytics (GA4) loads on every page with no consent banner**, directly contradicting the Privacy Policy & Cookie Notice ("no tracking cookies", "Cloudflare only", "no consent prompt required") | GDPR / ePrivacy / FTC | 🔴 Critical | **Needs decision** (§6.1) |
-| B | **Account deletion never deletes the `auth.users` identity row** — email, phone, password hash, and OAuth identities survive "deletion" | GDPR Art. 17 / CCPA | 🔴 Critical | **Documented, fix proposed** (§5.1) |
-| C | **Data export omits location history, care notes, and wellness signals** | GDPR Art. 15/20 | 🟠 Serious | **Documented, fix proposed** (§5.2) |
-| D | Primary-button and link **color contrast failed WCAG AA** site-wide (2.1:1 / 3.1:1) | ADA / WCAG 1.4.3 | 🔴→✅ | **Fixed in this branch** (§4) |
+| A | **Google Analytics (GA4) loaded on every page with no consent banner**, contradicting the Privacy Policy & Cookie Notice | GDPR / ePrivacy / FTC | 🔴→✅ | **Fixed:** GA now opt-in behind a consent banner (§6.1) |
+| B | **Account deletion never deleted the `auth.users` identity row** — email, phone, password hash, and OAuth identities survived "deletion" | GDPR Art. 17 / CCPA | 🔴→✅ | **Fixed:** migration `00049` (§5.1) |
+| C | **Data export omitted location history, care notes, and wellness signals** | GDPR Art. 15/20 | 🟠→✅ | **Fixed:** migration `00049` (§5.2) |
+| D | Primary-button and link **color contrast failed WCAG AA** site-wide (2.1:1 / 3.1:1) | ADA / WCAG 1.4.3 | 🔴→✅ | **Fixed** (§4) |
 | E | **Placeholder business address** (`1234 Example Street`) in Privacy, Terms, DMCA, and footer | GDPR Art. 13 / CCPA | 🟠 Serious | **Needs real data** (§6.2) |
-| F | Nested `<main>` landmarks, missing reduced-motion, SPA focus, heading skips | ADA / WCAG | 🟡→✅ | **Fixed in this branch** (§4) |
-| G | Undisclosed processors: Google Analytics, **Sentry** | GDPR Art. 13 transparency | 🟠 | Sentry **disclosed in this branch**; GA pending decision A |
+| F | Nested `<main>` landmarks, missing reduced-motion, SPA focus, heading skips | ADA / WCAG | 🟡→✅ | **Fixed** (§4) |
+| G | Undisclosed processors: Google Analytics, **Sentry** | GDPR Art. 13 transparency | 🟠→✅ | **Both now disclosed** in the Privacy Policy |
 | H | **No age gate / COPPA enforcement** despite Kid Mode and family targeting | COPPA | 🟠 | **Needs decision** (§6.3) |
 | I | No EU/UK **Article 27 representative** appointed | GDPR Art. 27 | 🟡 | **Needs decision** (§6.4) |
 
@@ -84,20 +84,20 @@ All of the documents a consumer app of this type is expected to publish **exist 
 
 ## 5. GDPR / CCPA — data-subject-rights mechanisms
 
-### 5.1 🔴 Account deletion does not delete the authentication identity (Right to Erasure)
+### 5.1 🔴→✅ Account deletion did not delete the authentication identity (Right to Erasure) — FIXED (`00049`)
 `delete_user_account()` (`supabase/migrations/00018_security_hardening.sql:139`) deletes from `push_tokens`, `checkins`, `notification_log`, `family_members`, owned `families`, and `public.users`. Child PII tables cascade correctly via `ON DELETE CASCADE`.
 
 **Defect:** the FK is `public.users.id → auth.users(id) ON DELETE CASCADE`, which cascades **auth → public**, *not* public → auth. The RPC only touches `public.users`, so the Supabase **Auth row survives**: email, phone number, bcrypt password hash, Google/Apple OAuth identities, and sign-in metadata persist indefinitely after a user "deletes" their account. This is the most material erasure defect (GDPR Art. 17 / CCPA §1798.105).
 
-**Proposed fix (new forward-only migration):** have `delete_user_account` also remove the auth identity — either `DELETE FROM auth.users WHERE id = p_user_id;` inside the `SECURITY DEFINER` function (which then cascades the public row away), or move deletion to an edge function that calls `supabaseAdmin.auth.admin.deleteUser()` (the admin client already exists — see `edge-functions/functions/auto-join/index.ts`). Signature is unchanged, so this is a safe `CREATE OR REPLACE`.
+**Fix applied:** migration `00049_gdpr_erasure_and_export_completeness.sql` adds `DELETE FROM auth.users WHERE id = p_user_id;` to the end of `delete_user_account` (`SECURITY DEFINER`, unchanged signature — backward-compatible `CREATE OR REPLACE`). Deleting the auth row also cascades away any residual `public.users` row. Runs with the migration/admin role's privileges on the `auth` schema.
 
-### 5.2 🟠 Data export is incomplete (Right to Access / Portability)
+### 5.2 🟠→✅ Data export was incomplete (Right to Access / Portability) — FIXED (`00049`)
 `export_user_data()` (`00010_gdpr_export_completeness.sql`, hardened in `00018`) returns profile, memberships, check-ins, requests, notification log, invite tokens (redacted), alerts, receiver settings, and push tokens. It was **never updated** for PII tables added later:
 - `location_updates` (00012) — location history
 - `care_notes` (00041) — free-text notes about receivers
 - `wellness_signals` (00042) — health-derived signals
 
-**Proposed fix:** extend the export RPC's JSON to include these three tables (additive, safe `CREATE OR REPLACE`).
+**Fix applied:** migration `00049` extends `export_user_data` with `location_updates` (subject's coordinates), `care_notes` (notes about or authored by the subject), and `wellness_signals` (the subject's activity signals). Additive JSON keys, backward-compatible `CREATE OR REPLACE`.
 
 ### 5.3 Consent management — 🟡 partial
 - **Location:** OS permission on-device + server gate `receiver_settings.location_tracking_enabled` (default `false`). Coordinates coarsened to ~110 m before upload (good minimization). *But* the enable toggle is owner-controlled, not held by the data subject being located, and there is **no stored consent record/timestamp**.
@@ -121,14 +121,16 @@ RLS enabled on all core + newer PII tables; `SECURITY DEFINER` functions re-chec
 
 ## 6. Items requiring a business / legal decision or real data
 
-### 6.1 🔴 Google Analytics vs. the "no-tracking" promise — **DECISION NEEDED**
-`pages/+onRenderHtml.tsx:23-29` unconditionally loads GA4 (`G-J2H67EW9JY`) on every page, and `_headers` whitelists the GA endpoints. GA4 sets `_ga`/`_gid` cookies and transfers data to Google (US). Meanwhile:
-- Cookie Notice: *"We do not use … behavioral-tracking cookies … no consent prompt is required."*
-- Privacy Policy: *"We do not use third-party advertising or tracking SDKs … our website uses Cloudflare Web Analytics."*
+### 6.1 🔴→✅ Google Analytics vs. the "no-tracking" promise — FIXED (consent-gated)
+Previously `pages/+onRenderHtml.tsx` unconditionally loaded GA4 (`G-J2H67EW9JY`) on every prerendered page while the Cookie Notice/Privacy Policy promised cookieless, no-consent analytics — an ePrivacy/GDPR prior-consent violation and a false published statement.
 
-This is both an **ePrivacy/GDPR prior-consent violation** (EU/UK) and a **false statement in a published policy** (FTC §5 / state UDAP exposure). Two clean resolutions:
-1. **Remove GA** and rely on the cookieless Cloudflare Web Analytics the policy already describes → statements become true, no banner needed. *(Recommended — matches the brand's privacy-first positioning; also note the Cloudflare beacon token is still the placeholder `YOUR_CF_ANALYTICS_TOKEN`.)*
-2. **Keep GA** → add a compliant consent banner (opt-in, GA blocked until consent, with reject-all) **and** rewrite the Cookie Notice + Privacy Policy to disclose GA and Google as a processor.
+**Fix applied (per the "keep GA, add consent" decision):**
+- GA removed from the prerendered `<head>`; it is now injected client-side **only after opt-in** via `src/lib/consent.ts` + `src/components/CookieConsent.tsx` (mounted in `Layout`).
+- Banner offers **Accept analytics / Decline**; choice persisted in `localStorage`. GA is not loaded until Accept, never after Decline, and never when the browser sends a **Global Privacy Control** signal (auto-declined). IP anonymization is enabled.
+- Prerender verified: 0 of 39 static HTML pages contain GA; the banner is client-only (not in SSR HTML).
+- Cookie Notice and Privacy Policy updated to disclose GA + Google LLC as a processor and describe the opt-in.
+
+**Remaining (deploy config, not code):** the Cloudflare Web Analytics beacon token in `+onRenderHtml.tsx` is still the placeholder `YOUR_CF_ANALYTICS_TOKEN` — set the real token so cookieless analytics actually reports.
 
 ### 6.2 🟠 Placeholder business address — **REAL DATA NEEDED**
 `1234 Example Street, Salt Lake City, UT 84101` appears in `Privacy.tsx`, `Terms.tsx`, `DMCA.tsx`, and `Footer.tsx` (each flagged *"update as required when finalized"*). GDPR Art. 13 and CCPA require the controller's real identity/contact; the DMCA agent address must be real to be effective. Provide the registered business address (and confirm the legal entity — pages say **Pearson Media LLC d/b/a Daily OK**).
@@ -143,21 +145,22 @@ The Privacy Policy states no EU/UK establishment and relies on SCCs. If EEA/UK r
 
 ## 7. Prioritized remediation roadmap
 
-**Do before claiming "fully compliant":**
-1. Resolve the **Google Analytics contradiction** (§6.1) — remove GA (recommended) or add consent + disclosure.
-2. Ship the **`auth.users` deletion** migration (§5.1).
-3. Ship the **export-completeness** migration (§5.2).
-4. Replace the **placeholder address** everywhere (§6.2).
+**Done in this branch:** ✅ GA consent-gating + disclosure (§6.1) · ✅ `auth.users` deletion migration (§5.1) · ✅ export-completeness migration (§5.2) · ✅ Sentry disclosure · ✅ all WCAG fixes (§4).
 
-**Next:**
-5. Decide **COPPA** posture and add enforcement/attestation (§6.3).
-6. Add an **in-app analytics opt-out** and a **consent-record** table (§5.3).
-7. Add **retention** for `care_notes` / battery / last-seen (§5.4).
-8. Appoint (or formally decline) an **Art. 27 representative** (§6.4).
-9. Reconcile the **CSP** (Sentry ingest host) and set the real **Cloudflare beacon token** (§5.5).
+**Still open — needs data / a decision (see §6):**
+1. Replace the **placeholder business address** everywhere (§6.2) — needs the real registered address.
+2. Decide **COPPA** posture and add enforcement/attestation (§6.3).
+3. Appoint (or formally decline) an **EU/UK Art. 27 representative** (§6.4).
+
+**Next (recommended follow-ups):**
+4. Add an **in-app analytics opt-out** and a **consent-record** table (§5.3).
+5. Add **retention** for `care_notes` / battery / last-seen (§5.4).
+6. Set the real **Cloudflare beacon token**; decide whether to allow the **Sentry ingest host** in CSP or remove the Sentry integration (§5.5, §6.1).
 
 **Ongoing:**
-10. Device-level **mobile a11y verification** (§4.3) and an **automated a11y CI gate**.
+7. Device-level **mobile a11y verification** (§4.3) and an **automated a11y CI gate**.
+
+> ⚠️ **Migration release note (per `CLAUDE.md`):** `00049` is backward-compatible (both functions are `CREATE OR REPLACE` with unchanged signatures; export only *adds* JSON keys). It still must ride the normal `develop → release → main` path with production-environment approval and a pre-migration backup — it does not run from this feature branch.
 
 ---
 
@@ -165,10 +168,14 @@ The Privacy Policy states no EU/UK establishment and relies on SCCs. If EEA/UK r
 
 **Accessibility (website):** `src/index.css` (accessible green tokens for buttons/links, reduced-motion query, focus-target rule), `src/components/Footer.css` (contrast), `src/components/ErrorBoundary.tsx` (button color), `src/components/Layout.tsx` (focusable main), `src/components/Header.tsx` (`aria-controls`), `src/App.tsx` (`RouteFocusManager`), nested-`<main>`→`<div>` on `Privacy/Terms/Cookies/DMCA/Accessibility`, heading order on `Home/Pricing/Support` (+ CSS), `BlogPost.tsx` (image `alt`).
 
-**Legal accuracy:** `Privacy.tsx` (disclosed **Sentry** processor), `Accessibility.tsx` (scoped dark-mode claim to the app).
+**Google Analytics consent-gating:** new `src/lib/consent.ts` + `src/components/CookieConsent.tsx` (+ `.css`); GA removed from `pages/+onRenderHtml.tsx`; banner mounted in `Layout.tsx`.
+
+**Legal accuracy:** `Privacy.tsx` (disclosed **Sentry** + **Google Analytics** processors, GA consent language), `Cookies.tsx` (GA opt-in section, corrected "no consent" wording), `Accessibility.tsx` (scoped dark-mode claim to the app).
+
+**Backend GDPR:** `supabase/migrations/00049_gdpr_erasure_and_export_completeness.sql` (auth-identity erasure + export completeness).
 
 **Docs:** this report.
 
-**Verification:** `tsc -b` ✅, `vite build` ✅, targeted ESLint on changed files clean (pre-existing admin/BlogPost data-effect lint warnings are unrelated to these changes).
+**Verification:** `tsc -b` ✅, `vite build` ✅, `vike prerender` ✅ (39 pages, 0 with GA), targeted ESLint on changed files clean (pre-existing admin/BlogPost data-effect lint warnings are unrelated to these changes).
 
-*Not changed here (require the decisions/data in §6, or are backend migrations warranting the release process in `CLAUDE.md`): Google Analytics, placeholder address, the two GDPR migrations, COPPA enforcement, Art. 27.*
+*Not changed here (require the data/decisions in §6): placeholder business address, COPPA enforcement, Art. 27 representative.*
