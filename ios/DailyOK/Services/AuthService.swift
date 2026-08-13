@@ -297,10 +297,47 @@ actor AuthService {
     // MARK: - Password Reset
 
     /// Send a password reset email. Does not reveal whether the email exists.
+    ///
+    /// The reset email carries BOTH a link and a 6-digit code. This app uses the
+    /// CODE (see verifyRecoveryCode below) and deliberately passes no redirectTo:
+    /// dailyok.net serves marketing pages and has no auth callback route, so the
+    /// link has nowhere useful to land whatever we point it at.
     func resetPassword(email: String) async throws {
         let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         try validateEmail(trimmedEmail)
         try await supabase.auth.resetPasswordForEmail(trimmedEmail)
+    }
+
+    /// Verify the 6-digit recovery code from the reset email, which establishes a
+    /// session just long enough to set a new password.
+    ///
+    /// GoTrue's default recovery template emits "Alternatively, enter the code:
+    /// {{ .Token }}" alongside the link, so the code is already in every reset
+    /// email that has ever been sent. Unlike the link it needs no redirect, no
+    /// allow-list entry and no web page, which is why it is the path a native app
+    /// should take.
+    func verifyRecoveryCode(email: String, code: String) async throws {
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        try validateEmail(trimmedEmail)
+
+        // Strip formatting the user may have pasted in from the email body.
+        let digits = code.filter(\.isNumber)
+        guard digits.count == 6 else { throw AuthError.invalidRecoveryCode }
+
+        _ = try await supabase.auth.verifyOTP(
+            email: trimmedEmail,
+            token: digits,
+            type: .recovery
+        )
+    }
+
+    /// Set a new password on the session established by verifyRecoveryCode.
+    ///
+    /// Validated with the same rules as signup: a reset is the one moment a weak
+    /// password could otherwise slip past the signup checks entirely.
+    func updatePassword(_ newPassword: String) async throws {
+        try validatePassword(newPassword)
+        _ = try await supabase.auth.update(user: UserAttributes(password: newPassword))
     }
 
     // MARK: - Session Management
@@ -431,6 +468,7 @@ enum AuthError: LocalizedError {
     case passwordTooWeak
     case invalidDisplayName
     case credentialRevoked
+    case invalidRecoveryCode
 
     var errorDescription: String? {
         switch self {
@@ -442,6 +480,7 @@ enum AuthError: LocalizedError {
         case .passwordTooWeak: return "Password must contain uppercase, lowercase, and a number. Avoid common passwords."
         case .invalidDisplayName: return "Please enter your name."
         case .credentialRevoked: return "Your Apple ID access has been revoked. Please sign in again."
+        case .invalidRecoveryCode: return "Enter the 6-digit code from your reset email."
         }
     }
 }

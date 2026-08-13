@@ -113,6 +113,15 @@ struct AuthView: View {
                     joinViaCode = false
                 }
             }
+            // .done is included deliberately: leaving it out makes the sheet
+            // dismiss itself the instant the password is set, so the user never
+            // sees the confirmation and cannot tell success from a silent close.
+            .sheet(isPresented: Binding(
+                get: { authViewModel.resetStage != .request },
+                set: { if !$0 { authViewModel.cancelPasswordReset() } }
+            )) {
+                PasswordResetSheet(authViewModel: authViewModel)
+            }
         }
     }
 
@@ -355,6 +364,152 @@ struct AuthView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+}
+
+// MARK: - Password Reset (code, not link)
+
+/// Completes a password reset from the 6-digit code in the reset email.
+///
+/// This app cannot use the emailed LINK. GoTrue builds it against the Supabase
+/// API host and redirects to an allow-listed app origin, but dailyok.net serves
+/// marketing pages and has no auth callback route, so the link has nowhere to
+/// land. The same email carries a 6-digit code, which needs no redirect, no
+/// allow-list entry and no web page at all.
+///
+/// Lives in this file rather than its own because DailyOK.xcodeproj uses explicit
+/// file references (objectVersion 56, no synchronized groups), so a new file
+/// would have to be hand-registered in project.pbxproj in four places.
+struct PasswordResetSheet: View {
+    @ObservedObject var authViewModel: AuthViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                switch authViewModel.resetStage {
+                case .enterCode:
+                    codeStep
+                case .setPassword:
+                    passwordStep
+                case .done:
+                    doneStep
+                case .request:
+                    EmptyView()
+                }
+
+                Spacer()
+            }
+            .padding(24)
+            .navigationTitle("Reset Password")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        authViewModel.cancelPasswordReset()
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    private var codeStep: some View {
+        VStack(spacing: 16) {
+            Text("Enter the 6-digit code we emailed you.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            // Same component the phone OTP step uses, so the two code entries in
+            // this app look and behave alike.
+            SegmentedCodeField(code: $authViewModel.recoveryCode, length: 6) {
+                Task { await authViewModel.verifyRecoveryCode() }
+            }
+
+            if let error = authViewModel.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button {
+                Task { await authViewModel.verifyRecoveryCode() }
+            } label: {
+                if authViewModel.isResettingPassword {
+                    ProgressView().frame(maxWidth: .infinity).frame(height: 44)
+                } else {
+                    Text("Verify Code")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+            .disabled(authViewModel.isResettingPassword
+                      || authViewModel.recoveryCode.filter(\.isNumber).count != 6)
+        }
+    }
+
+    private var passwordStep: some View {
+        VStack(spacing: 16) {
+            Text("Choose a new password.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            SecureField("New password", text: $authViewModel.newPassword)
+                .textContentType(.newPassword)
+                .padding()
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+
+            // States the policy the server enforces, so the user is not told
+            // "saved" and then rejected.
+            Text("At least 10 characters, with uppercase, lowercase and a number.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            if let error = authViewModel.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button {
+                Task { await authViewModel.submitNewPassword() }
+            } label: {
+                if authViewModel.isResettingPassword {
+                    ProgressView().frame(maxWidth: .infinity).frame(height: 44)
+                } else {
+                    Text("Set Password")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+            .disabled(authViewModel.isResettingPassword || authViewModel.newPassword.isEmpty)
+        }
+    }
+
+    private var doneStep: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 44))
+                .foregroundStyle(.green)
+            Text(authViewModel.resetPasswordMessage ?? String(localized: "Password updated."))
+                .multilineTextAlignment(.center)
+            Button("Done") {
+                authViewModel.cancelPasswordReset()
+                dismiss()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
         }
     }
 }

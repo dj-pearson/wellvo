@@ -33,6 +33,19 @@ final class AuthViewModel: ObservableObject {
     // Password reset
     @Published var isResettingPassword = false
     @Published var resetPasswordMessage: String?
+    /// Where the user is in the reset flow. The emailed LINK is not usable by
+    /// this app (dailyok.net has no auth callback route), so recovery runs on the
+    /// 6-digit code that arrives in the same email.
+    @Published var resetStage: PasswordResetStage = .request
+    @Published var recoveryCode = ""
+    @Published var newPassword = ""
+
+    enum PasswordResetStage {
+        case request      // asking for the email address
+        case enterCode    // email sent; user types the 6-digit code
+        case setPassword  // code accepted; a session exists, take the new password
+        case done
+    }
 
     // Biometric
     @Published var showBiometricPrompt = false
@@ -457,13 +470,70 @@ final class AuthViewModel: ObservableObject {
         do {
             try await AuthService.shared.resetPassword(email: email)
             // Always show same message to avoid user enumeration
-            resetPasswordMessage = String(localized: "If an account exists with that email, you'll receive a password reset link.")
+            resetPasswordMessage = String(localized: "If an account exists with that email, we've sent a 6-digit code.")
         } catch {
             // Don't reveal whether the email exists
-            resetPasswordMessage = String(localized: "If an account exists with that email, you'll receive a password reset link.")
+            resetPasswordMessage = String(localized: "If an account exists with that email, we've sent a 6-digit code.")
+        }
+
+        // Advance on BOTH branches. Which one we took is exactly the fact we are
+        // refusing to disclose, so holding the code screen back on failure would
+        // leak account existence through the UI after hiding it in the copy.
+        resetStage = .enterCode
+        isResettingPassword = false
+    }
+
+    /// Verify the 6-digit code from the reset email. On success GoTrue returns a
+    /// session, which is what makes the password update below possible.
+    func verifyRecoveryCode() async {
+        let digits = recoveryCode.filter(\.isNumber)
+        guard digits.count == 6 else {
+            errorMessage = String(localized: "Enter the 6-digit code from your email.")
+            return
+        }
+
+        isResettingPassword = true
+        errorMessage = nil
+
+        do {
+            try await AuthService.shared.verifyRecoveryCode(email: email, code: digits)
+            resetPasswordMessage = nil
+            resetStage = .setPassword
+        } catch {
+            // A wrong or expired code IS safe to report plainly: the user already
+            // proved they hold the address by receiving one.
+            errorMessage = String(localized: "That code is incorrect or has expired. Request a new one.")
         }
 
         isResettingPassword = false
+    }
+
+    /// Set the new password on the session established by the code.
+    func submitNewPassword() async {
+        isResettingPassword = true
+        errorMessage = nil
+
+        do {
+            try await AuthService.shared.updatePassword(newPassword)
+            resetStage = .done
+            resetPasswordMessage = String(localized: "Password updated. You're signed in.")
+            newPassword = ""
+            recoveryCode = ""
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+
+        isResettingPassword = false
+    }
+
+    /// Return the reset flow to its starting state (cancel, or start over after a
+    /// code expires).
+    func cancelPasswordReset() {
+        resetStage = .request
+        recoveryCode = ""
+        newPassword = ""
+        resetPasswordMessage = nil
+        errorMessage = nil
     }
 
     func signOut() async {
@@ -625,5 +695,8 @@ final class AuthViewModel: ObservableObject {
         otpCode = ""
         isAwaitingOTP = false
         resetPasswordMessage = nil
+        resetStage = .request
+        recoveryCode = ""
+        newPassword = ""
     }
 }
