@@ -71,7 +71,7 @@ export default function DMCA() {
               <li>Your physical or electronic signature;</li>
               <li>Identification of the material that was removed or disabled and the location at which it appeared before it was removed or disabled;</li>
               <li>A statement under penalty of perjury that you have a good-faith belief that the material was removed or disabled as a result of mistake or misidentification;</li>
-              <li>Your name, mailing address, and telephone number, and a statement that you consent to the jurisdiction of the U.S. District Court for the district in which your address is located (or, if outside the U.S., the U.S. District Court for the District of Utah), and that you will accept service of process from the person who provided the original notice.</li>
+              <li>Your name, mailing address, and telephone number, and a statement that you consent to the jurisdiction of the U.S. District Court for the district in which your address is located (or, if outside the U.S., the U.S. District Court for the Southern District of Iowa), and that you will accept service of process from the person who provided the original notice.</li>
             </ol>
             <p>
               Upon receipt of a valid counter-notice, we will forward it to the original

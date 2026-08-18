@@ -4571,6 +4571,23 @@
       "priority": 246,
       "passes": false,
       "notes": "Verified gaps: checkins are purged per-family (00005), location_updates after 7 days (00012:63-76), notification_log (00005:62). care_notes and wellness_signals have no purge at all — care_notes in particular is free-text health-adjacent commentary written about a third party. Deletion-on-account-close does work for both (they cascade on users(id)); what is missing is time-based expiry while the account is live. Retention section at Privacy.tsx:253-262 lists a window for every other category, which makes the omission conspicuous."
+    },
+    {
+      "id": "US-LEG014",
+      "title": "Switch governing law and DMCA counter-notice venue from Utah to Iowa",
+      "description": "As the business, I want the choice-of-law and venue clauses to name the state we are actually established in, so that the legal terms match the entity's real home rather than a placeholder's.",
+      "acceptanceCriteria": [
+        "website/src/pages/Terms.tsx:322 governing law changed from 'State of Utah' to 'State of Iowa'",
+        "website/src/pages/DMCA.tsx:74 counter-notice fallback venue for non-U.S. filers changed from 'District of Utah' to 'Southern District of Iowa' — West Des Moines (Polk/Dallas County) sits in the Southern District",
+        "website/src/pages/Privacy.tsx:312 left untouched — 'Utah (UCPA)' is the Utah Consumer Privacy Act in a list of state privacy statutes, not a venue reference",
+        "Terms 'Last updated' date advanced to reflect the substantive change",
+        "Arbitration venue clause left as-is — 'in the county where you reside' is consumer-favourable and independent of choice of law",
+        "grep for 'Utah' across website/src returns exactly one match, the UCPA statute name",
+        "website builds clean and the change is present in the pre-rendered HTML"
+      ],
+      "priority": 247,
+      "passes": true,
+      "notes": "DONE. Requested by Dj in chat after US-LEG009 surfaced the mismatch: the Utah choice of law matched the old 'Salt Lake City' placeholder address, while the real business address is West Des Moines, Iowa.\n\nTwo clauses changed, one deliberately not. The DMCA counter-notice venue is the non-obvious one: 17 U.S.C. 512(g)(3)(D) has a non-U.S. counter-notifier consent to a district where the SERVICE PROVIDER may be found, so that fallback has to track the company's location and becomes the Southern District of Iowa. Privacy.tsx:312 stays Utah because 'Utah (UCPA)' names a statute, not a forum.\n\nVERIFIED: npm run build exit 0, 39 pages pre-rendered. Confirmed in dist: 'laws of the State of Iowa' in terms/index.html, 'Southern District of Iowa' in dmca/index.html, 'Last updated: August 18, 2026'. Only remaining 'Utah' in dist is privacy/index.html (the UCPA), as intended.\n\nOPEN ITEMS FOR DJ / COUNSEL, flagged not resolved:\n  1. NOTICE OBLIGATION. Terms.tsx:311 commits to at least 30 days advance notice by email, in-app notice, or a site banner before material changes take effect. Changing governing law and arbitration venue is material. Shipping this without that notice breaks a promise made in the same document. The notice is not implemented by this story.\n  2. EXISTING USERS. Users who already accepted the Utah terms did so under a different forum. Whether a unilateral switch binds them is a question for counsel, not a copy decision.\n  3. ENTITY REGISTRATION. This assumes Pearson Media LLC is Iowa-registered (or that Iowa is the intended home forum). If the LLC is registered elsewhere, revisit before shipping.\n  4. The DMCA designated-agent filing with the U.S. Copyright Office still needs the address update from US-LEG009 — external filing, unaffected by this change."
     }
   ]
 }

@@ -1704,3 +1704,42 @@ Follow-ups NOT done here, deliberately:
      old Salt Lake City placeholder. The real address is Iowa. If the LLC is not
      Utah-registered this clause should be revisited — a legal decision, left
      alone rather than guessed at.
+
+================================================================================
+US-LEG014 — Governing law and DMCA counter-notice venue: Utah -> Iowa
+================================================================================
+Status: PASS
+
+Requested by Dj after US-LEG009 surfaced the mismatch: the Utah choice of law
+  matched the old Salt Lake City placeholder, while the real business address is
+  West Des Moines, Iowa.
+
+Changed:
+  - Terms.tsx:322  governing law "State of Utah" -> "State of Iowa"
+  - DMCA.tsx:74    non-U.S. counter-notice fallback venue "District of Utah" ->
+                   "Southern District of Iowa". Per 17 U.S.C. 512(g)(3)(D) a
+                   non-U.S. counter-notifier consents to a district where the
+                   SERVICE PROVIDER may be found, so this tracks the company's
+                   location. West Des Moines (Polk/Dallas County) is Southern
+                   District of Iowa.
+  - Terms.tsx:15   "Last updated" advanced to August 18, 2026.
+
+Deliberately NOT changed:
+  - Privacy.tsx:312 "Utah (UCPA)" — the Utah Consumer Privacy Act in a list of
+    state privacy statutes. A statute name, not a forum.
+  - Terms.tsx arbitration venue "in the county where you reside" — consumer
+    favourable and independent of choice of law.
+
+Verification: npm run build exit 0, 39 pages pre-rendered. dist confirms "laws of
+  the State of Iowa" (terms), "Southern District of Iowa" (dmca), and the new
+  Last updated date. Only remaining "Utah" in dist is privacy/index.html.
+
+Open items for Dj / counsel (flagged, not resolved):
+  1. Terms.tsx:311 promises >=30 days advance notice before material changes take
+     effect. A governing-law and venue change is material. That notice is not
+     implemented here — shipping without it breaks a promise made in the same
+     document.
+  2. Users who already accepted the Utah terms accepted a different forum;
+     whether a unilateral switch binds them is a legal question.
+  3. Assumes Pearson Media LLC is Iowa-registered / Iowa is the intended home
+     forum. Revisit if the entity is registered elsewhere.
