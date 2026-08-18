@@ -1620,3 +1620,49 @@ Verification: `deno check` clean for all touched/new edge files (pre-existing
   has no headless Swift toolchain here — Xcode build verification pending CI.
   Server-initiated START (consuming the stored push-to-start token) is beyond the
   ACs and a deliberate future enhancement.
+
+================================================================================
+US-LEG001 — Account deletion no longer throws for members who joined via invite
+================================================================================
+Status: PASS
+
+Problem: invite_tokens.used_by was declared inline as `used_by UUID REFERENCES
+  users(id)` (00001_create_core_tables.sql:163) with no ON DELETE clause, so it
+  defaulted to NO ACTION. It is the ONLY user-referencing FK in the schema
+  without an explicit ON DELETE rule (re-verified with a multiline-aware scan of
+  every migration). delete_user_account() therefore raised a foreign-key
+  violation on `DELETE FROM users` for anyone who had redeemed an invite —
+  i.e. essentially every invited Receiver and Viewer. Owners usually escaped it
+  because `DELETE FROM families WHERE owner_id = ...` runs first and cascades the
+  family's tokens away. User-visible symptom: type DELETE to confirm, tap Delete
+  Everything, receive the generic error alert (SettingsView.swift:315). That made
+  the erasure right advertised at Privacy.tsx:289 and Terms.tsx:286 unusable
+  (GDPR Art. 17 / CCPA 1798.105).
+
+Fix: supabase/migrations/00050_invite_tokens_used_by_on_delete.sql — drops the FK
+  by pg_constraint catalog lookup (not by assuming the default name) and re-adds
+  it with ON DELETE SET NULL. SET NULL not CASCADE: used_by is an audit
+  breadcrumb on a token belonging to someone else's family, so erasing the
+  departing user should clear the reference rather than delete the owner's row.
+
+Backward-compat (CLAUDE.md section A): additive and forward-only. No column
+  renamed, no table dropped, no type changed, no RPC signature touched, no
+  on-the-wire JSON shape changed. used_by was already nullable and unredeemed
+  invites already carry NULL there, so no client can be surprised by the value.
+
+Verification: run against a real PostgreSQL 16.13 cluster rather than by
+  inspection. Rebuilt the users/families/family_members/invite_tokens subset
+  verbatim from 00001, seeded an owner plus a receiver holding a redeemed token,
+  then ran the delete_user_account delete sequence for the receiver.
+    BEFORE — ERROR: violates foreign key constraint "invite_tokens_used_by_fkey";
+             ROLLBACK; user still present. Reproduces the bug and confirms the
+             auto-generated constraint name.
+    AFTER  — DELETE 1; COMMIT; used_by nulled; owner's token row and user row
+             both intact.
+    RE-RUN — migration reapplied cleanly (idempotent).
+  The migration's own verification block RAISEs an exception unless confdeltype
+  is 'n', so a future environment that drifts will fail loudly at migrate time.
+
+Deploy note: this migration only runs from main via supabase-migrations.yml with
+  production environment approval and a pre-migration backup, per CLAUDE.md. No
+  client release needs to precede it — it is server-side only and additive.
