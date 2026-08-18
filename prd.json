@@ -4356,6 +4356,220 @@
       "priority": 233,
       "passes": true,
       "notes": "From Services review #10. IMPLEMENTED. The 15-min Timer no-ops while offline; this closes the gap between reconnect and the next tick. Build verification pending CI."
+    },
+    {
+      "id": "US-LEG001",
+      "title": "Account deletion no longer throws for members who joined via an invite link",
+      "description": "As a user who joined a family through an invite, I want Delete Account to actually delete my account, so that the erasure right the app advertises is real rather than an error dialog.",
+      "acceptanceCriteria": [
+        "New migration supabase/migrations/00050_invite_tokens_used_by_on_delete.sql, wrapped in BEGIN; ... COMMIT;",
+        "Drops and recreates the invite_tokens.used_by foreign key with ON DELETE SET NULL (declared at supabase/migrations/00001_create_core_tables.sql:163 with no ON DELETE clause, so it defaults to NO ACTION)",
+        "delete_user_account(p_user_id) completes successfully for a user whose id appears in invite_tokens.used_by, instead of raising a foreign-key violation on DELETE FROM users",
+        "Change is additive and backward-compatible per CLAUDE.md: no column rename, no table drop, no data loss — used_by simply becomes NULL on the deleted user's redeemed token",
+        "Migration ends with a verification SELECT confirming the constraint's pg_constraint.confdeltype = 'n' (SET NULL)",
+        "No other user-referencing FK in the schema is left without an ON DELETE rule (grep 'REFERENCES users(id)' without 'ON DELETE' across supabase/migrations returns nothing)"
+      ],
+      "priority": 234,
+      "passes": false,
+      "notes": "Root cause of a broken legal promise. Owners usually escape it because delete_user_account runs DELETE FROM families first, which cascades invite_tokens away; invited Receivers and Viewers do not, so their delete fails. User-visible symptom: type DELETE, tap Delete Everything, get the 'Something went wrong' alert (ios/DailyOK/Views/Settings/SettingsView.swift:315). Privacy.tsx:289 and Terms.tsx:286 both advertise this right. This is the only user FK in the schema missing an ON DELETE rule. Highest priority: one line, and it converts an advertised GDPR Art. 17 / CCPA 1798.105 right into a working one."
+    },
+    {
+      "id": "US-LEG002",
+      "title": "Remove the fabricated testimonial from the iOS and Android paywalls",
+      "description": "As the business, I want no invented customer quote shown at the point of sale, so that the paywall does not present a fabricated endorsement to a paying customer.",
+      "acceptanceCriteria": [
+        "The hardcoded testimonial at ios/DailyOK/Views/Settings/SettingsView.swift:501-504 ('Daily OK gives me peace of mind every morning...', attributed to 'Sarah M., parent of two') is deleted, along with its TestimonialCard render at :533",
+        "The identical paywallTestimonial at android/app/src/main/java/net/dailyok/android/ui/screens/owner/SubscriptionScreen.kt:100-103 is deleted, along with its TestimonialCard render at :211-213",
+        "grep -ri 'Sarah M' across ios/ and android/ returns no matches",
+        "The Testimonial struct and TestimonialCard view are either removed or left cleanly unused with no compiler warnings on either platform",
+        "Both paywalls still lay out correctly with the card gone — no orphaned Spacer, divider, or padding where it used to sit",
+        "No replacement quote is invented; the slot is removed, not refilled"
+      ],
+      "priority": 235,
+      "passes": false,
+      "notes": "FTC Rule on the Use of Consumer Reviews and Testimonials (16 CFR Part 465, in force since Oct 2024) reaches fabricated testimonials, and placement directly above the Subscribe button makes materiality easy to establish. Note the irony at website/src/pages/Compare.tsx:13, which advertises 'no manufactured star ratings'. If a real customer quote with written permission exists later it can be reinstated with substantiation on file — do not generate a stand-in."
+    },
+    {
+      "id": "US-LEG003",
+      "title": "Correct the false feature and encryption claims on both paywalls",
+      "description": "As the business, I want paywall feature bullets that match what the product actually does, so that the two most load-bearing claims on the purchase screen are not contradicted by our own code and privacy policy.",
+      "acceptanceCriteria": [
+        "'Unlimited family members' (ios/DailyOK/Views/Settings/SettingsView.swift:476 and android/.../SubscriptionScreen.kt:75) is replaced with copy that matches the enforced tier limits",
+        "Replacement copy reflects families.max_receivers / max_viewers as enforced at supabase/migrations/00001_create_core_tables.sql:52-53 — 1/3/6 receivers and 3/5/10 viewers across Caregiver/Family/Family+",
+        "'End-to-end encryption and rigorous data minimization — always.' (SettingsView.swift:497 and SubscriptionScreen.kt:96) is replaced with an accurate security claim matching website/src/pages/Privacy.tsx:270 — TLS 1.2+ in transit, encryption at rest, row-level security",
+        "The word 'end-to-end' does not appear as a security claim anywhere in ios/ or android/",
+        "'Unlimited history' (SubscriptionScreen.kt:153) is either scoped to the Family+ tier or reworded, matching the retention tiers stated at Privacy.tsx:257 (90 days Caregiver, 1 year Family, unlimited Family+)",
+        "grep -i 'unlimited family' across ios/ and android/ returns no matches"
+      ],
+      "priority": 236,
+      "passes": false,
+      "notes": "The app cannot be end-to-end encrypted and still work: escalation logic reads check-in data server-side. Overstated encryption claims are an established FTC deception theory in their own right (Zoom, SkyMed). 'Unlimited family members' is contradicted by a trigger that actively deactivates excess members when max_receivers drops (00005_subscription_grace_period_and_retention.sql:86-98). Keep the replacement bullets concrete rather than vague."
+    },
+    {
+      "id": "US-LEG004",
+      "title": "Rewrite the 'no location tracking' marketing claims to match the shipped product",
+      "description": "As a prospective customer, I want the marketing site to describe the app's actual location behavior, so that I am not told the opposite of what the app does and of what the privacy policy discloses.",
+      "acceptanceCriteria": [
+        "All of the following are rewritten to describe location as optional, off by default, and opt-in — never as absent: website/src/pages/ChildSafety.tsx:24,62,64,79,183,190; ElderlyCare.tsx:27,61,191; CheckInAppForElderly.tsx:24,57,76,211; DailyCheckInAppForSeniors.tsx:24,57,141,189; PeaceOfMindAppForElderlyParents.tsx:20,57,221-222; Home.tsx:25; Pricing.tsx:96; ComparePost.tsx:184; website/src/data/whatToDo.ts:307",
+        "New copy is consistent with website/src/pages/Privacy.tsx:65-70, which already describes location correctly",
+        "Claims that remain true are preserved verbatim — no camera access, no microphone access, no pendant, no wearable, no third-party advertising SDKs",
+        "The positioning survives the rewrite: the honest differentiator is that location is opt-in and receiver-controlled, not that it does not exist",
+        "Any 'Free on iPhone' phrasing in SEO descriptions (ChildSafety.tsx:62, ElderlyCare.tsx:61) is removed or corrected — there is no free tier; plans start at $3.99/mo",
+        "grep -niE \"no gps|never access(es)? location|no location, ever|not a tracking app|no location tracking\" over website/src returns no matches",
+        "website builds clean: cd website && npm run build",
+        "Existing website tests still pass: cd website && npm test"
+      ],
+      "priority": 237,
+      "passes": false,
+      "notes": "DECISION ON RECORD (2026-08-18): keep the location features, fix the copy. Do not remove CoreLocation, FusedLocationProvider, the location_updates table, the geofence cron, or location labels. The shipped reality this copy must stop contradicting: ios/DailyOK/Info.plist:45 (NSLocationAlwaysAndWhenInUseUsageDescription), android/app/src/main/AndroidManifest.xml:27-33 (ACCESS_FINE_LOCATION, ACCESS_BACKGROUND_LOCATION, FOREGROUND_SERVICE_LOCATION), supabase/migrations/00012:48 (location_updates with lat/long/accuracy/distance-from-home/battery), LocationReportWorker.kt:33 (Android 15-minute periodic reporting), 00012:169 (geofence alert detection every 5 minutes). 13 claim sites in total. This is the largest single exposure found in the audit: the marketing pages contradict the company's own privacy policy, aimed at parents of children and adult children of dementia patients."
+    },
+    {
+      "id": "US-LEG005",
+      "title": "Reframe Kid Mode as a 13+ simple mode and drop the under-13 marketing signals",
+      "description": "As the business, I want the child-facing feature and its marketing to stay inside the 13+ audience the privacy policy claims, so that we are not advertising to under-13 users while disclaiming that we collect from them.",
+      "acceptanceCriteria": [
+        "The receiver_mode value 'kid' keeps its stored string for backward compatibility (CLAUDE.md section C forbids renaming persisted values), but every user-facing label is changed from 'Kid Mode' to a 13+-appropriate name such as 'Simple Mode'",
+        "User-facing copy updated at ios/DailyOK/Views/Settings/ReceiverSettingsView.swift:107,111, ios/DailyOK/Views/Onboarding/OnboardingView.swift:385, and the Android equivalents",
+        "Under-13 keyword targeting removed from website/src/pages/ChildSafety.tsx:64 — specifically 'latchkey kid app', 'kids playing outside safety', 'after school check-in app', 'kid home alone safety app'",
+        "ChildSafety.tsx hero and body copy reframed to teens and older children (13+), consistent with the 13+ answer already given at ChildSafety.tsx:19-20",
+        "An Owner-facing attestation appears when enabling the mode: the Owner confirms the receiver is 13 or older, matching the consent duty already stated at Terms.tsx:129-135 and Privacy.tsx:352-356",
+        "The 'scared' mood and SOS response are retained — they are legitimate for teens — but no copy implies a younger user",
+        "grep -riE 'latchkey|kids playing outside|kid home alone' over website/src returns no matches",
+        "website builds clean and existing tests pass"
+      ],
+      "priority": 238,
+      "passes": false,
+      "notes": "DECISION ON RECORD (2026-08-18): reframe as teen-only rather than building verifiable parental consent or deleting the feature. The gap being closed: Privacy.tsx:345 claims 13+ and no knowing under-13 collection, while 00014_kid_mode_and_enhanced_moods.sql ships a 'simplified UI for children' with emoji moods, an SOS response, and 'School' location labels, marketed with latchkey-kid keywords. COPPA is the FTC's most actively enforced consumer statute and carries per-violation penalties. Do NOT change the stored 'kid' receiver_mode string or the kid_response_type enum values — clients in the wild still send them."
+    },
+    {
+      "id": "US-LEG006",
+      "title": "Add auto-renewal disclosure and Terms/Privacy links to both paywalls",
+      "description": "As a customer about to subscribe, I want the renewal terms, trial length, and legal links visible before I pay, so that I am giving informed consent to a recurring charge.",
+      "acceptanceCriteria": [
+        "Both purchase screens (ios/DailyOK/Views/Settings/SettingsView.swift SubscriptionView and android/.../SubscriptionScreen.kt) display, adjacent to the purchase button: subscription title, billing period, price, trial length, and that it auto-renews until cancelled",
+        "Disclosure text matches the terms already published at website/src/pages/Terms.tsx:89-99 — 7-day trial monthly, 14-day trial yearly, renews unless cancelled at least 24 hours before period end",
+        "Both screens link to https://dailyok.net/terms and https://dailyok.net/privacy, and both links open",
+        "The disclosure is legible at default text size and is not collapsed behind a disclosure triangle or truncated",
+        "Copy states plainly that the trial converts to a paid subscription if not cancelled",
+        "Existing 'Manage Subscription' and 'Restore Purchases' affordances are preserved unchanged"
+      ],
+      "priority": 239,
+      "passes": false,
+      "notes": "The cancellation path itself is already fine — iOS uses .manageSubscriptionsSheet (SettingsView.swift:503) and Android deep-links to the Play subscriptions page (SubscriptionScreen.kt:392), two taps with no retention gauntlet. What is missing is the disclosure half. The FTC's click-to-cancel Negative Option Rule was vacated by the Eighth Circuit in 2025, so the operative constraints here are ROSCA (15 U.S.C. 8403) and state ARLs, which require clear and conspicuous auto-renewal terms BEFORE billing information is taken. Apple Guideline 3.1.2 independently requires the Terms and Privacy links on the paywall, so this is also an App Review rejection risk. Note the 7- and 14-day trials are under 31 days, so California's separate trial-reminder duty does not attach — no reminder story is needed."
+    },
+    {
+      "id": "US-LEG007",
+      "title": "Android paywall shows the real localized store price instead of hardcoded USD",
+      "description": "As a customer outside the US, I want the price on the Android paywall to be the price I will actually be charged, so that the displayed amount and the billed amount agree.",
+      "acceptanceCriteria": [
+        "The hardcoded price strings in PlanInfo at android/.../SubscriptionScreen.kt:117-147 ('$3.99/mo', '$29.99/yr', '$6.99/mo', '$49.99/yr', '$9.99/mo', '$79.99/yr') are removed",
+        "Prices render from ProductDetails.subscriptionOfferDetails pricing phases (formattedPrice), which is already localized by Google Play",
+        "The render site at SubscriptionScreen.kt:306 reads the resolved store price rather than plan.monthlyPrice / plan.yearlyPrice",
+        "A sensible placeholder or skeleton shows while products are still loading, and the existing 'Product not available' path is preserved",
+        "Any annual-savings percentage shown is computed from the loaded store prices, never hardcoded — mirroring the iOS approach at SettingsView.swift:507-525",
+        "Kotlin compiles: cd android && ./gradlew assembleDebug"
+      ],
+      "priority": 240,
+      "passes": false,
+      "notes": "iOS already does this correctly via product.displayPrice, with a comment at SettingsView.swift:506-507 citing App Store guideline 3.1 for never hardcoding prices. Android is the outlier. A user in the EU or UK currently sees a US dollar figure and is charged a different localized amount — straightforward deceptive pricing, and a Google Play policy issue. Website and Android hardcoded prices currently agree with each other (Pricing.tsx:13,33,52), so this is about currency and localization drift, not a present US-market mismatch."
+    },
+    {
+      "id": "US-LEG008",
+      "title": "Privacy Policy discloses activity sharing, care notes, wellness signals, and geofencing",
+      "description": "As a user reading the privacy policy, I want it to list every category of data the app actually collects, so that the policy is a complete and accurate description rather than one that omits four live features.",
+      "acceptanceCriteria": [
+        "The 'Health, fitness, biometric, or genetic data' bullet under Information We Do Not Collect (website/src/pages/Privacy.tsx:103) is removed or narrowed — the app reads HealthKit step count and uploads a derived boolean (ios/DailyOK/Services/HealthService.swift:100-155, wellness_signals with source 'healthkit')",
+        "A new disclosure describes the optional activity-sharing feature accurately: step count is read on-device, only a yes/no 'active today' signal is transmitted, it is off by default and revocable — matching the in-app copy at ios/DailyOK/Views/Receiver/HealthSharingView.swift:41-48 and Info.plist:50",
+        "care_notes (supabase/migrations/00041) is disclosed: free-text caregiver notes about a receiver, who can read them, and how long they are kept",
+        "wellness_signals (supabase/migrations/00042) is disclosed as its own data category",
+        "Geofence / safe-zone alerting (supabase/migrations/00012:169, every 5 minutes) is disclosed — it appears nowhere in the current policy",
+        "The location section is corrected: the claim at Privacy.tsx:258 that location is 'never retained as a separate location history' is false — location_updates is exactly that, a separate 7-day history keyed (receiver_id, recorded_at) that also stores battery level",
+        "Android's 15-minute periodic background location cadence (LocationReportWorker.kt:33) is disclosed alongside iOS significant-change monitoring; the current text says only 'significant change in location'",
+        "Retention windows for care_notes and wellness_signals are stated and match what US-LEG013 implements",
+        "The 'Last updated' date at Privacy.tsx:16 is advanced",
+        "website builds clean and existing tests pass"
+      ],
+      "priority": 241,
+      "passes": false,
+      "notes": "The policy is otherwise strong — the sub-processor list is real and complete, the consent gating for Google Analytics is correctly implemented (website/src/lib/consent.ts), and GPC is honored. These are omissions and two affirmative misstatements, not a rewrite. Apple App Review Guideline 5.1.3 independently requires HealthKit use to be disclosed in the privacy policy, so the health disclosure is also a submission blocker. AI is NOT a needed disclosure here: verified that blog-generator.ts, blog-critic.ts, blog-refresh-agent.ts, and admin-blog-ai read only the title bank and competitor JSON, never checkins/users/care_notes — no user data reaches Anthropic or OpenAI, so they are not sub-processors of personal data."
+    },
+    {
+      "id": "US-LEG009",
+      "title": "Replace the placeholder mailing address in the Privacy Policy and Terms",
+      "description": "As a user or regulator trying to reach the company, I want a real postal address in the legal pages, so that the statutory contact block is usable.",
+      "acceptanceCriteria": [
+        "'Pearson Media LLC, 1234 Example Street, Salt Lake City, UT 84101, USA' is replaced with the real operations address at website/src/pages/Privacy.tsx:411 and website/src/pages/Terms.tsx:400",
+        "The inline hedge '(operations address; update as required when finalized)' is removed from both pages",
+        "grep -r '1234 Example Street' over the repo returns no matches",
+        "If the real address is not available at implementation time, the story is left failing with a note rather than substituting another placeholder"
+      ],
+      "priority": 242,
+      "passes": false,
+      "notes": "BLOCKED ON INPUT: needs the actual Pearson Media LLC business address from Dj. Do not invent one, and do not ship a second placeholder. CCPA requires a working consumer-request contact method and the app stores require a valid publisher address; a visible '1234 Example Street' in a live policy also undermines the credibility of every other commitment on the page. This is the one story in this batch that cannot be completed autonomously."
+    },
+    {
+      "id": "US-LEG010",
+      "title": "Disclose AI authorship on generated blog posts",
+      "description": "As a blog reader, I want to know an article was machine-generated, so that I am not shown AI-written health guidance under a byline that implies a human wrote it.",
+      "acceptanceCriteria": [
+        "The JSON-LD author at website/src/lib/schemaMarkup.ts:76-78 changes from '@type': 'Person' to '@type': 'Organization' for generated posts — 'Daily OK Editorial' is not a person",
+        "A visible, non-hidden disclosure appears on each generated post indicating it was AI-drafted, with the publisher identified as responsible for the content",
+        "The disclosure appears on the rendered page (website/src/pages/BlogPost.tsx), not only in structured data",
+        "Posts that are human-written or human-reviewed can be distinguished from fully generated ones, so the disclosure is accurate per-post rather than blanket",
+        "website builds clean and existing tests pass"
+      ],
+      "priority": 243,
+      "passes": false,
+      "notes": "Every post currently emits author as a Person named 'Daily OK Editorial'. Articles publish live with no human review — blog-generator.ts:604 sets status 'published' directly. Combined with the YMYL health topics in the bank, an implied human byline on unreviewed machine-generated medical content is the deceptive part. This is a content and marketing disclosure, not a data-privacy one — no user data ever reaches the model."
+    },
+    {
+      "id": "US-LEG011",
+      "title": "Enforce the medical disclaimer and crisis-resource footer in the blog template, not the prompt",
+      "description": "As the publisher, I want the disclaimer and crisis resources injected deterministically at render time, so that a YMYL health article cannot ship without them because the model happened to omit them.",
+      "acceptanceCriteria": [
+        "The medical disclaimer is injected by the publish path or the render template rather than depending on the prompt instructions at edge-functions/shared/blog-generator.ts:414 and :525",
+        "Posts flagged YMYL carry a crisis-resource block including the 988 Suicide & Crisis Lifeline, appended deterministically",
+        "The publish path refuses to mark a YMYL post 'published' if the required blocks are absent, or appends them — never silently publishes without",
+        "A generated article that omits the disclaimer in its body still renders with one visible near the top",
+        "The existing prompt-level instructions may remain as a first line of defense, but the template no longer relies on them",
+        "deno check passes for touched edge-function files"
+      ],
+      "priority": 244,
+      "passes": false,
+      "notes": "Today the disclaimer exists only as text inside a prompt string; nothing in the template or the publish path enforces it. The topic bank includes pieces such as 'When Dad withdraws: spotting depression in aging men' (00027_blog_bank_expansion.sql:167-172), whose own prompt instructs the model to cite higher suicide risk in men 75+ and reference 988 — so the highest-risk article is the one whose safety content is least guaranteed. 988 currently appears nowhere in any shipped surface; its only occurrence in the entire repo is inside that prompt string."
+    },
+    {
+      "id": "US-LEG012",
+      "title": "Surface crisis resources when a receiver signals distress",
+      "description": "As a receiver in distress — or the family member who just got the alert — I want emergency and crisis resources shown at that moment, so that the app does more than forward a red badge to a phone.",
+      "acceptanceCriteria": [
+        "Tapping 'Need Help' or 'Call Me' (ios/DailyOK/Models/CheckIn.swift:131-133) surfaces emergency guidance to the receiver, not just a silent post to the server",
+        "The kid/simple-mode SOS response (CheckIn.swift:109) does the same",
+        "The Owner-facing alert for a help request (edge-functions/functions/process-checkin-response/index.ts:287-289) includes actionable next steps, not only 'Help Requested'",
+        "The 988 Suicide & Crisis Lifeline is presented where a mental-health concern is plausible, alongside the existing 911 guidance",
+        "Copy preserves the existing, correct framing that Daily OK is not an emergency service (Terms.tsx:44-51) and does not imply the app summons help",
+        "website/src/data/whatToDo.ts:377-389, the unreachable-college-student scenario, references 988 alongside campus police",
+        "No dark-pattern urgency; the tone matches the calm register used elsewhere in the app"
+      ],
+      "priority": 245,
+      "passes": false,
+      "notes": "There is no user-facing chatbot in this product, so the classic 'the AI told a user to hurt themselves' liability does not apply. The real gap is that the app has genuine distress signals — need_help, call_me, kid SOS — and process-checkin-response routes them to family push notifications only, with nothing shown to the person who just signaled. The website's 911-versus-welfare-check guidance (whatToDo.ts) is genuinely good and should be the tone model; it is just missing the mental-health arm."
+    },
+    {
+      "id": "US-LEG013",
+      "title": "Retention purge for care notes and wellness signals",
+      "description": "As a user, I want every category of my data to have an actual expiry, so that the retention windows the privacy policy states are enforced by a job rather than only asserted.",
+      "acceptanceCriteria": [
+        "New forward-only migration adding a retention purge for care_notes (supabase/migrations/00041) and wellness_signals (00042), which currently have none and persist indefinitely",
+        "Purge respects the per-family families.data_retention_days setting, consistent with enforce_data_retention() at supabase/migrations/00005:52-59",
+        "Scheduled via pg_cron alongside the existing 'enforce-data-retention' job",
+        "Retention windows implemented here match exactly what US-LEG008 states in the privacy policy",
+        "Migration wrapped in BEGIN; ... COMMIT; with a verification SELECT confirming the cron job exists",
+        "Purely additive: no existing purge behavior altered, no column or table dropped"
+      ],
+      "priority": 246,
+      "passes": false,
+      "notes": "Verified gaps: checkins are purged per-family (00005), location_updates after 7 days (00012:63-76), notification_log (00005:62). care_notes and wellness_signals have no purge at all — care_notes in particular is free-text health-adjacent commentary written about a third party. Deletion-on-account-close does work for both (they cascade on users(id)); what is missing is time-based expiry while the account is live. Retention section at Privacy.tsx:253-262 lists a window for every other category, which makes the omission conspicuous."
     }
   ]
 }
