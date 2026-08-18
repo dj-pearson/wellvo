@@ -1666,3 +1666,41 @@ Verification: run against a real PostgreSQL 16.13 cluster rather than by
 Deploy note: this migration only runs from main via supabase-migrations.yml with
   production environment approval and a pre-migration backup, per CLAUDE.md. No
   client release needs to precede it — it is server-side only and additive.
+
+================================================================================
+US-LEG009 — Replace the placeholder mailing address in the legal pages
+================================================================================
+Status: PASS
+
+Address supplied by Dj: 7889 Beechtree Ln, WDM IA 50266. Rendered as
+  "Pearson Media LLC, 7889 Beechtree Ln, West Des Moines, IA 50266, USA".
+  WDM expanded on purpose — an abbreviation is not appropriate in a statutory
+  contact block that a regulator or process server has to use.
+
+Scope correction: the story named two files; the placeholder was in four.
+  - website/src/pages/Privacy.tsx   (GDPR Art. 13 / CCPA controller contact)
+  - website/src/pages/Terms.tsx     (contact + arbitration notice address)
+  - website/src/pages/DMCA.tsx      (designated DMCA agent) <- missed in audit
+  - website/src/components/Footer.tsx (site-wide)           <- missed in audit
+  The chat audit grepped only the two legal pages. docs/COMPLIANCE_AUDIT.md:136
+  had already listed all four. The "(operations address; update as required when
+  finalized)" hedge was removed everywhere it appeared.
+
+Verification: npm run build exit 0, 39 pages pre-rendered, new address present in
+  38 of them (footer is site-wide), zero stale copies in dist. Repo-wide grep for
+  "1234 Example" / "Salt Lake City" / the hedge string returns nothing across
+  website/src, ios, android, edge-functions, supabase.
+
+Pre-existing test failure (NOT caused here): src/test/App.test.tsx:17 "renders
+  home page at /" expects /know your loved ones are OK/i. Confirmed pre-existing
+  by stashing the change and re-running on a clean tree — fails identically.
+  16/17 tests pass.
+
+Follow-ups NOT done here, deliberately:
+  1. The DMCA designated-agent address is also on file with the U.S. Copyright
+     Office (asserted at DMCA.tsx:60). That external filing must be updated too
+     or the agent designation is ineffective. External action, not a code change.
+  2. Terms.tsx:322 sets governing law and arbitration venue to Utah, matching the
+     old Salt Lake City placeholder. The real address is Iowa. If the LLC is not
+     Utah-registered this clause should be revisited — a legal decision, left
+     alone rather than guessed at.

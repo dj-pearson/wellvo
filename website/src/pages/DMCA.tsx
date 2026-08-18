@@ -51,8 +51,7 @@ export default function DMCA() {
               <br />
               Attn: DMCA Agent
               <br />
-              1234 Example Street, Salt Lake City, UT 84101, USA{' '}
-              <em>(operations address; update as required when finalized)</em>
+              7889 Beechtree Ln, West Des Moines, IA 50266, USA
               <br />
               Email: <a href="mailto:dmca@dailyok.net">dmca@dailyok.net</a>
             </p>

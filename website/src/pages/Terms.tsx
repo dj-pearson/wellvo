@@ -397,9 +397,8 @@ export default function Terms() {
               Email (legal &amp; arbitration notices):{' '}
               <a href="mailto:legal@dailyok.net">legal@dailyok.net</a>
               <br />
-              Mailing address: Pearson Media LLC, 1234 Example Street, Salt Lake City, UT
-              84101, USA{' '}
-              <em>(operations address; update as required when finalized)</em>
+              Mailing address: Pearson Media LLC, 7889 Beechtree Ln, West Des Moines,
+              IA 50266, USA
             </p>
           </section>
         </div>

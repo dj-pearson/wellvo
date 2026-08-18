@@ -4498,14 +4498,15 @@
       "title": "Replace the placeholder mailing address in the Privacy Policy and Terms",
       "description": "As a user or regulator trying to reach the company, I want a real postal address in the legal pages, so that the statutory contact block is usable.",
       "acceptanceCriteria": [
-        "'Pearson Media LLC, 1234 Example Street, Salt Lake City, UT 84101, USA' is replaced with the real operations address at website/src/pages/Privacy.tsx:411 and website/src/pages/Terms.tsx:400",
-        "The inline hedge '(operations address; update as required when finalized)' is removed from both pages",
-        "grep -r '1234 Example Street' over the repo returns no matches",
-        "If the real address is not available at implementation time, the story is left failing with a note rather than substituting another placeholder"
+        "Placeholder replaced with the real address at website/src/pages/Privacy.tsx, website/src/pages/Terms.tsx, website/src/pages/DMCA.tsx (designated DMCA agent block), and website/src/components/Footer.tsx (site-wide footer)",
+        "The inline hedge '(operations address; update as required when finalized)' removed from all three pages that carried it",
+        "grep for '1234 Example' / 'Salt Lake City' / 'update as required when finalized' across website/src, ios, android, edge-functions, supabase returns no matches",
+        "'WDM' expanded to 'West Des Moines' — a statutory contact block must be unambiguous for a regulator or process server",
+        "website builds clean and the address appears in the pre-rendered HTML"
       ],
       "priority": 242,
-      "passes": false,
-      "notes": "BLOCKED ON INPUT: needs the actual Pearson Media LLC business address from Dj. Do not invent one, and do not ship a second placeholder. CCPA requires a working consumer-request contact method and the app stores require a valid publisher address; a visible '1234 Example Street' in a live policy also undermines the credibility of every other commitment on the page. This is the one story in this batch that cannot be completed autonomously."
+      "passes": true,
+      "notes": "DONE. Address supplied by Dj in chat: 7889 Beechtree Ln, WDM IA 50266 -> rendered as 'Pearson Media LLC, 7889 Beechtree Ln, West Des Moines, IA 50266, USA'. Expanded WDM deliberately; an abbreviation is not appropriate in a statutory contact block.\n\nSCOPE CORRECTION: the original criteria named only Privacy.tsx and Terms.tsx. The placeholder was in FOUR places — DMCA.tsx:54 (the designated DMCA agent block) and Footer.tsx:64 (site-wide) were missed in the chat audit because it grepped only the two legal pages. docs/COMPLIANCE_AUDIT.md:136 had already recorded all four. The DMCA one mattered most: a designated agent address must be real to be effective, and it is also filed with the U.S. Copyright Office (DMCA.tsx:60 asserts that registration), so the Copyright Office record needs the same update — that is an external filing, not a code change, and is NOT covered by this story.\n\nVERIFIED: cd website && npm run build -> exit 0, 39 pages pre-rendered; new address present in 38 of them (footer is site-wide), zero stale copies in dist. Full-repo grep for the placeholder returns nothing.\n\nTEST NOTE: npm test shows 1 pre-existing failure, src/test/App.test.tsx:17 ('renders home page at /', expects /know your loved ones are OK/i). Confirmed pre-existing by stashing the change and re-running on a clean tree — fails identically. Unrelated to this story; 16 of 17 tests pass.\n\nOPEN QUESTION FOR COUNSEL, raised not resolved: Terms.tsx:322 sets governing law and arbitration venue to the State of Utah, and the old placeholder was a Salt Lake City address. The real business address is Iowa. If Pearson Media LLC is not Utah-registered, the Utah choice-of-law clause should be revisited. Deliberately NOT changed here — choice of law is a legal decision, not a copy fix."
     },
     {
       "id": "US-LEG010",
