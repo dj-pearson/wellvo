@@ -12,7 +12,7 @@ export default function Terms() {
       <div className="container">
         <div className="legal-content">
           <h1>Terms of Use</h1>
-          <p className="legal-updated">Last updated: April 13, 2026</p>
+          <p className="legal-updated">Last updated: August 18, 2026</p>
 
           <p>
             <strong>Important notice.</strong> These Terms include a binding individual
@@ -319,7 +319,7 @@ export default function Terms() {
             <h2>17. Governing Law; Arbitration; Class-Action Waiver</h2>
             <p>
               <strong>Governing law.</strong> These Terms are governed by the laws of the
-              State of Utah, USA, without regard to its conflict-of-laws principles. The
+              State of Iowa, USA, without regard to its conflict-of-laws principles. The
               United Nations Convention on Contracts for the International Sale of Goods does
               not apply.
             </p>
@@ -397,9 +397,8 @@ export default function Terms() {
               Email (legal &amp; arbitration notices):{' '}
               <a href="mailto:legal@dailyok.net">legal@dailyok.net</a>
               <br />
-              Mailing address: Pearson Media LLC, 1234 Example Street, Salt Lake City, UT
-              84101, USA{' '}
-              <em>(operations address; update as required when finalized)</em>
+              Mailing address: Pearson Media LLC, 7889 Beechtree Ln, West Des Moines,
+              IA 50266, USA
             </p>
           </section>
         </div>

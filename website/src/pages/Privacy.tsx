@@ -408,9 +408,8 @@ export default function Privacy() {
               <br />
               Email: <a href="mailto:privacy@dailyok.net">privacy@dailyok.net</a>
               <br />
-              Mailing address: Pearson Media LLC, 1234 Example Street, Salt Lake City, UT
-              84101, USA{' '}
-              <em>(operations address; update as required when finalized)</em>
+              Mailing address: Pearson Media LLC, 7889 Beechtree Ln, West Des Moines,
+              IA 50266, USA
               <br />
               Website: <a href="https://dailyok.net/support">dailyok.net/support</a>
             </p>

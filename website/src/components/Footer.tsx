@@ -61,7 +61,7 @@ export default function Footer() {
             &copy; {currentYear} Pearson Media LLC d/b/a Daily OK. All rights reserved.
             <br />
             <span className="footer-address">
-              Pearson Media LLC, 1234 Example Street, Salt Lake City, UT 84101, USA &middot;{' '}
+              Pearson Media LLC, 7889 Beechtree Ln, West Des Moines, IA 50266, USA &middot;{' '}
               <a href="mailto:support@dailyok.net">support@dailyok.net</a>
             </span>
           </p>

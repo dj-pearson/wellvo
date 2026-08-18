@@ -1620,3 +1620,126 @@ Verification: `deno check` clean for all touched/new edge files (pre-existing
   has no headless Swift toolchain here — Xcode build verification pending CI.
   Server-initiated START (consuming the stored push-to-start token) is beyond the
   ACs and a deliberate future enhancement.
+
+================================================================================
+US-LEG001 — Account deletion no longer throws for members who joined via invite
+================================================================================
+Status: PASS
+
+Problem: invite_tokens.used_by was declared inline as `used_by UUID REFERENCES
+  users(id)` (00001_create_core_tables.sql:163) with no ON DELETE clause, so it
+  defaulted to NO ACTION. It is the ONLY user-referencing FK in the schema
+  without an explicit ON DELETE rule (re-verified with a multiline-aware scan of
+  every migration). delete_user_account() therefore raised a foreign-key
+  violation on `DELETE FROM users` for anyone who had redeemed an invite —
+  i.e. essentially every invited Receiver and Viewer. Owners usually escaped it
+  because `DELETE FROM families WHERE owner_id = ...` runs first and cascades the
+  family's tokens away. User-visible symptom: type DELETE to confirm, tap Delete
+  Everything, receive the generic error alert (SettingsView.swift:315). That made
+  the erasure right advertised at Privacy.tsx:289 and Terms.tsx:286 unusable
+  (GDPR Art. 17 / CCPA 1798.105).
+
+Fix: supabase/migrations/00050_invite_tokens_used_by_on_delete.sql — drops the FK
+  by pg_constraint catalog lookup (not by assuming the default name) and re-adds
+  it with ON DELETE SET NULL. SET NULL not CASCADE: used_by is an audit
+  breadcrumb on a token belonging to someone else's family, so erasing the
+  departing user should clear the reference rather than delete the owner's row.
+
+Backward-compat (CLAUDE.md section A): additive and forward-only. No column
+  renamed, no table dropped, no type changed, no RPC signature touched, no
+  on-the-wire JSON shape changed. used_by was already nullable and unredeemed
+  invites already carry NULL there, so no client can be surprised by the value.
+
+Verification: run against a real PostgreSQL 16.13 cluster rather than by
+  inspection. Rebuilt the users/families/family_members/invite_tokens subset
+  verbatim from 00001, seeded an owner plus a receiver holding a redeemed token,
+  then ran the delete_user_account delete sequence for the receiver.
+    BEFORE — ERROR: violates foreign key constraint "invite_tokens_used_by_fkey";
+             ROLLBACK; user still present. Reproduces the bug and confirms the
+             auto-generated constraint name.
+    AFTER  — DELETE 1; COMMIT; used_by nulled; owner's token row and user row
+             both intact.
+    RE-RUN — migration reapplied cleanly (idempotent).
+  The migration's own verification block RAISEs an exception unless confdeltype
+  is 'n', so a future environment that drifts will fail loudly at migrate time.
+
+Deploy note: this migration only runs from main via supabase-migrations.yml with
+  production environment approval and a pre-migration backup, per CLAUDE.md. No
+  client release needs to precede it — it is server-side only and additive.
+
+================================================================================
+US-LEG009 — Replace the placeholder mailing address in the legal pages
+================================================================================
+Status: PASS
+
+Address supplied by Dj: 7889 Beechtree Ln, WDM IA 50266. Rendered as
+  "Pearson Media LLC, 7889 Beechtree Ln, West Des Moines, IA 50266, USA".
+  WDM expanded on purpose — an abbreviation is not appropriate in a statutory
+  contact block that a regulator or process server has to use.
+
+Scope correction: the story named two files; the placeholder was in four.
+  - website/src/pages/Privacy.tsx   (GDPR Art. 13 / CCPA controller contact)
+  - website/src/pages/Terms.tsx     (contact + arbitration notice address)
+  - website/src/pages/DMCA.tsx      (designated DMCA agent) <- missed in audit
+  - website/src/components/Footer.tsx (site-wide)           <- missed in audit
+  The chat audit grepped only the two legal pages. docs/COMPLIANCE_AUDIT.md:136
+  had already listed all four. The "(operations address; update as required when
+  finalized)" hedge was removed everywhere it appeared.
+
+Verification: npm run build exit 0, 39 pages pre-rendered, new address present in
+  38 of them (footer is site-wide), zero stale copies in dist. Repo-wide grep for
+  "1234 Example" / "Salt Lake City" / the hedge string returns nothing across
+  website/src, ios, android, edge-functions, supabase.
+
+Pre-existing test failure (NOT caused here): src/test/App.test.tsx:17 "renders
+  home page at /" expects /know your loved ones are OK/i. Confirmed pre-existing
+  by stashing the change and re-running on a clean tree — fails identically.
+  16/17 tests pass.
+
+Follow-ups NOT done here, deliberately:
+  1. The DMCA designated-agent address is also on file with the U.S. Copyright
+     Office (asserted at DMCA.tsx:60). That external filing must be updated too
+     or the agent designation is ineffective. External action, not a code change.
+  2. Terms.tsx:322 sets governing law and arbitration venue to Utah, matching the
+     old Salt Lake City placeholder. The real address is Iowa. If the LLC is not
+     Utah-registered this clause should be revisited — a legal decision, left
+     alone rather than guessed at.
+
+================================================================================
+US-LEG014 — Governing law and DMCA counter-notice venue: Utah -> Iowa
+================================================================================
+Status: PASS
+
+Requested by Dj after US-LEG009 surfaced the mismatch: the Utah choice of law
+  matched the old Salt Lake City placeholder, while the real business address is
+  West Des Moines, Iowa.
+
+Changed:
+  - Terms.tsx:322  governing law "State of Utah" -> "State of Iowa"
+  - DMCA.tsx:74    non-U.S. counter-notice fallback venue "District of Utah" ->
+                   "Southern District of Iowa". Per 17 U.S.C. 512(g)(3)(D) a
+                   non-U.S. counter-notifier consents to a district where the
+                   SERVICE PROVIDER may be found, so this tracks the company's
+                   location. West Des Moines (Polk/Dallas County) is Southern
+                   District of Iowa.
+  - Terms.tsx:15   "Last updated" advanced to August 18, 2026.
+
+Deliberately NOT changed:
+  - Privacy.tsx:312 "Utah (UCPA)" — the Utah Consumer Privacy Act in a list of
+    state privacy statutes. A statute name, not a forum.
+  - Terms.tsx arbitration venue "in the county where you reside" — consumer
+    favourable and independent of choice of law.
+
+Verification: npm run build exit 0, 39 pages pre-rendered. dist confirms "laws of
+  the State of Iowa" (terms), "Southern District of Iowa" (dmca), and the new
+  Last updated date. Only remaining "Utah" in dist is privacy/index.html.
+
+Open items for Dj / counsel (flagged, not resolved):
+  1. Terms.tsx:311 promises >=30 days advance notice before material changes take
+     effect. A governing-law and venue change is material. That notice is not
+     implemented here — shipping without it breaks a promise made in the same
+     document.
+  2. Users who already accepted the Utah terms accepted a different forum;
+     whether a unilateral switch binds them is a legal question.
+  3. Assumes Pearson Media LLC is Iowa-registered / Iowa is the intended home
+     forum. Revisit if the entity is registered elsewhere.
