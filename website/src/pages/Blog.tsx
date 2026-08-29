@@ -2,25 +2,23 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
+import { useBlogSeed } from '../lib/blogSeed'
+import { POST_SUMMARY_COLUMNS, type PublicPostSummary } from '../lib/blogTypes'
+import { SITE_URL } from '../components/SEO'
 import './Blog.css'
 
-interface PublicPost {
-  id: string
-  slug: string
-  title: string
-  excerpt: string | null
-  featured_image_url: string | null
-  category: string | null
-  tags: string[]
-  published_at: string
-}
-
 export default function Blog() {
-  const [posts, setPosts] = useState<PublicPost[]>([])
-  const [loading, setLoading] = useState(true)
+  // Seeded at build time by +onBeforePrerenderStart.ts so the prerendered
+  // HTML carries real <a href="/blog/..."> links. Without them Googlebot had
+  // no path into the blog at all (US-WEB008). Absent on client-side
+  // navigation and for a build with no Supabase config — then we fetch.
+  const { blogIndex } = useBlogSeed()
+  const [posts, setPosts] = useState<PublicPostSummary[]>(blogIndex ?? [])
+  const [loading, setLoading] = useState(blogIndex === null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (blogIndex !== null) return
     if (!isSupabaseConfigured()) {
       setError('Blog is not configured yet.')
       setLoading(false)
@@ -29,7 +27,7 @@ export default function Blog() {
     const supabase = getSupabase()
     supabase
       .from('blog_posts')
-      .select('id, slug, title, excerpt, featured_image_url, category, tags, published_at')
+      .select(POST_SUMMARY_COLUMNS)
       .eq('status', 'published')
       .lte('published_at', new Date().toISOString())
       .order('published_at', { ascending: false })
@@ -40,16 +38,17 @@ export default function Blog() {
           setLoading(false)
           return
         }
-        setPosts((data as PublicPost[]) ?? [])
+        setPosts((data as PublicPostSummary[]) ?? [])
         setLoading(false)
       })
-  }, [])
+  }, [blogIndex])
 
   return (
     <>
       <Helmet>
         <title>Blog — Daily OK</title>
         <meta name="description" content="Guides, tips, and stories about daily check-ins, caregiving, and family safety." />
+        <link rel="canonical" href={`${SITE_URL}/blog`} />
       </Helmet>
 
       <section className="blog-hero">

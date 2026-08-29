@@ -4,6 +4,7 @@ import { StaticRouter } from 'react-router-dom'
 import { HelmetProvider, type HelmetServerState } from 'react-helmet-async'
 import { AdminAuthProvider } from '../src/admin/AdminAuthProvider'
 import ErrorBoundary from '../src/components/ErrorBoundary'
+import { BlogSeedProvider, seedFromPageContext } from '../src/lib/blogSeed'
 import type { PageContextServer } from 'vike/types'
 import Page from './+Page'
 
@@ -135,14 +136,21 @@ function extractHeadTags(html: string): { headHtml: string; bodyHtml: string } {
 export default async function onRenderHtml(pageContext: PageContextServer) {
   const helmetContext: HelmetContext = {}
 
+  // Blog data fetched at build time by +onBeforePrerenderStart.ts. Without
+  // it the blog renders empty during SSR, which is what made every post
+  // invisible to search engines before US-WEB008.
+  const blogSeed = seedFromPageContext(pageContext)
+
   const tree = (
     <ErrorBoundary>
       <HelmetProvider context={helmetContext}>
-        <AdminAuthProvider>
-          <StaticRouter location={pageContext.urlOriginal ?? '/'}>
-            <Page />
-          </StaticRouter>
-        </AdminAuthProvider>
+        <BlogSeedProvider seed={blogSeed}>
+          <AdminAuthProvider>
+            <StaticRouter location={pageContext.urlOriginal ?? '/'}>
+              <Page />
+            </StaticRouter>
+          </AdminAuthProvider>
+        </BlogSeedProvider>
       </HelmetProvider>
     </ErrorBoundary>
   )

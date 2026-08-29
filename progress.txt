@@ -1743,3 +1743,66 @@ Open items for Dj / counsel (flagged, not resolved):
      whether a unilateral switch binds them is a legal question.
   3. Assumes Pearson Media LLC is Iowa-registered / Iowa is the intended home
      forum. Revisit if the entity is registered elsewhere.
+
+================================================================================
+US-WEB008 — Make the blog indexable: prerender posts and stop serving them the
+homepage                                                            2026-08-29
+================================================================================
+First story of the SEO remediation batch (US-WEB008..US-WEB019), derived from
+docs/SEARCH_CONSOLE_DIAGNOSIS.md. Blocking: nothing published to the blog counts
+until this ships.
+
+The problem, from four months of Search Console data: zero /blog/* URLs indexed.
+Three faults stacked —
+  1. posts were never prerendered (fetched in a useEffect that SSR never runs),
+  2. so they never entered the sitemap, which walks prerendered output,
+  3. and `/blog/* / 200` served every post URL the HOMEPAGE's prerendered HTML,
+     homepage title and homepage canonical included, before any JS ran.
+
+Implemented as a build-time prerender seed:
+  new  pages/fetchBlogForPrerender.ts   build-time Supabase read + sanitize
+  new  src/lib/blogSeed.tsx             context carrying the seed to both renderers
+  new  src/lib/blogTypes.ts             shared shapes + column lists + allowlist
+  new  src/test/blogSeed.test.tsx       5 tests
+  mod  pages/+onBeforePrerenderStart.ts returns {url, pageContext} per post
+  mod  pages/+config.ts                 passToClient: blogIndex, blogPost
+  mod  pages/+onRenderHtml.tsx          provides seed during prerender
+  mod  pages/+onRenderClient.tsx        same seed, so hydration matches
+  mod  src/pages/Blog.tsx               seeded initial state; canonical added
+  mod  src/pages/BlogPost.tsx           seeded initial state; canonical fallback
+  mod  public/_redirects                dropped the /blog/* -> / rewrite
+  mod  package.json                     jsdom devDependencies -> dependencies
+
+Security issue found while implementing (not in the acceptance criteria):
+DOMPurify is a no-op under Node — isSupported = false, sanitize() returns its
+input untouched — so prerendering would have written unsanitized author- and
+LLM-authored content_html straight into static files. There is no server-side
+sanitization anywhere in edge-functions (grepped for sanitiz/DOMPurify). Fixed
+by sanitizing at build time with the same allowlist via jsdom. If the sanitizer
+cannot be constructed the fetcher drops post bodies rather than emitting raw
+HTML.
+
+Behaviour change worth knowing about: docs/BLOG_GENERATION_WEBHOOK.md line 11
+documents that generated posts "appear under /blog immediately — no rebuild or
+deploy is needed". Prerendering breaks that for posts published between builds.
+Mitigated by falling back to /blog/index.html (not /) so they still render
+client-side; the real fix is a rebuild-on-publish hook, carried into US-WEB009.
+
+Verification: `vite build` + `vike prerender` run twice — once with no Supabase
+env vars (warns, continues, 39 pages, exit 0), once against a stub Supabase REST
+endpoint serving two posts (41 pages). The prerendered post carries its own
+title, its own canonical (https://dailyok.net/blog/first-test-post, not the
+homepage), its own description, and its body. A <script>alert("xss")</script>
+and an onclick attribute in the stub content were both stripped. /blog carries a
+canonical and real links to both posts. generate-sitemap.mjs then emitted 40
+URLs including both posts with no change to that script.
+
+Suite 16 -> 21 passing; lint problems 20 -> 19.
+
+Pre-existing failure left alone: App.test.tsx "renders home page at /" asserts
+copy "know your loved ones are OK" while Home.tsx reads "Know your aging parent
+is OK". Fails identically on HEAD. Not fixed here — changing the assertion to
+match could mask an unintended copy change someone should actually decide on.
+
+Deferred to US-WEB009: blog <lastmod> is still the git fallback date rather than
+the post's updated_at, and IndexNow still pings only the static route list.

@@ -1,3 +1,14 @@
-/admin / 200
-/admin/* / 200
-/blog/* / 200
+# Admin is a client-only SPA surface (robots-disallowed, behind auth).
+/admin      /   200
+/admin/*    /   200
+
+# Blog posts are prerendered to their own HTML (US-WEB008), and Cloudflare
+# Pages serves a matching static file before consulting this file. This rule
+# is only reached by a post published since the last build — the generation
+# webhook publishes straight to Supabase without a redeploy
+# (docs/BLOG_GENERATION_WEBHOOK.md), so those must still render rather than
+# 404. Serving the blog index shell lets React Router fetch and render the
+# post client-side; the next build replaces it with real prerendered HTML.
+# It must NOT point at `/`, which is what previously gave every post the
+# homepage's title and canonical.
+/blog/*     /blog/index.html   200
