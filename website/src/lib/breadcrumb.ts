@@ -1,7 +1,7 @@
 /** BreadcrumbList JSON-LD builder. Shared by the cornerstone landing pages
  *  (US-WEB003) and reusable by other nested pages. */
 
-const SITE_ORIGIN = 'https://dailyok.net'
+import { canonicalUrl } from './canonical'
 
 export interface Crumb {
   name: string
@@ -17,7 +17,7 @@ export function buildBreadcrumbJsonLd(crumbs: Crumb[]): Record<string, unknown> 
       '@type': 'ListItem',
       position: i + 1,
       name: c.name,
-      item: `${SITE_ORIGIN}${c.path === '/' ? '' : c.path}` || SITE_ORIGIN,
+      item: canonicalUrl(c.path),
     })),
   }
 }

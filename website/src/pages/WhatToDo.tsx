@@ -19,7 +19,7 @@ export default function WhatToDo() {
           <h1>Guide not found</h1>
           <p>We don't have that specific guide. Browse all of them:</p>
           <p>
-            <Link to="/what-to-do">All "didn't answer the phone" guides →</Link>
+            <Link to="/what-to-do/">All "didn't answer the phone" guides →</Link>
           </p>
         </div>
       </section>
@@ -56,7 +56,7 @@ export default function WhatToDo() {
       <section className="ec-hero">
         <div className="container ec-hero-inner">
           <nav className="lp-breadcrumb" aria-label="Breadcrumb">
-            <Link to="/">Home</Link> &nbsp;/&nbsp; <Link to="/what-to-do">What to do</Link> &nbsp;/&nbsp;{' '}
+            <Link to="/">Home</Link> &nbsp;/&nbsp; <Link to="/what-to-do/">What to do</Link> &nbsp;/&nbsp;{' '}
             {page.who}
           </nav>
           <h1 className="ec-hero-title">{page.h1}</h1>
@@ -162,7 +162,7 @@ export default function WhatToDo() {
               Set up a daily check-in
               <ArrowRight size={18} />
             </a>
-            <Link to="/pricing" className="btn btn-secondary btn-lg">
+            <Link to="/pricing/" className="btn btn-secondary btn-lg">
               View plans
             </Link>
           </div>
@@ -179,10 +179,10 @@ export default function WhatToDo() {
 
           <h2>Related guides</h2>
           <div className="lp-links">
-            <Link to="/what-to-do">All "didn't answer the phone" guides</Link>
-            <Link to="/check-in-app-for-elderly">Check-in app for elderly parents</Link>
-            <Link to="/peace-of-mind-app-for-elderly-parents">Peace-of-mind app for elderly parents</Link>
-            <Link to="/pricing">Pricing &amp; plans</Link>
+            <Link to="/what-to-do/">All "didn't answer the phone" guides</Link>
+            <Link to="/check-in-app-for-elderly/">Check-in app for elderly parents</Link>
+            <Link to="/peace-of-mind-app-for-elderly-parents/">Peace-of-mind app for elderly parents</Link>
+            <Link to="/pricing/">Pricing &amp; plans</Link>
           </div>
         </div>
       </section>

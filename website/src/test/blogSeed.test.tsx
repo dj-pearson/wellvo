@@ -59,7 +59,9 @@ describe('blog prerender seed', () => {
     // prerendered HTML contain real links instead of a spinner.
     expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
     const link = screen.getByRole('link', { name: /A seeded post/i })
-    expect(link).toHaveAttribute('href', '/blog/a-seeded-post')
+    // Canonical trailing-slash form since US-WEB010 — production 308s the
+    // no-slash variant, so internal links must not point through a redirect.
+    expect(link).toHaveAttribute('href', '/blog/a-seeded-post/')
   })
 
   it('renders a post body from the seed without fetching', () => {

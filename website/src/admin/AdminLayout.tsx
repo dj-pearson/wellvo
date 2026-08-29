@@ -23,11 +23,11 @@ export default function AdminLayout() {
   }
 
   if (!session) {
-    return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />
+    return <Navigate to="/admin/login/" replace state={{ from: location.pathname }} />
   }
 
   if (!isAdmin) {
-    return <Navigate to="/admin/login" replace />
+    return <Navigate to="/admin/login/" replace />
   }
 
   return (
@@ -38,19 +38,19 @@ export default function AdminLayout() {
           Daily OK Admin
         </div>
         <nav className="admin-nav">
-          <NavLink to="/admin" end>
+          <NavLink to="/admin/" end>
             <LayoutDashboard size={16} /> Overview
           </NavLink>
-          <NavLink to="/admin/users">
+          <NavLink to="/admin/users/">
             <Users size={16} /> Users
           </NavLink>
-          <NavLink to="/admin/blog">
+          <NavLink to="/admin/blog/">
             <FileText size={16} /> Blog
           </NavLink>
-          <NavLink to="/admin/social">
+          <NavLink to="/admin/social/">
             <Share2 size={16} /> Social
           </NavLink>
-          <NavLink to="/admin/analytics">
+          <NavLink to="/admin/analytics/">
             <BarChart3 size={16} /> Analytics
           </NavLink>
         </nav>

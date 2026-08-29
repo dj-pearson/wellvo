@@ -38,7 +38,7 @@ export default function AdminBlogTemplates() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Link to="/admin/blog" className="admin-btn admin-btn-secondary">Back to posts</Link>
+          <Link to="/admin/blog/" className="admin-btn admin-btn-secondary">Back to posts</Link>
           <button
             className="admin-btn admin-btn-primary"
             onClick={() =>

@@ -49,7 +49,7 @@ export default function WhatToDoIndex() {
           <h2>Choose the guide that fits</h2>
           <div className="wtd-index-grid">
             {whatToDoPages.map((p) => (
-              <Link key={p.slug} to={`/what-to-do/${p.slug}`} className="wtd-index-card">
+              <Link key={p.slug} to={`/what-to-do/${p.slug}/`} className="wtd-index-card">
                 <span className="wtd-index-card-title">{p.h1}</span>
                 <span className="wtd-index-card-sub">{p.metaDescription}</span>
               </Link>

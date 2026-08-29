@@ -465,7 +465,7 @@ function buildSystemPrompt(config: Record<string, unknown>, fallback: boolean): 
     const links = (conversion.download_links ?? {}) as Record<string, string>;
     if (Object.keys(links).length) {
       const linksLine = Object.entries(links).map(([k, v]) => `${k}=${v}`).join(" | ");
-      convParts.push(`Available links: ${linksLine}. Use /pricing for commercial context; App Store / Play Store URLs only in the closing CTA when the reader is ready to install.`);
+      convParts.push(`Available links: ${linksLine}. Use /pricing/ for commercial context; App Store / Play Store URLs only in the closing CTA when the reader is ready to install.`);
     }
 
     const placement = (conversion.cta_placement ?? {}) as Record<string, unknown>;

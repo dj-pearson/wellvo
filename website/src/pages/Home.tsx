@@ -51,7 +51,7 @@ export default function Home() {
               Download for iPhone
               <ArrowRight size={18} />
             </a>
-            <Link to="/pricing" className="btn btn-secondary btn-lg">
+            <Link to="/pricing/" className="btn btn-secondary btn-lg">
               View Pricing
             </Link>
           </div>
@@ -267,7 +267,7 @@ export default function Home() {
               <p>
                 Receivers can choose to attach a location pin to their check-in. Location is
                 only collected with your permission, never sold, and can be turned off at any
-                time. <a href="/privacy">Learn more</a>.
+                time. <a href="/privacy/">Learn more</a>.
               </p>
             </div>
             <div className="no-track-item">
@@ -306,7 +306,7 @@ export default function Home() {
                 early-stage dementia or Alzheimer's. A simple, dignified daily wellness check
                 without invasive monitoring.
               </p>
-              <Link to="/elderly-care" className="use-case-link">Learn more</Link>
+              <Link to="/elderly-care/" className="use-case-link">Learn more</Link>
             </div>
             <div className="use-case">
               <div className="use-case-emoji" role="img" aria-label="Children playing">👦</div>
@@ -315,7 +315,7 @@ export default function Home() {
                 Parents of children playing outside, walking home from school, or staying home
                 alone. A quick daily check-in so you know they're safe — without hovering.
               </p>
-              <Link to="/child-safety" className="use-case-link">Learn more</Link>
+              <Link to="/child-safety/" className="use-case-link">Learn more</Link>
             </div>
             <div className="use-case">
               <div className="use-case-emoji" role="img" aria-label="Globe">🌍</div>
@@ -355,7 +355,7 @@ export default function Home() {
                 Download for iPhone
                 <ArrowRight size={18} />
               </a>
-              <Link to="/pricing" className="btn btn-outline btn-lg">
+              <Link to="/pricing/" className="btn btn-outline btn-lg">
                 Compare Plans
               </Link>
             </div>

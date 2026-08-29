@@ -89,7 +89,7 @@ export default function ElderlyCare() {
               Download Free for iPhone
               <ArrowRight size={18} />
             </a>
-            <Link to="/pricing" className="btn btn-secondary btn-lg">
+            <Link to="/pricing/" className="btn btn-secondary btn-lg">
               View Plans
             </Link>
           </div>
@@ -288,7 +288,7 @@ export default function ElderlyCare() {
                 Start Free Trial
                 <ArrowRight size={18} />
               </a>
-              <Link to="/pricing" className="btn btn-outline btn-lg">
+              <Link to="/pricing/" className="btn btn-outline btn-lg">
                 Compare Plans
               </Link>
             </div>

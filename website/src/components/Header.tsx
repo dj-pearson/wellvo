@@ -37,7 +37,7 @@ export default function Header() {
             Home
           </Link>
           <Link
-            to="/elderly-care"
+            to="/elderly-care/"
             className={`nav-link ${isActive('/elderly-care') ? 'active' : ''}`}
             aria-current={isActive('/elderly-care') ? 'page' : undefined}
             onClick={() => setMenuOpen(false)}
@@ -45,7 +45,7 @@ export default function Header() {
             For Seniors
           </Link>
           <Link
-            to="/pricing"
+            to="/pricing/"
             className={`nav-link ${isActive('/pricing') ? 'active' : ''}`}
             aria-current={isActive('/pricing') ? 'page' : undefined}
             onClick={() => setMenuOpen(false)}
@@ -53,7 +53,7 @@ export default function Header() {
             Pricing
           </Link>
           <Link
-            to="/blog"
+            to="/blog/"
             className={`nav-link ${location.pathname.startsWith('/blog') ? 'active' : ''}`}
             aria-current={location.pathname.startsWith('/blog') ? 'page' : undefined}
             onClick={() => setMenuOpen(false)}
@@ -61,7 +61,7 @@ export default function Header() {
             Blog
           </Link>
           <Link
-            to="/support"
+            to="/support/"
             className={`nav-link ${isActive('/support') ? 'active' : ''}`}
             aria-current={isActive('/support') ? 'page' : undefined}
             onClick={() => setMenuOpen(false)}

@@ -61,7 +61,7 @@ export default function AdminBlogAssets() {
           <div className="admin-page-subtitle">{total} asset{total === 1 ? '' : 's'}. License + source mandatory on every row.</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Link to="/admin/blog" className="admin-btn admin-btn-secondary">
+          <Link to="/admin/blog/" className="admin-btn admin-btn-secondary">
             <ArrowLeft size={14} /> Back
           </Link>
           <button className="admin-btn admin-btn-primary" onClick={() => setShowAdd(true)}>

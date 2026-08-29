@@ -7,7 +7,7 @@ import { buildPostSchemas } from '../lib/schemaMarkup'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { useBlogSeed } from '../lib/blogSeed'
 import { BLOG_HTML_ALLOWLIST, POST_COLUMNS, type PublicPost } from '../lib/blogTypes'
-import { SITE_URL } from '../components/SEO'
+import { canonicalUrl } from '../lib/canonical'
 import './Blog.css'
 
 
@@ -106,7 +106,7 @@ export default function BlogPost() {
         <div className="container">
           <div className="blog-empty">
             <h2>Post not found</h2>
-            <p><Link to="/blog">Back to blog</Link></p>
+            <p><Link to="/blog/">Back to blog</Link></p>
           </div>
         </div>
       </section>
@@ -122,8 +122,8 @@ export default function BlogPost() {
       <Helmet>
         <title>{`${seoTitle} — Daily OK`}</title>
         {seoDescription && <meta name="description" content={seoDescription} />}
-        <link rel="canonical" href={post.canonical_url || `${SITE_URL}/blog/${post.slug}`} />
-        <meta property="og:url" content={post.canonical_url || `${SITE_URL}/blog/${post.slug}`} />
+        <link rel="canonical" href={post.canonical_url || canonicalUrl(`/blog/${post.slug}`)} />
+        <meta property="og:url" content={post.canonical_url || canonicalUrl(`/blog/${post.slug}`)} />
         <meta property="og:title" content={seoTitle} />
         {seoDescription && <meta property="og:description" content={seoDescription} />}
         {ogImage && <meta property="og:image" content={ogImage} />}
@@ -151,7 +151,7 @@ export default function BlogPost() {
       <article className="blog-article">
         <div className="container" style={{ maxWidth: 760 }}>
           <div className="blog-article-meta">
-            <Link to="/blog">← All posts</Link>
+            <Link to="/blog/">← All posts</Link>
             <span>{new Date(post.published_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
           </div>
           {post.category && <span className="blog-card-cat" style={{ marginBottom: 10 }}>{post.category}</span>}

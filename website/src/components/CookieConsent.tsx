@@ -63,8 +63,8 @@ export default function CookieConsent() {
           <p id="cookie-consent-desc">
             We use strictly necessary cookies to run this site. With your consent we also use
             Google Analytics to understand how the site is used. Analytics stays off unless you
-            accept. See our <Link to="/cookies">Cookie Notice</Link> and{' '}
-            <Link to="/privacy">Privacy Policy</Link>.
+            accept. See our <Link to="/cookies/">Cookie Notice</Link> and{' '}
+            <Link to="/privacy/">Privacy Policy</Link>.
           </p>
         </div>
         <div className="cookie-consent-actions">

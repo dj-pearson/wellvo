@@ -27,7 +27,7 @@ export default function Terms() {
               Media LLC d/b/a Daily OK ("Daily OK," "we," "our," or "us"). By downloading,
               installing, accessing, or using the Daily OK mobile applications, website, or
               related services (collectively, the "Service"), you agree to be bound by these
-              Terms and our <a href="/privacy">Privacy Policy</a>. If you do not agree, do not
+              Terms and our <a href="/privacy/">Privacy Policy</a>. If you do not agree, do not
               use the Service.
             </p>
           </section>
@@ -102,7 +102,7 @@ export default function Terms() {
                 <strong>Easy Cancellation ("click-to-cancel"):</strong> You can cancel at any
                 time, for any reason, in two taps from your device's subscription settings (no
                 phone call or email required). Detailed cancellation steps are provided on our{' '}
-                <a href="/support">Support page</a>. Cancellation takes effect at the end of
+                <a href="/support/">Support page</a>. Cancellation takes effect at the end of
                 the current billing period and you retain access until then.
               </li>
               <li>
@@ -184,7 +184,7 @@ export default function Terms() {
             </p>
             <p>
               Daily OK respects intellectual property. If you believe content in the Service
-              infringes your copyright, see our <a href="/dmca">DMCA Policy</a> for the
+              infringes your copyright, see our <a href="/dmca/">DMCA Policy</a> for the
               procedure to submit a takedown notice.
             </p>
           </section>
@@ -215,7 +215,7 @@ export default function Terms() {
             <h2>10. Privacy</h2>
             <p>
               Our collection and use of personal information is described in our{' '}
-              <a href="/privacy">Privacy Policy</a>, which is incorporated into these Terms by
+              <a href="/privacy/">Privacy Policy</a>, which is incorporated into these Terms by
               reference.
             </p>
           </section>

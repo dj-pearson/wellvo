@@ -222,8 +222,8 @@ export default function Pricing() {
                 customers retain mandatory cooling-off rights under applicable law.
               </li>
               <li>
-                Read the full <a href="/terms">Terms of Use</a> and{' '}
-                <a href="/privacy">Privacy Policy</a> for complete subscription terms.
+                Read the full <a href="/terms/">Terms of Use</a> and{' '}
+                <a href="/privacy/">Privacy Policy</a> for complete subscription terms.
               </li>
             </ul>
           </div>
@@ -269,7 +269,7 @@ export default function Pricing() {
                   {faq.q === 'Is my data safe?' && (
                     <>
                       {' '}
-                      <Link to="/privacy">Read our Privacy Policy</Link>.
+                      <Link to="/privacy/">Read our Privacy Policy</Link>.
                     </>
                   )}
                 </p>

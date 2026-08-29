@@ -1877,3 +1877,66 @@ the origin is https://dailyok.net with no www variant, which settles part of the
 story, but not the trailing-slash form. Needs:
   curl -sSI https://dailyok.net/pricing  | head -3
   curl -sSI https://dailyok.net/pricing/ | head -3
+
+================================================================================
+US-WEB010 — One canonical URL form; 301 the trailing-slash duplicates
+                                                                    2026-08-29
+================================================================================
+Was blocked on production behaviour this environment cannot reach (dailyok.net
+is a hard 403 at the egress gateway). Dj ran the check; the answer inverted the
+assumption baked into the code:
+
+    curl.exe -sSI https://dailyok.net/pricing   ->  308, Location: /pricing/
+    curl.exe -sSI https://dailyok.net/pricing/  ->  200 OK
+
+Cloudflare Pages serves the TRAILING-SLASH form. Vike prerenders to
+dist/client/<route>/index.html and Pages serves that at /pricing/, 308ing the
+bare form to it. But every canonical, sitemap <loc>, JSON-LD url and internal
+link used the NO-slash form — so all of them pointed at a URL that redirects.
+Google was told "the canonical is /pricing" while /pricing redirected to
+/pricing/. That contradiction is why both were indexed (114 vs 14 impressions).
+
+Chose the trailing-slash form: state what the server does rather than change the
+server (the alternative fights Vike's directory-style output), and keep the
+variant Google already prefers instead of redirecting the stronger URL to the
+weaker one.
+
+  new  src/lib/canonical.ts        canonicalPath / canonicalUrl, one rule
+  new  src/test/canonical.test.tsx 8 tests incl. the routing check below
+  mod  SEO.tsx, breadcrumb.ts, schemaMarkup.ts, Blog.tsx, BlogPost.tsx
+  mod  Compare.tsx, ComparePost.tsx   hand-rolled canonicals outside <SEO>
+  mod  generate-sitemap.mjs, indexnow-ping.mjs
+  mod  86 static <Link to>, 4 template-literal links, 10 prose <a href>
+  mod  10 competitor JSON citation URLs
+  mod  edge-functions: blog-internal-linker, blog-qa, blog-generator,
+       blog-refresh-agent
+
+Two judgement calls worth recording:
+
+  AC 3 asked for a 301 in _redirects. Deliberately NOT added — Cloudflare Pages
+  already issues a 308 from the bare form, which is permanent and stricter than
+  301 about method preservation. Our own rule would be redundant and could
+  conflict with the platform's normalization.
+
+  AC 4 (http/www): http->https is a Pages default, and Dj confirmed
+  https://dailyok.net is the only website origin (api. and functions. are Kong
+  and the edge functions). No www variant exists, so nothing to redirect.
+
+Load-bearing coupling caught before it broke anything: blog-qa.ts validates
+internal links against KNOWN_STATIC_ROUTES using an exact-match Set. Once
+generated content started using /pricing/, every such link would have been
+reported broken. Normalized the lookup to compare on the bare form so both
+validate — that had to ship in the same change.
+
+Routing risk checked rather than assumed: internal links now render
+href="/pricing/" while routes are declared path="/pricing". Added tests proving
+React Router still resolves /pricing/ and /what-to-do/<slug>/. Had that been
+wrong, every internal link on the site would 404.
+
+Verification sweep over the prerendered output: 40/40 canonicals, 39/39 og:url,
+40/40 sitemap <loc> in trailing-slash form; 1443 internal hrefs scanned, 0
+pointing through the 308 (the one hit was inside the stub post's own body copy,
+i.e. authored content, not site code).
+
+Suite 21 -> 29 passing; lint 19 problems, unchanged. The remaining failure is
+still the pre-existing App.test.tsx home-copy assertion.

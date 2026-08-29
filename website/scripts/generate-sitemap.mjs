@@ -222,7 +222,10 @@ for (const file of files) {
     (route.startsWith('/blog/') ? blogLastmodFromPageContext(file) : null) ??
     lastmodFor(route, slug)
   entries.push({
-    loc: route === '/' ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}${route}`,
+    // Trailing-slash form: Cloudflare Pages serves /pricing/ with a 200 and
+    // 308s /pricing to it, so a no-slash <loc> lists a redirecting URL
+    // (US-WEB010). Mirrors canonicalPath() in src/lib/canonical.ts.
+    loc: route === '/' ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}${route}/`,
     lastmod,
     changefreq: meta.changefreq,
     priority: meta.priority,

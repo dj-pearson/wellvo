@@ -134,7 +134,11 @@ async function main() {
     return
   }
   const urlList = selectRecent(entries)
-  const blogCount = urlList.filter((u) => u.startsWith(`${SITE_ORIGIN}/blog/`)).length
+  // `${SITE_ORIGIN}/blog/` is the index, not a post — exclude it from the count
+  // now that every URL carries a trailing slash (US-WEB010).
+  const blogCount = urlList.filter(
+    (u) => u.startsWith(`${SITE_ORIGIN}/blog/`) && u !== `${SITE_ORIGIN}/blog/`,
+  ).length
   console.log(
     `[indexnow] ${urlList.length} of ${entries.length} URL(s) selected ` +
       `(window ${WINDOW_DAYS}d, ${blogCount} blog post(s)).`,

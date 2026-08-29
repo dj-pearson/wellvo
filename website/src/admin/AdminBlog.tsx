@@ -217,13 +217,13 @@ export default function AdminBlog() {
           >
             <Gauge size={14} /> {rescoring ? 'Re-scoring…' : 'Re-score all'}
           </button>
-          <Link to="/admin/blog/refresh" className="admin-btn admin-btn-secondary">
+          <Link to="/admin/blog/refresh/" className="admin-btn admin-btn-secondary">
             <RefreshCw size={14} /> Refresh queue
           </Link>
-          <Link to="/admin/blog/assets" className="admin-btn admin-btn-secondary">
+          <Link to="/admin/blog/assets/" className="admin-btn admin-btn-secondary">
             <ImageIcon size={14} /> Assets
           </Link>
-          <Link to="/admin/blog/templates" className="admin-btn admin-btn-secondary">
+          <Link to="/admin/blog/templates/" className="admin-btn admin-btn-secondary">
             <Sparkles size={14} /> Templates
           </Link>
           <button className="admin-btn admin-btn-primary" onClick={() => navigate('/admin/blog/new')}>

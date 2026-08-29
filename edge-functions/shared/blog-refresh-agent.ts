@@ -243,7 +243,7 @@ function buildRefreshSystemPrompt(blogConfig: Record<string, unknown>): string {
     `- Update outdated statistics, dates, product names, and references. Don't invent stats — qualify ("recent caregiver surveys suggest...") if you're unsure.\n` +
     `- Add a section addressing any new reader question that's emerged since publication (the user message will tell you what triggered the refresh).\n` +
     `- Tighten the intro and TL;DR — they get the most readership and the most decay.\n` +
-    `- Preserve internal links (do not remove existing <a href="/blog/..."> tags or </a href="/pricing"> tags).\n` +
+    `- Preserve internal links (do not remove existing <a href="/blog/.../"> or <a href="/pricing/"> tags).\n` +
     `- Keep the post's slug and category. Only change the title if the angle has materially shifted.\n` +
     `- Write a short change_summary (1–3 sentences) the editor will see — be specific about what you updated and why.`,
   );

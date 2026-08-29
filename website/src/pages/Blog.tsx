@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
 import { useBlogSeed } from '../lib/blogSeed'
 import { POST_SUMMARY_COLUMNS, type PublicPostSummary } from '../lib/blogTypes'
-import { SITE_URL } from '../components/SEO'
+import { canonicalUrl } from '../lib/canonical'
 import './Blog.css'
 
 export default function Blog() {
@@ -48,7 +48,7 @@ export default function Blog() {
       <Helmet>
         <title>Blog — Daily OK</title>
         <meta name="description" content="Guides, tips, and stories about daily check-ins, caregiving, and family safety." />
-        <link rel="canonical" href={`${SITE_URL}/blog`} />
+        <link rel="canonical" href={canonicalUrl('/blog')} />
       </Helmet>
 
       <section className="blog-hero">
@@ -68,7 +68,7 @@ export default function Blog() {
 
           <div className="blog-grid">
             {posts.map((p) => (
-              <Link to={`/blog/${p.slug}`} key={p.id} className="blog-card">
+              <Link to={`/blog/${p.slug}/`} key={p.id} className="blog-card">
                 {p.featured_image_url && (
                   <div className="blog-card-image" style={{ backgroundImage: `url(${p.featured_image_url})` }} />
                 )}
