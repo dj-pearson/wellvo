@@ -10,6 +10,14 @@ The public site (`website/src/pages/Blog.tsx`) queries `blog_posts` directly
 via the Supabase client on every page load, so **newly published articles
 appear under `/blog` immediately — no rebuild or deploy is needed**.
 
+> **Since US-WEB008, read that with one qualification.** Blog posts are now
+> pre-rendered at build time so search engines get real HTML per post. A post
+> published between deploys still appears immediately for readers — `/blog/*`
+> falls back to the SPA shell and renders client-side — but it does not get its
+> own pre-rendered HTML or a sitemap entry until the next build. Set
+> `INDEXNOW_KEY` (below) so Bing and Yandex are told right away, and rely on the
+> next deploy for the pre-rendered version.
+
 ---
 
 ## Endpoint
@@ -116,7 +124,8 @@ secret:
 | -------------------------------- | -------- | ----------------------------------------------------------- |
 | `BLOG_GENERATION_WEBHOOK_SECRET` | yes      | Random 32+ char secret. Make.com sends it in `X-Webhook-Secret`. Each project gets its own value. |
 | `BLOG_GENERATION_AUTHOR_ID`      | no       | UUID of a `users` row to attribute posts to. Project-specific. Leave unset to store `author_id = NULL`. |
-| `SITE_ORIGIN`                    | no       | Public site origin for the `url` in the response. Project-specific. Defaults to `https://dailyok.net`. |
+| `SITE_ORIGIN`                    | no       | Public site origin for the `url` in the response, and the host IndexNow submissions are declared under. Project-specific. Defaults to `https://dailyok.net`. |
+| `INDEXNOW_KEY`                   | no       | Basename of the IndexNow key file served from the site root (`website/public/<key>.txt`). Set it and a newly published post is submitted to Bing/Yandex immediately instead of waiting for the next website deploy (US-WEB009). Unset means the ping is skipped and logged — never an error. |
 
 No code change is needed to honor this split — `Deno.env.get(...)` reads from
 whichever scope sets the variable.

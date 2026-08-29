@@ -17,6 +17,16 @@ interface LogEntry {
   message: string;
   error?: string;
   stack?: string;
+  /**
+   * Call sites routinely attach their own structured context — post_id, slug,
+   * row_id, count and so on. That has always been the convention here; the
+   * type just never admitted it, so every such call was an excess-property
+   * error waiting for someone to run `deno check` (the Dockerfile runs
+   * `deno cache`, which does not typecheck, so none of them ever surfaced).
+   * Widening is safe: no existing caller can break, and the extra keys were
+   * already being serialized into the log line.
+   */
+  [key: string]: unknown;
 }
 
 function emit(entry: LogEntry): void {

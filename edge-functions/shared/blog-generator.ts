@@ -23,6 +23,7 @@ import { scoreBlogPost } from "./seo-scorer.ts";
 import { runCritiqueLoop, readCritiqueLoopConfig, type CritiqueLoopResult, type DraftArticle } from "./blog-critic.ts";
 import { autoInjectInternalLinks, applyLinkerResult } from "./blog-internal-linker.ts";
 import { logInfo, logError } from "./logger.ts";
+import { pingIndexNowForSlug } from "./indexnow.ts";
 
 /**
  * Tool schema for structured article output. Anthropic returns the tool's
@@ -296,6 +297,10 @@ async function generateFromBankRow(
       row_id: row.id, post_id: post.id, slug: post.slug, remaining_pending: remaining,
     });
 
+    // Announce the new post now rather than waiting for the next website
+    // deploy to re-run the build-time ping (US-WEB009). Never throws.
+    await pingIndexNowForSlug(post.slug);
+
     return {
       source: "blog_title_bank",
       post_id: post.id,
@@ -367,6 +372,9 @@ async function generateFromFallback(
     post_id: post.id, slug: post.slug, topic_rationale: article.topic_rationale,
     critique_iterations: loop.iterations.length,
   });
+
+  // See the bank path above — announce immediately, never throw (US-WEB009).
+  await pingIndexNowForSlug(post.slug);
 
   return {
     source: "fallback",

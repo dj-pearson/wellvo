@@ -1806,3 +1806,74 @@ match could mask an unintended copy change someone should actually decide on.
 
 Deferred to US-WEB009: blog <lastmod> is still the git fallback date rather than
 the post's updated_at, and IndexNow still pings only the static route list.
+
+================================================================================
+US-WEB009 — Blog posts enter sitemap.xml and get pinged to IndexNow on publish
+                                                                    2026-08-29
+================================================================================
+Second story of the SEO remediation batch. Depends on US-WEB008.
+
+  mod  website/scripts/generate-sitemap.mjs   lastmod from the post's own dates
+  mod  website/scripts/indexnow-ping.mjs      recency window instead of "resubmit everything"
+  new  edge-functions/shared/indexnow.ts      ping on publish, between deploys
+  mod  edge-functions/shared/blog-generator.ts  hooked into both publish paths
+  mod  edge-functions/shared/logger.ts        LogEntry index signature (see below)
+  mod  docs/BLOG_GENERATION_WEBHOOK.md        INDEXNOW_KEY + corrected claim
+
+lastmod: Vike emits an index.pageContext.json beside every prerendered post
+carrying the same blogPost the page rendered from, so the sitemap generator
+reads updated_at (falling back to published_at) out of that. No second Supabase
+round-trip, no manifest to drift, and it preserves the script's existing "walk
+the emitted output" contract. Git date remains the fallback.
+
+IndexNow: the build-time ping re-submitted the whole sitemap every deploy, which
+is how you burn a quota and teach the endpoint to ignore you. It now submits
+only URLs whose <lastmod> is inside INDEXNOW_WINDOW_DAYS (default 30) — which
+works precisely because blog lastmod is now a real updated_at. Stateless by
+design: CI has no memory of the last deploy. Falls back to submitting everything
+if nothing qualifies; INDEXNOW_WINDOW_DAYS=0 disables the filter.
+
+AC 5 implemented rather than deferred: a new post no longer waits for an
+unrelated deploy. edge-functions/shared/indexnow.ts is called from both publish
+paths in blog-generator.ts, non-fatal by construction, gated on INDEXNOW_KEY —
+unset means log-and-skip, so a fork or staging environment cannot submit another
+site's URLs under a key it does not own. This also closes the gap US-WEB008
+opened.
+
+Also corrected docs/BLOG_GENERATION_WEBHOOK.md, which claimed generated posts
+"appear under /blog immediately — no rebuild or deploy is needed". Since
+US-WEB008 that is only half true: readers see the post immediately via the SPA
+fallback, but there is no prerendered HTML or sitemap entry until the next
+build.
+
+Drive-by fix — edge-functions/shared/logger.ts: LogEntry had no index signature,
+yet call sites across the codebase attach their own context (post_id, slug,
+row_id, remaining_pending). Every one was an excess-property error that has
+never surfaced because the Dockerfile runs `deno cache`, which does not
+typecheck, and nothing in CI runs `deno check`. Widened LogEntry with
+[key: string]: unknown rather than adding more type-incorrect calls to the pile.
+Strictly widening — no caller can break, and the keys were already serialized.
+
+Verification against the stub Supabase endpoint (post A: updated_at 2026-07-04,
+published_at 2026-07-01; post B: updated_at null, published_at 2026-06-15):
+  - sitemap lastmod → 2026-07-04 and 2026-06-15, proving both the updated_at
+    read and the published_at fallback
+  - IndexNow 30d window → 4 of 40 URLs, 0 posts (both older than the window)
+  - IndexNow 90d window → 12 of 40, 2 posts
+  - all lastmods forced to 2020-01-01 → zero-qualify fallback fired, all 40
+  - INDEXNOW_WINDOW_DAYS=0 → all 40
+  - clean build with no Supabase config → 39 pages, 38 URLs, exit 0
+Tests 21 passing, lint 19 problems — both unchanged.
+
+Caveat: Deno is not installed in this environment, so edge-functions/shared/
+indexnow.ts could not be typechecked or executed here. It is straight-line code
+with no new dependencies. Worth a smoke test on first deploy: publish a post and
+confirm an "indexnow: submitted" line in the edge-function logs.
+
+NEXT — US-WEB010 is BLOCKED. It needs to know whether production returns 200 for
+/pricing or /pricing/, and dailyok.net:443 is a hard 403 policy denial from this
+session's egress gateway (confirmed at the proxy status endpoint). Dj confirmed
+the origin is https://dailyok.net with no www variant, which settles part of the
+story, but not the trailing-slash form. Needs:
+  curl -sSI https://dailyok.net/pricing  | head -3
+  curl -sSI https://dailyok.net/pricing/ | head -3
