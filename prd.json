@@ -4608,6 +4608,211 @@
       "priority": 248,
       "passes": false,
       "notes": "Requested by Dj in chat. Raised while completing US-LEG014: Terms.tsx:311 and Privacy.tsx:395 both promise at least 30 days advance notice before material changes take effect, and there is no mechanism anywhere that delivers it. Shipping the governing-law change without it would breach a commitment made five sections above it in the same document.\n\nINFRASTRUCTURE SURVEY (done, so the criteria are grounded rather than invented):\n  * Website banner — pattern exists. website/src/components/CookieConsent.tsx, 81 lines, already solves dismissal, localStorage persistence, and GPC-aware rendering. Copy its shape.\n  * In-app notice — pattern exists. NotificationPermissionBanner and AlertsBannerView, both wired into DashboardView.swift:52-58, with Android equivalents.\n  * Email — DOES NOT EXIST. Grepped edge-functions for resend / sendgrid / postmark / nodemailer / smtp / mailgun: zero hits. The only outbound channels are Twilio SMS (escalation only) and APNs/FCM push. Supabase Auth sends its own auth mails but is not a general transactional sender. Standing up an email provider is real work and is NOT needed here, because the promise is disjunctive — a banner alone discharges it. Do not add an email dependency to satisfy this story.\n\nRELEASE GATING — the point of the story. This must ship in the same release as, or before, US-LEG014 (governing law -> Iowa) and US-LEG008 (privacy policy rewrite). Both are material changes. If they merge to main without this, the 30-day promise is broken on the very first change it was written to cover. Implementation order within the branch does not matter; release order does.\n\nSCOPE BOUNDARY: this delivers NOTICE, not consent. Whether a unilateral governing-law change binds users who already accepted the Utah terms is a legal question for counsel and is not solved by a banner. Recorded in US-LEG014 notes as well."
+    },
+    {
+      "id": "US-WEB008",
+      "title": "Make the blog indexable: prerender posts and stop serving them the homepage",
+      "description": "As a search engine, I want each blog post URL to return its own HTML with its own title and canonical, so that published posts can be discovered, indexed, and ranked. Today every post URL is rewritten to the homepage's prerendered HTML before any JavaScript runs, so the entire blog is invisible to Google — Search Console shows zero /blog/* URLs in four months of data.",
+      "acceptanceCriteria": [
+        "website/pages/+onBeforePrerenderStart.ts fetches published blog slugs from Supabase at build time and returns a /blog/<slug> path for each",
+        "The Supabase fetch uses the same published filter as src/pages/BlogPost.tsx: status = 'published' AND published_at <= now()",
+        "If Supabase env vars are missing or the fetch fails, the build logs a clear warning and continues with the static path list — a missing blog must never fail the Cloudflare Pages build",
+        "The `/blog/* / 200` rewrite is removed from website/public/_redirects; the `/admin` and `/admin/*` rewrites stay",
+        "A catch-all SPA fallback still exists for genuinely dynamic URLs so a post published after the last build does not hard-404",
+        "src/pages/Blog.tsx renders its post list during prerender (not only in a client-side useEffect), so dist/client/blog/index.html contains real <a href=\"/blog/...\"> links",
+        "The prerendered /blog index emits a canonical tag — it currently emits none",
+        "Each prerendered post emits its own <title>, <meta name=\"description\">, and canonical from the post's seo_title / seo_description / canonical_url fields, falling back to title / excerpt / the post URL",
+        "Verified by build: `npm run build` then confirm dist/client/blog/<slug>/index.html exists for each published post, contains the post body text, and its canonical is the post URL and not https://dailyok.net/"
+      ],
+      "priority": 249,
+      "passes": false,
+      "notes": "BLOCKING — finding #2 in docs/SEARCH_CONSOLE_DIAGNOSIS.md. Nothing published to the blog counts until this ships. Three faults stack: posts are not prerendered, they never enter the sitemap (US-WEB009), and _redirects serves them the homepage's HTML and canonical. Do this one first. Build-time Supabase access: vite.config.ts already loads VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY and warns when absent — reuse that path, and read via the anon key against the public published-posts policy, never a service role key."
+    },
+    {
+      "id": "US-WEB009",
+      "title": "Blog posts enter sitemap.xml and get pinged to IndexNow on publish",
+      "description": "As a search engine, I want blog posts listed in the sitemap and announced when they are published, so that new posts are discovered in hours rather than never. The sitemap generator walks prerendered output, so it cannot see posts that are not prerendered.",
+      "acceptanceCriteria": [
+        "After US-WEB008, scripts/generate-sitemap.mjs picks up every prerendered /blog/<slug> automatically via its existing dist/client walk — verified, not assumed",
+        "Blog entries use <lastmod> from the post's updated_at (falling back to published_at), not the git date of Blog.tsx",
+        "Blog entries keep the existing 'blog' group so the >500-URL split into sitemap-blog.xml keeps working",
+        "scripts/indexnow-ping.mjs submits newly added or updated blog URLs, not just the static route list",
+        "A post published through the admin UI between deploys triggers an IndexNow ping without waiting for the next full build, or the story notes explain why that is deferred and what the interim cadence is",
+        "Verified by build: sitemap.xml contains a <loc> for every published post with a plausible <lastmod>"
+      ],
+      "priority": 250,
+      "passes": false,
+      "notes": "Depends on US-WEB008 — do not start before it. The existing generator (scripts/generate-sitemap.mjs) already walks dist/client/**/index.html and already has a 'blog' group in metaFor(), so most of this is wiring lastmod to real post dates and extending the IndexNow ping."
+    },
+    {
+      "id": "US-WEB010",
+      "title": "One canonical URL form; 301 the trailing-slash duplicates",
+      "description": "As a search engine, I want exactly one URL per page, so that ranking signals are not split. Search Console shows 23 indexed URLs for 13 pages — /pricing (114 impressions) and /pricing/ (14) are indexed separately, and the same split affects /terms, /privacy, /support, /dmca, /elderly-care, /child-safety, /compare/daily-ok-vs-mobilehelp, /what-to-do/elderly-father-not-answering-phone, and /.",
+      "acceptanceCriteria": [
+        "Confirm against production which form Cloudflare Pages actually returns 200 for, and which redirects — do not assume; record the finding in the story notes",
+        "One form is chosen and applied consistently across: the canonical in src/components/SEO.tsx, the <loc> values in scripts/generate-sitemap.mjs, and every internal <Link to=...> in src/",
+        "The other form issues a 301 to the chosen form via public/_redirects (or Cloudflare Pages' trailing-slash setting), not a 200",
+        "http://dailyok.net/ and any www variant 301 to the https non-www origin",
+        "No internal link anywhere in src/ points at the non-canonical form, so the site never links through a redirect",
+        "Verified by build: grep the prerendered dist/client for canonical tags and confirm every one matches the chosen form exactly"
+      ],
+      "priority": 251,
+      "passes": false,
+      "notes": "Finding #3. Canonicals in SEO.tsx already specify the no-slash form and Google indexed the trailing-slash form anyway, which means the served URL is overriding the canonical — so this must be fixed at the redirect layer, not by editing canonical tags alone. The live site could not be reached from the analysis environment (egress-blocked), so the production check is a real step, not a formality."
+    },
+    {
+      "id": "US-WEB011",
+      "title": "Link the three cornerstone pages contextually, not just from the footer",
+      "description": "As a search engine, I want the cornerstone commercial pages to receive real in-content internal links, so that they rank for their own target keywords instead of the homepage ranking for them badly. /check-in-app-for-elderly, /daily-check-in-app-for-seniors and /peace-of-mind-app-for-elderly-parents are linked only from Footer.tsx and all three have zero impressions, while the homepage ranks at position 52-88 for 'daily check in app'.",
+      "acceptanceCriteria": [
+        "The homepage body (src/pages/Home.tsx) links to all three cornerstone pages from within content, with descriptive anchor text matching each page's target phrase — not 'learn more'",
+        "The shared /what-to-do template (src/pages/WhatToDo.tsx) links to the most relevant cornerstone page for that relationship, in the prevention section rather than only in a footer CTA",
+        "/elderly-care and /child-safety each link to the relevant cornerstone page in content",
+        "The /what-to-do and /compare index pages link to the cornerstone pages",
+        "Anchor text varies naturally across pages — no identical repeated anchor sitewide",
+        "No cornerstone page is left reachable only from the footer",
+        "Verified by build: grep dist/client/index.html and dist/client/what-to-do/*/index.html for hrefs to each of the three cornerstone paths"
+      ],
+      "priority": 252,
+      "passes": false,
+      "notes": "Finding #1 — the highest-impact single fix. Evidence: the homepage's 479 impressions at average position 16.95 decompose to ~191 brand impressions at ~pos 2.5 plus the rest at ~pos 26, which matches. Google is ranking the homepage for the phrase the cornerstone page was built for, because footer-only links read as boilerplate."
+    },
+    {
+      "id": "US-WEB012",
+      "title": "Own the brand SERP: alternateName schema, sitelinks, consistent naming",
+      "description": "As someone searching for the product by name, I want to find it at position 1, so that brand demand converts. We rank 2.13 for our own exact brand name 'dailyok', and 35 impressions bleed to 'daily keeper' — an unrelated company. Brand queries are 69% of known search visibility and are being partly given away.",
+      "acceptanceCriteria": [
+        "The WebSite and Organization JSON-LD in website/pages/+onRenderHtml.tsx carry alternateName covering the real spelling variants seen in Search Console: 'Daily OK', 'DailyOK', 'dailyok', 'Daily O.K.'",
+        "Organization schema includes sameAs entries for every profile we control (App Store listing, Play listing when live, any social profile)",
+        "The App Store / Play listing title and the site's og:site_name and Organization name agree exactly on one display form",
+        "SearchAction / Sitelinks Searchbox markup is added only if an on-site search actually exists; otherwise it is deliberately omitted and the notes say so",
+        "Home page title leads with the brand name so Google has a clean brand-to-title association",
+        "Internal linking gives Google a clear top-level set to draw sitelinks from — the primary nav exposes the main sections",
+        "Verified by build: the prerendered HTML contains the alternateName values, and Rich Results Test passes on Organization and WebSite"
+      ],
+      "priority": 253,
+      "passes": false,
+      "notes": "Tier 5 in the diagnosis. Also note the brand/identifier split documented in CLAUDE.md (com.wellvo.ios vs the 'Daily OK' / dailyok.net brand) — this story must not conflate them. wellvo is the bundle-id namespace and must stay out of user-facing schema; if wellvo ever gets a public web surface, entity consolidation becomes a live risk and this story should be revisited."
+    },
+    {
+      "id": "US-WEB013",
+      "title": "Consolidate the nine duplicate-filtered /what-to-do pages into the three Google selected",
+      "description": "As a search engine, I want one strong page per query intent instead of five near-identical ones, so that the page I do rank is as strong as possible. Twelve /what-to-do pages shipped the same day; three earn impressions and nine earn zero, because 'mom', 'dad', 'elderly mother', 'grandma' and 'grandpa' not answering the phone are one intent to Google.",
+      "acceptanceCriteria": [
+        "The surviving pages are the three Search Console actually selected: elderly-father-not-answering-phone, teenage-daughter-not-answering-phone, grandpa-wont-pick-up",
+        "Each survivor absorbs the genuinely distinct advice from the pages merged into it, so no unique guidance is lost — the relationship-specific first-30-minutes and escalation content is preserved as sections, not deleted",
+        "Survivor titles and H1s are broadened to cover the merged intent (e.g. an elderly-parent page that covers both mother and father) without becoming generic",
+        "Retired slugs 301 to their survivor via public/_redirects — never a 404 and never a soft 404 to the homepage",
+        "src/data/whatToDo.ts, the prerender path list, and the sitemap all reflect the reduced set with no dangling entries",
+        "The /what-to-do index and all internal links point only at surviving slugs",
+        "Verified by build: the prerender count drops by nine, and every retired slug appears exactly once in _redirects as a 301"
+      ],
+      "priority": 254,
+      "passes": false,
+      "notes": "Finding #4 — the risk pSEO.md itself flagged as its '#1 flagged risk', now confirmed in the data. Counterintuitive but important: Google kept 'elderly father' and 'grandpa' and dropped the higher-volume 'mom', so pick survivors from the observed data, not from assumed volume. This story reduces page count deliberately; that is the point. YMYL constraint from src/data/whatToDo.ts still applies — byline stays 'Daily OK Editorial Team' and the not-medical-advice disclaimer stays."
+    },
+    {
+      "id": "US-WEB014",
+      "title": "Win the click on /what-to-do: titles, metas, and a snippet-first checklist",
+      "description": "As a worried person scanning results, I want the result that most obviously tells me what to do right now, so that I click it. The three visible /what-to-do pages hold 38% of all site visibility at average position 8.6 but converted 333 impressions into 1 click — 0.3% against roughly 2% expected at that position, because position 8-9 sits below an AI Overview and a People Also Ask block.",
+      "acceptanceCriteria": [
+        "Titles are rewritten to lead with the specific action and a timeframe rather than restating the question, so they do not read identically to every competing result",
+        "Meta descriptions state what the page gives the reader (an ordered plan, the escalation threshold, how to request a welfare check) rather than empathising",
+        "The 'first 30 minutes' checklist is the first substantive content on the page, above the empathetic intro, in a clean <ol> that can be lifted whole into a featured snippet",
+        "The escalation criteria are marked up as FAQPage / Q&A JSON-LD so they are eligible for AI Overview and PAA citation",
+        "A direct-answer paragraph of 40-60 words appears immediately under the H1, phrased to be quotable standalone",
+        "HowTo or equivalent structured data is applied only if it genuinely fits the content; otherwise omitted and the notes say why",
+        "No change weakens the existing not-medical-advice disclaimer or the editorial byline"
+      ],
+      "priority": 255,
+      "passes": false,
+      "notes": "Finding #5 — highest-leverage CTR work available, because these pages already rank page one. Do this AFTER US-WEB013 so the rewrite is applied to the consolidated survivors rather than to pages about to be retired."
+    },
+    {
+      "id": "US-WEB015",
+      "title": "Build the welfare-check pillar page",
+      "description": "As someone frightened enough to consider calling the police about a relative, I want one page that tells me exactly how a welfare check works and what to say, so that I can act. 'elderly welfare check', 'elderly wellness check' and 'wellness check on elderly' are roughly 500 searches/month each at competition index 6-13 with top-of-page bids of $5.46-6.18 — the best value-to-difficulty ratio in the whole keyword file, and no page on the site targets any of them.",
+      "acceptanceCriteria": [
+        "New page at /welfare-check-on-elderly-parent, prerendered, in the sitemap, and linked from the primary nav or the /what-to-do index",
+        "Covers, as distinct sections: what a welfare check is; who can request one; exactly what to say when you call, including the information to have ready; what happens when officers arrive; what it costs; what to do if they find nothing wrong; and when to call 911 instead",
+        "Targets the head terms in title, H1, and opening paragraph without keyword stuffing: 'welfare check', 'wellness check', 'elderly'",
+        "FAQPage JSON-LD covering the questions these queries actually carry — these SERPs show AI Overviews, so the answers must be quotable standalone",
+        "A prevention section makes the Daily OK argument honestly: a daily check-in is the step that removes most reasons to ever make this call. It is a closing argument, not the page's purpose",
+        "Links to the consolidated /what-to-do survivors and to /daily-check-in-app-for-seniors with descriptive anchor text",
+        "YMYL handling matches src/data/whatToDo.ts: 'Daily OK Editorial Team' byline, no implied medical or legal credentials, not-medical-advice disclaimer, and no claim about police procedure stated as universal when it varies by jurisdiction",
+        "1,200+ words of genuinely useful content — the SERP incumbents (Griswold, Elder Guru, AgingCare, LegalClarity) are beatable on specificity, not length"
+      ],
+      "priority": 256,
+      "passes": false,
+      "notes": "Tier 1 in docs/SEARCH_CONSOLE_DIAGNOSIS.md — the single largest content gap found. Our differentiating angle: every incumbent explains how to REQUEST a welfare check; we are the only one who can also credibly explain how to never need one. Do not overstate that: the page has to be genuinely the best answer to the question asked before it earns the right to make a product argument."
+    },
+    {
+      "id": "US-WEB016",
+      "title": "Build the welfare-check supporting cluster",
+      "description": "As someone with a more specific version of the welfare-check question, I want a page that answers exactly my situation, so that I do not have to filter a general guide. These long-tail variants carry competition indexes of 0-7 in the keyword file — effectively uncontested.",
+      "acceptanceCriteria": [
+        "Three to four supporting pages covering distinct intents, not rephrasings: an anonymous welfare check; going through social services / Adult Protective Services rather than police; who to call when you are out of state; and checking on an elderly neighbour rather than a relative",
+        "Each page is genuinely differentiated — this cluster must not repeat the /what-to-do duplicate-filtering failure documented in US-WEB013",
+        "Every supporting page links up to the /welfare-check-on-elderly-parent pillar, and the pillar links down to each",
+        "FAQPage JSON-LD on each, with answers written to be quotable in an AI Overview",
+        "APS guidance is accurate and framed as varying by state, with a pointer to the reader's own state programme rather than a national claim",
+        "Same YMYL handling as US-WEB015",
+        "All pages prerendered, in the sitemap, and reachable from the pillar and the /what-to-do index"
+      ],
+      "priority": 257,
+      "passes": false,
+      "notes": "Depends on US-WEB015. Hard constraint learned from finding #4: differentiate at the QUERY level, not just the prose level. The /what-to-do pages were hand-written and still got filtered because five of them answered one question. Before writing each page, state which query it owns that no sibling owns."
+    },
+    {
+      "id": "US-WEB017",
+      "title": "Build the honest 'check-in service vs check-in app' comparison",
+      "description": "As someone searching for a daily check-in service for a parent, I want to understand what I am actually choosing between, so that I can decide. The Tier 2 terms ('senior check in service', 'service to check on elderly', 'daily check in calls for seniors') carry the highest top-of-page bids in the entire keyword file at $5.49-7.29, and most of them say 'service' or 'calls' — those searchers picture a human phoning their mother, not an app.",
+      "acceptanceCriteria": [
+        "New page comparing telephone reassurance services, volunteer calling programmes, and check-in apps — including what each actually costs",
+        "The comparison is honest about when a human calling service is the better answer: isolation and loneliness, no smartphone, cognitive decline where a prompt is not enough",
+        "Names real telephone reassurance options, including free and volunteer programmes, rather than only paid competitors",
+        "Explains where Daily OK fits without claiming to replace a human call",
+        "Targets the Tier 2 phrasing in title, H1 and headings: 'check in service', 'daily check in calls for seniors'",
+        "FAQPage JSON-LD; links to /daily-check-in-app-for-seniors and to the /compare index",
+        "Prerendered, in the sitemap, linked from /compare and the cornerstone pages"
+      ],
+      "priority": 258,
+      "passes": false,
+      "notes": "Tier 2. The whole reason this is winnable is that nobody has written it fairly — every existing page for these terms is a vendor arguing for its own shape. A genuinely balanced page earns both the cluster and the links. Being straightforwardly honest that a volunteer calling programme sometimes beats us is the point, not a risk."
+    },
+    {
+      "id": "US-WEB018",
+      "title": "Build the 'won't wear it' wedge pages",
+      "description": "As someone whose parent has refused a pendant or a tracker, I want to know what the alternative is, so that I stop arguing and solve the problem. This is Daily OK's actual differentiator — nothing gets worn, tracked or watched — and no competitor is targeting the phrasing, because it describes the objection to their own product.",
+      "acceptanceCriteria": [
+        "Two to three pages covering distinct intents: a parent who refuses to wear a medical alert pendant; checking on a parent without them feeling watched or nagged; and a Life Alert alternative for someone who will not wear one",
+        "Each page opens by taking the parent's objection seriously — dignity, independence, not wanting to feel monitored — rather than treating it as an obstacle",
+        "Content is accurate about what Daily OK does not do: no fall detection, no emergency dispatch, no location. Where a pendant genuinely is the safer choice, the page says so",
+        "Claims match the shipped product exactly — cross-check against the constraints in US-LEG004 (no-location-tracking marketing claims) before writing any copy",
+        "Targets the wedge phrasing naturally: 'won't wear', 'refuses', 'without being annoying', 'without feeling watched'",
+        "Links to /compare/daily-ok-vs-life-alert and the relevant cornerstone page",
+        "FAQPage JSON-LD; prerendered; in the sitemap"
+      ],
+      "priority": 259,
+      "passes": false,
+      "notes": "Tier 3. Volumes are unvalidated — these terms are NOT in the Keyword Planner export and were proposed from SERP inspection and product differentiators. Low individual volume, near-zero competition, and the highest conversion intent on the list, because anyone typing this has already rejected the competitors' entire product shape. Hard dependency on US-LEG004: do not write a marketing claim this story cannot substantiate."
+    },
+    {
+      "id": "US-WEB019",
+      "title": "Build the new problem-moment pages",
+      "description": "As someone worried about a parent for a reason other than an unanswered phone, I want a page for my specific moment, so that I find an answer instead of a product pitch. The /what-to-do template proved this pattern reaches page one; these are the distinct intents it does not yet cover.",
+      "acceptanceCriteria": [
+        "Pages for intents that are genuinely distinct from each other and from the consolidated /what-to-do set: how often you should check on an elderly parent; who to call to check on an elderly person; what to do when you cannot reach a parent in another state; and signs an elderly parent should not live alone",
+        "Each page states, in its notes or front-matter, which query it owns that no sibling owns — the duplicate-filtering check from US-WEB013 and US-WEB016",
+        "'How often should you check on an elderly parent' is structured for a featured snippet: a direct answer in the first 60 words, then the reasoning",
+        "'Signs an elderly parent should not live alone' offers the step before moving them, which is what differentiates it from the assisted-living lead-gen pages that own that SERP today",
+        "The long-distance page addresses the roughly 5-7 million Americans caring from a distance, and links to the welfare-check pillar",
+        "FAQPage JSON-LD on each; same YMYL handling as US-WEB015",
+        "All prerendered, in the sitemap, cross-linked with the welfare-check cluster and the /what-to-do survivors"
+      ],
+      "priority": 260,
+      "passes": false,
+      "notes": "Tier 4. Volumes unvalidated — proposed from SERP inspection, not present in the Keyword Planner export. Do this last of the content stories: by then US-WEB013 will have shown what consolidation looks like and US-WEB015/016 will have established the cluster pattern. Deliberately NOT in scope anywhere in this batch: city, state and condition pages (pSEO templates #2, #4, #5). Those multiply pages against a domain that cannot yet rank one and are the fastest route to a manual action — revisit only once the welfare-check hub reaches page one."
     }
   ]
 }
