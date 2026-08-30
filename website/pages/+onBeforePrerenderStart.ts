@@ -23,6 +23,7 @@ export default async function onBeforePrerenderStart() {
     '/check-in-app-for-elderly',
     '/daily-check-in-app-for-seniors',
     '/peace-of-mind-app-for-elderly-parents',
+    '/welfare-check-on-elderly-parent',
     '/privacy',
     '/terms',
     '/support',

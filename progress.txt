@@ -2153,3 +2153,38 @@ YMYL intact — byline and not-medical-advice disclaimer both verified present
 after the reorder.
 
 Tests 29 passing, lint 19 problems — unchanged.
+
+================================================================================
+US-WEB015 — Welfare-check pillar page                               2026-08-29
+================================================================================
+New page at /welfare-check-on-elderly-parent/ — 2,070 words, prerendered, in the
+sitemap, 8 inbound internal links. The largest content gap in the diagnosis:
+three ~500/mo terms at competition index 6-13 with $5.46-6.18 bids, previously
+mentioned in passing across eight files with no page targeting them.
+
+  new  src/pages/WelfareCheck.tsx
+  mod  src/App.tsx, pages/+onBeforePrerenderStart.ts, scripts/generate-sitemap.mjs
+  mod  WhatToDoIndex.tsx, ElderlyCare.tsx, WhatToDo.tsx  (inbound links)
+
+Head-term coverage failed the first verification pass and was fixed: "wellness
+check" appeared only inside one FAQ answer, so the page targeted "welfare check"
+and left two of the three 500/mo terms uncovered. Rewrote the opening answer to
+carry all three, added the term to the meta, and added a dedicated H2 —
+"Welfare check or wellness check — is there a difference?" — which owns the
+phrasing and is genuinely useful, because some areas run a separate scheduled
+senior wellness / telephone reassurance programme and that is a real distinction
+for a reader whose problem is recurring rather than urgent.
+
+YMYL handling, since this page tells people how to send police to a relative's
+home: Editorial Team byline, no medical or legal credentials implied, disclaimer
+names legal advice explicitly, and police practice is never stated as universal
+— "what happens when officers arrive" is framed as the common shape rather than
+a guarantee, forced entry as governed by local law and department policy, cost
+as varying by area and insurance.
+
+The product argument is the closing section and says where we are the wrong
+answer: if the worry is a fall needing immediate response, a pendant with
+dispatch is a better fit, linked to the Life Alert comparison. A page that only
+argued for us would not deserve to rank here.
+
+Prerender 33 -> 34, sitemap 32 -> 33. Tests 29 passing, lint 19 — unchanged.

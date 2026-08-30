@@ -273,6 +273,9 @@ export default function WhatToDo() {
 
           <h2>Related guides</h2>
           <div className="lp-links">
+            <Link to="/welfare-check-on-elderly-parent/">
+              How to request a welfare check
+            </Link>
             <Link to="/what-to-do/">All "didn't answer the phone" guides</Link>
             <Link to={preventionLink.path}>{preventionLink.label}</Link>
             <Link to="/pricing/">Pricing &amp; plans</Link>

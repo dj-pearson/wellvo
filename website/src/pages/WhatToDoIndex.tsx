@@ -56,6 +56,16 @@ export default function WhatToDoIndex() {
             ))}
           </div>
 
+          <h2>If you are about to call the police</h2>
+          <p>
+            Several of these guides end at the same decision. If you have reached it,{' '}
+            <Link to="/welfare-check-on-elderly-parent/">
+              how to request a welfare check on an elderly parent
+            </Link>{' '}
+            covers who can ask, the number to call, exactly what to say, what happens when
+            officers arrive, and what it costs.
+          </p>
+
           <h2>Stop having to look this up</h2>
           <p>
             Every guide here ends at the same place: the reason an unanswered call is

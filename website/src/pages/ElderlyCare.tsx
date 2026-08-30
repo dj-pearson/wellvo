@@ -293,7 +293,11 @@ export default function ElderlyCare() {
               </Link>
             </div>
             <p className="cta-footnote">
-              Want the detail first? Read how the{' '}
+              Worried right now and can't reach them? Start with{' '}
+              <Link to="/welfare-check-on-elderly-parent/">
+                how to request a welfare check
+              </Link>
+              . Otherwise, read how the{' '}
               <Link to="/check-in-app-for-elderly/">check-in app for elderly parents</Link>{' '}
               works, or the case for{' '}
               <Link to="/daily-check-in-app-for-seniors/">

@@ -48,6 +48,7 @@ const ROUTE_SOURCE = {
   '/peace-of-mind-app-for-elderly-parents': 'src/pages/PeaceOfMindAppForElderlyParents.tsx',
   '/compare': 'src/pages/Compare.tsx',
   '/what-to-do': 'src/data/whatToDo.ts',
+  '/welfare-check-on-elderly-parent': 'src/pages/WelfareCheck.tsx',
   '/blog': 'src/pages/Blog.tsx',
   '/privacy': 'src/pages/Privacy.tsx',
   '/terms': 'src/pages/Terms.tsx',
@@ -130,7 +131,8 @@ function metaFor(route) {
     route === '/child-safety' ||
     route === '/check-in-app-for-elderly' ||
     route === '/daily-check-in-app-for-seniors' ||
-    route === '/peace-of-mind-app-for-elderly-parents'
+    route === '/peace-of-mind-app-for-elderly-parents' ||
+    route === '/welfare-check-on-elderly-parent'
   )
     return { changefreq: 'monthly', priority: '0.9', group: 'core' }
   if (route === '/pricing' || route === '/compare' || route === '/what-to-do')
