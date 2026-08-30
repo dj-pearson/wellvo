@@ -25,22 +25,10 @@ import './WhatToDo.css'
  * place would be worse for the reader, and a link nobody clicks helps nothing.
  */
 const PREVENTION_LINK: Record<string, { path: string; anchor: string; label: string }> = {
-  'mom-not-answering-phone':
-    { path: '/peace-of-mind-app-for-elderly-parents/', anchor: 'a peace-of-mind app for elderly parents', label: 'Peace of mind when a parent lives alone' },
-  'dad-not-answering-phone':
-    { path: '/peace-of-mind-app-for-elderly-parents/', anchor: 'a peace-of-mind app for elderly parents', label: 'Peace of mind when a parent lives alone' },
-  'elderly-mother-not-answering-phone':
-    { path: '/check-in-app-for-elderly/', anchor: 'how the check-in app for elderly parents works', label: 'Check-in app for elderly parents' },
   'elderly-father-not-answering-phone':
     { path: '/check-in-app-for-elderly/', anchor: 'how the check-in app for elderly parents works', label: 'Check-in app for elderly parents' },
-  'grandma-wont-pick-up':
-    { path: '/daily-check-in-app-for-seniors/', anchor: 'a daily check-in app for seniors', label: 'Daily check-ins for seniors' },
   'grandpa-wont-pick-up':
     { path: '/daily-check-in-app-for-seniors/', anchor: 'a daily check-in app for seniors', label: 'Daily check-ins for seniors' },
-  'elderly-parent-living-alone-not-answering':
-    { path: '/daily-check-in-app-for-seniors/', anchor: 'daily check-ins for seniors aging in place', label: 'Daily check-ins for aging in place' },
-  'teenage-son-not-answering-phone':
-    { path: '/child-safety/', anchor: 'a check-in app for teens that is not location tracking', label: 'Check-ins for teens, without tracking' },
   'teenage-daughter-not-answering-phone':
     { path: '/child-safety/', anchor: 'a check-in app for teens that is not location tracking', label: 'Check-ins for teens, without tracking' },
   'college-student-not-answering-phone':
@@ -199,6 +187,20 @@ export default function WhatToDo() {
             contact time ready before you call — it makes the request faster and
             helps officers prioritize.
           </p>
+
+          {page.variants?.map((v) => (
+            <section key={v.heading}>
+              <h2>{v.heading}</h2>
+              <p>{v.body}</p>
+              {v.points && (
+                <ul>
+                  {v.points.map((pt) => (
+                    <li key={pt}>{pt}</li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          ))}
 
           <h2>How to stop the panic happening again</h2>
           <p>{page.prevention}</p>

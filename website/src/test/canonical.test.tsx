@@ -16,8 +16,8 @@ import App from '../App'
 describe('canonicalPath', () => {
   it('adds a trailing slash to app paths', () => {
     expect(canonicalPath('/pricing')).toBe('/pricing/')
-    expect(canonicalPath('/what-to-do/mom-not-answering-phone')).toBe(
-      '/what-to-do/mom-not-answering-phone/',
+    expect(canonicalPath('/what-to-do/elderly-father-not-answering-phone')).toBe(
+      '/what-to-do/elderly-father-not-answering-phone/',
     )
   })
 
@@ -72,7 +72,7 @@ describe('routing tolerates the canonical trailing-slash form', () => {
   it('renders a what-to-do page at its trailing-slash path', async () => {
     render(
       <HelmetProvider>
-        <MemoryRouter initialEntries={['/what-to-do/mom-not-answering-phone/']}>
+        <MemoryRouter initialEntries={['/what-to-do/elderly-father-not-answering-phone/']}>
           <App />
         </MemoryRouter>
       </HelmetProvider>,

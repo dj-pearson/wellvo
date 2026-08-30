@@ -2046,3 +2046,63 @@ Tests 29 passing, lint 19 problems — both unchanged.
 
 UNBLOCK PHASE COMPLETE (US-WEB008..012). Next: US-WEB013, which starts the
 content work by consolidating nine duplicate-filtered /what-to-do pages.
+
+================================================================================
+US-WEB013 — Consolidate the duplicate-filtered /what-to-do pages
+                                                                    2026-08-29
+================================================================================
+Deviated from the AC deliberately: retired SIX pages, not nine.
+
+The AC said consolidate all nine zero-impression guides into the three Google
+selected. Re-checking per query cluster before deleting anything:
+
+  elderly parent   5 pages, 1 selected  -> duplicate-filtered, consolidate
+  grandparent      2 pages, 1 selected  -> duplicate-filtered, consolidate
+  teen             2 pages, 1 selected  -> duplicate-filtered, consolidate
+  college student  1 page,  0 selected  -> no sibling to be a duplicate of
+  spouse           1 page,  0 selected  -> no sibling
+  adult child      1 page,  0 selected  -> no sibling
+
+Duplicate filtering only explains a zero where several near-identical pages
+compete and Google picks one. The last three have no such sibling — their zero
+impressions are the same domain-authority problem affecting every page on the
+site (all non-brand queries rank 52-88). Merging /spouse-not-answering-phone
+into a page titled "an elderly parent doesn't answer the phone" would be a
+misleading redirect, worse for the reader, and a soft-404 risk. Kept them.
+Net: 12 pages -> 6.
+
+Retired (12 redirect rules, both URL forms each):
+  mom, dad, elderly-mother, elderly-parent-living-alone
+       -> elderly-father-not-answering-phone
+  grandma -> grandpa-wont-pick-up
+  teenage-son -> teenage-daughter-not-answering-phone
+
+Survivor slugs deliberately unchanged. elderly-father-not-answering-phone is the
+best-performing page on the site (138 impressions at position 8.64); renaming it
+to match its broadened title would discard the only ranking equity we have.
+Titles and H1s broadened instead.
+
+Content preserved rather than deleted: added WhatToDoVariant to the model and a
+variants[] field rendered as real sections. The elderly-parent page now carries
+"If it's your mother", "If it's your father" and "If they live alone"; the
+grandparent page carries the coordination layer; the teen page carries the
+consent-based framing and agreeing an escalation rule in advance.
+
+Both URL forms are listed per retired slug — once the prerendered directory is
+gone Cloudflare no longer 308s the bare form, so a chain would 404 it.
+
+The PREVENTION_LINK map from US-WEB011 is keyed by slug and had to lose the six
+retired entries in step, or those pages would have silently fallen back to the
+default link.
+
+Verified: prerender 39 -> 33 documents, sitemap 38 -> 32 URLs, zero retired
+slugs in either, exactly 2 redirect rules per retired slug, all absorbed
+sections present in rendered HTML. Survivor word counts 1416 / 1126 / 1207 —
+consolidation deepened the pages rather than thinning them.
+
+Worth noting for future verification work: the first content check reported two
+headings missing that were in fact present — the extractor compared raw HTML
+without decoding &#x27; apostrophes. Decode before asserting on rendered text.
+
+Tests 29 passing (canonical.test.tsx referenced a retired slug, retargeted to a
+survivor), lint 19 problems — unchanged.
