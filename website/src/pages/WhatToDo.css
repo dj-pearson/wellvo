@@ -79,3 +79,14 @@
   color: #6b7280;
   line-height: 1.5;
 }
+
+/* Direct answer under the H1 (US-WEB014). Written to be quoted by an AI
+   Overview, so it reads as a standfirst rather than a callout — larger than
+   body text, no box, nothing that would survive extraction as clutter. */
+.wtd-answer {
+  max-width: 68ch;
+  margin: 0 0 14px;
+  font-size: 1.18rem;
+  line-height: 1.55;
+  color: #24312c;
+}

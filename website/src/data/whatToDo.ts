@@ -39,6 +39,14 @@ export interface WhatToDoPage {
   title: string
   metaDescription: string
   h1: string
+  /**
+   * 40–60 words, phrased to stand alone (US-WEB014). These pages rank around
+   * position 8.6 but converted 333 impressions into 1 click: at that position
+   * the result sits below an AI Overview and a People Also Ask block, which
+   * absorb the answer. This paragraph is written to BE the quoted answer, and
+   * to say something the summary above it will not — the concrete first move.
+   */
+  directAnswer: string
   /** ~100–140 word empathetic, non-scaremongering opener. */
   intro: string
   /** Why the situation is relation-specific (unique framing). */
@@ -65,10 +73,13 @@ export const whatToDoPages: WhatToDoPage[] = [
   {
     slug: 'elderly-father-not-answering-phone',
     who: 'your elderly parent',
-    title: "What to Do When an Elderly Parent Doesn't Answer the Phone",
+    title:
+      "Elderly Parent Not Answering: The First 30 Minutes",
     metaDescription:
-      "Elderly father not picking up? Calm step-by-step guidance for the first 30 minutes and 24 hours, when to escalate, and how to prevent the worry recurring.",
+      "An ordered plan for the first 30 minutes and the first 24 hours, the point at which silence justifies escalating, and the exact words to use when requesting a police welfare check.",
     h1: "What to do when an elderly parent doesn't answer the phone",
+    directAnswer:
+      "Call twice, then text. Note whether it rang out or went straight to voicemail — that tells you whether the phone is off or simply out of reach. Message anyone who lives nearby and ask them to knock. If an hour passes and the silence is unusual for them, request a police welfare check rather than waiting out the day.",
     intro:
       "An elderly father who isn't answering deserves a measured, slightly faster response than a younger relative — not because panic helps, but because the realistic risks are higher and verification is cheap relative to the cost of being wrong. Work the steps in order and you'll reach a confident answer quickly.",
     context:
@@ -134,10 +145,13 @@ export const whatToDoPages: WhatToDoPage[] = [
   {
     slug: 'grandpa-wont-pick-up',
     who: 'your grandparent',
-    title: "What to Do When a Grandparent Won't Pick Up the Phone",
+    title:
+      "Grandparent Won't Pick Up: The First 30 Minutes",
     metaDescription:
-      "Grandpa won't answer? Calm, ordered steps for the first 30 minutes and 24 hours, when to escalate to a welfare check, and how to prevent it recurring.",
+      "What to do first when a grandparent isn't answering, who to contact before escalating, when silence justifies a welfare check, and exactly what to say when you call.",
     h1: "What to do when a grandparent won't pick up the phone",
+    directAnswer:
+      "Call again and send a text, then message whoever coordinates their care — a parent, an aunt, an uncle. They often already know why the phone is unanswered. If nobody can reach them and nobody can call in, phone the non-emergency police line for their area and request a welfare check.",
     intro:
       "Grandpa not answering can be unsettling precisely because you may not have his routine or medical details at your fingertips. The plan below moves you through verification quickly and tells you when to bring in whoever coordinates his care, so the family acts as one.",
     context:
@@ -185,10 +199,13 @@ export const whatToDoPages: WhatToDoPage[] = [
   {
     slug: 'teenage-daughter-not-answering-phone',
     who: 'your teenager',
-    title: "What to Do When Your Teenager Isn't Answering the Phone",
+    title:
+      "Teen Not Answering: What to Do in the First Hour",
     metaDescription:
-      "Teenage daughter not answering? A proportionate, trust-preserving plan: first 30 minutes, first 24 hours, when to escalate, and a consent-based way to prevent it.",
+      "A proportionate plan for the first hour: what to check before you worry, who to contact, when a missed call is genuinely a signal, and how to agree an escalation rule that doesn't feel like surveillance.",
     h1: "What to do when your teenager isn't answering the phone",
+    directAnswer:
+      "Text rather than call again — teenagers answer texts far more readily than calls. Check the ordinary explanations first: school, practice, a shift, a friend's house, gaming with notifications off. If it is well past a time you agreed on, message one or two close friends or their parents before escalating further.",
     intro:
       "A teenage daughter not picking up is, the overwhelming majority of the time, ordinary — silenced phone, dead battery, busy with friends, in a class or activity. The aim is a calm, proportionate check that confirms she's fine without overreacting or turning a normal moment into a trust-damaging confrontation.",
     context:
@@ -237,10 +254,13 @@ export const whatToDoPages: WhatToDoPage[] = [
   {
     slug: 'college-student-not-answering-phone',
     who: 'your college student',
-    title: "What to Do When Your College Student Isn't Answering the Phone",
+    title:
+      "College Student Not Answering: What to Do First",
     metaDescription:
-      "College student not answering? A calm, autonomy-respecting plan: first 30 minutes, first 24 hours, campus resources and welfare checks, and a low-friction way to prevent it.",
+      "The first steps when a student isn't picking up, why campus security is the right escalation before police, and when a quiet phone is worth acting on.",
     h1: "What to do when your college student isn't answering the phone",
+    directAnswer:
+      "Text first, then account for the ordinary: a class, a shift, a library with no signal, or sleep. If several hours pass and it is unlike them, contact a roommate, then the residence adviser. Campus security can carry out a room check faster than police, and that is usually the right first escalation.",
     intro:
       "A college student going quiet for a day is, far more often than not, a packed schedule, a silenced phone, exams, or simply the normal independence of someone building their own life. The right response respects that independence while still giving you a clear path to confirm they're fine — including campus-specific options most families don't know about.",
     context:
@@ -276,10 +296,13 @@ export const whatToDoPages: WhatToDoPage[] = [
   {
     slug: 'spouse-not-answering-phone',
     who: 'your spouse',
-    title: "What to Do When Your Spouse Isn't Answering the Phone",
+    title:
+      "Spouse Not Answering: The First Hour, Step by Step",
     metaDescription:
-      "Spouse not answering? A calm, practical plan: the first 30 minutes, the first 24 hours, when a welfare check is appropriate, and how to prevent the worry recurring.",
+      "What to do in the first hour when a partner isn't answering, how to judge whether the silence is out of character, and the point at which contacting their workplace or police is reasonable.",
     h1: "What to do when your spouse isn't answering the phone",
+    directAnswer:
+      "Call twice, then text. Note whether it rang out or went straight to voicemail. Work through today's plan — a meeting, a commute, a dead battery, a dead zone. If the silence is genuinely out of character and several hours pass, contact their workplace or a close friend before calling police.",
     intro:
       "A spouse not answering usually has an ordinary explanation — a meeting, driving, a dead battery, deep focus, or poor signal — but because you know their normal patterns intimately, a real deviation can feel obvious and alarming. Use what you know about their routine as data, and work through this calmly and in order.",
     context:
@@ -315,10 +338,13 @@ export const whatToDoPages: WhatToDoPage[] = [
   {
     slug: 'adult-child-not-answering-phone',
     who: 'your adult child',
-    title: "What to Do When Your Adult Child Isn't Answering the Phone",
+    title:
+      "Adult Child Not Answering: When to Worry, What to Do",
     metaDescription:
-      "Adult child not answering? A calm, respectful plan that balances concern with their independence: first 30 minutes, first 24 hours, when to escalate, and how to prevent it.",
+      "How long to wait before a grown child's silence is worth acting on, who to contact first, and when requesting a welfare check is proportionate rather than an overreaction.",
     h1: "What to do when your adult child isn't answering the phone",
+    directAnswer:
+      "Call and text once each, then allow a few hours — adult children miss calls for entirely ordinary reasons. If it is unlike them and a full day passes, contact a partner, housemate or close friend. Request a police welfare check only if you have a concrete reason to believe something is wrong.",
     intro:
       "An adult child not answering is usually just adult life — work, a busy weekend, a silenced phone, or simply not feeling obligated to answer immediately. The challenge here is mostly emotional: balancing genuine concern against their autonomy so you confirm they're fine without straining the relationship.",
     context:

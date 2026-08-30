@@ -65,15 +65,42 @@ export default function WhatToDo() {
     )
   }
 
+  // The escalation criteria are the highest-intent thing on the page and were
+  // previously prose only. Expressing them as a Question makes them eligible
+  // for AI Overview and People Also Ask extraction, which is where the click
+  // is currently going (US-WEB014).
+  //
+  // HowTo markup is deliberately NOT used here. Google removed HowTo rich
+  // results from Search, so it would add weight to the payload and change
+  // nothing — and the first-30-minutes list is a triage sequence with branches,
+  // not the linear procedure HowTo describes.
+  // page.who is written in second person for body copy ("your elderly
+  // parent"); a question asked in the searcher's own voice needs first person.
+  const whoFirstPerson = page.who.replace(/^your\b/, 'my')
+
+  const escalationQuestion = {
+    '@type': 'Question',
+    name: `When should I escalate if ${whoFirstPerson} isn't answering the phone?`,
+    acceptedAnswer: {
+      '@type': 'Answer',
+      text: `Escalate to a welfare check or emergency services if any of the following is true: ${page.escalateWhen
+        .map((e) => e.replace(/\.$/, ''))
+        .join('; ')}. Call 911 only if you have a concrete reason to believe there is immediate danger; otherwise the right route is a non-emergency police welfare check.`,
+    },
+  }
+
   const jsonLd = [
     {
       '@context': 'https://schema.org',
       '@type': 'FAQPage',
-      mainEntity: page.faqs.map((f) => ({
-        '@type': 'Question',
-        name: f.q,
-        acceptedAnswer: { '@type': 'Answer', text: f.a },
-      })),
+      mainEntity: [
+        escalationQuestion,
+        ...page.faqs.map((f) => ({
+          '@type': 'Question',
+          name: f.q,
+          acceptedAnswer: { '@type': 'Answer', text: f.a },
+        })),
+      ],
     },
     buildBreadcrumbJsonLd([
       { name: 'Home', path: '/' },
@@ -99,13 +126,15 @@ export default function WhatToDo() {
             {page.who}
           </nav>
           <h1 className="ec-hero-title">{page.h1}</h1>
+          {/*
+            Immediately under the H1 and written to stand alone (US-WEB014):
+            at position 8.6 this result sits below an AI Overview, so the page
+            has to supply a quotable answer rather than an empathetic warm-up.
+          */}
+          <p className="wtd-answer">{page.directAnswer}</p>
           <p className="wtd-byline">
             By the Daily OK Editorial Team · Last updated {LAST_UPDATED}
           </p>
-          <div className="lp-tldr">
-            <strong>Stay calm — work in order</strong>
-            {page.intro}
-          </div>
         </div>
       </section>
 
@@ -118,9 +147,12 @@ export default function WhatToDo() {
             provide monitoring or emergency dispatch.
           </div>
 
-          <h2>Why this is specific to {page.who}</h2>
-          <p>{page.context}</p>
-
+          {/*
+            The checklist is the first substantive thing on the page, above the
+            empathetic framing, as a clean <ol> that can be lifted whole into a
+            featured snippet (US-WEB014). Someone arriving here is frightened and
+            wants the next action, not a warm-up.
+          */}
           <h2>
             <Clock size={20} style={{ verticalAlign: '-3px', marginRight: 6 }} />
             The first 30 minutes
@@ -130,6 +162,10 @@ export default function WhatToDo() {
               <li key={i}>{s}</li>
             ))}
           </ol>
+
+          <h2>Why this is specific to {page.who}</h2>
+          <p>{page.intro}</p>
+          <p>{page.context}</p>
 
           <h2>
             <ClipboardList size={20} style={{ verticalAlign: '-3px', marginRight: 6 }} />

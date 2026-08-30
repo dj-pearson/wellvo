@@ -2106,3 +2106,50 @@ without decoding &#x27; apostrophes. Decode before asserting on rendered text.
 
 Tests 29 passing (canonical.test.tsx referenced a retired slug, retargeted to a
 survivor), lint 19 problems — unchanged.
+
+================================================================================
+US-WEB014 — Win the click on /what-to-do                            2026-08-29
+================================================================================
+Applied to the six survivors of US-WEB013.
+
+These pages hold 38% of all site visibility at position 8.6 — page one — but
+converted 333 impressions into 1 click (0.3% against ~2% expected). At that
+position the result sits below an AI Overview and a PAA block that answer the
+question first, so the page has to offer what the summary above it cannot.
+
+  mod  src/data/whatToDo.ts   directAnswer field; titles and metas rewritten
+  mod  src/pages/WhatToDo.tsx checklist first; escalation Q&A in schema
+  mod  src/pages/WhatToDo.css .wtd-answer standfirst
+
+Titles previously restated the query ("What to Do When…"), reading as the same
+result as everything else on the page. Now they lead with the situation and
+promise a bounded deliverable — "Elderly Parent Not Answering: The First 30
+Minutes". 47-52 chars, none truncate once " | Daily OK" is appended. The <title>
+now deliberately differs from the H1, which stays conversational for the reader
+who has already arrived.
+
+Metas previously empathised; they now state what the reader gets — an ordered
+plan, the escalation threshold, the exact words for a welfare-check request.
+
+New directAnswer field: 40-60 words under the H1, written to BE the quoted
+answer rather than introduce one, each naming the concrete first move. Counts
+verified 60/51/52/53/51/53.
+
+The first-30-minutes checklist is now the first substantive content, above the
+empathetic intro, as a clean <ol> liftable into a featured snippet. The intro
+moved down beside the context.
+
+Escalation criteria were prose only and are the highest-intent thing on the
+page; they are now a Question in the FAQPage graph. Review caught a real bug:
+page.who is second person for body copy, which produced "When should I escalate
+if YOUR elderly parent…". A question in the searcher's voice needs first person,
+so it now transforms to "my".
+
+HowTo deliberately omitted: Google removed HowTo rich results from Search, so it
+would add payload and change nothing, and a branching triage sequence is not the
+linear procedure HowTo describes. Reason recorded beside the schema.
+
+YMYL intact — byline and not-medical-advice disclaimer both verified present
+after the reorder.
+
+Tests 29 passing, lint 19 problems — unchanged.
