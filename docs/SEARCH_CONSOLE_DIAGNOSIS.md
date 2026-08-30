@@ -51,7 +51,22 @@ Every non-brand query, with average position:
 All page 6–9. All contain the literal string *daily* — Google is matching the brand name, not the
 page content. Same reason we surface for `daily keeper`, an unrelated company.
 
-We rank **2.13** for `dailyok`, our own exact brand name. Should be position 1 with sitelinks.
+We rank **2.13** for `dailyok`, our own exact brand name.
+
+**Correction (2026-08-29) — the cause is not what this document first assumed.** The
+original reading was that the brand ranking suffered from naming inconsistency between
+the store listing and the site. That is at best secondary. The name is genuinely
+**contested**: `Daily OK` and `DailyOK` were both already taken on the App Store (which
+is why the listing carries the `: Senior Check-In` suffix), and `dailyok.com` is
+registered to someone else. Other entities legitimately use this name, and one of them
+is what outranks us.
+
+This matters for expectations. `alternateName` schema (US-WEB012) helps Google
+disambiguate us where it is *uncertain*, but it cannot win a name another party also
+uses. **Position 1 for `dailyok` is probably not attainable**, so brand queries — 69% of
+current visibility — have a ceiling. That is an argument for the non-brand strategy in
+§6, not against it: the welfare-check cluster and the problem-moment pages are the only
+traffic we can actually own.
 
 ---
 
@@ -276,9 +291,14 @@ These searchers have already rejected the competitors' entire product shape.
 
 ### Tier 5 — fix the brand terms
 
-`dailyok`, `daily ok`, `ok daily`, `day ok` should all resolve to us at position 1 (currently 2.13 at
-best). 35 impressions bleed to `daily keeper`. Fix via sitelinks, tightened `Organization` /
-`WebSite` schema with `alternateName`, and consistent naming across the App Store listing and site.
+`dailyok`, `daily ok`, `ok daily` and `day ok` should resolve to us as clearly as possible — but see
+the correction in §2: the name is contested (both App Store variants taken, `dailyok.com` owned by
+someone else), so **position 1 is likely unattainable and should not be a target**. What is winnable
+is disambiguation: making sure Google knows which "Daily OK" we are, and recovering the 35
+impressions bleeding to `daily keeper`, which is simple confusion rather than a rival claim. Fix via
+tightened `Organization` / `WebSite` schema with `alternateName` (done in US-WEB012) and consistent
+naming across surfaces. Note that the App Store listing name cannot be changed to match the site
+exactly — it must stay unique store-wide.
 Note the `wellvo` / `Daily OK` / `dailyok.net` split documented in `CLAUDE.md` is a live
 entity-consolidation risk if wellvo ever gets a public surface.
 

@@ -49,6 +49,20 @@ Daily OK: Senior Check-In
 *Broad alternative (25/30):* `Daily OK: Family Check-In`
 Adds tokens: **senior, check, in** (or family). Keeps the "Daily OK" brand first.
 
+> **The suffix is mandatory, not a stylistic choice** (confirmed by Dj, 2026-08-29).
+> Both `Daily OK` and `DailyOK` were **already taken on the App Store** — App Store
+> listing names are unique store-wide — which is why a suffix was appended in the
+> first place. Do not "simplify" the name back to the bare brand in a future
+> cleanup: it is unavailable, and shrinking to 8/30 characters would also spend
+> the most heavily-weighted ranking field on no category tokens, which is the
+> exact failure §1 diagnoses.
+>
+> Note the split: the **App Store listing name** must be unique, but
+> `CFBundleDisplayName` (the label under the home-screen icon) does not — it is
+> already `Daily OK` in `ios/DailyOK/Info.plist`. Users therefore see the bare
+> brand where it matters visually while the listing stays distinguishable in
+> search. Keep both as they are.
+
 ### Subtitle — 28/30
 ```
 Elderly safety & care alerts
