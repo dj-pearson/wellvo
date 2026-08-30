@@ -45,6 +45,22 @@ export default function Header() {
             For Seniors
           </Link>
           <Link
+            to="/what-to-do/"
+            className={`nav-link ${isActive('/what-to-do') ? 'active' : ''}`}
+            aria-current={isActive('/what-to-do') ? 'page' : undefined}
+            onClick={() => setMenuOpen(false)}
+          >
+            Not Answering?
+          </Link>
+          <Link
+            to="/compare/"
+            className={`nav-link ${isActive('/compare') ? 'active' : ''}`}
+            aria-current={isActive('/compare') ? 'page' : undefined}
+            onClick={() => setMenuOpen(false)}
+          >
+            Compare
+          </Link>
+          <Link
             to="/pricing/"
             className={`nav-link ${isActive('/pricing') ? 'active' : ''}`}
             aria-current={isActive('/pricing') ? 'page' : undefined}

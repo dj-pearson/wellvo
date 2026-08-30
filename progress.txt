@@ -1991,3 +1991,58 @@ out; no cornerstone left footer-only; zero "Learn more" anchors sitewide.
 Tests 29 passing, lint 19 problems — both unchanged.
 
 The five unblock-phase stories (US-WEB008..012) are now four done, one to go.
+
+================================================================================
+US-WEB012 — Own the brand SERP: alternateName schema, sitelinks, naming
+                                                                    2026-08-29
+================================================================================
+Last of the five unblock-phase stories. Brand queries are 69% of known search
+visibility, and we rank only 2.13 for our own exact name "dailyok" while 35
+impressions bleed to "daily keeper" — an unrelated company.
+
+  mod  pages/+onRenderHtml.tsx   alternateName arrays on all three entities
+  mod  src/components/Header.tsx /what-to-do/ and /compare/ added to primary nav
+
+alternateName is now a six-item array on SoftwareApplication, Organization and
+WebSite: "Daily OK", "DailyOK", "dailyok", "Daily O.K.", "Daily OK: Senior
+Check-In", "DailyOK Daily Check-In". Variants taken from the actual Search
+Console query export, not invented.
+
+Two things deliberately NOT added, documented in a comment beside the schema so
+they don't get "fixed" by reflex:
+  - SearchAction / Sitelinks Searchbox. There is no on-site search; declaring
+    one Google cannot exercise is a false claim about the site.
+  - Play Store and social profiles in sameAs. Grepped the repo — none exist.
+    sameAs must list only profiles we control; an invented URL is worse than a
+    short list. Comment says to add Play here when Android ships.
+
+The nav change is the most substantive part beyond schema. It previously
+exposed only Home, For Seniors, Pricing, Blog, Support. /what-to-do carries 38%
+of all site impressions and was reachable only from in-content links; /compare
+was footer-only. Both are now top-level, which gives Google a clearer set to
+draw sitelinks from and puts the best-performing content one click away.
+
+NEEDS DJ — the App Store listing title could not be verified: apps.apple.com is
+a 403 policy denial from this session's egress gateway, same as dailyok.net. The
+URL slug is "dailyok-daily-check-in", and App Store slugs derive from the app
+name, so the listing likely reads "DailyOK - Daily Check-In" rather than
+"Daily OK". That is a third written form of the same entity and a plausible
+contributor to ranking 2.13 for our own brand. Covered defensively via
+alternateName, but aligning the store title is a change only Dj can make in App
+Store Connect.
+
+ALSO NEEDS A POST-DEPLOY CHECK — the Rich Results Test half of AC7 needs
+Google's live tool against the deployed URL. The schema is valid JSON using
+standard properties (alternateName as an array is explicitly supported), so risk
+is low, but worth one run after deploy.
+
+Verified in built output: three entities each with a 6-item alternateName; every
+JSON-LD block parses; og:site_name "Daily OK"; title leads with the brand; nav
+destinations correct. The SearchAction check initially flagged a hit that turned
+out to be the word inside my own comment — re-run against comment-stripped HTML
+to confirm the emitted schema is clean.
+
+Tests 29 passing, lint 19 problems — both unchanged.
+
+UNBLOCK PHASE COMPLETE (US-WEB008..012). Next: US-WEB013, which starts the
+content work by consolidating nine duplicate-filtered /what-to-do pages.
