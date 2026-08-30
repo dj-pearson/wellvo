@@ -120,6 +120,13 @@ This is the risk `pSEO.md` itself flagged as "#1 flagged risk". The content is g
 differentiated (1,000–1,300 words each, hand-written per relationship); it is still too close at the
 query level.
 
+**Correction (2026-08-29, from US-WEB013).** This finding over-applied. Duplicate filtering explains
+six of the nine, not all nine — the elderly-parent (5 pages), grandparent (2) and teen (2) clusters
+each had several near-identical pages with exactly one selected. `college-student`,
+`spouse` and `adult-child` have **no near-duplicate sibling**, so their zero impressions are the same
+domain-authority problem affecting every page on the site. Those three were kept; only six were
+consolidated. Merging them would have produced misleading redirects and soft-404 risk.
+
 ### 5. The articles are the only thing working — and get no clicks — WORKING
 
 The three visible `/what-to-do` pages account for **333 impressions, 38% of all site visibility**, at
