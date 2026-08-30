@@ -1940,3 +1940,54 @@ i.e. authored content, not site code).
 
 Suite 21 -> 29 passing; lint 19 problems, unchanged. The remaining failure is
 still the pre-existing App.test.tsx home-copy assertion.
+
+================================================================================
+US-WEB011 — Link the three cornerstone pages contextually, not just from the
+footer                                                              2026-08-29
+================================================================================
+Finding #1 in the diagnosis, and the highest-impact single fix in the batch.
+
+The problem: all three cornerstone pages were linked from Footer.tsx and nowhere
+else. Google reads a repeated footer block as boilerplate, so they carried
+almost no internal weight — all three had zero impressions while the HOMEPAGE
+ranked at position 52-88 for "daily check in app", the phrase
+/daily-check-in-app-for-seniors was built to win.
+
+  mod  Home.tsx           all three linked inside the "Perfect For" card copy
+  mod  WhatToDo.tsx       per-relationship link in the prevention section
+  mod  ElderlyCare.tsx    contextual links under the CTA
+  mod  ChildSafety.tsx    contextual link under the CTA
+  mod  WhatToDoIndex.tsx  closing paragraph linking all three
+  mod  Compare.tsx        CTA paragraph linking all three
+  mod  index.css          .cta-footnote
+  mod  Compare.css        .compare-cta-links
+
+Judgement call: the teen, college, spouse and adult-child guides point at
+/child-safety/ rather than a cornerstone page. Sending a worried parent of a
+teenager to a page about aging in place would be worse for the reader, and a
+link nobody clicks helps no one. 9 of 12 what-to-do pages still link a
+cornerstone, which clears AC6 comfortably.
+
+AC5 caught a real problem on the first verification pass: the anchor "Check-in
+app for elderly parents" appeared 14 times sitewide, and "Peace-of-mind app for
+elderly parents" 14 times, because the "Related guides" block hardcoded both on
+all 12 what-to-do pages. That is exactly the boilerplate signal the AC bars, and
+shipping it would have undercut the point of the story. Fixed by giving each map
+entry a short nav `label` alongside its prose `anchor` so the block varies per
+relationship. Max identical-anchor repetition: 14x -> 4x.
+
+Styling note: .cta-footnote lives in index.css, not Home.css — ElderlyCare and
+ChildSafety use .cta-card without importing that stylesheet, so a route-chunked
+rule would not have applied. Colours tint from the green card surface rather
+than a flat gray, per the UI floor in CLAUDE.md.
+
+Verified against prerendered HTML, counting only links outside <footer>:
+  /check-in-app-for-elderly              14 links, 10 pages,  5 anchors
+  /daily-check-in-app-for-seniors        12 links,  9 pages,  6 anchors
+  /peace-of-mind-app-for-elderly-parents 10 links,  8 pages,  4 anchors
+All three linked from the homepage body; both index and both category pages link
+out; no cornerstone left footer-only; zero "Learn more" anchors sitewide.
+
+Tests 29 passing, lint 19 problems — both unchanged.
+
+The five unblock-phase stories (US-WEB008..012) are now four done, one to go.

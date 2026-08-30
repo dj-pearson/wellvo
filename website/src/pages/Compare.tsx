@@ -62,6 +62,17 @@ export default function Compare() {
           <h2>Already know which one you want?</h2>
           <p>Daily OK plans start at $3.99/month. No hardware. No contract. Cancel anytime.</p>
           <Link to="/pricing/" className="btn btn-primary">See Daily OK plans</Link>
+          <p className="compare-cta-links">
+            Still deciding what you actually need? Read what a{' '}
+            <Link to="/check-in-app-for-elderly/">check-in app for elderly parents</Link> does
+            and does not do, why a{' '}
+            <Link to="/daily-check-in-app-for-seniors/">daily check-in app for seniors</Link>{' '}
+            suits aging in place, or how Daily OK works as a{' '}
+            <Link to="/peace-of-mind-app-for-elderly-parents/">
+              peace-of-mind app for elderly parents
+            </Link>{' '}
+            when you live far away.
+          </p>
         </div>
       </section>
     </>

@@ -292,6 +292,15 @@ export default function ElderlyCare() {
                 Compare Plans
               </Link>
             </div>
+            <p className="cta-footnote">
+              Want the detail first? Read how the{' '}
+              <Link to="/check-in-app-for-elderly/">check-in app for elderly parents</Link>{' '}
+              works, or the case for{' '}
+              <Link to="/daily-check-in-app-for-seniors/">
+                daily check-ins for seniors aging in place
+              </Link>
+              .
+            </p>
           </div>
         </div>
       </section>

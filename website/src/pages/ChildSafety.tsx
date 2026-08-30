@@ -280,6 +280,14 @@ export default function ChildSafety() {
                 Compare Plans
               </Link>
             </div>
+            <p className="cta-footnote">
+              Looking after a parent as well as a child? The same one-tap check-in is built
+              out for that on the{' '}
+              <Link to="/peace-of-mind-app-for-elderly-parents/">
+                peace-of-mind app for elderly parents
+              </Link>{' '}
+              page.
+            </p>
           </div>
         </div>
       </section>
