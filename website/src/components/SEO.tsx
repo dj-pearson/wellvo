@@ -1,4 +1,5 @@
 import { Helmet } from 'react-helmet-async'
+import { canonicalUrl } from '../lib/canonical'
 
 const APP_STORE_URL = 'https://apps.apple.com/us/app/dailyok-daily-check-in/id6760836697'
 const SITE_URL = 'https://dailyok.net'
@@ -23,7 +24,8 @@ export default function SEO({
   ogType = 'website',
   jsonLd,
 }: SEOProps) {
-  const fullUrl = `${SITE_URL}${path}`
+  // Trailing-slash form — that is what production serves (US-WEB010).
+  const fullUrl = canonicalUrl(path)
   const fullTitle = path === '/' ? title : `${title} | Daily OK`
 
   return (

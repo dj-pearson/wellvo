@@ -336,8 +336,11 @@ async function validateInternalLinks(
 
     internalPaths.push(path);
 
-    // Resolve route
-    if (KNOWN_STATIC_ROUTES.has(path) || HOWITWORKS_FALLBACK.has(path)) continue;
+    // Resolve route. Compare on the bare form so both /pricing and /pricing/
+    // validate: production serves the trailing-slash form (US-WEB010) and is
+    // what new content uses, while older generated posts carry the bare one.
+    const routeKey = path.length > 1 ? path.replace(/\/$/, "") : path;
+    if (KNOWN_STATIC_ROUTES.has(routeKey) || HOWITWORKS_FALLBACK.has(routeKey)) continue;
 
     if (path.startsWith("/blog/")) {
       const slug = path.slice("/blog/".length).replace(/\/$/, "");

@@ -86,7 +86,7 @@ export default function PeaceOfMindAppForElderlyParents() {
               Download Free for iPhone
               <ArrowRight size={18} />
             </a>
-            <Link to="/pricing" className="btn btn-secondary btn-lg">
+            <Link to="/pricing/" className="btn btn-secondary btn-lg">
               View Plans
             </Link>
           </div>
@@ -292,13 +292,13 @@ export default function PeaceOfMindAppForElderlyParents() {
 
           <h2>Keep reading</h2>
           <div className="lp-links">
-            <Link to="/pricing">Pricing &amp; plans</Link>
-            <Link to="/elderly-care">How Daily OK works for elderly care</Link>
-            <Link to="/check-in-app-for-elderly">Check-in app for elderly parents</Link>
-            <Link to="/daily-check-in-app-for-seniors">Daily check-in app for seniors</Link>
-            <Link to="/compare/daily-ok-vs-life360">Daily OK vs Life360</Link>
-            <Link to="/compare/daily-ok-vs-life-alert">Daily OK vs Life Alert</Link>
-            <Link to="/blog">Caregiving guides on the blog</Link>
+            <Link to="/pricing/">Pricing &amp; plans</Link>
+            <Link to="/elderly-care/">How Daily OK works for elderly care</Link>
+            <Link to="/check-in-app-for-elderly/">Check-in app for elderly parents</Link>
+            <Link to="/daily-check-in-app-for-seniors/">Daily check-in app for seniors</Link>
+            <Link to="/compare/daily-ok-vs-life360/">Daily OK vs Life360</Link>
+            <Link to="/compare/daily-ok-vs-life-alert/">Daily OK vs Life Alert</Link>
+            <Link to="/blog/">Caregiving guides on the blog</Link>
           </div>
         </div>
       </section>
@@ -322,7 +322,7 @@ export default function PeaceOfMindAppForElderlyParents() {
                 Start Free Trial
                 <ArrowRight size={18} />
               </a>
-              <Link to="/pricing" className="btn btn-outline btn-lg">
+              <Link to="/pricing/" className="btn btn-outline btn-lg">
                 Compare Plans
               </Link>
             </div>

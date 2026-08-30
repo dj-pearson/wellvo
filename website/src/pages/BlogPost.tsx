@@ -5,33 +5,29 @@ import DOMPurify from 'dompurify'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
 import { buildPostSchemas } from '../lib/schemaMarkup'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
+import { useBlogSeed } from '../lib/blogSeed'
+import { BLOG_HTML_ALLOWLIST, POST_COLUMNS, type PublicPost } from '../lib/blogTypes'
+import { canonicalUrl } from '../lib/canonical'
 import './Blog.css'
 
-interface PublicPost {
-  id: string
-  slug: string
-  title: string
-  excerpt: string | null
-  content_html: string
-  featured_image_url: string | null
-  og_image_url: string | null
-  category: string | null
-  tags: string[]
-  seo_title: string | null
-  seo_description: string | null
-  canonical_url: string | null
-  published_at: string
-  updated_at: string | null
-}
 
 export default function BlogPost() {
   const { slug } = useParams<{ slug: string }>()
-  const [post, setPost] = useState<PublicPost | null>(null)
-  const [loading, setLoading] = useState(true)
+
+  // Seeded at build time by +onBeforePrerenderStart.ts. Before US-WEB008 the
+  // post was only ever fetched in the effect below, which does not run during
+  // prerender — so every post URL was served the homepage's HTML and the whole
+  // blog was invisible to search engines.
+  const { blogPost } = useBlogSeed()
+  const seeded = blogPost && blogPost.slug === slug ? blogPost : null
+
+  const [post, setPost] = useState<PublicPost | null>(seeded)
+  const [loading, setLoading] = useState(seeded === null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!slug) return
+    if (seeded) return
     if (!isSupabaseConfigured()) {
       setError('Blog is not configured yet.')
       setLoading(false)
@@ -40,7 +36,7 @@ export default function BlogPost() {
     const supabase = getSupabase()
     supabase
       .from('blog_posts')
-      .select('id, slug, title, excerpt, content_html, featured_image_url, og_image_url, category, tags, seo_title, seo_description, canonical_url, published_at, updated_at')
+      .select(POST_COLUMNS)
       .eq('slug', slug)
       .eq('status', 'published')
       .lte('published_at', new Date().toISOString())
@@ -59,15 +55,20 @@ export default function BlogPost() {
         setPost(data as PublicPost)
         setLoading(false)
       })
-  }, [slug])
+  }, [slug, seeded])
 
   const safeHtml = useMemo(() => {
     if (!post?.content_html) return ''
+    // A seeded post was already sanitized in Node with the same allowlist
+    // (pages/fetchBlogForPrerender.ts). Sanitizing again here would produce a
+    // second pass over identical markup and risk a hydration mismatch, so the
+    // browser only sanitizes what it fetched itself.
+    if (seeded && post === seeded) return post.content_html
     return DOMPurify.sanitize(post.content_html, {
-      ALLOWED_TAGS: ['h1','h2','h3','h4','p','ul','ol','li','strong','em','b','i','a','blockquote','br','hr','img','code','pre','figure','figcaption'],
-      ALLOWED_ATTR: ['href','src','alt','title','rel','target'],
+      ALLOWED_TAGS: [...BLOG_HTML_ALLOWLIST.ALLOWED_TAGS],
+      ALLOWED_ATTR: [...BLOG_HTML_ALLOWLIST.ALLOWED_ATTR],
     })
-  }, [post])
+  }, [post, seeded])
 
   // Article + (conditionally) FAQPage / HowTo JSON-LD. Computed against the
   // unsanitized content_html so structural detection sees the same DOM the
@@ -105,7 +106,7 @@ export default function BlogPost() {
         <div className="container">
           <div className="blog-empty">
             <h2>Post not found</h2>
-            <p><Link to="/blog">Back to blog</Link></p>
+            <p><Link to="/blog/">Back to blog</Link></p>
           </div>
         </div>
       </section>
@@ -121,7 +122,8 @@ export default function BlogPost() {
       <Helmet>
         <title>{`${seoTitle} — Daily OK`}</title>
         {seoDescription && <meta name="description" content={seoDescription} />}
-        {post.canonical_url && <link rel="canonical" href={post.canonical_url} />}
+        <link rel="canonical" href={post.canonical_url || canonicalUrl(`/blog/${post.slug}`)} />
+        <meta property="og:url" content={post.canonical_url || canonicalUrl(`/blog/${post.slug}`)} />
         <meta property="og:title" content={seoTitle} />
         {seoDescription && <meta property="og:description" content={seoDescription} />}
         {ogImage && <meta property="og:image" content={ogImage} />}
@@ -149,7 +151,7 @@ export default function BlogPost() {
       <article className="blog-article">
         <div className="container" style={{ maxWidth: 760 }}>
           <div className="blog-article-meta">
-            <Link to="/blog">← All posts</Link>
+            <Link to="/blog/">← All posts</Link>
             <span>{new Date(post.published_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
           </div>
           {post.category && <span className="blog-card-cat" style={{ marginBottom: 10 }}>{post.category}</span>}

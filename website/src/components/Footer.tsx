@@ -23,36 +23,36 @@ export default function Footer() {
 
           <div className="footer-col">
             <h4>Product</h4>
-            <Link to="/pricing">Pricing</Link>
+            <Link to="/pricing/">Pricing</Link>
             <Link to="/#features">Features</Link>
             <Link to="/#how-it-works">How It Works</Link>
-            <Link to="/compare">Compare</Link>
+            <Link to="/compare/">Compare</Link>
             <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">Download App</a>
           </div>
 
           <div className="footer-col">
             <h4>Senior Check-In</h4>
-            <Link to="/check-in-app-for-elderly">Check-In App for Elderly</Link>
-            <Link to="/daily-check-in-app-for-seniors">Daily Check-In for Seniors</Link>
-            <Link to="/peace-of-mind-app-for-elderly-parents">Peace of Mind for Parents</Link>
-            <Link to="/elderly-care">Elderly Parent Care</Link>
-            <Link to="/child-safety">Child &amp; Teen Safety</Link>
+            <Link to="/check-in-app-for-elderly/">Check-In App for Elderly</Link>
+            <Link to="/daily-check-in-app-for-seniors/">Daily Check-In for Seniors</Link>
+            <Link to="/peace-of-mind-app-for-elderly-parents/">Peace of Mind for Parents</Link>
+            <Link to="/elderly-care/">Elderly Parent Care</Link>
+            <Link to="/child-safety/">Child &amp; Teen Safety</Link>
           </div>
 
           <div className="footer-col">
             <h4>Support</h4>
-            <Link to="/blog">Blog</Link>
-            <Link to="/support">Help Center</Link>
+            <Link to="/blog/">Blog</Link>
+            <Link to="/support/">Help Center</Link>
             <a href="mailto:support@dailyok.net">Contact Us</a>
           </div>
 
           <div className="footer-col">
             <h4>Legal</h4>
-            <Link to="/privacy">Privacy Policy</Link>
-            <Link to="/terms">Terms of Use</Link>
-            <Link to="/cookies">Cookie Notice</Link>
-            <Link to="/dmca">DMCA Policy</Link>
-            <Link to="/accessibility">Accessibility</Link>
+            <Link to="/privacy/">Privacy Policy</Link>
+            <Link to="/terms/">Terms of Use</Link>
+            <Link to="/cookies/">Cookie Notice</Link>
+            <Link to="/dmca/">DMCA Policy</Link>
+            <Link to="/accessibility/">Accessibility</Link>
           </div>
         </div>
 
@@ -69,7 +69,7 @@ export default function Footer() {
             Available on the{' '}
             <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">App Store</a> for iPhone.
             {' · '}
-            <Link to="/admin" className="footer-admin-link">Admin</Link>
+            <Link to="/admin/" className="footer-admin-link">Admin</Link>
           </p>
         </div>
       </div>

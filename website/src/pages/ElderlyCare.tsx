@@ -89,7 +89,7 @@ export default function ElderlyCare() {
               Download Free for iPhone
               <ArrowRight size={18} />
             </a>
-            <Link to="/pricing" className="btn btn-secondary btn-lg">
+            <Link to="/pricing/" className="btn btn-secondary btn-lg">
               View Plans
             </Link>
           </div>
@@ -288,10 +288,23 @@ export default function ElderlyCare() {
                 Start Free Trial
                 <ArrowRight size={18} />
               </a>
-              <Link to="/pricing" className="btn btn-outline btn-lg">
+              <Link to="/pricing/" className="btn btn-outline btn-lg">
                 Compare Plans
               </Link>
             </div>
+            <p className="cta-footnote">
+              Worried right now and can't reach them? Start with{' '}
+              <Link to="/welfare-check-on-elderly-parent/">
+                how to request a welfare check
+              </Link>
+              . Otherwise, read how the{' '}
+              <Link to="/check-in-app-for-elderly/">check-in app for elderly parents</Link>{' '}
+              works, or the case for{' '}
+              <Link to="/daily-check-in-app-for-seniors/">
+                daily check-ins for seniors aging in place
+              </Link>
+              .
+            </p>
           </div>
         </div>
       </section>

@@ -9,7 +9,10 @@
  * Behaviour:
  *  - <loc> from the prerendered path, <lastmod> from `git log` of the route's
  *    source file (fallback: latest commit touching website/, then today),
- *    plus heuristic <changefreq>/<priority> by section.
+ *    plus heuristic <changefreq>/<priority> by section. Blog posts are the
+ *    exception: their <lastmod> comes from the post's own updated_at /
+ *    published_at, read from the pageContext Vike emits beside each one
+ *    (US-WEB009) — a git date would just be "when Blog.tsx last changed".
  *  - A route opts OUT of the sitemap if its prerendered HTML carries a
  *    `<meta name="robots" content="...noindex...">` tag, or if its path
  *    matches NOINDEX_PREFIXES (admin surfaces). Any page can therefore
@@ -19,7 +22,7 @@
  *    output is a sitemap index (sitemap.xml → sitemap-core.xml,
  *    sitemap-pseo.xml, sitemap-blog.xml); otherwise a single sitemap.xml.
  */
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs'
+import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'fs'
 import { join, dirname, relative } from 'path'
 import { fileURLToPath } from 'url'
 import { execSync } from 'child_process'
@@ -45,6 +48,7 @@ const ROUTE_SOURCE = {
   '/peace-of-mind-app-for-elderly-parents': 'src/pages/PeaceOfMindAppForElderlyParents.tsx',
   '/compare': 'src/pages/Compare.tsx',
   '/what-to-do': 'src/data/whatToDo.ts',
+  '/welfare-check-on-elderly-parent': 'src/pages/WelfareCheck.tsx',
   '/blog': 'src/pages/Blog.tsx',
   '/privacy': 'src/pages/Privacy.tsx',
   '/terms': 'src/pages/Terms.tsx',
@@ -66,6 +70,32 @@ function gitDate(relPath) {
     /* not a git checkout, or path untracked — fall through */
   }
   return null
+}
+
+/**
+ * Blog <lastmod> comes from the post itself, not from git (US-WEB009).
+ *
+ * Every prerendered blog post has an index.pageContext.json emitted beside it
+ * by Vike, carrying the same `blogPost` the page rendered from. Reading it
+ * keeps this script's "walk the emitted output" contract — no second Supabase
+ * round-trip, and no separate manifest to drift out of sync.
+ *
+ * Falls back to the git date if the file is missing or unreadable, which is
+ * what happens when a build runs without Supabase config.
+ */
+function blogLastmodFromPageContext(file) {
+  const ctxFile = join(dirname(file), 'index.pageContext.json')
+  if (!existsSync(ctxFile)) return null
+  try {
+    const ctx = JSON.parse(readFileSync(ctxFile, 'utf8'))
+    const post = ctx?.blogPost ?? ctx?.pageContext?.blogPost
+    const stamp = post?.updated_at || post?.published_at
+    if (typeof stamp !== 'string') return null
+    const day = stamp.slice(0, 10)
+    return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null
+  } catch {
+    return null
+  }
 }
 
 const TODAY = new Date().toISOString().slice(0, 10)
@@ -101,7 +131,8 @@ function metaFor(route) {
     route === '/child-safety' ||
     route === '/check-in-app-for-elderly' ||
     route === '/daily-check-in-app-for-seniors' ||
-    route === '/peace-of-mind-app-for-elderly-parents'
+    route === '/peace-of-mind-app-for-elderly-parents' ||
+    route === '/welfare-check-on-elderly-parent'
   )
     return { changefreq: 'monthly', priority: '0.9', group: 'core' }
   if (route === '/pricing' || route === '/compare' || route === '/what-to-do')
@@ -189,9 +220,15 @@ for (const file of files) {
     ? route.slice('/compare/daily-ok-vs-'.length)
     : null
   const meta = metaFor(route)
+  const lastmod =
+    (route.startsWith('/blog/') ? blogLastmodFromPageContext(file) : null) ??
+    lastmodFor(route, slug)
   entries.push({
-    loc: route === '/' ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}${route}`,
-    lastmod: lastmodFor(route, slug),
+    // Trailing-slash form: Cloudflare Pages serves /pricing/ with a 200 and
+    // 308s /pricing to it, so a no-slash <loc> lists a redirecting URL
+    // (US-WEB010). Mirrors canonicalPath() in src/lib/canonical.ts.
+    loc: route === '/' ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}${route}/`,
+    lastmod,
     changefreq: meta.changefreq,
     priority: meta.priority,
     group: meta.group,

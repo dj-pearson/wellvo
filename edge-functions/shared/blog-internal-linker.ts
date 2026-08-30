@@ -312,7 +312,10 @@ function pickAnchorAndInsert(
 
   for (const anchor of candidateAnchors) {
     if (usedAnchorsLowercase.has(anchor.toLowerCase())) continue;
-    const result = injectFirstOccurrence(body, anchor, `/blog/${targetSlug}`);
+    // Trailing slash: production 308s /blog/<slug> to /blog/<slug>/, so a
+    // no-slash href makes every injected internal link cost a redirect
+    // (US-WEB010). Matches canonicalPath() in website/src/lib/canonical.ts.
+    const result = injectFirstOccurrence(body, anchor, `/blog/${targetSlug}/`);
     if (result) return { inserted: true, anchor, newBody: result };
   }
   return { inserted: false, skipReason: "No natural anchor occurrence found in body." };

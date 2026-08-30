@@ -97,7 +97,7 @@ export default function AdminBlogRefresh() {
             {total} item{total === 1 ? '' : 's'} ({filter}). Posts flagged by the decay detector or by editors.
           </div>
         </div>
-        <Link to="/admin/blog" className="admin-btn admin-btn-secondary">
+        <Link to="/admin/blog/" className="admin-btn admin-btn-secondary">
           <ArrowLeft size={14} /> Back to blog
         </Link>
       </div>

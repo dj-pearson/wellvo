@@ -12,6 +12,8 @@
  * as <script type="application/ld+json"> tags inside react-helmet-async.
  */
 
+import { canonicalUrl } from './canonical'
+
 const SITE_ORIGIN = 'https://dailyok.net'
 const PUBLISHER_LOGO = `${SITE_ORIGIN}/icon-512.png`
 const DEFAULT_AUTHOR = 'Daily OK Editorial'
@@ -61,7 +63,7 @@ export function buildPostSchemas(post: SchemaInputPost): SchemaObject[] {
 // =============================================================================
 
 export function buildArticleSchema(post: SchemaInputPost): SchemaObject {
-  const url = post.canonical_url || `${SITE_ORIGIN}/blog/${post.slug}`
+  const url = post.canonical_url || canonicalUrl(`/blog/${post.slug}`)
   const image = post.og_image_url || post.featured_image_url || `${SITE_ORIGIN}/og-image.png`
   const description = post.seo_description || post.excerpt || ''
 

@@ -1743,3 +1743,448 @@ Open items for Dj / counsel (flagged, not resolved):
      whether a unilateral switch binds them is a legal question.
   3. Assumes Pearson Media LLC is Iowa-registered / Iowa is the intended home
      forum. Revisit if the entity is registered elsewhere.
+
+================================================================================
+US-WEB008 — Make the blog indexable: prerender posts and stop serving them the
+homepage                                                            2026-08-29
+================================================================================
+First story of the SEO remediation batch (US-WEB008..US-WEB019), derived from
+docs/SEARCH_CONSOLE_DIAGNOSIS.md. Blocking: nothing published to the blog counts
+until this ships.
+
+The problem, from four months of Search Console data: zero /blog/* URLs indexed.
+Three faults stacked —
+  1. posts were never prerendered (fetched in a useEffect that SSR never runs),
+  2. so they never entered the sitemap, which walks prerendered output,
+  3. and `/blog/* / 200` served every post URL the HOMEPAGE's prerendered HTML,
+     homepage title and homepage canonical included, before any JS ran.
+
+Implemented as a build-time prerender seed:
+  new  pages/fetchBlogForPrerender.ts   build-time Supabase read + sanitize
+  new  src/lib/blogSeed.tsx             context carrying the seed to both renderers
+  new  src/lib/blogTypes.ts             shared shapes + column lists + allowlist
+  new  src/test/blogSeed.test.tsx       5 tests
+  mod  pages/+onBeforePrerenderStart.ts returns {url, pageContext} per post
+  mod  pages/+config.ts                 passToClient: blogIndex, blogPost
+  mod  pages/+onRenderHtml.tsx          provides seed during prerender
+  mod  pages/+onRenderClient.tsx        same seed, so hydration matches
+  mod  src/pages/Blog.tsx               seeded initial state; canonical added
+  mod  src/pages/BlogPost.tsx           seeded initial state; canonical fallback
+  mod  public/_redirects                dropped the /blog/* -> / rewrite
+  mod  package.json                     jsdom devDependencies -> dependencies
+
+Security issue found while implementing (not in the acceptance criteria):
+DOMPurify is a no-op under Node — isSupported = false, sanitize() returns its
+input untouched — so prerendering would have written unsanitized author- and
+LLM-authored content_html straight into static files. There is no server-side
+sanitization anywhere in edge-functions (grepped for sanitiz/DOMPurify). Fixed
+by sanitizing at build time with the same allowlist via jsdom. If the sanitizer
+cannot be constructed the fetcher drops post bodies rather than emitting raw
+HTML.
+
+Behaviour change worth knowing about: docs/BLOG_GENERATION_WEBHOOK.md line 11
+documents that generated posts "appear under /blog immediately — no rebuild or
+deploy is needed". Prerendering breaks that for posts published between builds.
+Mitigated by falling back to /blog/index.html (not /) so they still render
+client-side; the real fix is a rebuild-on-publish hook, carried into US-WEB009.
+
+Verification: `vite build` + `vike prerender` run twice — once with no Supabase
+env vars (warns, continues, 39 pages, exit 0), once against a stub Supabase REST
+endpoint serving two posts (41 pages). The prerendered post carries its own
+title, its own canonical (https://dailyok.net/blog/first-test-post, not the
+homepage), its own description, and its body. A <script>alert("xss")</script>
+and an onclick attribute in the stub content were both stripped. /blog carries a
+canonical and real links to both posts. generate-sitemap.mjs then emitted 40
+URLs including both posts with no change to that script.
+
+Suite 16 -> 21 passing; lint problems 20 -> 19.
+
+Pre-existing failure left alone: App.test.tsx "renders home page at /" asserts
+copy "know your loved ones are OK" while Home.tsx reads "Know your aging parent
+is OK". Fails identically on HEAD. Not fixed here — changing the assertion to
+match could mask an unintended copy change someone should actually decide on.
+
+Deferred to US-WEB009: blog <lastmod> is still the git fallback date rather than
+the post's updated_at, and IndexNow still pings only the static route list.
+
+================================================================================
+US-WEB009 — Blog posts enter sitemap.xml and get pinged to IndexNow on publish
+                                                                    2026-08-29
+================================================================================
+Second story of the SEO remediation batch. Depends on US-WEB008.
+
+  mod  website/scripts/generate-sitemap.mjs   lastmod from the post's own dates
+  mod  website/scripts/indexnow-ping.mjs      recency window instead of "resubmit everything"
+  new  edge-functions/shared/indexnow.ts      ping on publish, between deploys
+  mod  edge-functions/shared/blog-generator.ts  hooked into both publish paths
+  mod  edge-functions/shared/logger.ts        LogEntry index signature (see below)
+  mod  docs/BLOG_GENERATION_WEBHOOK.md        INDEXNOW_KEY + corrected claim
+
+lastmod: Vike emits an index.pageContext.json beside every prerendered post
+carrying the same blogPost the page rendered from, so the sitemap generator
+reads updated_at (falling back to published_at) out of that. No second Supabase
+round-trip, no manifest to drift, and it preserves the script's existing "walk
+the emitted output" contract. Git date remains the fallback.
+
+IndexNow: the build-time ping re-submitted the whole sitemap every deploy, which
+is how you burn a quota and teach the endpoint to ignore you. It now submits
+only URLs whose <lastmod> is inside INDEXNOW_WINDOW_DAYS (default 30) — which
+works precisely because blog lastmod is now a real updated_at. Stateless by
+design: CI has no memory of the last deploy. Falls back to submitting everything
+if nothing qualifies; INDEXNOW_WINDOW_DAYS=0 disables the filter.
+
+AC 5 implemented rather than deferred: a new post no longer waits for an
+unrelated deploy. edge-functions/shared/indexnow.ts is called from both publish
+paths in blog-generator.ts, non-fatal by construction, gated on INDEXNOW_KEY —
+unset means log-and-skip, so a fork or staging environment cannot submit another
+site's URLs under a key it does not own. This also closes the gap US-WEB008
+opened.
+
+Also corrected docs/BLOG_GENERATION_WEBHOOK.md, which claimed generated posts
+"appear under /blog immediately — no rebuild or deploy is needed". Since
+US-WEB008 that is only half true: readers see the post immediately via the SPA
+fallback, but there is no prerendered HTML or sitemap entry until the next
+build.
+
+Drive-by fix — edge-functions/shared/logger.ts: LogEntry had no index signature,
+yet call sites across the codebase attach their own context (post_id, slug,
+row_id, remaining_pending). Every one was an excess-property error that has
+never surfaced because the Dockerfile runs `deno cache`, which does not
+typecheck, and nothing in CI runs `deno check`. Widened LogEntry with
+[key: string]: unknown rather than adding more type-incorrect calls to the pile.
+Strictly widening — no caller can break, and the keys were already serialized.
+
+Verification against the stub Supabase endpoint (post A: updated_at 2026-07-04,
+published_at 2026-07-01; post B: updated_at null, published_at 2026-06-15):
+  - sitemap lastmod → 2026-07-04 and 2026-06-15, proving both the updated_at
+    read and the published_at fallback
+  - IndexNow 30d window → 4 of 40 URLs, 0 posts (both older than the window)
+  - IndexNow 90d window → 12 of 40, 2 posts
+  - all lastmods forced to 2020-01-01 → zero-qualify fallback fired, all 40
+  - INDEXNOW_WINDOW_DAYS=0 → all 40
+  - clean build with no Supabase config → 39 pages, 38 URLs, exit 0
+Tests 21 passing, lint 19 problems — both unchanged.
+
+Caveat: Deno is not installed in this environment, so edge-functions/shared/
+indexnow.ts could not be typechecked or executed here. It is straight-line code
+with no new dependencies. Worth a smoke test on first deploy: publish a post and
+confirm an "indexnow: submitted" line in the edge-function logs.
+
+NEXT — US-WEB010 is BLOCKED. It needs to know whether production returns 200 for
+/pricing or /pricing/, and dailyok.net:443 is a hard 403 policy denial from this
+session's egress gateway (confirmed at the proxy status endpoint). Dj confirmed
+the origin is https://dailyok.net with no www variant, which settles part of the
+story, but not the trailing-slash form. Needs:
+  curl -sSI https://dailyok.net/pricing  | head -3
+  curl -sSI https://dailyok.net/pricing/ | head -3
+
+================================================================================
+US-WEB010 — One canonical URL form; 301 the trailing-slash duplicates
+                                                                    2026-08-29
+================================================================================
+Was blocked on production behaviour this environment cannot reach (dailyok.net
+is a hard 403 at the egress gateway). Dj ran the check; the answer inverted the
+assumption baked into the code:
+
+    curl.exe -sSI https://dailyok.net/pricing   ->  308, Location: /pricing/
+    curl.exe -sSI https://dailyok.net/pricing/  ->  200 OK
+
+Cloudflare Pages serves the TRAILING-SLASH form. Vike prerenders to
+dist/client/<route>/index.html and Pages serves that at /pricing/, 308ing the
+bare form to it. But every canonical, sitemap <loc>, JSON-LD url and internal
+link used the NO-slash form — so all of them pointed at a URL that redirects.
+Google was told "the canonical is /pricing" while /pricing redirected to
+/pricing/. That contradiction is why both were indexed (114 vs 14 impressions).
+
+Chose the trailing-slash form: state what the server does rather than change the
+server (the alternative fights Vike's directory-style output), and keep the
+variant Google already prefers instead of redirecting the stronger URL to the
+weaker one.
+
+  new  src/lib/canonical.ts        canonicalPath / canonicalUrl, one rule
+  new  src/test/canonical.test.tsx 8 tests incl. the routing check below
+  mod  SEO.tsx, breadcrumb.ts, schemaMarkup.ts, Blog.tsx, BlogPost.tsx
+  mod  Compare.tsx, ComparePost.tsx   hand-rolled canonicals outside <SEO>
+  mod  generate-sitemap.mjs, indexnow-ping.mjs
+  mod  86 static <Link to>, 4 template-literal links, 10 prose <a href>
+  mod  10 competitor JSON citation URLs
+  mod  edge-functions: blog-internal-linker, blog-qa, blog-generator,
+       blog-refresh-agent
+
+Two judgement calls worth recording:
+
+  AC 3 asked for a 301 in _redirects. Deliberately NOT added — Cloudflare Pages
+  already issues a 308 from the bare form, which is permanent and stricter than
+  301 about method preservation. Our own rule would be redundant and could
+  conflict with the platform's normalization.
+
+  AC 4 (http/www): http->https is a Pages default, and Dj confirmed
+  https://dailyok.net is the only website origin (api. and functions. are Kong
+  and the edge functions). No www variant exists, so nothing to redirect.
+
+Load-bearing coupling caught before it broke anything: blog-qa.ts validates
+internal links against KNOWN_STATIC_ROUTES using an exact-match Set. Once
+generated content started using /pricing/, every such link would have been
+reported broken. Normalized the lookup to compare on the bare form so both
+validate — that had to ship in the same change.
+
+Routing risk checked rather than assumed: internal links now render
+href="/pricing/" while routes are declared path="/pricing". Added tests proving
+React Router still resolves /pricing/ and /what-to-do/<slug>/. Had that been
+wrong, every internal link on the site would 404.
+
+Verification sweep over the prerendered output: 40/40 canonicals, 39/39 og:url,
+40/40 sitemap <loc> in trailing-slash form; 1443 internal hrefs scanned, 0
+pointing through the 308 (the one hit was inside the stub post's own body copy,
+i.e. authored content, not site code).
+
+Suite 21 -> 29 passing; lint 19 problems, unchanged. The remaining failure is
+still the pre-existing App.test.tsx home-copy assertion.
+
+================================================================================
+US-WEB011 — Link the three cornerstone pages contextually, not just from the
+footer                                                              2026-08-29
+================================================================================
+Finding #1 in the diagnosis, and the highest-impact single fix in the batch.
+
+The problem: all three cornerstone pages were linked from Footer.tsx and nowhere
+else. Google reads a repeated footer block as boilerplate, so they carried
+almost no internal weight — all three had zero impressions while the HOMEPAGE
+ranked at position 52-88 for "daily check in app", the phrase
+/daily-check-in-app-for-seniors was built to win.
+
+  mod  Home.tsx           all three linked inside the "Perfect For" card copy
+  mod  WhatToDo.tsx       per-relationship link in the prevention section
+  mod  ElderlyCare.tsx    contextual links under the CTA
+  mod  ChildSafety.tsx    contextual link under the CTA
+  mod  WhatToDoIndex.tsx  closing paragraph linking all three
+  mod  Compare.tsx        CTA paragraph linking all three
+  mod  index.css          .cta-footnote
+  mod  Compare.css        .compare-cta-links
+
+Judgement call: the teen, college, spouse and adult-child guides point at
+/child-safety/ rather than a cornerstone page. Sending a worried parent of a
+teenager to a page about aging in place would be worse for the reader, and a
+link nobody clicks helps no one. 9 of 12 what-to-do pages still link a
+cornerstone, which clears AC6 comfortably.
+
+AC5 caught a real problem on the first verification pass: the anchor "Check-in
+app for elderly parents" appeared 14 times sitewide, and "Peace-of-mind app for
+elderly parents" 14 times, because the "Related guides" block hardcoded both on
+all 12 what-to-do pages. That is exactly the boilerplate signal the AC bars, and
+shipping it would have undercut the point of the story. Fixed by giving each map
+entry a short nav `label` alongside its prose `anchor` so the block varies per
+relationship. Max identical-anchor repetition: 14x -> 4x.
+
+Styling note: .cta-footnote lives in index.css, not Home.css — ElderlyCare and
+ChildSafety use .cta-card without importing that stylesheet, so a route-chunked
+rule would not have applied. Colours tint from the green card surface rather
+than a flat gray, per the UI floor in CLAUDE.md.
+
+Verified against prerendered HTML, counting only links outside <footer>:
+  /check-in-app-for-elderly              14 links, 10 pages,  5 anchors
+  /daily-check-in-app-for-seniors        12 links,  9 pages,  6 anchors
+  /peace-of-mind-app-for-elderly-parents 10 links,  8 pages,  4 anchors
+All three linked from the homepage body; both index and both category pages link
+out; no cornerstone left footer-only; zero "Learn more" anchors sitewide.
+
+Tests 29 passing, lint 19 problems — both unchanged.
+
+The five unblock-phase stories (US-WEB008..012) are now four done, one to go.
+
+================================================================================
+US-WEB012 — Own the brand SERP: alternateName schema, sitelinks, naming
+                                                                    2026-08-29
+================================================================================
+Last of the five unblock-phase stories. Brand queries are 69% of known search
+visibility, and we rank only 2.13 for our own exact name "dailyok" while 35
+impressions bleed to "daily keeper" — an unrelated company.
+
+  mod  pages/+onRenderHtml.tsx   alternateName arrays on all three entities
+  mod  src/components/Header.tsx /what-to-do/ and /compare/ added to primary nav
+
+alternateName is now a six-item array on SoftwareApplication, Organization and
+WebSite: "Daily OK", "DailyOK", "dailyok", "Daily O.K.", "Daily OK: Senior
+Check-In", "DailyOK Daily Check-In". Variants taken from the actual Search
+Console query export, not invented.
+
+Two things deliberately NOT added, documented in a comment beside the schema so
+they don't get "fixed" by reflex:
+  - SearchAction / Sitelinks Searchbox. There is no on-site search; declaring
+    one Google cannot exercise is a false claim about the site.
+  - Play Store and social profiles in sameAs. Grepped the repo — none exist.
+    sameAs must list only profiles we control; an invented URL is worse than a
+    short list. Comment says to add Play here when Android ships.
+
+The nav change is the most substantive part beyond schema. It previously
+exposed only Home, For Seniors, Pricing, Blog, Support. /what-to-do carries 38%
+of all site impressions and was reachable only from in-content links; /compare
+was footer-only. Both are now top-level, which gives Google a clearer set to
+draw sitelinks from and puts the best-performing content one click away.
+
+NEEDS DJ — the App Store listing title could not be verified: apps.apple.com is
+a 403 policy denial from this session's egress gateway, same as dailyok.net. The
+URL slug is "dailyok-daily-check-in", and App Store slugs derive from the app
+name, so the listing likely reads "DailyOK - Daily Check-In" rather than
+"Daily OK". That is a third written form of the same entity and a plausible
+contributor to ranking 2.13 for our own brand. Covered defensively via
+alternateName, but aligning the store title is a change only Dj can make in App
+Store Connect.
+
+ALSO NEEDS A POST-DEPLOY CHECK — the Rich Results Test half of AC7 needs
+Google's live tool against the deployed URL. The schema is valid JSON using
+standard properties (alternateName as an array is explicitly supported), so risk
+is low, but worth one run after deploy.
+
+Verified in built output: three entities each with a 6-item alternateName; every
+JSON-LD block parses; og:site_name "Daily OK"; title leads with the brand; nav
+destinations correct. The SearchAction check initially flagged a hit that turned
+out to be the word inside my own comment — re-run against comment-stripped HTML
+to confirm the emitted schema is clean.
+
+Tests 29 passing, lint 19 problems — both unchanged.
+
+UNBLOCK PHASE COMPLETE (US-WEB008..012). Next: US-WEB013, which starts the
+content work by consolidating nine duplicate-filtered /what-to-do pages.
+
+================================================================================
+US-WEB013 — Consolidate the duplicate-filtered /what-to-do pages
+                                                                    2026-08-29
+================================================================================
+Deviated from the AC deliberately: retired SIX pages, not nine.
+
+The AC said consolidate all nine zero-impression guides into the three Google
+selected. Re-checking per query cluster before deleting anything:
+
+  elderly parent   5 pages, 1 selected  -> duplicate-filtered, consolidate
+  grandparent      2 pages, 1 selected  -> duplicate-filtered, consolidate
+  teen             2 pages, 1 selected  -> duplicate-filtered, consolidate
+  college student  1 page,  0 selected  -> no sibling to be a duplicate of
+  spouse           1 page,  0 selected  -> no sibling
+  adult child      1 page,  0 selected  -> no sibling
+
+Duplicate filtering only explains a zero where several near-identical pages
+compete and Google picks one. The last three have no such sibling — their zero
+impressions are the same domain-authority problem affecting every page on the
+site (all non-brand queries rank 52-88). Merging /spouse-not-answering-phone
+into a page titled "an elderly parent doesn't answer the phone" would be a
+misleading redirect, worse for the reader, and a soft-404 risk. Kept them.
+Net: 12 pages -> 6.
+
+Retired (12 redirect rules, both URL forms each):
+  mom, dad, elderly-mother, elderly-parent-living-alone
+       -> elderly-father-not-answering-phone
+  grandma -> grandpa-wont-pick-up
+  teenage-son -> teenage-daughter-not-answering-phone
+
+Survivor slugs deliberately unchanged. elderly-father-not-answering-phone is the
+best-performing page on the site (138 impressions at position 8.64); renaming it
+to match its broadened title would discard the only ranking equity we have.
+Titles and H1s broadened instead.
+
+Content preserved rather than deleted: added WhatToDoVariant to the model and a
+variants[] field rendered as real sections. The elderly-parent page now carries
+"If it's your mother", "If it's your father" and "If they live alone"; the
+grandparent page carries the coordination layer; the teen page carries the
+consent-based framing and agreeing an escalation rule in advance.
+
+Both URL forms are listed per retired slug — once the prerendered directory is
+gone Cloudflare no longer 308s the bare form, so a chain would 404 it.
+
+The PREVENTION_LINK map from US-WEB011 is keyed by slug and had to lose the six
+retired entries in step, or those pages would have silently fallen back to the
+default link.
+
+Verified: prerender 39 -> 33 documents, sitemap 38 -> 32 URLs, zero retired
+slugs in either, exactly 2 redirect rules per retired slug, all absorbed
+sections present in rendered HTML. Survivor word counts 1416 / 1126 / 1207 —
+consolidation deepened the pages rather than thinning them.
+
+Worth noting for future verification work: the first content check reported two
+headings missing that were in fact present — the extractor compared raw HTML
+without decoding &#x27; apostrophes. Decode before asserting on rendered text.
+
+Tests 29 passing (canonical.test.tsx referenced a retired slug, retargeted to a
+survivor), lint 19 problems — unchanged.
+
+================================================================================
+US-WEB014 — Win the click on /what-to-do                            2026-08-29
+================================================================================
+Applied to the six survivors of US-WEB013.
+
+These pages hold 38% of all site visibility at position 8.6 — page one — but
+converted 333 impressions into 1 click (0.3% against ~2% expected). At that
+position the result sits below an AI Overview and a PAA block that answer the
+question first, so the page has to offer what the summary above it cannot.
+
+  mod  src/data/whatToDo.ts   directAnswer field; titles and metas rewritten
+  mod  src/pages/WhatToDo.tsx checklist first; escalation Q&A in schema
+  mod  src/pages/WhatToDo.css .wtd-answer standfirst
+
+Titles previously restated the query ("What to Do When…"), reading as the same
+result as everything else on the page. Now they lead with the situation and
+promise a bounded deliverable — "Elderly Parent Not Answering: The First 30
+Minutes". 47-52 chars, none truncate once " | Daily OK" is appended. The <title>
+now deliberately differs from the H1, which stays conversational for the reader
+who has already arrived.
+
+Metas previously empathised; they now state what the reader gets — an ordered
+plan, the escalation threshold, the exact words for a welfare-check request.
+
+New directAnswer field: 40-60 words under the H1, written to BE the quoted
+answer rather than introduce one, each naming the concrete first move. Counts
+verified 60/51/52/53/51/53.
+
+The first-30-minutes checklist is now the first substantive content, above the
+empathetic intro, as a clean <ol> liftable into a featured snippet. The intro
+moved down beside the context.
+
+Escalation criteria were prose only and are the highest-intent thing on the
+page; they are now a Question in the FAQPage graph. Review caught a real bug:
+page.who is second person for body copy, which produced "When should I escalate
+if YOUR elderly parent…". A question in the searcher's voice needs first person,
+so it now transforms to "my".
+
+HowTo deliberately omitted: Google removed HowTo rich results from Search, so it
+would add payload and change nothing, and a branching triage sequence is not the
+linear procedure HowTo describes. Reason recorded beside the schema.
+
+YMYL intact — byline and not-medical-advice disclaimer both verified present
+after the reorder.
+
+Tests 29 passing, lint 19 problems — unchanged.
+
+================================================================================
+US-WEB015 — Welfare-check pillar page                               2026-08-29
+================================================================================
+New page at /welfare-check-on-elderly-parent/ — 2,070 words, prerendered, in the
+sitemap, 8 inbound internal links. The largest content gap in the diagnosis:
+three ~500/mo terms at competition index 6-13 with $5.46-6.18 bids, previously
+mentioned in passing across eight files with no page targeting them.
+
+  new  src/pages/WelfareCheck.tsx
+  mod  src/App.tsx, pages/+onBeforePrerenderStart.ts, scripts/generate-sitemap.mjs
+  mod  WhatToDoIndex.tsx, ElderlyCare.tsx, WhatToDo.tsx  (inbound links)
+
+Head-term coverage failed the first verification pass and was fixed: "wellness
+check" appeared only inside one FAQ answer, so the page targeted "welfare check"
+and left two of the three 500/mo terms uncovered. Rewrote the opening answer to
+carry all three, added the term to the meta, and added a dedicated H2 —
+"Welfare check or wellness check — is there a difference?" — which owns the
+phrasing and is genuinely useful, because some areas run a separate scheduled
+senior wellness / telephone reassurance programme and that is a real distinction
+for a reader whose problem is recurring rather than urgent.
+
+YMYL handling, since this page tells people how to send police to a relative's
+home: Editorial Team byline, no medical or legal credentials implied, disclaimer
+names legal advice explicitly, and police practice is never stated as universal
+— "what happens when officers arrive" is framed as the common shape rather than
+a guarantee, forced entry as governed by local law and department policy, cost
+as varying by area and insurance.
+
+The product argument is the closing section and says where we are the wrong
+answer: if the worry is a fall needing immediate response, a pendant with
+dispatch is a better fit, linked to the Life Alert comparison. A page that only
+argued for us would not deserve to rank here.
+
+Prerender 33 -> 34, sitemap 32 -> 33. Tests 29 passing, lint 19 — unchanged.

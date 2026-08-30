@@ -4,6 +4,7 @@ import { StaticRouter } from 'react-router-dom'
 import { HelmetProvider, type HelmetServerState } from 'react-helmet-async'
 import { AdminAuthProvider } from '../src/admin/AdminAuthProvider'
 import ErrorBoundary from '../src/components/ErrorBoundary'
+import { BlogSeedProvider, seedFromPageContext } from '../src/lib/blogSeed'
 import type { PageContextServer } from 'vike/types'
 import Page from './+Page'
 
@@ -46,13 +47,38 @@ const STATIC_HEAD = `
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <!--
+      Sitewide entity graph. The alternateName lists are load-bearing, not
+      decoration (US-WEB012): Search Console shows the site ranking only 2.13
+      for its own exact brand name "dailyok", and bleeding 35 impressions to
+      "daily keeper" — an unrelated company. The variants below are the ones
+      real users actually type, taken from the Search Console query export:
+      "dailyok", "daily ok", "ok daily". The App Store slug
+      (dailyok-daily-check-in) implies a third written form, so that is covered
+      too — one entity, every spelling.
+
+      Deliberately ABSENT, so nobody adds them back by reflex:
+        * SearchAction / Sitelinks Searchbox — there is no on-site search.
+          Declaring one Google cannot exercise is a false claim about the site.
+          Add it only if a real /search endpoint ships.
+        * Play Store and social profiles in sameAs — none exist yet. sameAs
+          must only list profiles we actually control; an invented URL is worse
+          than a short list. Add the Play listing here when Android goes live.
+    -->
     <script type="application/ld+json">
     [
       {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
         "name": "Daily OK",
-        "alternateName": "Daily OK: Senior Check-In",
+        "alternateName": [
+          "Daily OK",
+          "DailyOK",
+          "dailyok",
+          "Daily O.K.",
+          "Daily OK: Senior Check-In",
+          "DailyOK Daily Check-In"
+        ],
         "applicationCategory": "HealthApplication",
         "applicationSubCategory": "Caregiving",
         "operatingSystem": "iOS, Android",
@@ -83,6 +109,14 @@ const STATIC_HEAD = `
         "@context": "https://schema.org",
         "@type": "Organization",
         "name": "Daily OK",
+        "alternateName": [
+          "Daily OK",
+          "DailyOK",
+          "dailyok",
+          "Daily O.K.",
+          "Daily OK: Senior Check-In",
+          "DailyOK Daily Check-In"
+        ],
         "url": "https://dailyok.net",
         "logo": "https://dailyok.net/icon-512.png",
         "sameAs": [
@@ -94,7 +128,14 @@ const STATIC_HEAD = `
         "@context": "https://schema.org",
         "@type": "WebSite",
         "name": "Daily OK",
-        "alternateName": "Daily OK: Senior Check-In",
+        "alternateName": [
+          "Daily OK",
+          "DailyOK",
+          "dailyok",
+          "Daily O.K.",
+          "Daily OK: Senior Check-In",
+          "DailyOK Daily Check-In"
+        ],
         "url": "https://dailyok.net"
       }
     ]
@@ -135,14 +176,21 @@ function extractHeadTags(html: string): { headHtml: string; bodyHtml: string } {
 export default async function onRenderHtml(pageContext: PageContextServer) {
   const helmetContext: HelmetContext = {}
 
+  // Blog data fetched at build time by +onBeforePrerenderStart.ts. Without
+  // it the blog renders empty during SSR, which is what made every post
+  // invisible to search engines before US-WEB008.
+  const blogSeed = seedFromPageContext(pageContext)
+
   const tree = (
     <ErrorBoundary>
       <HelmetProvider context={helmetContext}>
-        <AdminAuthProvider>
-          <StaticRouter location={pageContext.urlOriginal ?? '/'}>
-            <Page />
-          </StaticRouter>
-        </AdminAuthProvider>
+        <BlogSeedProvider seed={blogSeed}>
+          <AdminAuthProvider>
+            <StaticRouter location={pageContext.urlOriginal ?? '/'}>
+              <Page />
+            </StaticRouter>
+          </AdminAuthProvider>
+        </BlogSeedProvider>
       </HelmetProvider>
     </ErrorBoundary>
   )

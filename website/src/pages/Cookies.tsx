@@ -88,7 +88,7 @@ export default function Cookies() {
               Advertisers) or the Android Advertising ID. We do not integrate any
               advertising or attribution SDKs. The apps use a push-notification token (APNs
               on iOS, FCM on Android) solely to deliver check-in and escalation
-              notifications, as described in our <a href="/privacy">Privacy Policy</a>.
+              notifications, as described in our <a href="/privacy/">Privacy Policy</a>.
             </p>
           </section>
 

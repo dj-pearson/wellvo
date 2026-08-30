@@ -51,7 +51,7 @@ export default function Home() {
               Download for iPhone
               <ArrowRight size={18} />
             </a>
-            <Link to="/pricing" className="btn btn-secondary btn-lg">
+            <Link to="/pricing/" className="btn btn-secondary btn-lg">
               View Pricing
             </Link>
           </div>
@@ -267,7 +267,7 @@ export default function Home() {
               <p>
                 Receivers can choose to attach a location pin to their check-in. Location is
                 only collected with your permission, never sold, and can be turned off at any
-                time. <a href="/privacy">Learn more</a>.
+                time. <a href="/privacy/">Read how we handle your data</a>.
               </p>
             </div>
             <div className="no-track-item">
@@ -304,9 +304,13 @@ export default function Home() {
               <p>
                 Adult children checking on parents living alone — especially those with
                 early-stage dementia or Alzheimer's. A simple, dignified daily wellness check
-                without invasive monitoring.
+                without invasive monitoring — see how the{' '}
+                <Link to="/check-in-app-for-elderly/">check-in app for elderly parents</Link>{' '}
+                works.
               </p>
-              <Link to="/elderly-care" className="use-case-link">Learn more</Link>
+              <Link to="/elderly-care/" className="use-case-link">
+                Daily OK for dementia &amp; elderly care
+              </Link>
             </div>
             <div className="use-case">
               <div className="use-case-emoji" role="img" aria-label="Children playing">👦</div>
@@ -315,14 +319,20 @@ export default function Home() {
                 Parents of children playing outside, walking home from school, or staying home
                 alone. A quick daily check-in so you know they're safe — without hovering.
               </p>
-              <Link to="/child-safety" className="use-case-link">Learn more</Link>
+              <Link to="/child-safety/" className="use-case-link">
+                Daily OK for kids &amp; teens
+              </Link>
             </div>
             <div className="use-case">
               <div className="use-case-emoji" role="img" aria-label="Globe">🌍</div>
               <h3>Long-Distance Families</h3>
               <p>
                 Stay connected with family across states or countries. A daily "I'm OK" signal
-                that bridges the distance and eases the worry.
+                that bridges the distance — the{' '}
+                <Link to="/peace-of-mind-app-for-elderly-parents/">
+                  peace-of-mind app for elderly parents
+                </Link>{' '}
+                when you can't drop by to check.
               </p>
             </div>
             <div className="use-case">
@@ -331,7 +341,9 @@ export default function Home() {
               <p>
                 Whether you're a professional caregiver or a family member coordinating care,
                 Daily OK provides a reliable daily wellness signal with history and PDF reports
-                you can share with healthcare providers.
+                you can share with healthcare providers. Built as a{' '}
+                <Link to="/daily-check-in-app-for-seniors/">daily check-in app for seniors</Link>{' '}
+                aging in place.
               </p>
             </div>
           </div>
@@ -355,7 +367,7 @@ export default function Home() {
                 Download for iPhone
                 <ArrowRight size={18} />
               </a>
-              <Link to="/pricing" className="btn btn-outline btn-lg">
+              <Link to="/pricing/" className="btn btn-outline btn-lg">
                 Compare Plans
               </Link>
             </div>

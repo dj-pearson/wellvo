@@ -5,6 +5,7 @@ import { HelmetProvider } from 'react-helmet-async'
 import { AdminAuthProvider } from '../src/admin/AdminAuthProvider'
 import ErrorBoundary from '../src/components/ErrorBoundary'
 import { initSentry } from '../src/lib/sentry'
+import { BlogSeedProvider, seedFromPageContext } from '../src/lib/blogSeed'
 import type { PageContextClient } from 'vike/types'
 import Page from './+Page'
 
@@ -14,19 +15,25 @@ initSentry()
 
 let rendered = false
 
-export default async function onRenderClient(_pageContext: PageContextClient) {
+export default async function onRenderClient(pageContext: PageContextClient) {
   const container = document.getElementById('root')
   if (!container) return
+
+  // Must match what +onRenderHtml.tsx rendered, or hydration mismatches
+  // on every prerendered blog page (US-WEB008).
+  const blogSeed = seedFromPageContext(pageContext)
 
   const tree = (
     <StrictMode>
       <ErrorBoundary>
         <HelmetProvider>
-          <AdminAuthProvider>
-            <BrowserRouter>
-              <Page />
-            </BrowserRouter>
-          </AdminAuthProvider>
+          <BlogSeedProvider seed={blogSeed}>
+            <AdminAuthProvider>
+              <BrowserRouter>
+                <Page />
+              </BrowserRouter>
+            </AdminAuthProvider>
+          </BlogSeedProvider>
         </HelmetProvider>
       </ErrorBoundary>
     </StrictMode>

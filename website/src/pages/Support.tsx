@@ -90,7 +90,7 @@ export default function Support() {
               <MessageCircle size={28} />
               <h2>In-App Support</h2>
               <p>Family+ subscribers get priority support directly within the app.</p>
-              <Link to="/pricing" className="btn btn-secondary">
+              <Link to="/pricing/" className="btn btn-secondary">
                 View Plans
               </Link>
             </div>

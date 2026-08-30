@@ -1,3 +1,33 @@
-/admin / 200
-/admin/* / 200
-/blog/* / 200
+# Admin is a client-only SPA surface (robots-disallowed, behind auth).
+/admin      /   200
+/admin/*    /   200
+
+# Blog posts are prerendered to their own HTML (US-WEB008), and Cloudflare
+# Pages serves a matching static file before consulting this file. This rule
+# is only reached by a post published since the last build — the generation
+# webhook publishes straight to Supabase without a redeploy
+# (docs/BLOG_GENERATION_WEBHOOK.md), so those must still render rather than
+# 404. Serving the blog index shell lets React Router fetch and render the
+# post client-side; the next build replaces it with real prerendered HTML.
+# It must NOT point at `/`, which is what previously gave every post the
+# homepage's title and canonical.
+/blog/*     /blog/index.html   200
+
+# Consolidated /what-to-do guides (US-WEB013). Five pages answering "my
+# elderly parent is not picking up" were one query intent to Google: it
+# selected one and filtered the rest, leaving 9 of 12 guides with zero
+# impressions in four months. Their distinct advice now lives as sections on
+# the surviving page. Both URL forms are listed because once the prerendered
+# directory is gone, Pages no longer 308s the bare form to the slash form.
+/what-to-do/mom-not-answering-phone   /what-to-do/elderly-father-not-answering-phone/   301
+/what-to-do/mom-not-answering-phone/  /what-to-do/elderly-father-not-answering-phone/   301
+/what-to-do/dad-not-answering-phone   /what-to-do/elderly-father-not-answering-phone/   301
+/what-to-do/dad-not-answering-phone/  /what-to-do/elderly-father-not-answering-phone/   301
+/what-to-do/elderly-mother-not-answering-phone   /what-to-do/elderly-father-not-answering-phone/   301
+/what-to-do/elderly-mother-not-answering-phone/  /what-to-do/elderly-father-not-answering-phone/   301
+/what-to-do/elderly-parent-living-alone-not-answering   /what-to-do/elderly-father-not-answering-phone/   301
+/what-to-do/elderly-parent-living-alone-not-answering/  /what-to-do/elderly-father-not-answering-phone/   301
+/what-to-do/grandma-wont-pick-up   /what-to-do/grandpa-wont-pick-up/   301
+/what-to-do/grandma-wont-pick-up/  /what-to-do/grandpa-wont-pick-up/   301
+/what-to-do/teenage-son-not-answering-phone   /what-to-do/teenage-daughter-not-answering-phone/   301
+/what-to-do/teenage-son-not-answering-phone/  /what-to-do/teenage-daughter-not-answering-phone/   301

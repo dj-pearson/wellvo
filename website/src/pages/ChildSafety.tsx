@@ -89,7 +89,7 @@ export default function ChildSafety() {
               Download Free for iPhone
               <ArrowRight size={18} />
             </a>
-            <Link to="/pricing" className="btn btn-secondary btn-lg">
+            <Link to="/pricing/" className="btn btn-secondary btn-lg">
               View Plans
             </Link>
           </div>
@@ -276,10 +276,18 @@ export default function ChildSafety() {
                 Download Free for iPhone
                 <ArrowRight size={18} />
               </a>
-              <Link to="/pricing" className="btn btn-outline btn-lg">
+              <Link to="/pricing/" className="btn btn-outline btn-lg">
                 Compare Plans
               </Link>
             </div>
+            <p className="cta-footnote">
+              Looking after a parent as well as a child? The same one-tap check-in is built
+              out for that on the{' '}
+              <Link to="/peace-of-mind-app-for-elderly-parents/">
+                peace-of-mind app for elderly parents
+              </Link>{' '}
+              page.
+            </p>
           </div>
         </div>
       </section>

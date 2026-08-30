@@ -26,7 +26,7 @@ export default function Privacy() {
             <p>
               By using the Service you agree to the practices described here. If you do not
               agree, please do not use the Service. This Policy is incorporated into our{' '}
-              <a href="/terms">Terms of Use</a>.
+              <a href="/terms/">Terms of Use</a>.
             </p>
           </section>
 
@@ -366,7 +366,7 @@ export default function Privacy() {
               Google Analytics, which sets first-party analytics cookies; it is off by default
               and loaded only if you accept our cookie banner (and never if your browser sends
               a Global Privacy Control signal). See our{' '}
-              <a href="/cookies">Cookie Notice</a> for details.
+              <a href="/cookies/">Cookie Notice</a> for details.
             </p>
           </section>
 
@@ -411,7 +411,7 @@ export default function Privacy() {
               Mailing address: Pearson Media LLC, 7889 Beechtree Ln, West Des Moines,
               IA 50266, USA
               <br />
-              Website: <a href="https://dailyok.net/support">dailyok.net/support</a>
+              Website: <a href="https://dailyok.net/support/">dailyok.net/support</a>
             </p>
             <p>
               <strong>EU/UK Representative:</strong> Daily OK does not currently maintain a

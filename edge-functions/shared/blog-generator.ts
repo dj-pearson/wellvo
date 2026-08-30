@@ -23,6 +23,7 @@ import { scoreBlogPost } from "./seo-scorer.ts";
 import { runCritiqueLoop, readCritiqueLoopConfig, type CritiqueLoopResult, type DraftArticle } from "./blog-critic.ts";
 import { autoInjectInternalLinks, applyLinkerResult } from "./blog-internal-linker.ts";
 import { logInfo, logError } from "./logger.ts";
+import { pingIndexNowForSlug } from "./indexnow.ts";
 
 /**
  * Tool schema for structured article output. Anthropic returns the tool's
@@ -296,6 +297,10 @@ async function generateFromBankRow(
       row_id: row.id, post_id: post.id, slug: post.slug, remaining_pending: remaining,
     });
 
+    // Announce the new post now rather than waiting for the next website
+    // deploy to re-run the build-time ping (US-WEB009). Never throws.
+    await pingIndexNowForSlug(post.slug);
+
     return {
       source: "blog_title_bank",
       post_id: post.id,
@@ -367,6 +372,9 @@ async function generateFromFallback(
     post_id: post.id, slug: post.slug, topic_rationale: article.topic_rationale,
     critique_iterations: loop.iterations.length,
   });
+
+  // See the bank path above — announce immediately, never throw (US-WEB009).
+  await pingIndexNowForSlug(post.slug);
 
   return {
     source: "fallback",
@@ -457,7 +465,7 @@ function buildSystemPrompt(config: Record<string, unknown>, fallback: boolean): 
     const links = (conversion.download_links ?? {}) as Record<string, string>;
     if (Object.keys(links).length) {
       const linksLine = Object.entries(links).map(([k, v]) => `${k}=${v}`).join(" | ");
-      convParts.push(`Available links: ${linksLine}. Use /pricing for commercial context; App Store / Play Store URLs only in the closing CTA when the reader is ready to install.`);
+      convParts.push(`Available links: ${linksLine}. Use /pricing/ for commercial context; App Store / Play Store URLs only in the closing CTA when the reader is ready to install.`);
     }
 
     const placement = (conversion.cta_placement ?? {}) as Record<string, unknown>;

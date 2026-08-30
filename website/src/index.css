@@ -187,3 +187,40 @@ img {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * Contextual footnote under a CTA card's buttons (US-WEB011).
+ *
+ * Carries in-content links out to the cornerstone landing pages. Those pages
+ * were previously reachable only from the footer, which Google reads as
+ * boilerplate — all three had zero impressions while the homepage ranked in
+ * their place for their own target phrases.
+ *
+ * Lives here rather than in Home.css because ElderlyCare and ChildSafety use
+ * .cta-card without importing that stylesheet. Colours are tinted from the
+ * green card surface rather than a flat gray, which would read as muddy on a
+ * saturated ground. The .cta-card prefix is needed to beat `.cta-card p`.
+ */
+.cta-footnote {
+  max-width: 62ch;
+  margin: 20px auto 0;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.cta-card .cta-footnote {
+  margin-bottom: 0;
+  color: #e8f6ee;
+  opacity: 1;
+}
+
+.cta-card .cta-footnote a {
+  color: #ffffff;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cta-card .cta-footnote a:hover {
+  text-decoration-thickness: 2px;
+}

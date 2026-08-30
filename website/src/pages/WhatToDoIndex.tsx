@@ -49,12 +49,37 @@ export default function WhatToDoIndex() {
           <h2>Choose the guide that fits</h2>
           <div className="wtd-index-grid">
             {whatToDoPages.map((p) => (
-              <Link key={p.slug} to={`/what-to-do/${p.slug}`} className="wtd-index-card">
+              <Link key={p.slug} to={`/what-to-do/${p.slug}/`} className="wtd-index-card">
                 <span className="wtd-index-card-title">{p.h1}</span>
                 <span className="wtd-index-card-sub">{p.metaDescription}</span>
               </Link>
             ))}
           </div>
+
+          <h2>If you are about to call the police</h2>
+          <p>
+            Several of these guides end at the same decision. If you have reached it,{' '}
+            <Link to="/welfare-check-on-elderly-parent/">
+              how to request a welfare check on an elderly parent
+            </Link>{' '}
+            covers who can ask, the number to call, exactly what to say, what happens when
+            officers arrive, and what it costs.
+          </p>
+
+          <h2>Stop having to look this up</h2>
+          <p>
+            Every guide here ends at the same place: the reason an unanswered call is
+            frightening is that silence could mean nothing or everything, and there is no fast
+            way to tell. A once-a-day check-in closes that gap. Depending on who you are
+            worried about, start with the{' '}
+            <Link to="/check-in-app-for-elderly/">check-in app for elderly parents</Link>, the{' '}
+            <Link to="/daily-check-in-app-for-seniors/">daily check-in app for seniors</Link>{' '}
+            aging in place, or the{' '}
+            <Link to="/peace-of-mind-app-for-elderly-parents/">
+              peace-of-mind app for elderly parents
+            </Link>{' '}
+            if you are the one doing the worrying from a distance.
+          </p>
         </div>
       </section>
     </>

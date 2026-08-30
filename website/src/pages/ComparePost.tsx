@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
+import { canonicalUrl } from '../lib/canonical'
 import { competitors, getCompetitor, type FeatureRow } from '../data/competitors'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import './Compare.css'
@@ -18,11 +19,11 @@ export default function ComparePost() {
       <section className="section">
         <div className="container">
           <div className="compare-breadcrumb">
-            <Link to="/compare">← All comparisons</Link>
+            <Link to="/compare/">← All comparisons</Link>
           </div>
           <h1>Comparison not found</h1>
           <p>We don't have a head-to-head for that one yet.</p>
-          <p><Link to="/compare">Browse all comparisons →</Link></p>
+          <p><Link to="/compare/">Browse all comparisons →</Link></p>
         </div>
       </section>
     )
@@ -30,7 +31,9 @@ export default function ComparePost() {
 
   const title = `Daily OK vs. ${competitor.name}: honest comparison (2026)`
   const description = competitor.daily_ok_verdict.split('.').slice(0, 2).join('.') + '.'
-  const canonical = `https://dailyok.net/compare/daily-ok-vs-${competitor.slug}`
+  // Trailing-slash form via the shared helper — this page builds its own
+  // canonical rather than going through <SEO>, so it has to opt in (US-WEB010).
+  const canonical = canonicalUrl(`/compare/daily-ok-vs-${competitor.slug}`)
 
   const faqJsonLd = {
     '@context': 'https://schema.org',
@@ -91,7 +94,7 @@ export default function ComparePost() {
           <div className="compare-breadcrumb">
             <Link to="/">Home</Link>
             <span>/</span>
-            <Link to="/compare">Compare</Link>
+            <Link to="/compare/">Compare</Link>
             <span>/</span>
             <span>Daily OK vs. {competitor.name}</span>
           </div>
@@ -119,7 +122,7 @@ export default function ComparePost() {
               <ul>
                 {competitor.best_for_daily_ok.map((b) => <li key={b}>{b}</li>)}
               </ul>
-              <Link to="/pricing" className="btn btn-primary compare-best-cta">See Daily OK plans →</Link>
+              <Link to="/pricing/" className="btn btn-primary compare-best-cta">See Daily OK plans →</Link>
             </div>
             <div className="compare-best-card">
               <h3>Pick {competitor.name} if</h3>
@@ -185,7 +188,7 @@ export default function ComparePost() {
               prompt and a calm family-first alert chain if it's missed. Setup is designed to take
               under two minutes on your phone.
             </p>
-            <Link to="/pricing" className="btn btn-primary">See the plans</Link>
+            <Link to="/pricing/" className="btn btn-primary">See the plans</Link>
           </div>
 
           {siblings.length > 0 && (
@@ -193,7 +196,7 @@ export default function ComparePost() {
               <h2>Related comparisons</h2>
               <div className="compare-siblings">
                 {siblings.map((s) => (
-                  <Link key={s.slug} to={`/compare/daily-ok-vs-${s.slug}`} className="compare-sibling">
+                  <Link key={s.slug} to={`/compare/daily-ok-vs-${s.slug}/`} className="compare-sibling">
                     Daily OK vs. {s.name} →
                   </Link>
                 ))}
