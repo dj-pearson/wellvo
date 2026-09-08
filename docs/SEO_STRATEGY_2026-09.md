@@ -4,9 +4,9 @@
 Keeps that document's plumbing findings and order-of-work, which are unchanged.
 
 **Data:** GSC query export, 30 days to 2026-09-08 (252 impressions, 3 clicks).
-Google Keyword Planner, Aug 2025 – Jul 2026, five pulls covering 600+ keywords across
-generic check-in, senior check-in, welfare/wellness check, living-alone, and
-medical-alert clusters.
+Google Keyword Planner, Aug 2025 – Jul 2026, eight pulls covering ~1,900 keywords across
+generic check-in, senior check-in, welfare/wellness check, living-alone, medical-alert,
+problem-moment, competitor-brand, and wider-persona clusters.
 
 ---
 
@@ -93,6 +93,28 @@ Exception worth one page: `alarm for elderly living alone` — 50/mo, competitio
 bid **$7.89–20.58**. The highest bid in the entire dataset attached to a
 low-competition term.
 
+### The wider-persona hypothesis — dead
+
+Proposed in conversation as the smarter alternative to a generic reframe: same
+safety intent, wider person (living alone with a medical condition, lone workers,
+mental-health and sobriety check-ins). The pull returned eight rows, seven of them
+with no data at all:
+
+| Keyword | Vol/mo | Comp. | Bid |
+| --- | ---: | ---: | --- |
+| check in app for people who live alone | 50 | 0 | none |
+| living alone safety app | — | — | — |
+| safety app for living alone | — | — | — |
+| epilepsy check in app | — | — | — |
+| seizure alert app for living alone | — | — | — |
+| mental health daily check in app | — | — | — |
+| daily check in app for depression | — | — | — |
+| sobriety check in app | — | — | — |
+
+`lone worker check in app` and `man down app` were seeded and returned nothing.
+There is no search demand for the wider persona. It may still be a valid *product*
+direction; it is not a search-acquisition direction.
+
 ### Long-tail worry phrasings — real but unmeasurable
 
 `check in app for elderly parents`, `welfare check elderly parent`,
@@ -100,16 +122,68 @@ low-competition term.
 `monitoring elderly parent living alone`, `how to keep elderly parent safe at home`,
 `aging in place app` all returned blank.
 
-Blank is **not zero** — GSC shows `checking in on elderly parent daily` earning real
-impressions, and the `/what-to-do` pages are the site's best-performing asset at
-position 8.6. Planner simply cannot see below ~10 searches/month. Keep the existing
-pages; do not build the plan on terms Planner cannot size.
+The problem-moment pull confirms it directly — 11 rows, 8 blank, and the three that
+reported are all competition index **0** with **no bids**:
+
+| Keyword | Vol/mo | Comp. | Bid |
+| --- | ---: | ---: | --- |
+| elderly parent not answering phone | 50 | 0 | none |
+| mom not answering phone | 50 | 0 | none |
+| how to stop worrying about elderly parents | 50 | 0 | none |
+| how to stop worrying about aging parents | 50 | 0 | none |
+
+Blank is **not zero** — GSC shows `/what-to-do/elderly-father-not-answering-phone`
+earning 138 impressions at position 8.6, the site's best-performing asset. Planner
+cannot see below ~10 searches/month.
+
+**But the zero bids are their own finding.** No advertiser monetises "mom isn't
+answering her phone" because the searcher is mid-panic and will not buy anything in
+that moment. That explains the 333 impressions → 1 click recorded in
+`SEARCH_CONSOLE_DIAGNOSIS.md` §3.5 better than the AI-Overview theory does.
+
+**Reclassify the `/what-to-do` cluster as an authority and trust asset, not an
+acquisition asset.** It earns the rankings, the citations and the entity signal that
+make the commercial pages rankable. Judge it on impressions and links, not on signups.
+Keep the pages; stop expecting conversions from them.
 
 ---
 
 ## 3. Targets, ranked
 
-### Tier 1 — the wellness / welfare-check cluster (build first)
+### Tier 0 — direct-competitor comparisons (build first; highest intent, lowest competition)
+
+| Keyword | Vol/mo | Comp. index | Top bid |
+| --- | ---: | ---: | ---: |
+| snug safety | 500 | **2** | $5.72 |
+| snug safety app | 500 | **6** | $3.95 |
+| iamfine | 500 | **18** | $3.76 |
+| snug safety app reviews | 50 | 6 | $5.94 |
+| snug safety app for android | 50 | 0 | — |
+| iamfine com | 50 | 36 | — |
+| checkin bee | 50 | 0 | — |
+
+Roughly **1,100 searches/month at competition index 0–18** for our three actual
+direct competitors — app-based daily check-in, the same category we are in. Nobody
+is defending these terms, including the brands themselves.
+
+This is the highest-intent traffic available to us: someone searching `snug safety
+app` has already accepted the category and is comparison-shopping. Compare that with
+the problem-moment cluster, where the searcher is in a panic and buys nothing.
+
+**We already have the infrastructure.** `website/src/data/competitors/` holds
+`snug-safety.json`, `checkin-bee.json` and eight others, and the `/compare/*` routes
+are built. `SEARCH_CONSOLE_DIAGNOSIS.md` §4 records nine of ten compare pages at zero
+impressions — pages already written, targeting a 500/mo term at competition index 2,
+earning nothing. This is the cheapest win on the list: no new content type, no new
+route, only depth, internal links and honest reviews-and-pricing detail.
+
+`iamfine` has no compare page. Build one.
+
+**Caveat on brand terms:** ranking for a competitor's brand is possible but capped —
+their own site and app-store listing take the top slots. Realistic target is
+positions 3–6, and the compare page must be genuinely fair to hold them.
+
+### Tier 1 — the wellness / welfare-check cluster (build second)
 
 | Keyword | Vol/mo | Comp. index | Top bid |
 | --- | ---: | ---: | ---: |
@@ -169,6 +243,27 @@ daily at $30–70/mo. One honest "telephone reassurance service vs. app — what
 who each suits, when a volunteer calling programme is genuinely better" page takes the
 cluster and earns links.
 
+### Tier 2b — the price wedge inside the medical-alert cluster
+
+The medical-alert cluster is index 87–100 overall, but the *affordability* and
+*honest-opinion* slices are not:
+
+| Keyword | Vol/mo | Comp. index | Top bid |
+| --- | ---: | ---: | ---: |
+| medical alert services for seniors | 500 | **12** | $28.39 |
+| affordable medical alert systems | 500 | **8** | $14.11 |
+| least expensive medical alert system | 500 | **8** | $14.11 |
+| life alert reddit | 500 | **20** | $7.05 |
+| life alert type services | 50 | 32 | $16.96 |
+| reddit life alert | 50 | 31 | $12.96 |
+| medical alert smartwatches | 50 | 22 | $9.65 |
+
+At $3.99/mo Daily OK is a truthful answer to "affordable" and "least expensive" in a
+way no hardware vendor can match, and the Reddit-modified queries are people
+explicitly seeking an unsponsored opinion — which a fair comparison page supplies.
+These sit inside a cluster we otherwise avoid, so target them from comparison and
+pricing pages rather than by building a medical-alert section.
+
 ### Tier 3 — single-page opportunities
 
 | Keyword | Vol/mo | Comp. index | Top bid |
@@ -184,9 +279,11 @@ cluster and earns links.
 
 ## 4. The honest ceiling
 
-Tier 1 + Tier 1b + Tier 2 is approximately **3,000–3,500 searches/month**. Ranking first
-across all of it at a generous blended 15% CTR is roughly **500 clicks/month** — the
-best case, fully achieved, 6–12 months out.
+Tier 0 + Tier 1 + Tier 1b + Tier 2 + Tier 2b is approximately **5,000–5,500
+searches/month**. Ranking first across all of it at a generous blended 15% CTR is
+roughly **750–800 clicks/month** — the best case, fully achieved, 6–12 months out.
+Tier 0 and Tier 2b raise this above the estimate made before the competitor pull, but
+not by an order of magnitude.
 
 Worth building: it is cheap, it compounds, and the welfare-check cluster is genuinely
 undefended. It is **not a growth plan**, and no keyword selection will make it one. That
@@ -211,10 +308,14 @@ its §7. Priority order:
 2. **Brand CTR.** 112 impressions at position 1.73 returning 3 clicks is 2.68% against
    an expected 25–35%. That is ~30 clicks/month already earned and not collected —
    worth more than any new page. Diagnose what takes the click.
-3. **Internal linking to `/daily-check-in-app-for-seniors`** (Tier 1b above).
-4. **Deepen the welfare-check hub** (Tier 1) plus 3–4 supporting pages.
-5. **The telephone-reassurance comparison page** (Tier 2).
-6. **Citations and links.** If referring domains are near zero, items 3–5 will not rank
+3. **Deepen the competitor compare pages** (Tier 0) — `snug-safety` and
+   `checkin-bee` exist and rank nowhere; `iamfine` needs building. Cheapest win
+   available: 1,100/mo at competition index 0–18 against pages already written.
+4. **Internal linking to `/daily-check-in-app-for-seniors`** (Tier 1b above).
+5. **Deepen the welfare-check hub** (Tier 1) plus 3–4 supporting pages.
+6. **The telephone-reassurance comparison page** (Tier 2), carrying the Tier 2b
+   affordability angle.
+7. **Citations and links.** If referring domains are near zero, items 3–5 will not rank
    regardless of quality.
 
 Still needed to close the diagnosis: GSC Pages export, GSC Indexing report, and GSC
