@@ -42,7 +42,6 @@ jobs:
         # checking it reaches all of them and their shared modules.
         run: deno check server.ts
 
-      # deno lint is NOT gated yet — there are 6 pre-existing problems
-      # (unused vars, prefer-const, async functions with no await). Turning it
-      # red on day one is how a gate gets disabled. Tracked in US-EDGE003;
-      # add `deno lint` here once that lands.
+      - name: Lint
+        working-directory: edge-functions
+        run: deno lint

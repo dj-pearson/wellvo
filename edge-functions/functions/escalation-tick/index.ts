@@ -24,7 +24,8 @@ async function sendByPlatform(
   fcmData: Record<string, string>,
   apnsOptions?: { priority?: number; collapseId?: string },
 ): Promise<{ success: boolean; statusCode: number; reason?: string }[]> {
-  return Promise.all(
+  // `return await` rather than dropping async — see shared/ai.ts for why.
+  return await Promise.all(
     tokens.map((t) => {
       if (t.platform === "android") {
         return sendFCMNotification(t.token, buildFCMAlertPayload(fcmTitle, fcmBody, fcmData));

@@ -2478,3 +2478,46 @@ than style, so they want reading before deleting.
 CAVEAT: verified with deno 2.9.6, the version installable in this environment.
 CI and the Dockerfile pin 2.1.4, whose bundled TypeScript is older. The first CI
 run is the real confirmation for that version.
+
+================================================================================
+US-EDGE003 — deno lint clean, and gated                               2026-09-09
+================================================================================
+`deno lint` reports no problems across 48 files. The step is now in
+edge-functions-check.yml alongside the typecheck, and the comment explaining its
+absence is gone.
+
+  mod  .github/workflows/edge-functions-check.yml     + deno lint step
+  mod  edge-functions/functions/invite-receiver/index.ts
+  mod  edge-functions/functions/subscription-cancellation/index.ts
+  mod  edge-functions/functions/process-checkin-response/index.ts
+  mod  edge-functions/functions/escalation-tick/index.ts
+  mod  edge-functions/shared/ai.ts, shared/blog-generator.ts
+
+The instruction was to read each before deleting, because an unused import or an
+async with no await is often a dropped call site. Worth doing — the answer
+differed by rule.
+
+The two unused vars WERE genuinely dead:
+  * invite-receiver imported truncateString but never called it. Not a lost
+    sanitizer: `name` is length-validated with a 400 response, which is better
+    than silently truncating someone's name and storing the stub.
+  * subscription-cancellation destructured product_id it never needed. A family
+    holds one subscription, so cancellation is identified by owner. Left a
+    comment rather than a silent deletion, because "why is this ignored" is the
+    question the next reader will have — and matching on product_id would be
+    actively worse: an unrecognised product id would mean ignoring a real
+    cancellation and leaving a family with paid access they had cancelled.
+
+The three require-await were NOT fixed the obvious way. Dropping `async` is
+what the hint suggests and it is wrong here. All three return a promise
+directly, so with `async` a synchronous throw inside becomes a rejected
+promise; without it, the throw escapes synchronously at the caller. A caller
+writing `await f()` sees no difference. A caller writing `f().catch(...)` sees
+its handler skipped entirely — and finishGeneration's own doc comment says it is
+"safe to run as a fire-and-forget background task", which is precisely the
+caller that would break.
+
+All three now use `return await`, which satisfies the rule, preserves the
+semantics exactly, and keeps the frame in the async stack trace.
+
+deno check still exits 0. Both gates are live.

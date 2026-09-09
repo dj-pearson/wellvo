@@ -8,7 +8,12 @@ import type { AuthResult } from "../../shared/auth.ts";
  */
 export async function handleSubscriptionCancellation(req: Request, auth: AuthResult): Promise<Response> {
   const body = await req.json();
-  const { app_account_token, product_id } = body;
+  // product_id arrives in the App Store notification but is deliberately not
+  // read: a family holds one subscription, so cancellation is identified by the
+  // owner, not the product. Matching on product_id would risk ignoring a real
+  // cancellation whose product id we did not recognise, which is the worse
+  // failure — the family would keep paid access they had cancelled.
+  const { app_account_token } = body;
 
   // Identify user
   const userId = app_account_token || auth.userId;

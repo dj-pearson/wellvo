@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
-import { isValidUUID, isValidTime24H, isValidTimezone, truncateString, sanitizeDisplayName } from "../../shared/validation.ts";
+import { isValidUUID, isValidTime24H, isValidTimezone, sanitizeDisplayName } from "../../shared/validation.ts";
 
 interface InviteRequest {
   action?: "create" | "accept";

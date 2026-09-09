@@ -4433,8 +4433,8 @@
         "The `deno lint` step is added to .github/workflows/edge-functions-check.yml and the comment there explaining its absence is removed"
       ],
       "priority": 238,
-      "passes": false,
-      "notes": "Split from US-EDGE002 to keep a CI change from carrying semantic edits. NEXT ITERATION."
+      "passes": true,
+      "notes": "DONE and VERIFIED: `deno lint` reports no problems across 48 files and `deno check server.ts` still exits 0. The lint step is now in .github/workflows/edge-functions-check.yml and the comment explaining its absence is gone. Read before deleting, as required, and the answer was different for each rule. The two no-unused-vars were genuinely dead, not dropped call sites: invite-receiver imported truncateString but validates name length explicitly and 400s instead of silently truncating, which is the better behaviour; subscription-cancellation destructured product_id it never needed, since a family holds one subscription and cancellation is identified by owner. The three require-await were NOT fixed by dropping `async`, which is the obvious move and is wrong here: all three return a promise directly, and without `async` a synchronous throw from the returned expression would escape at the caller instead of arriving as a rejected promise. finishGeneration is documented as safe to run fire-and-forget, so a caller may attach .catch() rather than await — exactly the case that would break. All three use `return await`, which satisfies the rule, preserves the semantics and keeps the frame in the stack trace."
     },
     {
       "id": "US-LEG001",

@@ -167,9 +167,13 @@ export async function claimNext(opts: GenerateOptions = {}): Promise<ClaimResult
  * state is updated to 'published' on success or 'failed' on error.
  */
 export async function finishGeneration(claim: ClaimResult, opts: GenerateOptions = {}): Promise<GenerationResult> {
-  return claim.row
+  // `return await` keeps this async. The doc comment above says it is safe to
+  // run fire-and-forget, so a caller may well attach .catch() instead of
+  // awaiting — and a bare return with async dropped would let a synchronous
+  // throw escape that .catch() entirely.
+  return await (claim.row
     ? generateFromBankRow(claim.row, claim.config, opts)
-    : generateFromFallback(claim.config, opts);
+    : generateFromFallback(claim.config, opts));
 }
 
 /**
