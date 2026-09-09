@@ -2,12 +2,46 @@ import SwiftUI
 import AuthenticationServices
 import CryptoKit
 import Security
+import os
 import Supabase
 
 enum AuthState: Equatable {
     case loading
     case unauthenticated
     case authenticated
+}
+
+/// The collaborators `AuthViewModel.signOut` tears down.
+///
+/// Exists so the teardown can be asserted (US-IOS141). US-IOS140 was a bug where
+/// a thrown server revoke skipped every one of these — including clearing the
+/// shared Keychain tokens the widget, watch and Siri authenticate with — and
+/// nothing could have caught it, because signOut reached five singletons
+/// directly and a test had no way to observe any of them.
+///
+/// Deliberately narrow. This is the sign-out path, not a dependency container
+/// for the whole view model.
+struct SignOutDependencies {
+    /// Runs BEFORE the revoke — it needs the session to know whose token row to
+    /// deactivate (US-IOS142).
+    var deactivatePushToken: @MainActor () async -> Void
+    var revokeServerSession: @MainActor () async throws -> Void
+    var resetBiometric: @MainActor () async -> Void
+    var stopHeartbeat: @MainActor () -> Void
+    var resetReconcileLatch: @MainActor () -> Void
+    var clearSharedSession: @MainActor () -> Void
+
+    @MainActor
+    static var live: SignOutDependencies {
+        SignOutDependencies(
+            deactivatePushToken: { await PushNotificationService.shared.deactivateCurrentDeviceToken() },
+            revokeServerSession: { try await AuthService.shared.signOut() },
+            resetBiometric: { await BiometricService.shared.reset() },
+            stopHeartbeat: { HeartbeatService.shared.stop() },
+            resetReconcileLatch: { SubscriptionService.shared.resetReconcileLatch() },
+            clearSharedSession: { SharedCheckInPublisher.clear() }
+        )
+    }
 }
 
 @MainActor
@@ -93,7 +127,14 @@ final class AuthViewModel: ObservableObject {
     /// so it must be retained and removed explicitly.
     private var appleRevocationObserver: NSObjectProtocol?
 
-    init() {
+    /// Overridden by tests; nil means the live singletons.
+    var signOutDependencies: SignOutDependencies?
+
+    /// `bootstrap: false` skips the session/Apple-credential work below, which is
+    /// network-bound and would race a test's assertions. Defaults to true, so
+    /// every app call site is unchanged.
+    init(bootstrap: Bool = true) {
+        guard bootstrap else { return }
         Task {
             await checkSession()
             listenForAuthStateChanges()
@@ -537,23 +578,53 @@ final class AuthViewModel: ObservableObject {
     }
 
     func signOut() async {
+        // Server-side revocation is best effort. It is a network call, so it
+        // fails whenever the user happens to be offline — and every line below
+        // used to sit inside the same `do`, so a failed revoke abandoned the
+        // ENTIRE local teardown (US-IOS140). The user tapped "Sign out", saw an
+        // error, and stayed signed in with:
+        //   * the shared Keychain tokens still published, so the widget, watch
+        //     and Siri could go on checking in as them — the one that matters,
+        //     because those surfaces are reachable by whoever holds the device
+        //     next
+        //   * biometric still bound to the old account
+        //   * the heartbeat still reporting them as active
+        //   * the entitlement reconcile latch still closed, which
+        //     resetReconcileLatch's own documentation says must not happen,
+        //     because the next user to sign in on this device is then skipped
+        //
+        // Their intent is not ambiguous. Sign them out locally either way.
+        let deps = signOutDependencies ?? .live
+
+        // Before the revoke, while the session still identifies who to
+        // deactivate: stop this device receiving the outgoing user's
+        // notifications. Otherwise their check-in requests and family alerts keep
+        // arriving on a phone that now belongs to someone else (US-IOS142).
+        await deps.deactivatePushToken()
+
         do {
-            try await AuthService.shared.signOut()
-            await BiometricService.shared.reset()
-            HeartbeatService.shared.stop()
-            // Allow the next (possibly different) user to reconcile entitlements
-            // within this same process launch.
-            SubscriptionService.shared.resetReconcileLatch()
-            // Drop the shared check-in snapshot so Siri/widget/watch can't act
-            // on a stale session after sign-out.
-            SharedCheckInPublisher.clear()
-            currentUser = nil
-            authState = .unauthenticated
-            biometricLocked = false
-            clearFormFields()
+            try await deps.revokeServerSession()
         } catch {
-            errorMessage = error.localizedDescription
+            // Not surfaced to the user: locally they ARE signed out, and an
+            // error here would say otherwise. The residual is that the refresh
+            // token was not revoked server-side and stays valid until it
+            // expires — worth knowing in the log, not worth blocking on.
+            Log.auth.error("Server sign-out failed; clearing local session anyway: \(error.localizedDescription, privacy: .public)")
         }
+
+        // Unconditional local teardown.
+        await deps.resetBiometric()
+        deps.stopHeartbeat()
+        // Allow the next (possibly different) user to reconcile entitlements
+        // within this same process launch.
+        deps.resetReconcileLatch()
+        // Drop the shared check-in snapshot so Siri/widget/watch can't act
+        // on a stale session after sign-out.
+        deps.clearSharedSession()
+        currentUser = nil
+        authState = .unauthenticated
+        biometricLocked = false
+        clearFormFields()
     }
 
     // MARK: - Biometric Authentication

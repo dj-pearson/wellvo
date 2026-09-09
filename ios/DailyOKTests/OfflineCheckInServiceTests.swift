@@ -83,4 +83,62 @@ final class OfflineCheckInServiceTests: XCTestCase {
     func testDailyOKServerErrorCaseIsNotConnectivityError() {
         XCTAssertFalse(OfflineCheckInService.isConnectivityError(DailyOKError.serverError("boom")))
     }
+
+    // MARK: - Offline queue dedup is per slot, not per day (US-IOS137)
+
+    /// A receiver on a multi-window custom schedule (US-IOS048) who is offline
+    /// all day must get one queued row per window. Before US-IOS137 the dedup
+    /// key was the calendar day alone, so the morning row swallowed the evening
+    /// tap: nothing was queued, the UI still said "saved", and the owner
+    /// escalated on a window the receiver had answered.
+
+    func testSecondWindowOfTheSameDayIsNotADuplicate() {
+        XCTAssertFalse(
+            OfflineCheckInService.isAlreadyQueued(slotKey: "18:00", amongQueuedSlots: ["09:00"])
+        )
+    }
+
+    func testRepeatTapOnTheSameWindowIsADuplicate() {
+        XCTAssertTrue(
+            OfflineCheckInService.isAlreadyQueued(slotKey: "09:00", amongQueuedSlots: ["09:00"])
+        )
+    }
+
+    func testThirdWindowIsNotADuplicateOfTheFirstTwo() {
+        XCTAssertFalse(
+            OfflineCheckInService.isAlreadyQueued(slotKey: "21:00", amongQueuedSlots: ["09:00", "18:00"])
+        )
+    }
+
+    /// nil is the day-level slot: what a single-window schedule produces, and
+    /// what every row queued before US-IOS137 carries. Two of them still dedup,
+    /// which is the pre-existing behaviour this change must not regress.
+    func testTwoDayLevelCheckInsStillDedup() {
+        XCTAssertTrue(
+            OfflineCheckInService.isAlreadyQueued(slotKey: nil, amongQueuedSlots: [nil])
+        )
+    }
+
+    /// A day-level row (e.g. queued from an offline notification response, which
+    /// has no slot available on-device) must not swallow a windowed tap.
+    func testDayLevelRowDoesNotSwallowAWindowedCheckIn() {
+        XCTAssertFalse(
+            OfflineCheckInService.isAlreadyQueued(slotKey: "18:00", amongQueuedSlots: [nil])
+        )
+    }
+
+    func testWindowedRowDoesNotSwallowADayLevelCheckIn() {
+        XCTAssertFalse(
+            OfflineCheckInService.isAlreadyQueued(slotKey: nil, amongQueuedSlots: ["18:00"])
+        )
+    }
+
+    func testNothingQueuedIsNeverADuplicate() {
+        XCTAssertFalse(
+            OfflineCheckInService.isAlreadyQueued(slotKey: nil, amongQueuedSlots: [])
+        )
+        XCTAssertFalse(
+            OfflineCheckInService.isAlreadyQueued(slotKey: "09:00", amongQueuedSlots: [])
+        )
+    }
 }

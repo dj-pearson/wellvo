@@ -11,6 +11,11 @@ struct DailyOKApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // Before anything reads a persisted session. Stored-property
+        // initializers (including AuthViewModel's, which starts a session check)
+        // have already run, but their Tasks cannot interleave with this
+        // synchronous main-thread init, so this still lands first (US-IOS143).
+        KeychainService.purgeIfFreshInstall()
         Task { await AnalyticsService.shared.initialize() }
     }
 
@@ -127,6 +132,11 @@ struct DailyOKApp: App {
                 HeartbeatService.shared.appBecameActive()
                 // Reconcile any verified-but-unsynced subscription to the backend
                 // once per launch (reinstall / interrupted purchase) — US-IOS095.
+                // The latch only closes on success, and this registers a
+                // connectivity-restored retry, so a launch that happens before the
+                // network is up no longer leaves the user un-provisioned for the
+                // rest of the process lifetime (US-IOS139).
+                SubscriptionService.shared.startRetryingWhenOnline()
                 await SubscriptionService.shared.reconcileEntitlementsToBackendOnce()
                 // Non-urgent / best-effort work last.
                 await AnalyticsService.shared.track(.appOpened)

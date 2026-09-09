@@ -318,7 +318,10 @@ async function callOpenAI(opts: AiGenerateOptions): Promise<AiGenerateResult> {
 
 export async function aiGenerate(opts: AiGenerateOptions): Promise<AiGenerateResult> {
   const provider = resolveProvider();
-  return provider === "anthropic" ? callAnthropic(opts) : callOpenAI(opts);
+  // `return await`, not a bare return with the async dropped: resolveProvider()
+  // can throw synchronously, and callers that use .catch() rather than await
+  // would miss that if this stopped being async.
+  return await (provider === "anthropic" ? callAnthropic(opts) : callOpenAI(opts));
 }
 
 /** Substitute {{variable}} placeholders in a template string. */

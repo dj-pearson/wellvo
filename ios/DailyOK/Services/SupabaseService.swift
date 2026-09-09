@@ -31,6 +31,13 @@ final class SupabaseService {
         let sharedDefaults = UserDefaults(suiteName: "group.com.wellvo.ios")
         sharedDefaults?.set(urlString, forKey: "supabase_url")
         sharedDefaults?.set(Configuration.edgeFunctionsURL, forKey: "edge_functions_url")
+        // The anon key too, so the Notification Service Extension can refresh an
+        // expired access token before confirming delivery (US-IOS145). It is a
+        // publishable key, not a secret: it already ships in the app binary and
+        // already sits in this same App Group container inside the
+        // SharedCheckInState snapshot. The session TOKENS stay in the encrypted
+        // Keychain, which is the distinction SharedKeychain's doc comment draws.
+        sharedDefaults?.set(anonKey, forKey: "supabase_anon_key")
     }
 
     /// Mirrors the current session into the shared Keychain so the Notification

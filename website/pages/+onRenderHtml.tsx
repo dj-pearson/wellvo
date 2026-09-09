@@ -44,9 +44,28 @@ const STATIC_HEAD = `
       Bing Webmaster Tools:   <meta name="msvalidate.01" content="PASTE_BING_TOKEN" />
       Yandex Webmaster:       <meta name="yandex-verification" content="PASTE_YANDEX_TOKEN" />
     -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    {/*
+      Inter is self-hosted from /fonts (US-WEB020), not fetched from Google.
+      Two reasons, both load-bearing:
+        * Speed. The Google stylesheet was a render-blocking request to a
+          third-party origin that had to resolve, TLS-handshake and return
+          before the browser even learned the woff2 URLs — two round trips on
+          the LCP path that two preconnects could shorten but never remove.
+        * Privacy. Hotlinking fonts.gstatic.com hands every visitor's IP to
+          Google before the consent banner has been answered, which is exactly
+          the thing src/lib/consent.ts exists to prevent for GA4.
+      Only the latin subset is preloaded; latin-ext is declared with its
+      unicode-range so it is fetched only when a page actually needs it.
+      The file is the variable font, so 400-700 costs one 48 KB request
+      instead of the four static weights the Google URL asked for.
+    */}
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/inter-v20-latin.woff2"
+      crossOrigin="anonymous"
+    />
     <!--
       Sitewide entity graph. The alternateName lists are load-bearing, not
       decoration (US-WEB012): Search Console shows the site ranking only 2.13

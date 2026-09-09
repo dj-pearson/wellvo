@@ -14,6 +14,13 @@ COPY --chown=deno:deno deno.json ./deno.json
 # Cache dependencies
 RUN deno cache server.ts
 
+# Type check at build time as well as in CI (US-EDGE002). `deno run` in the CMD
+# below strips types without checking them, so without this a type error that
+# slipped past review — like the ReferenceError on the escalation SMS path in
+# US-EDGE001 — becomes a runtime failure in production instead of a failed
+# build. Dependencies are already cached above, so this needs no network.
+RUN deno check server.ts
+
 EXPOSE 9000
 
 # Health check (using Deno fetch since curl is not available in the Deno image)

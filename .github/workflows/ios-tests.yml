@@ -1,0 +1,124 @@
+# Unit-test gate for the iOS app.
+#
+# The counterpart to edge-functions-check.yml (US-EDGE002), and it exists for
+# the same reason: ios-build-deploy.yml only runs on push to main, so nothing
+# compiled the app until after a merge. A gate that first speaks after the
+# merge is not a gate.
+#
+# Deliberately needs NO secrets. Configuration.swift falls back to local
+# defaults under DEBUG, so a simulator test build never touches the real
+# backend — which means this runs on any pull request without Infisical, and a
+# fork PR gets the same signal as a branch one. Signing is off for the same
+# reason: nothing here is installed on a device.
+name: Test iOS
+
+on:
+  pull_request:
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-tests.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  unit-tests:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: |
+          # Same selection logic as ios-build-deploy.yml, so the gate compiles
+          # with the toolchain that ships the app.
+          XCODE_PATH=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -v beta | sort -V | tail -1)
+          if [ -z "$XCODE_PATH" ]; then
+            XCODE_PATH=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          fi
+          echo "Using Xcode: $XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH"
+          xcodebuild -version
+
+      - name: Inject placeholder backend config
+        run: |
+          # NOT secrets, and deliberately not real. Configuration.swift returns
+          # DEBUG fallbacks when these are absent, but SupabaseService's init
+          # rejects the literal placeholder "your-anon-key-here" with a
+          # precondition failure — and the unit-test bundle is hosted in the app,
+          # so DailyOKApp.init() runs and would trip it. Well-formed dummy values
+          # keep the host app alive without pointing anything at production.
+          /usr/libexec/PlistBuddy -c "Set :SUPABASE_URL https://ci.invalid" ios/DailyOK/Info.plist \
+            || /usr/libexec/PlistBuddy -c "Add :SUPABASE_URL string https://ci.invalid" ios/DailyOK/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :SUPABASE_ANON_KEY ci-placeholder-anon-key" ios/DailyOK/Info.plist \
+            || /usr/libexec/PlistBuddy -c "Add :SUPABASE_ANON_KEY string ci-placeholder-anon-key" ios/DailyOK/Info.plist
+
+      - name: Resolve a simulator
+        id: sim
+        run: |
+          # Resolved at runtime rather than hardcoded: the runner image's
+          # simulator list changes, and a pinned device name is the usual reason
+          # an iOS workflow breaks on an image bump. Newest available iPhone.
+          DEVICE=$(xcrun simctl list devices available \
+            | grep -oE '^ +iPhone [^(]*' \
+            | sed 's/^ *//;s/ *$//' \
+            | sort -V | tail -1)
+          if [ -z "$DEVICE" ]; then
+            echo "::error::No available iPhone simulator on this runner." >&2
+            xcrun simctl list devices available >&2
+            exit 1
+          fi
+          echo "Using simulator: $DEVICE"
+          echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure xcbeautify
+        run: |
+          # Present on the GitHub macOS images today, but installing it here
+          # means an image change degrades the log formatting rather than
+          # failing the gate.
+          command -v xcbeautify >/dev/null 2>&1 || brew install xcbeautify
+
+      - name: List schemes
+        run: |
+          # Forces scheme autocreation (the project commits no .xcscheme files)
+          # and puts the scheme and target list in the log, which is the first
+          # thing worth seeing if the test step cannot find DailyOKTests.
+          xcodebuild -project ios/DailyOK.xcodeproj -list
+
+      - name: Resolve Swift packages
+        run: |
+          # Separate step so a dependency-resolution failure is not reported as
+          # a test failure.
+          xcodebuild -project ios/DailyOK.xcodeproj -scheme DailyOK -resolvePackageDependencies
+
+      - name: Run unit tests
+        run: |
+          set -o pipefail
+          # DailyOKTests only. The UI tests need a driven app run and are slow
+          # and flaky as a merge gate; they belong on a schedule, not here.
+          xcodebuild test \
+            -project ios/DailyOK.xcodeproj \
+            -scheme DailyOK \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.device }}" \
+            -only-testing:DailyOKTests \
+            -resultBundlePath "$RUNNER_TEMP/DailyOKTests.xcresult" \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            | xcbeautify --renderer github-actions || exit 1
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results
+          path: ${{ runner.temp }}/DailyOKTests.xcresult
+          if-no-files-found: ignore
+          retention-days: 7

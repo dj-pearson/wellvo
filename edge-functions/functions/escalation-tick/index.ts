@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification, buildCheckinPayload } from "../../shared/apns.ts";
+import type { APNsPayload } from "../../shared/apns.ts";
 import { sendFCMNotification, buildFCMCheckinPayload, buildFCMAlertPayload } from "../../shared/fcm.ts";
 import { sendSMS, buildEscalationSMS } from "../../shared/sms.ts";
 import { logInfo, logWarn, logError } from "../../shared/logger.ts";
@@ -13,13 +14,18 @@ interface PushToken {
 
 async function sendByPlatform(
   tokens: PushToken[],
-  apnsPayload: Record<string, unknown>,
+  // APNsPayload, not Record<string, unknown>: the wider type let a payload with
+  // a bad `aps` shape through this helper and only failed at the sendPushNotification
+  // call inside it (US-EDGE002). Typing the parameter means a malformed alert is
+  // caught at the caller that built it.
+  apnsPayload: APNsPayload,
   fcmTitle: string,
   fcmBody: string,
   fcmData: Record<string, string>,
   apnsOptions?: { priority?: number; collapseId?: string },
 ): Promise<{ success: boolean; statusCode: number; reason?: string }[]> {
-  return Promise.all(
+  // `return await` rather than dropping async — see shared/ai.ts for why.
+  return await Promise.all(
     tokens.map((t) => {
       if (t.platform === "android") {
         return sendFCMNotification(t.token, buildFCMAlertPayload(fcmTitle, fcmBody, fcmData));
@@ -163,17 +169,43 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       .eq("is_active", true);
 
     if (receiverTokens?.length) {
-      const apnsPayload = buildCheckinPayload("", request_id, "escalation", escalation_step);
-      const fcmPayload = buildFCMCheckinPayload("", request_id || "", receiver_id, "escalation", escalation_step);
-      const results = await Promise.all(
-        receiverTokens.map((t: PushToken) => {
-          if (t.platform === "android") {
-            return sendFCMNotification(t.token, fcmPayload);
-          }
-          return sendPushNotification(t.token, apnsPayload, { priority: 10 });
-        })
-      );
-      await deactivateInvalidTokens(receiverTokens, results, receiver_id);
+      // Carry the window this reminder is chasing, so a receiver who answers it
+      // while offline queues against the right slot instead of day-level
+      // (US-IOS138). A failed lookup is not worth failing the reminder over —
+      // null just means day-level, which is what happened before this existed.
+      let slotKey: string | null = null;
+      if (request_id) {
+        const { data: requestRow } = await supabaseAdmin
+          .from("checkin_requests")
+          .select("slot_key")
+          .eq("id", request_id)
+          .single();
+        slotKey = (requestRow?.slot_key as string | null | undefined) ?? null;
+      }
+
+      // A check-in reminder is only actionable if it carries the request it is
+      // about: the app keys its notification actions off checkin_request_id and
+      // silently ignores a payload without one. Sending it anyway produces a
+      // notification whose buttons do nothing, which is worse than not sending —
+      // the receiver believes they answered. So skip and say why.
+      if (!request_id) {
+        logWarn("Skipping step-1 reminder with no request_id", {
+          path: "/escalation-tick",
+          userId: receiver_id,
+        });
+      } else {
+        const apnsPayload = buildCheckinPayload("", request_id, "escalation", escalation_step, undefined, slotKey);
+        const fcmPayload = buildFCMCheckinPayload("", request_id, receiver_id, "escalation", escalation_step, undefined, slotKey);
+        const results = await Promise.all(
+          receiverTokens.map((t: PushToken) => {
+            if (t.platform === "android") {
+              return sendFCMNotification(t.token, fcmPayload);
+            }
+            return sendPushNotification(t.token, apnsPayload, { priority: 10 });
+          })
+        );
+        await deactivateInvalidTokens(receiverTokens, results, receiver_id);
+      }
     }
 
     await supabaseAdmin.from("notification_log").insert({
@@ -196,9 +228,15 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       .eq("id", receiver_id)
       .single();
 
+    // Declared here, not inside the push block below. The SMS fallback further
+    // down is a SIBLING block, not a nested one, so a const declared in the push
+    // block is out of scope there — `deno run` strips types without checking, so
+    // this reached production as a ReferenceError that killed the escalation SMS
+    // the moment an owner had SMS enabled and a phone on file (US-EDGE001).
+    const safeReceiverName = sanitizeDisplayName(receiver?.display_name || "Your family member");
+
     if (ownerTokens?.length) {
       const alertTitle = "Missed Check-In";
-      const safeReceiverName = sanitizeDisplayName(receiver?.display_name || "Your family member");
       const alertBody = `${safeReceiverName} hasn't checked in yet. They've been reminded twice.`;
       const payload = {
         aps: {
@@ -269,7 +307,7 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       type: "owner_alert",
       status: "sent",
     });
-  } else if (escalation_step >= 3) {
+  } else if (escalation_step != null && escalation_step >= 3) {
     // Step 3: Alert to all Viewers
     const { data: viewers } = await supabaseAdmin
       .from("family_members")
@@ -284,6 +322,11 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       .eq("id", receiver_id)
       .single();
 
+    // Same scoping bug as the owner path above, and worse: the viewer SMS branch
+    // has no sms_escalation_enabled gate, so it fired for ANY viewer with a phone
+    // number on file (US-EDGE001).
+    const safeViewerReceiverName = sanitizeDisplayName(receiver?.display_name || "A family member");
+
     if (viewers?.length) {
       for (const viewer of viewers) {
         const { data: viewerTokens } = await supabaseAdmin
@@ -294,7 +337,6 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
 
         if (viewerTokens?.length) {
           const alertTitle = "Family Alert";
-          const safeViewerReceiverName = sanitizeDisplayName(receiver?.display_name || "A family member");
           const alertBody = `${safeViewerReceiverName} has missed their check-in today.`;
           const payload = {
             aps: {

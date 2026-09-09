@@ -4358,6 +4358,238 @@
       "notes": "From Services review #10. IMPLEMENTED. The 15-min Timer no-ops while offline; this closes the gap between reconnect and the next tick. Build verification pending CI."
     },
     {
+      "id": "US-IOS137",
+      "title": "Carry the schedule slot through the offline check-in queue",
+      "description": "As a receiver on a multi-window schedule whose phone is offline, I want every window I answer to reach my owner, so that nobody is alarmed about a check-in I actually made. OfflineCheckInService deduped queued rows on (receiver, family, local day) with no slot dimension, and performCheckIn deliberately dropped slotKey on the offline path to avoid a SwiftData migration. For a receiver on a custom multi-window schedule (US-IOS048) that meant the morning tap queued a row and every later window of the same day matched it and returned silently — the UI still said the check-in was saved and would sync, no row existed, and the owner escalated on a window the receiver had answered. False escalation is the exact failure the offline path exists to prevent.",
+      "acceptanceCriteria": [
+        "OfflineCheckIn persists the slot the check-in answers, as a new optional attribute so SwiftData migrates it lightly and existing queued rows keep nil (day-level, their current meaning)",
+        "The queue's dedup key is (receiver, family, local day, slotKey); repeat taps on one window still dedup, taps on different windows both survive",
+        "performCheckIn passes slotKey to the queue on both offline paths — the explicit-offline branch and the connectivity-error branch",
+        "syncPendingCheckIns replays the stored slot to process-checkin-response, whose unique index is already partitioned by COALESCE(slot_key,'') — no backend change needed",
+        "The dedup decision is a pure function so it can be tested without standing up a SwiftData container",
+        "No behaviour change for single-window schedules, which produce a nil slot"
+      ],
+      "priority": 234,
+      "passes": true,
+      "notes": "DONE. Not compile-verified — no macOS/Xcode in this environment; changes were reviewed by reading. Model gains `slotKey: String?`; dedup extracted to OfflineCheckInService.isAlreadyQueued(slotKey:amongQueuedSlots:) with 7 new tests in OfflineCheckInServiceTests. Server already dedups per slot (00049_checkin_slot_dedup_backfill.sql), so this is client-only. The offline NOTIFICATION-response path in AppDelegate still queues day-level because the push payload carries no slot_key — split out as US-IOS138."
+    },
+    {
+      "id": "US-IOS138",
+      "title": "Put the slot key in the check-in push payload",
+      "description": "As a receiver on a multi-window schedule who answers a check-in notification while offline, I want that answer to be attributed to the window it was for, so that the window is not reported as missed. US-IOS137 made the offline queue slot-aware, but the notification-response path in AppDelegate cannot supply a slot: it identifies the check-in by checkin_request_id, and the edge function resolves that request's slot_key server-side — which is unavailable when the device is offline. So an offline notification response still queues day-level, and for a multi-window receiver the window it answered can still escalate.",
+      "acceptanceCriteria": [
+        "send-checkin-notification (and any other sender that includes checkin_request_id: escalation-tick, on-demand-checkin) includes the request's slot_key in the push payload alongside checkin_request_id",
+        "The payload field is additive and optional — older installed builds ignore the unknown key, per the edge-function compatibility rules in CLAUDE.md",
+        "AppDelegate reads slot_key from userInfo and passes it to queueCheckIn on the offline branch",
+        "The online branch is unchanged: responding by request ID already inherits the request's slot_key server-side (process-checkin-response/index.ts:133-134), and the client must not override it",
+        "A receiver answering the evening notification while offline, on a two-window schedule, syncs as the evening slot rather than day-level",
+        "Absent slot_key still means day-level, so single-window schedules and older payloads behave exactly as now"
+      ],
+      "priority": 235,
+      "passes": true,
+      "notes": "DONE. Edge-function half IS verified: `deno check server.ts` reports the same 7 errors at the same locations as the pre-change baseline, so nothing new was introduced. The iOS half is NOT compile-verified (no macOS/Xcode here) and was reviewed by reading. buildCheckinPayload/buildFCMCheckinPayload take an optional trailing slotKey and omit the key entirely when it is null, so absent keeps meaning day-level. send-checkin-notification selects slot_key on the pending request; escalation-tick looks it up by request_id for the step-1 receiver reminder; on-demand-checkin is untouched because an on-demand request has no window by definition. AppDelegate reads userInfo[\"slot_key\"] and uses it ONLY on the offline branch — online still responds by request id and lets the server resolve the slot authoritatively. The deno check also surfaced a pre-existing runtime bug in escalation-tick, split out as US-EDGE001."
+    },
+    {
+      "id": "US-EDGE001",
+      "title": "escalation-tick throws on the SMS escalation path — two out-of-scope variables",
+      "description": "As an owner who enabled SMS escalation because a push notification is not enough when my parent has missed their check-in, I want that SMS to actually send. `deno check` reports TS2304 'Cannot find name' twice in escalation-tick: safeReceiverName is declared at index.ts:215 inside one block and used at :263 in another, and safeViewerReceiverName is declared at :311 and used at :339. Both uses are on the SMS fallback path. In TypeScript this is a compile error; in the deployed JavaScript it is a ReferenceError at runtime, thrown the moment an owner or viewer with SMS escalation enabled and a phone number on file reaches that branch. This is the most safety-critical path in the product and it appears to be dead on arrival.",
+      "acceptanceCriteria": [
+        "Confirm first whether the deployed bundle actually throws — check how the Docker image is built and whether anything strips or transpiles differently from `deno check`, because a 7-error typecheck baseline suggests type errors are not gating the deploy",
+        "Both identifiers resolve in the scope they are used in, without duplicating the sanitizeDisplayName call or changing the sanitized value",
+        "The owner escalation SMS and the viewer escalation SMS both send with the receiver's sanitized display name",
+        "A failure to send SMS still logs and does not abort the rest of the escalation — verify the push half is not taken down with it",
+        "`deno check server.ts` reports two fewer errors than the current baseline of 7",
+        "Fix the remaining escalation-tick type errors too if they are cheap and in the same blast radius (TS18048 escalation_step possibly undefined at :286, TS2345 request_id string|undefined at :180), or split them out with a reason"
+      ],
+      "priority": 236,
+      "passes": true,
+      "notes": "DONE and VERIFIED by typecheck: `deno check server.ts` went from the 7-error baseline to 3. All four escalation-tick errors are gone. Severity was confirmed empirically, not assumed: the Dockerfile runs `deno run`, which strips types without checking, and a minimal repro of the exact shape (const in one block, used in a sibling block) prints the push line and then throws `ReferenceError: safeName is not defined`. Both names hoisted to the enclosing scope where `receiver` is already fetched. Also fixed in the same blast radius: the step-1 reminder no longer sends a payload with an undefined checkin_request_id (it logs and skips, because the app ignores such a payload and the receiver would believe they answered), and the step-3 branch guards escalation_step against null explicitly. Remaining 3 baseline errors are APNsPayload structural-typing mismatches in shared/send-notification.ts and escalation-tick:27, plus a TS2774 no-op ternary in send-checkin-notification:108 — different blast radius, left alone. The reason all of this sat on main is US-EDGE002."
+    },
+    {
+      "id": "US-EDGE002",
+      "title": "Typecheck the edge functions in CI",
+      "description": "As whoever ships the next escalation change, I want a broken reference to fail the PR instead of the escalation. US-EDGE001 was a ReferenceError on the SMS escalation path — the most safety-critical code in the product — and it reached main and deployed because nothing typechecks edge-functions. The Dockerfile runs `deno run`, which strips types without checking, and .github/workflows has no deno step at all. `deno check server.ts` finds it in seconds.",
+      "acceptanceCriteria": [
+        "A CI job runs `deno check server.ts` (and `deno lint`, if it is clean or can be made clean) against edge-functions on pull requests that touch edge-functions/**, matching the path filtering the other workflows already use",
+        "The job fails the PR on a type error rather than warning",
+        "The 3 remaining baseline errors are fixed first, or explicitly suppressed with a comment naming why, so the gate starts green — a gate that starts red gets disabled",
+        "The two APNsPayload structural mismatches are addressed at the type level (sendByPlatform takes Record<string, unknown>, send-notification.ts has its own APNsPayload declaration that duplicates the one in shared/apns.ts) rather than by casting at the call sites",
+        "The TS2774 in send-checkin-notification:108 — `retry_count: supabaseAdmin.rpc ? undefined : undefined` — is a no-op that always evaluates to undefined; decide what the field was meant to do or delete it",
+        "Consider whether the Dockerfile should also `deno check` at build time so a bad image cannot be produced even outside CI"
+      ],
+      "priority": 237,
+      "passes": true,
+      "notes": "DONE and VERIFIED: `deno check server.ts` exits 0. Baseline was 7 errors when this loop started, 3 after US-EDGE001, now 0. New .github/workflows/edge-functions-check.yml runs it on pull_request and on push to main/develop, path-filtered to edge-functions/**, pinned to deno 2.1.4 to match the Dockerfile base image. Deliberately a separate workflow from edge-functions-deploy.yml, which only runs on push to main — a gate that first speaks after the merge is not a gate. The Dockerfile also runs `deno check` after `deno cache`, so a bad image cannot be built even outside CI. The three errors were real, not noise: shared/send-notification.ts redeclared its own APNsPayload with a wider \"interruption-level\"?: string than apns.ts accepts (fixed by exporting the canonical type and importing it, deleting the duplicate and a bogus `import type { sendPushNotification as APNsResult }`); escalation-tick's sendByPlatform took Record<string, unknown>, which let a malformed aps shape past the helper; and the send-checkin-notification no-op `retry_count: supabaseAdmin.rpc ? undefined : undefined` was DELETED rather than repaired, because migration 00012's pg_cron job already owns that increment — writing it here too would have burned two of the three retries per attempt. The no-op was the only reason that double-count never happened. deno lint is NOT gated: 6 pre-existing problems, split out as US-EDGE003. CAVEAT: verified with the deno 2.9.6 available in this environment; CI and the Dockerfile pin 2.1.4, whose bundled TypeScript is older."
+    },
+    {
+      "id": "US-EDGE003",
+      "title": "Clear deno lint and add it to the edge-functions gate",
+      "description": "As whoever added the type gate in US-EDGE002, I want lint gated too, but not at the cost of a gate that starts red. `deno lint` reports 6 problems today, so the workflow checks types only. Each is small, but two of them are the kind of thing that hides a real mistake: an unused import means someone deleted the call and left the intent behind, and an async function with no await usually means an await went missing.",
+      "acceptanceCriteria": [
+        "no-unused-vars: `product_id` in functions/subscription-cancellation/index.ts:11 and `truncateString` — establish whether each is dead or whether a call site was dropped, before deleting",
+        "prefer-const: `requestId` in functions/process-checkin-response/index.ts:71",
+        "require-await on aiGenerate (shared/ai.ts:319), finishGeneration (shared/blog-generator.ts:169) and sendByPlatform (functions/escalation-tick/index.ts:15) — check each for a missing await before removing the async keyword; sendByPlatform returns Promise.all so dropping async keeps its return type, but confirm the same for the other two",
+        "`deno lint` exits 0",
+        "The `deno lint` step is added to .github/workflows/edge-functions-check.yml and the comment there explaining its absence is removed"
+      ],
+      "priority": 238,
+      "passes": true,
+      "notes": "DONE and VERIFIED: `deno lint` reports no problems across 48 files and `deno check server.ts` still exits 0. The lint step is now in .github/workflows/edge-functions-check.yml and the comment explaining its absence is gone. Read before deleting, as required, and the answer was different for each rule. The two no-unused-vars were genuinely dead, not dropped call sites: invite-receiver imported truncateString but validates name length explicitly and 400s instead of silently truncating, which is the better behaviour; subscription-cancellation destructured product_id it never needed, since a family holds one subscription and cancellation is identified by owner. The three require-await were NOT fixed by dropping `async`, which is the obvious move and is wrong here: all three return a promise directly, and without `async` a synchronous throw from the returned expression would escape at the caller instead of arriving as a rejected promise. finishGeneration is documented as safe to run fire-and-forget, so a caller may attach .catch() rather than await — exactly the case that would break. All three use `return await`, which satisfies the rule, preserves the semantics and keeps the frame in the stack trace."
+    },
+    {
+      "id": "US-IOS139",
+      "title": "Don't finish a StoreKit transaction whose backend sync failed",
+      "description": "As someone who has just paid for a subscription, I want the family to actually be provisioned, even if the network dropped at the wrong moment. syncSubscriptionToBackend returned Void and swallowed its failure after three retries. Both call sites — purchase() and the Transaction.updates listener — carry comments explaining that they finish the transaction only after a successful sync, precisely so StoreKit can redeliver an unsynced one. With the failure invisible they finished unconditionally, and Transaction.updates only redelivers transactions that were never finished. The code did exactly what its own comment said must not happen. Compounding it, reconcileEntitlementsToBackendOnce set its once-per-launch latch BEFORE running, so a launch that happened before the network came up — the common case, since it runs at startup — meant no reconcile for the entire process lifetime. And the user was told 'It will retry automatically' when in-session nothing would.",
+      "acceptanceCriteria": [
+        "The sync reports its outcome, distinguishing a transient failure from a deterministic backend rejection",
+        "A transaction is finished only when the sync succeeded or was permanently rejected; a transient failure leaves it unfinished so Transaction.updates redelivers it",
+        "A deterministic 4xx is finished rather than held open, so it is not redelivered on every launch forever — the dead-letter reasoning from US-IOS099",
+        "The once-per-launch reconcile latch closes only on success, so an offline launch does not disable reconciliation for the rest of the process",
+        "A connectivity-restored observer retries the reconcile, mirroring the pattern HeartbeatService already uses (US-IOS136)",
+        "The user-facing message tells the truth about what will happen next",
+        "The finish/hold decision is a pure value so it can be tested without StoreKit"
+      ],
+      "priority": 239,
+      "passes": true,
+      "notes": "DONE. NOT compile-verified — no macOS/Xcode in this environment; reviewed by reading. New nested SubscriptionService.SyncOutcome with mayFinishTransaction, 4 tests in SubscriptionServiceTests. NetworkRetry.isNonRetryable (already used by the offline queue) classifies the permanent case. Wired startRetryingWhenOnline() in DailyOKApp alongside the existing reconcile call. Deliberately NOT done: removing the new observer in deinit — SubscriptionService is a singleton that never deallocates, and the existing deinit already touches only updateTask; adding MainActor property access there is a compile risk I cannot check here."
+    },
+    {
+      "id": "US-IOS140",
+      "title": "Sign out locally even when the server revoke fails",
+      "description": "As someone handing this phone back to its owner, I want 'Sign out' to actually sign me out. AuthViewModel.signOut put the server revoke and the entire local teardown inside one do/catch, so a thrown revoke — a network call, so any offline tap — skipped all of it. The user saw an error and remained signed in, with the shared Keychain tokens still published to the App Group: the widget, the watch and Siri could go on checking in as them, and those are exactly the surfaces reachable by whoever holds the device next. Biometric stayed bound to the old account, the heartbeat kept reporting them active, and resetReconcileLatch never ran — which its own documentation says must happen on sign-out or the next user to sign in on this device is silently skipped. The delete-account path made it concrete rather than hypothetical: it calls signOut AFTER deleting the user row, so the revoke fails against a user that no longer exists, and the deleted account stayed apparently signed in.",
+      "acceptanceCriteria": [
+        "Local teardown runs unconditionally: shared Keychain tokens and snapshot cleared, biometric reset, heartbeat stopped, reconcile latch reset, currentUser nil, authState unauthenticated",
+        "Server-side revocation is attempted first and its failure logged, not surfaced — locally the user IS signed out and an error would say otherwise",
+        "The residual (refresh token not revoked server-side, valid until expiry) is documented at the call site",
+        "Deleting an account leaves no usable session on the device even though the revoke necessarily fails afterwards"
+      ],
+      "priority": 240,
+      "passes": true,
+      "notes": "DONE. NOT compile-verified — no macOS/Xcode here; reviewed by reading. No test added and none faked: signOut is a @MainActor ViewModel method that drives five singletons directly, there is no AuthViewModelTests harness and no seam to inject them through. Making it testable means injecting those dependencies, which is a refactor of its own — filed as US-IOS141."
+    },
+    {
+      "id": "US-IOS141",
+      "title": "Give AuthViewModel a seam so sign-out teardown can be tested",
+      "description": "As whoever next edits sign-out, I want a test that fails if the local teardown stops running. US-IOS140 fixed a bug where a failed server revoke skipped every local cleanup step, including clearing the shared Keychain tokens the widget, watch and Siri authenticate with. Nothing guards it. AuthViewModel.signOut reaches out to AuthService, BiometricService, HeartbeatService, SubscriptionService and SharedCheckInPublisher as singletons, so there is no way to observe the teardown from a test, and there is no AuthViewModelTests file at all.",
+      "acceptanceCriteria": [
+        "The collaborators signOut touches are reachable through a seam — a protocol-backed dependency struct with a live default is enough; a full DI container is not the ask",
+        "A test asserts that when the server revoke throws, the shared tokens are still cleared, the reconcile latch is still reset, and authState still becomes .unauthenticated",
+        "A test asserts the same teardown on the success path, so the two cannot diverge",
+        "Existing call sites (SettingsView.deleteAccount, anywhere else calling signOut) keep working unchanged",
+        "Scope is the sign-out path only — do not refactor the whole 700-line view model to get there"
+      ],
+      "priority": 241,
+      "passes": true,
+      "notes": "DONE. NOT compile-verified or test-run — no macOS/Xcode here; reviewed by reading. New SignOutDependencies struct (5 @MainActor closures) with a `live` default reading the same singletons as before; AuthViewModel gains an optional signOutDependencies override and `init(bootstrap: Bool = true)` so a test can construct the view model without the network Task the real init starts (session check, auth listener, Apple credential state) — that Task would race the assertions. The only app call site, DailyOKApp.swift:7 AuthViewModel(), is unchanged by the default. New ios/DailyOKTests/AuthViewModelSignOutTests.swift, 5 tests, including one asserting the success and failure paths tear down IDENTICALLY so they cannot drift apart again. REGISTERED in project.pbxproj at all four required points (PBXBuildFile, PBXFileReference, DailyOKTests group children, Sources build phase) — the project uses objectVersion 56 with no fileSystemSynchronizedGroups, so new files must be listed explicitly or CI silently never runs them. Caught an ID collision doing it: B3U00007/F3U00007 were already StreaksTimezoneTests; the existing hand-authored ids run 00001-00012, so this uses 00013."
+    },
+    {
+      "id": "US-IOS142",
+      "title": "Scope the push token to the signed-in user",
+      "description": "As the second person to sign in on a phone, I want to actually receive my check-in requests. PushNotificationService cached the last registered token in the Keychain under the bare key 'lastPushToken', with no record of whose it was. APNs hands the same device token to whoever is signed in, so when a new user signed in on a device someone else had used, registerToken found a matching cached value and returned early — no push_tokens row was ever written for them. They got no check-in requests and no escalation alerts, with nothing visible in the UI to suggest it. This is precisely the flow the product is built around: an adult child sets up a parent's phone and hands it over. The mirror image was also live: sign-out never deactivated the device's token row, so the previous user stayed registered against a token that now belonged to whoever held the phone, and their check-in requests and family alerts arrived on someone else's screen.",
+      "acceptanceCriteria": [
+        "The token cache key is scoped to the user id, so a different user on the same device always registers",
+        "The legacy unscoped cache (UserDefaults and Keychain) is discarded rather than migrated — it cannot be attributed to a user, and one extra idempotent upsert is cheaper than suppressing a registration for the wrong person",
+        "Sign-out deactivates this device's push_tokens row for the outgoing user, before the session is revoked, since the session is what identifies the row",
+        "The cached key is cleared even when that network call fails, so a failed sign-out cannot leave the next user unable to register — the US-IOS140 rule",
+        "The deactivation runs through the SignOutDependencies seam so it is covered by AuthViewModelSignOutTests on both the success and failure paths"
+      ],
+      "priority": 242,
+      "passes": true,
+      "notes": "DONE. NOT compile-verified — no macOS/Xcode; reviewed by reading. Also fixed a defect introduced by US-IOS140 in this same pass: that commit added Log.auth.error(... privacy: .public) to AuthViewModel, which does not import os, so the OSLogMessage interpolation would not have resolved and the file would not have compiled. ReceiverViewModel is the in-repo precedent — it uses Log and imports os. Added `import os` to AuthViewModel.swift and to PushNotificationService.swift."
+    },
+    {
+      "id": "US-IOS143",
+      "title": "Wipe device-persisted secrets on the first launch after a fresh install",
+      "description": "As someone who installs this app on a phone that had it before, I want none of the previous person's session on my device. UserDefaults is erased when an app is deleted; the Keychain is not. Everything the app persists securely — the Apple user id, the per-user push-token cache, and the mirrored session tokens the widget, Control Center, Siri and the watch check in with — outlived a delete and was still present for whoever installed the app next. For most apps that is a footnote; here the product is a phone handed between family members, so 'whoever installs it next' is a real person.",
+      "acceptanceCriteria": [
+        "A fresh install is detected with a UserDefaults sentinel, since UserDefaults is what a delete erases",
+        "Every generic-password item under the app's Keychain service is removed, by service rather than by an enumerated key list, so a key added later is covered without anyone remembering",
+        "The mirrored session tokens and the shared App Group snapshot are cleared, closing the out-of-process check-in surfaces",
+        "The purge runs before anything reads a persisted session, and costs one UserDefaults read on every launch after the first"
+      ],
+      "priority": 243,
+      "passes": true,
+      "notes": "DONE but PARTIAL by design — see US-IOS144. NOT compile-verified (no macOS/Xcode); reviewed by reading, and the two cross-file calls (SharedKeychain.clearTokens, SharedCheckInStore.clear) were checked against their declarations, as were the imports KeychainService.swift already has. Placement: DailyOKApp.init() body. Stored-property initializers run first, so AuthViewModel.init has already created its session-check Task, but that Task cannot interleave with a synchronous main-thread init, so the purge still lands first."
+    },
+    {
+      "id": "US-IOS144",
+      "title": "Clear the Supabase session too on a fresh install",
+      "description": "As the same person on the same reused phone, I want the app not to sign me in as its previous owner. US-IOS143 wipes what this app writes to the Keychain, but the Supabase SDK stores its session in its own storage, which supabase-swift 2.x is believed to back with the Keychain — meaning it survives a delete like everything else. If it does, a fresh install can still restore the previous user's session, auto-signing the new owner in as them with access to that family's check-in history, care notes and the ability to act as them; the app would then re-mirror tokens to the widget and watch, undoing most of US-IOS143.",
+      "acceptanceCriteria": [
+        "FIRST establish what supabase-swift 2.x actually uses for AuthClient local storage on iOS, from the resolved package version rather than from memory — the fix depends on the answer and this could not be verified in the loop's environment",
+        "If it is Keychain-backed, the fresh-install purge clears it, using a documented API (a local-scope sign-out, or an explicitly configured storage the app owns and can wipe) rather than deleting another library's Keychain items by guessed attributes",
+        "Consider configuring AuthClient with an app-owned storage implementation, which makes this deterministic instead of dependent on an SDK internal that can change between versions",
+        "Verify the end state on a real device or simulator: install, sign in, delete the app, reinstall, and confirm the launch is signed out",
+        "The project pins supabase-swift with upToNextMajorVersion from 2.0.0 and there is no Package.resolved committed, so the exact resolved version varies by machine — decide whether that should be pinned as part of this"
+      ],
+      "priority": 244,
+      "passes": false,
+      "notes": "Split from US-IOS143 because it turns on an SDK behaviour that must be verified, not assumed, and guessing at another library's Keychain attributes would be worse than leaving it. Needs a machine that can build and run the app."
+    },
+    {
+      "id": "US-IOS145",
+      "title": "Refresh the mirrored token before confirming push delivery",
+      "description": "As a receiver, I want one reminder for one check-in, not four. The Notification Service Extension confirms delivery so the retry chain stops (US-IOS080), and it authenticated that call with the mirrored access token WITHOUT checking whether the token had expired. Supabase access tokens last about an hour; this app sends roughly one notification a day and only re-mirrors the token when the app runs, so by the time a scheduled reminder arrives the token has usually expired. confirm-delivery requires a real user JWT and returns 401 otherwise, and the extension discards the response — so delivery was never confirmed and the pg_cron retry job in migration 00012 re-sent the same reminder up to three more times at 2, 4 and 8 minute backoff. Four buzzes for one check-in, aimed at the person least likely to tolerate it, and invisible in every log because the response was thrown away.",
+      "acceptanceCriteria": [
+        "The extension reads the full mirrored session, not just the access token, and checks expiry with the same 60-second early margin as SharedAuthTokens",
+        "An expired token is refreshed against the same endpoint SharedCheckInClient already uses, before the confirm call",
+        "The refreshed session is written BACK to the shared Keychain — Supabase rotates the refresh token on use, so refreshing without persisting would invalidate the copy the app and widget hold",
+        "The write-back is update-then-add, never delete-then-add, per US-IOS135",
+        "A refresh that fails because a sibling surface rotated the token concurrently re-reads the Keychain and adopts the newer token, matching SharedCheckInClient.refreshSession",
+        "The anon key needed for the refresh reaches the extension through the App Group; the session tokens stay in the encrypted Keychain",
+        "The notification is still delivered regardless of what any of this does"
+      ],
+      "priority": 245,
+      "passes": true,
+      "notes": "DONE. NOT compile-verified — no macOS/Xcode; reviewed by reading. The extension compiles standalone so SharedTokens/read/write are duplicated from SharedKeychain rather than imported, matching the file's existing note about that. Imports were checked (Foundation, Security already present; PinnedURLSession is already compiled into this target per the existing comment), and the bare SecItemAdd/SecItemDelete call style matches KeychainService. The anon key is now published to the App Group: it is a publishable key that already ships in the binary and already sits in that same container inside SharedCheckInState, so this leaks nothing new."
+    },
+    {
+      "id": "US-IOS146",
+      "title": "Report it when removing a family member fails",
+      "description": "As an owner revoking someone's access, I want to know if it did not work. FamilyView.removeMember discarded the result with `try?` and then reloaded. A failed removal put the still-active member straight back into the list with no message, which reads as a UI glitch rather than a failure — so the owner either retries at random or assumes it worked. Removing a member is how an owner revokes a viewer's access to a relative's location and care notes, so a silent failure there leaves access in place that the owner believes they took away. It was the only mutation in the file that did not report its errors; resendInvite directly below it already does.",
+      "acceptanceCriteria": [
+        "A failed removal surfaces the error in the same banner the rest of the screen uses",
+        "The list still reloads on both paths, so it always matches the server",
+        "The error is set AFTER the reload, because loadData() clears errorMessage on entry — setting it first would silently wipe it",
+        "The owner guard is unchanged"
+      ],
+      "priority": 246,
+      "passes": true,
+      "notes": "DONE. NOT compile-verified — no macOS/Xcode; reviewed by reading. Found by grepping for pattern (c) from this loop — a discarded result on a call whose success is load-bearing — across ios/DailyOK/Views: this was the ONLY destructive mutation with that shape, which is a good sign for the rest of the view layer. No new imports needed (DailyOKError is already used in this file). The ordering trap is the non-obvious half and is recorded in a comment."
+    },
+    {
+      "id": "US-EDGE004",
+      "title": "subscription-webhook let one user provision another user's family",
+      "description": "As a paying owner, I want nobody else able to touch my subscription. /subscription-webhook is not service-role-only — the iOS app calls it directly after a purchase — and it took app_account_token from the request body, resolved it to that user, and never checked it against the authenticated caller. Any signed-in user could name someone else's UUID and rewrite that family's subscription_tier, subscription_status, subscription_expires_at and seat limits. The obvious reading is self-upgrade; the sharper one is the reverse, setting a paying customer's expiry into the past to downgrade them. The two add-on handlers were worse still: they used `body.app_account_token || auth.userId` with no UUID validation and no ownership check at all, then called increment_max_receivers / increment_max_viewers against it.",
+      "acceptanceCriteria": [
+        "A caller may only provision their own account; a mismatched app_account_token is refused with 403",
+        "Service role remains trusted, because real App Store Server Notifications arrive server-to-server and legitimately act for another user",
+        "The tier path and both add-on paths share one rule rather than three near-copies",
+        "app_account_token is UUID-validated on every path, including the add-on paths that previously skipped it",
+        "The rejection is logged with the authenticated user id",
+        "deno check and deno lint stay clean"
+      ],
+      "priority": 247,
+      "passes": true,
+      "notes": "DONE and VERIFIED: deno check server.ts exits 0 and deno lint reports no problems across 48 files — both are CI-gated as of US-EDGE002/003. Shape mirrors the existing authorization check in process-checkin-response. Extracted resolveAuthorizedUserId so the tier path and both add-on paths cannot drift. Does NOT address receipt verification — that is US-EDGE005."
+    },
+    {
+      "id": "US-EDGE005",
+      "title": "Verify App Store receipts before granting entitlements",
+      "description": "As the business, I want a paid tier to require a payment. subscription-webhook maps a client-supplied product_id straight to a tier and writes it to the family, with no verification that a purchase happened. US-EDGE004 stopped a user provisioning OTHER accounts, but any authenticated user can still grant themselves family_plus by POSTing their own app_account_token with a familyplus product id and any transaction_id. transaction_id and original_id are accepted and, on the tier path, not checked against anything.",
+      "acceptanceCriteria": [
+        "Validate the transaction against the App Store Server API (JWS signed transaction / Get Transaction Info) before writing any tier, using the App Store Server API key held in Infisical — never a value committed to the repo",
+        "Verify the transaction's product id, bundle id and appAccountToken match the request and the resolved user",
+        "Reject a transaction id already recorded against a different user, so a real receipt cannot be replayed across accounts",
+        "Google Play purchases need the equivalent check against the Play Developer API; the net.dailyok.* namespace is still live per CLAUDE.md §E",
+        "Keep the endpoint idempotent — the client retries it, and US-IOS139 now leaves a transaction unfinished and replays it until it succeeds",
+        "Roll out carefully: this is the endpoint every real purchase depends on, so a bug here blocks paying customers. Consider logging verification failures without enforcing for one release, then enforcing"
+      ],
+      "priority": 248,
+      "passes": false,
+      "notes": "Found alongside US-EDGE004 on the last iteration of the improvement loop. Deliberately NOT attempted there: it needs Apple/Google credentials, JWS validation and a staged rollout, which is several iterations of work and cannot be tested from an environment with no store access."
+    },
+    {
       "id": "US-LEG001",
       "title": "Account deletion no longer throws for members who joined via an invite link",
       "description": "As a user who joined a family through an invite, I want Delete Account to actually delete my account, so that the erasure right the app advertises is real rather than an error dialog.",
@@ -4813,6 +5045,39 @@
       "priority": 260,
       "passes": false,
       "notes": "Tier 4. Volumes unvalidated — proposed from SERP inspection, not present in the Keyword Planner export. Do this last of the content stories: by then US-WEB013 will have shown what consolidation looks like and US-WEB015/016 will have established the cluster pattern. Deliberately NOT in scope anywhere in this batch: city, state and condition pages (pSEO templates #2, #4, #5). Those multiply pages against a domain that cannot yet rank one and are the fastest route to a manual action — revisit only once the welfare-check hub reaches page one."
+    },
+    {
+      "id": "US-WEB020",
+      "title": "Self-host Inter instead of hotlinking Google Fonts",
+      "description": "As a visitor on a phone who arrived from a search result about a relative who is not answering, I want the page to paint immediately, so that I read the answer instead of a blank block of text. The head fetched a render-blocking stylesheet from fonts.googleapis.com, which had to DNS-resolve, TLS-handshake and return before the browser even learned the woff2 URLs on fonts.gstatic.com — two serial third-party round trips on the LCP path that the two preconnect hints could shorten but never remove. It also handed every visitor's IP to Google before the consent banner had been answered, which is precisely the leak src/lib/consent.ts exists to prevent for GA4.",
+      "acceptanceCriteria": [
+        "Inter is served from the site's own origin; no request to fonts.googleapis.com or fonts.gstatic.com remains anywhere in the shipped head, CSS or CSP",
+        "The variable font file covers weights 400-700 in one request rather than the four static weights the Google URL asked for",
+        "Only the latin subset is preloaded; latin-ext is declared with its unicode-range so it is fetched only when a page needs it",
+        "font-display: swap, so text paints in the fallback stack while the font loads",
+        "The font filename carries the upstream Inter version, so the immutable one-year Cache-Control in public/_headers is safe",
+        "style-src and font-src in the CSP drop the Google origins",
+        "A test guards all of the above, because a reintroduced Google <link> fails silently — CSP would block it and the font would simply vanish"
+      ],
+      "priority": 261,
+      "passes": true,
+      "notes": "DONE. public/fonts/inter-v20-latin.woff2 (48 KB) and inter-v20-latin-ext.woff2 (85 KB), variable 400-700. Head now carries a single rel=preload for the latin subset; the two preconnects and the blocking stylesheet are gone. CSP tightened to style-src 'self' 'unsafe-inline' and font-src 'self' data:. Guarded by src/test/fonts.test.ts (5 assertions)."
+    },
+    {
+      "id": "US-WEB021",
+      "title": "Assert route integrity, not marketing copy",
+      "description": "As whoever next rewrites a headline for SEO, I want the test suite to stay green when I do my job, so that a red suite still means something is broken. App.test.tsx asserted on hero prose — /know your loved ones are OK/i — which the SEO work legitimately rewrote to 'Know your aging parent is OK'. The suite went red and stayed red, which is worse than having no test: a permanently-failing file trains everyone to ignore the one run that matters.",
+      "acceptanceCriteria": [
+        "The suite asserts route identity — renders, is not the 404, has exactly one non-empty H1, declares the canonical URL for its own path — rather than page wording",
+        "Coverage extends from the 6 routes previously spot-checked to every public route, including the dynamic /what-to-do/:slug and /compare/:fullSlug forms",
+        "Canonical assertions use the trailing-slash form from US-WEB010, so the suite also guards that work per-route",
+        "Unknown routes still resolve to the 404 page",
+        "Exactly one copy assertion survives, on the home H1, and it tests the promise rather than the sentence",
+        "The suite is green"
+      ],
+      "priority": 262,
+      "passes": true,
+      "notes": "DONE. src/test/App.test.tsx rewritten. 6 brittle prose assertions -> 38 route-integrity assertions over 18 public routes. Whole website suite 29 passing + 1 failing -> 67 passing, 0 failing."
     }
   ]
 }

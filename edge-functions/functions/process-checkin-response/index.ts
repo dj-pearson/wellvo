@@ -68,7 +68,7 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
   coerceNumericFields(body as Record<string, unknown>,
     ["latitude", "longitude", "location_accuracy_meters", "battery_level"]);
 
-  let requestId = body.checkin_request_id;
+  const requestId = body.checkin_request_id;
   let receiverId = body.receiver_id;
   let familyId = body.family_id;
   const source = body.source || "app";

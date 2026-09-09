@@ -2,6 +2,7 @@ import Foundation
 import UserNotifications
 import UIKit
 import Supabase
+import os
 
 actor PushNotificationService {
     static let shared = PushNotificationService()
@@ -24,18 +25,40 @@ actor PushNotificationService {
         }
     }
 
+    /// Keychain key for the last token registered, SCOPED TO THE USER it was
+    /// registered for (US-IOS142).
+    ///
+    /// It used to be the bare string "lastPushToken", which made the cache
+    /// device-wide. APNs hands the same device token to whoever is signed in, so
+    /// when a second person signed in on a phone the first had used — the exact
+    /// flow this product is built around, an adult child setting up a parent's
+    /// device and handing it over — `registerToken` saw a matching cached value
+    /// and returned early. No push_tokens row was ever written for the new user,
+    /// so they received no check-in requests and no escalation alerts. The one
+    /// thing the app exists to do, silently dead, with nothing to see in the UI.
+    private static func lastTokenKey(for userID: UUID) -> String {
+        "lastPushToken.\(userID.uuidString)"
+    }
+
+    /// The pre-US-IOS142 caches held a token with no record of whose it was, so
+    /// there is nothing to migrate them *to*. Dropping them costs one extra
+    /// upsert on next launch, which is idempotent; keeping them risks suppressing
+    /// a registration for the wrong user, which is silent and permanent.
+    private static func discardUnscopedTokenCache() {
+        UserDefaults.standard.removeObject(forKey: "lastPushToken")
+        KeychainService.delete(key: "lastPushToken")
+    }
+
     func registerToken(_ token: String) async throws {
         guard let session = try? await supabase.auth.session else {
             throw DailyOKError.auth("Not authenticated")
         }
 
-        // Check if token has changed before sending to server
-        // Migrate: check old UserDefaults first, then Keychain
-        if let oldToken = UserDefaults.standard.string(forKey: "lastPushToken") {
-            _ = KeychainService.save(key: "lastPushToken", value: oldToken)
-            UserDefaults.standard.removeObject(forKey: "lastPushToken")
-        }
-        let storedToken = KeychainService.load(key: "lastPushToken")
+        Self.discardUnscopedTokenCache()
+
+        // Skip the round-trip only when THIS user already registered THIS token.
+        let cacheKey = Self.lastTokenKey(for: session.user.id)
+        let storedToken = KeychainService.load(key: cacheKey)
         guard token != storedToken else { return }
 
         do {
@@ -68,10 +91,40 @@ actor PushNotificationService {
                 ], onConflict: "user_id,token")
                 .execute()
 
-            _ = KeychainService.save(key: "lastPushToken", value: token)
+            _ = KeychainService.save(key: cacheKey, value: token)
         } catch {
             throw DailyOKError.network(error)
         }
+    }
+
+    /// Stop this device receiving the signed-in user's notifications, and forget
+    /// the cached token so the next person to sign in registers cleanly.
+    ///
+    /// Must run BEFORE the auth session is revoked — it needs the session to know
+    /// whose row to deactivate. Without this, the previous user's row stayed
+    /// active against a device token that now belongs to whoever is holding the
+    /// phone: their check-in requests and family alerts would arrive on someone
+    /// else's screen (US-IOS142).
+    func deactivateCurrentDeviceToken() async {
+        guard let session = try? await supabase.auth.session else { return }
+        let cacheKey = Self.lastTokenKey(for: session.user.id)
+        guard let token = KeychainService.load(key: cacheKey) else { return }
+
+        do {
+            try await supabase
+                .from("push_tokens")
+                .update(["is_active": "false"])
+                .eq("user_id", value: session.user.id.uuidString)
+                .eq("token", value: token)
+                .execute()
+        } catch {
+            // Best effort. Deliberately does not stop the local clear below —
+            // the same reasoning as US-IOS140: a failed network call must not
+            // leave the device in a half-signed-out state.
+            Log.push.error("Failed to deactivate push token on sign-out: \(error.localizedDescription, privacy: .public)")
+        }
+
+        KeychainService.delete(key: cacheKey)
     }
 
     func checkPermissionStatus() async -> UNAuthorizationStatus {

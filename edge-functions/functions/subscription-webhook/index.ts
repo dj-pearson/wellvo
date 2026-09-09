@@ -51,6 +51,60 @@ const TIER_MAP: Record<string, { tier: string; maxReceivers: number; maxViewers:
 const ADDON_RECEIVER_IDS = new Set(["net.wellvo.addon.receiver", "net.dailyok.addon.receiver"]);
 const ADDON_VIEWER_IDS = new Set(["net.wellvo.addon.viewer", "net.dailyok.addon.viewer"]);
 
+/**
+ * Who this request is allowed to provision for.
+ *
+ * Returns the user id, or a Response to send back instead. A caller may only
+ * act on their OWN account: app_account_token arrives in the request body, and
+ * this route is not service-role-only (the iOS app calls it directly after a
+ * purchase), so without this check any authenticated user could name someone
+ * else's UUID and rewrite that family's tier, status, expiry and seat limits —
+ * or, pointed the other way, set a paying customer's expiry into the past
+ * (US-EDGE004).
+ *
+ * Service role stays trusted: real App Store Server Notifications arrive
+ * server-to-server and legitimately act for another user. Same shape as the
+ * authorization check in process-checkin-response.
+ */
+function resolveAuthorizedUserId(
+  body: SubscriptionUpdate,
+  auth: AuthResult,
+): { userId: string } | { response: Response } {
+  const claimed = body.app_account_token;
+
+  if (claimed && !UUID_REGEX.test(claimed)) {
+    logWarn("Invalid app_account_token format", { path: "/subscription-webhook" });
+    return {
+      response: new Response(
+        JSON.stringify({ error: "Invalid app_account_token: must be a valid UUID" }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      ),
+    };
+  }
+
+  if (!auth.isServiceRole && claimed && auth.userId && claimed.toLowerCase() !== auth.userId.toLowerCase()) {
+    logWarn("Rejected cross-user subscription provisioning", { path: "/subscription-webhook", userId: auth.userId });
+    return {
+      response: new Response(
+        JSON.stringify({ error: "You can only update your own subscription" }),
+        { status: 403, headers: { "Content-Type": "application/json" } },
+      ),
+    };
+  }
+
+  const userId = claimed || auth.userId;
+  if (!userId) {
+    return {
+      response: new Response(
+        JSON.stringify({ error: "Could not identify user. Ensure app_account_token is set." }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      ),
+    };
+  }
+
+  return { userId };
+}
+
 export async function handleSubscriptionWebhook(req: Request, auth: AuthResult): Promise<Response> {
   const body: SubscriptionUpdate = await req.json();
   const { product_id, expiration_date, app_account_token } = body;
@@ -71,20 +125,14 @@ export async function handleSubscriptionWebhook(req: Request, auth: AuthResult):
   }
 
   // Identify the user — prefer appAccountToken (linked at purchase time),
-  // fall back to authenticated user ID from JWT
-  let userId: string | null = null;
+  // fall back to the authenticated user ID from the JWT. Authorization for
+  // that choice lives in resolveAuthorizedUserId.
+  const resolved = resolveAuthorizedUserId(body, auth);
+  if ("response" in resolved) return resolved.response;
+  let userId: string | null = resolved.userId;
 
   if (app_account_token) {
-    // Validate UUID format before querying
-    if (!UUID_REGEX.test(app_account_token)) {
-      logWarn("Invalid app_account_token format", { path: "/subscription-webhook" });
-      return new Response(
-        JSON.stringify({ error: "Invalid app_account_token: must be a valid UUID" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // The appAccountToken is the Supabase user UUID set during purchase
+    // The appAccountToken is the Supabase user UUID set during purchase.
     const { data: user } = await supabaseAdmin
       .from("users")
       .select("id")
@@ -102,16 +150,6 @@ export async function handleSubscriptionWebhook(req: Request, auth: AuthResult):
     userId = user.id;
   }
 
-  if (!userId && auth.userId) {
-    userId = auth.userId;
-  }
-
-  if (!userId) {
-    return new Response(
-      JSON.stringify({ error: "Could not identify user. Ensure app_account_token is set." }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
-  }
 
   // Verify the user owns a family
   const { data: family } = await supabaseAdmin
@@ -153,13 +191,13 @@ export async function handleSubscriptionWebhook(req: Request, auth: AuthResult):
 }
 
 async function handleAddonReceiver(body: SubscriptionUpdate, auth: AuthResult): Promise<Response> {
-  const userId = body.app_account_token || auth.userId;
-  if (!userId) {
-    return new Response(
-      JSON.stringify({ error: "User identification required" }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
-  }
+  // Same rule as the tier path. This one was worse: it took
+  // body.app_account_token with no UUID validation and no ownership check at
+  // all, so any authenticated caller could add a paid seat to another owner's
+  // family (US-EDGE004).
+  const resolved = resolveAuthorizedUserId(body, auth);
+  if ("response" in resolved) return resolved.response;
+  const userId = resolved.userId;
 
   const { error } = await supabaseAdmin.rpc("increment_max_receivers", { p_owner_id: userId });
 
@@ -177,13 +215,13 @@ async function handleAddonReceiver(body: SubscriptionUpdate, auth: AuthResult): 
 }
 
 async function handleAddonViewer(body: SubscriptionUpdate, auth: AuthResult): Promise<Response> {
-  const userId = body.app_account_token || auth.userId;
-  if (!userId) {
-    return new Response(
-      JSON.stringify({ error: "User identification required" }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
-  }
+  // Same rule as the tier path. This one was worse: it took
+  // body.app_account_token with no UUID validation and no ownership check at
+  // all, so any authenticated caller could add a paid seat to another owner's
+  // family (US-EDGE004).
+  const resolved = resolveAuthorizedUserId(body, auth);
+  if ("response" in resolved) return resolved.response;
+  const userId = resolved.userId;
 
   const { error } = await supabaseAdmin.rpc("increment_max_viewers", { p_owner_id: userId });
 

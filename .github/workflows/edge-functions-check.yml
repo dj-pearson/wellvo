@@ -1,0 +1,47 @@
+# Type gate for the edge functions.
+#
+# This exists because of US-EDGE001. Two variables were used outside the block
+# that declared them, on the escalation SMS path — the fallback that fires when
+# a family member has missed their check-in. `deno check` reports that as
+# TS2304 in seconds. Nothing ran it, so it reached main and deployed, where the
+# Dockerfile's `deno run` strips types without checking them and it became a
+# ReferenceError at the moment the alert was supposed to go out.
+#
+# Deliberately separate from edge-functions-deploy.yml, which runs only on
+# pushes to main: a gate that first speaks after the merge is not a gate.
+name: Check Edge Functions
+
+on:
+  pull_request:
+    paths:
+      - 'edge-functions/**'
+      - '.github/workflows/edge-functions-check.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'edge-functions/**'
+      - '.github/workflows/edge-functions-check.yml'
+  workflow_dispatch:
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          # Match the Dockerfile's base image, so what CI checks is what runs.
+          deno-version: "2.1.4"
+
+      - name: Type check
+        working-directory: edge-functions
+        # server.ts is the single entry point that routes to every handler, so
+        # checking it reaches all of them and their shared modules.
+        run: deno check server.ts
+
+      - name: Lint
+        working-directory: edge-functions
+        run: deno lint

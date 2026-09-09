@@ -12,7 +12,7 @@ interface ServiceAccountKey {
   token_uri: string;
 }
 
-interface FCMPayload {
+export interface FCMPayload {
   title: string;
   body: string;
   data?: Record<string, string>;
@@ -192,7 +192,9 @@ export function buildFCMCheckinPayload(
   receiverId: string,
   type: "scheduled" | "on_demand" | "escalation",
   escalationStep?: number,
-  receiverMode?: string
+  receiverMode?: string,
+  /** See buildCheckinPayload — same field, same reason (US-IOS138). */
+  slotKey?: string | null
 ): FCMPayload {
   let title: string;
   let body: string;
@@ -236,6 +238,9 @@ export function buildFCMCheckinPayload(
       notification_type: type,
       title,
       body,
+      // FCM data values must be strings, and the key is omitted rather than
+      // sent empty so "absent" keeps meaning day-level on Android too.
+      ...(slotKey ? { slot_key: slotKey } : {}),
     },
   };
 }

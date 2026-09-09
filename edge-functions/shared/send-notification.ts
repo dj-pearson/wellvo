@@ -5,31 +5,18 @@
 
 import { supabaseAdmin } from "./supabase.ts";
 import { sendPushNotification } from "./apns.ts";
-import type { sendPushNotification as APNsResult } from "./apns.ts";
 import { sendFCMNotification } from "./fcm.ts";
+// The payload shapes belong to the modules that send them. This file used to
+// redeclare its own APNsPayload with `"interruption-level"?: string`, which is
+// wider than the union apns.ts actually accepts — so every call here failed to
+// typecheck, and the mismatch was invisible because nothing typechecked
+// edge-functions at all (US-EDGE002). One declaration, imported.
+import type { APNsPayload } from "./apns.ts";
+import type { FCMPayload } from "./fcm.ts";
 
 interface PushToken {
   token: string;
   platform: string;
-}
-
-interface APNsPayload {
-  aps: {
-    alert: { title: string; body: string };
-    sound?: string;
-    badge?: number;
-    category?: string;
-    "thread-id"?: string;
-    "interruption-level"?: string;
-    "relevance-score"?: number;
-  };
-  [key: string]: unknown;
-}
-
-interface FCMPayload {
-  title: string;
-  body: string;
-  data?: Record<string, string>;
 }
 
 interface NotificationResult {

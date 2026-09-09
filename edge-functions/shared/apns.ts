@@ -17,7 +17,7 @@ const APNS_HOST =
 
 const BUNDLE_ID = Deno.env.get("APPLE_BUNDLE_ID") || "com.wellvo.ios";
 
-interface APNsPayload {
+export interface APNsPayload {
   aps: {
     alert: {
       title: string;
@@ -176,7 +176,19 @@ export function buildCheckinPayload(
   requestId: string,
   type: "scheduled" | "on_demand" | "escalation",
   escalationStep?: number,
-  receiverMode?: string
+  receiverMode?: string,
+  /**
+   * Which scheduled window this request is for, as "HH:mm" (US-IOS048), or null
+   * for a request that has no window — an on-demand check-in, or a receiver on
+   * a single-window schedule.
+   *
+   * The device needs this only when it answers OFFLINE (US-IOS138). Online, the
+   * app responds by checkin_request_id and process-checkin-response looks the
+   * slot up from the request itself, which is authoritative. Offline there is no
+   * lookup, so without this the queued row is day-level and a multi-window
+   * receiver can still be escalated on a window they actually answered.
+   */
+  slotKey?: string | null
 ): APNsPayload {
   let titles: Record<string, string>;
   let bodies: Record<string, string>;
@@ -228,5 +240,9 @@ export function buildCheckinPayload(
     },
     checkin_request_id: requestId,
     type,
+    // Additive and optional, per the edge-function compatibility rules: builds
+    // in the wild have never seen this key and ignore it. Omitted entirely when
+    // there is no window, so "absent" keeps meaning day-level.
+    ...(slotKey ? { slot_key: slotKey } : {}),
   };
 }

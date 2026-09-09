@@ -278,6 +278,14 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
     private func handleCheckInFromNotification(userInfo: [AnyHashable: Any], responseType: CheckInResponseType) {
         guard let requestId = userInfo["checkin_request_id"] as? String else { return }
+        // Which scheduled window this notification is chasing (US-IOS138). Used
+        // ONLY on the offline branch below: online, respondToCheckIn identifies
+        // the check-in by request id and the server reads the slot off the
+        // request itself, which is authoritative and must not be overridden by
+        // anything the payload claims. Absent for on-demand requests, for
+        // single-window schedules, and for notifications sent by a backend that
+        // predates this field — all of which mean day-level.
+        let slotKey = userInfo["slot_key"] as? String
         Task {
             do {
                 // Get current location and battery for the check-in response
@@ -305,8 +313,9 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 let connectivity = OfflineCheckInService.isConnectivityError(error)
                 if responseType == .ok, connectivity {
                     // Offline plain "I'm OK": persist so it syncs later. The
-                    // per-day dedup on both the queue and the edge function keeps
-                    // this from creating a duplicate if the phone also checks in.
+                    // per-slot, per-day dedup on both the queue (US-IOS137) and
+                    // the edge function keeps this from creating a duplicate if
+                    // the phone also checks in for the same window.
                     var queued = false
                     if let family = try? await FamilyService.shared.getFamily(),
                        let session = try? await SupabaseService.shared.client.auth.session {
@@ -315,7 +324,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                                 familyId: family.id,
                                 receiverId: session.user.id,
                                 mood: nil,
-                                source: .notification
+                                source: .notification,
+                                slotKey: slotKey
                             )
                             queued = true
                         } catch {

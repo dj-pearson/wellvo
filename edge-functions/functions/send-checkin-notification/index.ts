@@ -60,9 +60,12 @@ export async function handleSendCheckinNotification(req: Request, _auth: AuthRes
   }
 
   // Find or create a pending check-in request
+  // slot_key comes along so the device can attribute an OFFLINE answer to the
+  // right window (US-IOS138). Online answers don't need it — the server reads it
+  // off the request — so it is only ever a hint, never authoritative.
   const { data: existingRequest } = await supabaseAdmin
     .from("checkin_requests")
-    .select("id")
+    .select("id, slot_key")
     .eq("receiver_id", receiver_id)
     .eq("family_id", family_id)
     .eq("status", "pending")
@@ -74,8 +77,12 @@ export async function handleSendCheckinNotification(req: Request, _auth: AuthRes
   const displayName = user?.display_name || "Your family";
 
   // Build payloads for each platform
-  const apnsPayload = buildCheckinPayload(displayName, requestId, type, undefined, receiverMode);
-  const fcmPayload = buildFCMCheckinPayload(displayName, requestId, receiver_id, type, undefined, receiverMode);
+  // Null when no pending request row exists (requestId is then a fresh UUID) or
+  // when the receiver is on a single-window schedule — both mean day-level.
+  const slotKey = (existingRequest?.slot_key as string | null | undefined) ?? null;
+
+  const apnsPayload = buildCheckinPayload(displayName, requestId, type, undefined, receiverMode, slotKey);
+  const fcmPayload = buildFCMCheckinPayload(displayName, requestId, receiver_id, type, undefined, receiverMode, slotKey);
 
   // Send to all active tokens, routing by platform
   const results = await Promise.all(
@@ -94,11 +101,18 @@ export async function handleSendCheckinNotification(req: Request, _auth: AuthRes
   // Log notifications with retry tracking
   for (const result of results) {
     if (is_retry && notification_log_id) {
+      // retry_count is deliberately NOT touched here. The pg_cron retry job
+      // owns it — migration 00012 does `SET retry_count = rec.retry_count + 1`
+      // before it re-triggers this function — so incrementing it again would
+      // burn two of the three retries per attempt and cut the retry budget in
+      // half. The line that used to sit here,
+      // `retry_count: supabaseAdmin.rpc ? undefined : undefined`, was a no-op
+      // that always evaluated to undefined and was dropped by JSON.stringify,
+      // which is the only reason the double-count never happened (US-EDGE002).
       await supabaseAdmin
         .from("notification_log")
         .update({
           status: result.success ? "sent" : "failed",
-          retry_count: supabaseAdmin.rpc ? undefined : undefined,
         })
         .eq("id", notification_log_id);
     } else {
