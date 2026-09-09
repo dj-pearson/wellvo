@@ -4498,6 +4498,35 @@
       "notes": "DONE. NOT compile-verified — no macOS/Xcode; reviewed by reading. Also fixed a defect introduced by US-IOS140 in this same pass: that commit added Log.auth.error(... privacy: .public) to AuthViewModel, which does not import os, so the OSLogMessage interpolation would not have resolved and the file would not have compiled. ReceiverViewModel is the in-repo precedent — it uses Log and imports os. Added `import os` to AuthViewModel.swift and to PushNotificationService.swift."
     },
     {
+      "id": "US-IOS143",
+      "title": "Wipe device-persisted secrets on the first launch after a fresh install",
+      "description": "As someone who installs this app on a phone that had it before, I want none of the previous person's session on my device. UserDefaults is erased when an app is deleted; the Keychain is not. Everything the app persists securely — the Apple user id, the per-user push-token cache, and the mirrored session tokens the widget, Control Center, Siri and the watch check in with — outlived a delete and was still present for whoever installed the app next. For most apps that is a footnote; here the product is a phone handed between family members, so 'whoever installs it next' is a real person.",
+      "acceptanceCriteria": [
+        "A fresh install is detected with a UserDefaults sentinel, since UserDefaults is what a delete erases",
+        "Every generic-password item under the app's Keychain service is removed, by service rather than by an enumerated key list, so a key added later is covered without anyone remembering",
+        "The mirrored session tokens and the shared App Group snapshot are cleared, closing the out-of-process check-in surfaces",
+        "The purge runs before anything reads a persisted session, and costs one UserDefaults read on every launch after the first"
+      ],
+      "priority": 243,
+      "passes": true,
+      "notes": "DONE but PARTIAL by design — see US-IOS144. NOT compile-verified (no macOS/Xcode); reviewed by reading, and the two cross-file calls (SharedKeychain.clearTokens, SharedCheckInStore.clear) were checked against their declarations, as were the imports KeychainService.swift already has. Placement: DailyOKApp.init() body. Stored-property initializers run first, so AuthViewModel.init has already created its session-check Task, but that Task cannot interleave with a synchronous main-thread init, so the purge still lands first."
+    },
+    {
+      "id": "US-IOS144",
+      "title": "Clear the Supabase session too on a fresh install",
+      "description": "As the same person on the same reused phone, I want the app not to sign me in as its previous owner. US-IOS143 wipes what this app writes to the Keychain, but the Supabase SDK stores its session in its own storage, which supabase-swift 2.x is believed to back with the Keychain — meaning it survives a delete like everything else. If it does, a fresh install can still restore the previous user's session, auto-signing the new owner in as them with access to that family's check-in history, care notes and the ability to act as them; the app would then re-mirror tokens to the widget and watch, undoing most of US-IOS143.",
+      "acceptanceCriteria": [
+        "FIRST establish what supabase-swift 2.x actually uses for AuthClient local storage on iOS, from the resolved package version rather than from memory — the fix depends on the answer and this could not be verified in the loop's environment",
+        "If it is Keychain-backed, the fresh-install purge clears it, using a documented API (a local-scope sign-out, or an explicitly configured storage the app owns and can wipe) rather than deleting another library's Keychain items by guessed attributes",
+        "Consider configuring AuthClient with an app-owned storage implementation, which makes this deterministic instead of dependent on an SDK internal that can change between versions",
+        "Verify the end state on a real device or simulator: install, sign in, delete the app, reinstall, and confirm the launch is signed out",
+        "The project pins supabase-swift with upToNextMajorVersion from 2.0.0 and there is no Package.resolved committed, so the exact resolved version varies by machine — decide whether that should be pinned as part of this"
+      ],
+      "priority": 244,
+      "passes": false,
+      "notes": "Split from US-IOS143 because it turns on an SDK behaviour that must be verified, not assumed, and guessing at another library's Keychain attributes would be worse than leaving it. Needs a machine that can build and run the app."
+    },
+    {
       "id": "US-LEG001",
       "title": "Account deletion no longer throws for members who joined via an invite link",
       "description": "As a user who joined a family through an invite, I want Delete Account to actually delete my account, so that the erasure right the app advertises is real rather than an error dialog.",

@@ -11,6 +11,11 @@ struct DailyOKApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // Before anything reads a persisted session. Stored-property
+        // initializers (including AuthViewModel's, which starts a session check)
+        // have already run, but their Tasks cannot interleave with this
+        // synchronous main-thread init, so this still lands first (US-IOS143).
+        KeychainService.purgeIfFreshInstall()
         Task { await AnalyticsService.shared.initialize() }
     }
 

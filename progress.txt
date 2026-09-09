@@ -2726,3 +2726,50 @@ does not catch, which is the argument for the CI gate the edge functions now
 have and the iOS target does not.
 
 NOT compile-verified: no macOS or Xcode here.
+
+================================================================================
+US-IOS143 — Wipe persisted secrets on the first launch after install  2026-09-09
+================================================================================
+UserDefaults is erased when an app is deleted. The Keychain is not — that is the
+point of it, and it is also a trap.
+
+Everything this app persists securely survived a delete and was waiting for
+whoever installed the app next: the Apple user id, the per-user push-token cache
+from US-IOS142, and the mirrored session tokens that the widget, the Control
+Center control, Siri and the watch check in with. Those last ones are the sharp
+edge, because they act with no app UI in front of them — a new owner's tap on
+the widget could check in as the previous user without either person seeing
+anything that suggested it.
+
+For most apps this is a footnote. For this one the premise IS a shared or
+handed-over phone, which is the same reason US-IOS140 and US-IOS142 mattered.
+
+  mod  ios/DailyOK/Utilities/KeychainService.swift
+  mod  ios/DailyOK/App/DailyOKApp.swift
+
+Detection is a UserDefaults sentinel, because UserDefaults is precisely what a
+delete erases. The purge deletes by Keychain SERVICE rather than by a list of
+keys, so a key someone adds later is covered without them remembering to come
+back here.
+
+Placement took a moment's thought: @StateObject property initializers run before
+init()'s body, so AuthViewModel has already been constructed and has already
+created its session-check Task. But that Task cannot interleave with a
+synchronous main-thread init, so the purge still runs first.
+
+DELIBERATELY PARTIAL, filed as US-IOS144. The Supabase SDK keeps its session in
+its own storage, which supabase-swift 2.x is believed to back with the Keychain
+— in which case a fresh install can still restore the previous user's session and
+the app will re-mirror tokens, undoing most of this. Fixing that means either a
+local-scope sign-out or configuring an app-owned storage, and BOTH depend on
+what the SDK actually does. I could not verify that here: there is no
+Package.resolved committed and no way to build, so the resolved version is
+unknown. Deleting another library's Keychain items by guessed attributes would
+be worse than leaving it, so this ships as step one of two and says so in the
+code comment rather than implying the hole is closed.
+
+NOT compile-verified: no macOS or Xcode. Both cross-file calls
+(SharedKeychain.clearTokens, SharedCheckInStore.clear) were checked against their
+declarations, and KeychainService.swift's existing imports (Foundation,
+Security) already cover UserDefaults and SecItemDelete — the import check that
+US-IOS142 taught me to do.
