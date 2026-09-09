@@ -61,20 +61,35 @@ jobs:
       - name: Resolve a simulator
         id: sim
         run: |
-          # Resolved at runtime rather than hardcoded: the runner image's
-          # simulator list changes, and a pinned device name is the usual reason
-          # an iOS workflow breaks on an image bump. Newest available iPhone.
-          DEVICE=$(xcrun simctl list devices available \
-            | grep -oE '^ +iPhone [^(]*' \
-            | sed 's/^ *//;s/ *$//' \
-            | sort -V | tail -1)
-          if [ -z "$DEVICE" ]; then
-            echo "::error::No available iPhone simulator on this runner." >&2
+          # Resolved at runtime, not hardcoded: a pinned device name is the usual
+          # reason an iOS workflow breaks on a runner image bump.
+          #
+          # By UDID, and via the JSON output. The first version of this scraped
+          # the human-readable listing with a regex that stopped at "(" — which
+          # turns "iPhone SE (3rd generation)" into "iPhone SE", a device that
+          # does not exist. `sort -V` sorts letters after digits, so that
+          # truncated name is exactly the one it picked, and xcodebuild rejected
+          # the destination before compiling anything. A UDID cannot be
+          # ambiguous or half-parsed.
+          #
+          # Newest runtime first, restricted to iOS 18+ because the app's
+          # deployment target is 18.0 (US-IOS085).
+          UDID=$(xcrun simctl list devices available --json | jq -r '
+            .devices
+            | to_entries
+            | map(select(.key | test("SimRuntime\\.iOS-(1[89]|[2-9][0-9])")))
+            | sort_by(.key) | reverse
+            | map(.value[] | select(.name | startswith("iPhone")))
+            | .[0].udid // empty
+          ')
+          if [ -z "$UDID" ]; then
+            echo "::error::No available iOS 18+ iPhone simulator on this runner." >&2
             xcrun simctl list devices available >&2
             exit 1
           fi
-          echo "Using simulator: $DEVICE"
-          echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
+          echo "Using simulator $UDID:"
+          xcrun simctl list devices available | grep "$UDID" || true
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
       - name: Ensure xcbeautify
         run: |
@@ -105,7 +120,7 @@ jobs:
             -project ios/DailyOK.xcodeproj \
             -scheme DailyOK \
             -configuration Debug \
-            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.device }}" \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
             -only-testing:DailyOKTests \
             -resultBundlePath "$RUNNER_TEMP/DailyOKTests.xcresult" \
             -skipPackagePluginValidation \
