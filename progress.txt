@@ -2229,3 +2229,40 @@ rather than overwriting a file browsers were told to keep for a year.
 Tests 35 (30 -> 35, five new). One pre-existing failure carried over, unrelated:
 App.test.tsx "renders home page at /" looks for /know your loved ones are OK/i,
 which the home hero no longer says. Logged for the next iteration.
+
+================================================================================
+US-WEB021 — Route integrity instead of copy assertions                2026-09-09
+================================================================================
+App.test.tsx was red on main and had been for a while. It asserted the home
+hero said "know your loved ones are OK"; US-WEB003-era SEO work had changed the
+H1 to "Know your aging parent is OK — every single day". Nothing was broken.
+The test was.
+
+That is the failure mode worth fixing, not the string. A suite that goes red
+whenever someone rewrites a headline correctly is a suite people learn to
+ignore, and an ignored red file is exactly where a real regression hides.
+
+  mod  website/src/test/App.test.tsx   6 assertions -> 38
+
+The assertions are now about route identity, which copy edits cannot
+legitimately change:
+
+  * the route renders without throwing
+  * it did not silently fall through to NotFound — the likeliest regression
+    when a path gets renamed in App.tsx but not in the sitemap or a link
+  * exactly one non-empty H1 (accessibility requirement and the page's subject
+    as far as search engines are concerned)
+  * the canonical link equals canonicalUrl(route), which also guards US-WEB010's
+    trailing-slash form on a per-route basis rather than only in the unit test
+
+Coverage went from 6 spot-checked routes to all 18 public ones, including the
+dynamic /what-to-do/:slug and /compare/:fullSlug forms. /blog and /blog/:slug
+are deliberately excluded: they need Supabase config and render an error state
+without it, so asserting on them here would test the absence of env vars.
+
+One copy assertion survives, on the home H1, and it checks for "OK" — the
+promise, not the sentence. Rewording is expected; dropping the claim from the
+H1 is a product decision that should have to break a test on the way through.
+
+Website suite: 29 passing + 1 failing -> 67 passing, 0 failing.
+Lint 19 problems — unchanged, still a candidate.

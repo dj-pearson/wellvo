@@ -4830,6 +4830,22 @@
       "priority": 261,
       "passes": true,
       "notes": "DONE. public/fonts/inter-v20-latin.woff2 (48 KB) and inter-v20-latin-ext.woff2 (85 KB), variable 400-700. Head now carries a single rel=preload for the latin subset; the two preconnects and the blocking stylesheet are gone. CSP tightened to style-src 'self' 'unsafe-inline' and font-src 'self' data:. Guarded by src/test/fonts.test.ts (5 assertions)."
+    },
+    {
+      "id": "US-WEB021",
+      "title": "Assert route integrity, not marketing copy",
+      "description": "As whoever next rewrites a headline for SEO, I want the test suite to stay green when I do my job, so that a red suite still means something is broken. App.test.tsx asserted on hero prose — /know your loved ones are OK/i — which the SEO work legitimately rewrote to 'Know your aging parent is OK'. The suite went red and stayed red, which is worse than having no test: a permanently-failing file trains everyone to ignore the one run that matters.",
+      "acceptanceCriteria": [
+        "The suite asserts route identity — renders, is not the 404, has exactly one non-empty H1, declares the canonical URL for its own path — rather than page wording",
+        "Coverage extends from the 6 routes previously spot-checked to every public route, including the dynamic /what-to-do/:slug and /compare/:fullSlug forms",
+        "Canonical assertions use the trailing-slash form from US-WEB010, so the suite also guards that work per-route",
+        "Unknown routes still resolve to the 404 page",
+        "Exactly one copy assertion survives, on the home H1, and it tests the promise rather than the sentence",
+        "The suite is green"
+      ],
+      "priority": 262,
+      "passes": true,
+      "notes": "DONE. src/test/App.test.tsx rewritten. 6 brittle prose assertions -> 38 route-integrity assertions over 18 public routes. Whole website suite 29 passing + 1 failing -> 67 passing, 0 failing."
     }
   ]
 }
