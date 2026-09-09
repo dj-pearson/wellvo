@@ -4386,8 +4386,24 @@
         "Absent slot_key still means day-level, so single-window schedules and older payloads behave exactly as now"
       ],
       "priority": 235,
+      "passes": true,
+      "notes": "DONE. Edge-function half IS verified: `deno check server.ts` reports the same 7 errors at the same locations as the pre-change baseline, so nothing new was introduced. The iOS half is NOT compile-verified (no macOS/Xcode here) and was reviewed by reading. buildCheckinPayload/buildFCMCheckinPayload take an optional trailing slotKey and omit the key entirely when it is null, so absent keeps meaning day-level. send-checkin-notification selects slot_key on the pending request; escalation-tick looks it up by request_id for the step-1 receiver reminder; on-demand-checkin is untouched because an on-demand request has no window by definition. AppDelegate reads userInfo[\"slot_key\"] and uses it ONLY on the offline branch — online still responds by request id and lets the server resolve the slot authoritatively. The deno check also surfaced a pre-existing runtime bug in escalation-tick, split out as US-EDGE001."
+    },
+    {
+      "id": "US-EDGE001",
+      "title": "escalation-tick throws on the SMS escalation path — two out-of-scope variables",
+      "description": "As an owner who enabled SMS escalation because a push notification is not enough when my parent has missed their check-in, I want that SMS to actually send. `deno check` reports TS2304 'Cannot find name' twice in escalation-tick: safeReceiverName is declared at index.ts:215 inside one block and used at :263 in another, and safeViewerReceiverName is declared at :311 and used at :339. Both uses are on the SMS fallback path. In TypeScript this is a compile error; in the deployed JavaScript it is a ReferenceError at runtime, thrown the moment an owner or viewer with SMS escalation enabled and a phone number on file reaches that branch. This is the most safety-critical path in the product and it appears to be dead on arrival.",
+      "acceptanceCriteria": [
+        "Confirm first whether the deployed bundle actually throws — check how the Docker image is built and whether anything strips or transpiles differently from `deno check`, because a 7-error typecheck baseline suggests type errors are not gating the deploy",
+        "Both identifiers resolve in the scope they are used in, without duplicating the sanitizeDisplayName call or changing the sanitized value",
+        "The owner escalation SMS and the viewer escalation SMS both send with the receiver's sanitized display name",
+        "A failure to send SMS still logs and does not abort the rest of the escalation — verify the push half is not taken down with it",
+        "`deno check server.ts` reports two fewer errors than the current baseline of 7",
+        "Fix the remaining escalation-tick type errors too if they are cheap and in the same blast radius (TS18048 escalation_step possibly undefined at :286, TS2345 request_id string|undefined at :180), or split them out with a reason"
+      ],
+      "priority": 236,
       "passes": false,
-      "notes": "Split from US-IOS137, which fixed the in-app tap path. Touches edge-functions AND iOS, so it crosses the release-compatibility boundary: the payload field must ship and be live before the client can rely on it, but the client change is safe to ship first because it reads an optional key. NEXT ITERATION."
+      "notes": "Found while typechecking edge-functions for US-IOS138. NOT introduced by that change — present at baseline. NEXT ITERATION. Also worth asking why 7 type errors sit on main: there is no deno step in .github/workflows, so nothing catches these."
     },
     {
       "id": "US-LEG001",

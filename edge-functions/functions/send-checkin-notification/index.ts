@@ -60,9 +60,12 @@ export async function handleSendCheckinNotification(req: Request, _auth: AuthRes
   }
 
   // Find or create a pending check-in request
+  // slot_key comes along so the device can attribute an OFFLINE answer to the
+  // right window (US-IOS138). Online answers don't need it — the server reads it
+  // off the request — so it is only ever a hint, never authoritative.
   const { data: existingRequest } = await supabaseAdmin
     .from("checkin_requests")
-    .select("id")
+    .select("id, slot_key")
     .eq("receiver_id", receiver_id)
     .eq("family_id", family_id)
     .eq("status", "pending")
@@ -74,8 +77,12 @@ export async function handleSendCheckinNotification(req: Request, _auth: AuthRes
   const displayName = user?.display_name || "Your family";
 
   // Build payloads for each platform
-  const apnsPayload = buildCheckinPayload(displayName, requestId, type, undefined, receiverMode);
-  const fcmPayload = buildFCMCheckinPayload(displayName, requestId, receiver_id, type, undefined, receiverMode);
+  // Null when no pending request row exists (requestId is then a fresh UUID) or
+  // when the receiver is on a single-window schedule — both mean day-level.
+  const slotKey = (existingRequest?.slot_key as string | null | undefined) ?? null;
+
+  const apnsPayload = buildCheckinPayload(displayName, requestId, type, undefined, receiverMode, slotKey);
+  const fcmPayload = buildFCMCheckinPayload(displayName, requestId, receiver_id, type, undefined, receiverMode, slotKey);
 
   // Send to all active tokens, routing by platform
   const results = await Promise.all(

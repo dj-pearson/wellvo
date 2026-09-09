@@ -163,8 +163,22 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       .eq("is_active", true);
 
     if (receiverTokens?.length) {
-      const apnsPayload = buildCheckinPayload("", request_id, "escalation", escalation_step);
-      const fcmPayload = buildFCMCheckinPayload("", request_id || "", receiver_id, "escalation", escalation_step);
+      // Carry the window this reminder is chasing, so a receiver who answers it
+      // while offline queues against the right slot instead of day-level
+      // (US-IOS138). A failed lookup is not worth failing the reminder over —
+      // null just means day-level, which is what happened before this existed.
+      let slotKey: string | null = null;
+      if (request_id) {
+        const { data: requestRow } = await supabaseAdmin
+          .from("checkin_requests")
+          .select("slot_key")
+          .eq("id", request_id)
+          .single();
+        slotKey = (requestRow?.slot_key as string | null | undefined) ?? null;
+      }
+
+      const apnsPayload = buildCheckinPayload("", request_id, "escalation", escalation_step, undefined, slotKey);
+      const fcmPayload = buildFCMCheckinPayload("", request_id || "", receiver_id, "escalation", escalation_step, undefined, slotKey);
       const results = await Promise.all(
         receiverTokens.map((t: PushToken) => {
           if (t.platform === "android") {

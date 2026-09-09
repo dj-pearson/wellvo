@@ -2323,3 +2323,52 @@ change here was reviewed by reading, and the signatures it depends on were
 checked against source (CheckInService.checkIn already takes slotKey; the only
 other queueCheckIn caller, AppDelegate.swift:314, still compiles because the new
 parameter defaults to nil).
+
+================================================================================
+US-IOS138 — slot_key in the check-in push payload                      2026-09-09
+================================================================================
+Completes US-IOS137. That fixed the in-app tap; this fixes the other way a
+receiver answers — the notification.
+
+The offline notification path could not know which window it was answering.
+It identifies the check-in by checkin_request_id and the slot lives on that
+request row server-side, which is unreachable with no network. So it queued
+day-level, and a multi-window receiver could still be escalated on a window
+they had answered — the same bug as US-IOS137, entering through a different door.
+
+  mod  edge-functions/shared/apns.ts, shared/fcm.ts        + optional slotKey
+  mod  edge-functions/functions/send-checkin-notification/index.ts
+  mod  edge-functions/functions/escalation-tick/index.ts
+  mod  ios/DailyOK/App/AppDelegate.swift
+
+The payload field is additive and omitted entirely when there is no window, so
+"absent" keeps its existing meaning of day-level — installed builds that have
+never seen the key are unaffected, which is what the edge-function
+compatibility rules in CLAUDE.md require.
+
+The client uses it on the OFFLINE branch only. Online it still responds by
+request id and lets process-checkin-response resolve the slot from the request
+itself. That is deliberate: the request row is authoritative and a push payload
+is not, so the client must never be able to override it with what a
+notification claimed.
+
+on-demand-checkin is untouched. An on-demand request has no scheduled window by
+definition — it inserts no slot_key — so there is nothing to carry.
+
+VERIFICATION, split honestly:
+  * Edge functions ARE verified. Deno was installable here, and
+    `deno check server.ts` reports the same 7 errors at the same locations as
+    the pre-change baseline. Nothing new was introduced.
+  * iOS is NOT compile-verified. No macOS or Xcode. Reviewed by reading;
+    queueCheckIn's slotKey parameter was added in US-IOS137 with a nil default,
+    so this call site is a straightforward addition.
+
+FOUND WHILE TYPECHECKING, not caused by this change, filed as US-EDGE001:
+escalation-tick uses two variables outside the block they are declared in —
+safeReceiverName (declared :215, used :263) and safeViewerReceiverName
+(declared :311, used :339). Both are on the SMS escalation path. TS2304 at
+compile time is a ReferenceError at runtime, which would mean the owner
+escalation SMS throws the moment an owner with SMS escalation enabled and a
+phone on file reaches it. That is the most safety-critical path in the product.
+Next iteration. Worth noting separately that main carries 7 type errors at all,
+which is possible because .github/workflows has no deno step to catch them.
