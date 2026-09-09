@@ -537,23 +537,45 @@ final class AuthViewModel: ObservableObject {
     }
 
     func signOut() async {
+        // Server-side revocation is best effort. It is a network call, so it
+        // fails whenever the user happens to be offline — and every line below
+        // used to sit inside the same `do`, so a failed revoke abandoned the
+        // ENTIRE local teardown (US-IOS140). The user tapped "Sign out", saw an
+        // error, and stayed signed in with:
+        //   * the shared Keychain tokens still published, so the widget, watch
+        //     and Siri could go on checking in as them — the one that matters,
+        //     because those surfaces are reachable by whoever holds the device
+        //     next
+        //   * biometric still bound to the old account
+        //   * the heartbeat still reporting them as active
+        //   * the entitlement reconcile latch still closed, which
+        //     resetReconcileLatch's own documentation says must not happen,
+        //     because the next user to sign in on this device is then skipped
+        //
+        // Their intent is not ambiguous. Sign them out locally either way.
         do {
             try await AuthService.shared.signOut()
-            await BiometricService.shared.reset()
-            HeartbeatService.shared.stop()
-            // Allow the next (possibly different) user to reconcile entitlements
-            // within this same process launch.
-            SubscriptionService.shared.resetReconcileLatch()
-            // Drop the shared check-in snapshot so Siri/widget/watch can't act
-            // on a stale session after sign-out.
-            SharedCheckInPublisher.clear()
-            currentUser = nil
-            authState = .unauthenticated
-            biometricLocked = false
-            clearFormFields()
         } catch {
-            errorMessage = error.localizedDescription
+            // Not surfaced to the user: locally they ARE signed out, and an
+            // error here would say otherwise. The residual is that the refresh
+            // token was not revoked server-side and stays valid until it
+            // expires — worth knowing in the log, not worth blocking on.
+            Log.auth.error("Server sign-out failed; clearing local session anyway: \(error.localizedDescription, privacy: .public)")
         }
+
+        // Unconditional local teardown.
+        await BiometricService.shared.reset()
+        HeartbeatService.shared.stop()
+        // Allow the next (possibly different) user to reconcile entitlements
+        // within this same process launch.
+        SubscriptionService.shared.resetReconcileLatch()
+        // Drop the shared check-in snapshot so Siri/widget/watch can't act
+        // on a stale session after sign-out.
+        SharedCheckInPublisher.clear()
+        currentUser = nil
+        authState = .unauthenticated
+        biometricLocked = false
+        clearFormFields()
     }
 
     // MARK: - Biometric Authentication

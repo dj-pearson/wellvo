@@ -2576,3 +2576,56 @@ NOT compile-verified: no macOS or Xcode here. Reviewed by reading.
 Deliberately not done: removing the new observer in deinit. SubscriptionService
 is a singleton that never deallocates, and touching MainActor properties in
 deinit is a compile risk I cannot check from here.
+
+================================================================================
+US-IOS140 — Sign out locally even when the server revoke fails        2026-09-09
+================================================================================
+signOut() had the server revoke and the whole local teardown inside one do/catch:
+
+    do {
+        try await AuthService.shared.signOut()   // network call
+        ... clear biometric, heartbeat, latch, shared tokens, authState ...
+    } catch {
+        errorMessage = error.localizedDescription
+    }
+
+So any offline tap on "Sign out" threw at line one and skipped all of it. The
+user saw an error and stayed signed in.
+
+  mod  ios/DailyOK/ViewModels/AuthViewModel.swift
+
+What stayed behind matters more than the authState:
+
+  * SharedCheckInPublisher.clear() never ran, so the shared Keychain tokens
+    stayed published to the App Group. The widget, the watch and Siri could go
+    on checking in as that user — and those are precisely the surfaces reachable
+    by whoever is holding the device next. This app's whole premise is a phone
+    handed between family members.
+  * Biometric stayed bound to the old account.
+  * The heartbeat kept reporting them active, so their owner still saw a live
+    "last seen".
+  * resetReconcileLatch() never ran. Its own doc comment says it "must be called
+    on sign-out so a *different* user signing in within the same process still
+    gets their entitlements reconciled (otherwise the second user is silently
+    skipped)". Third time in this loop that a comment stated a rule the code did
+    not implement.
+
+Not hypothetical. SettingsView.deleteAccount calls signOut AFTER the
+delete_user_account RPC, so the revoke runs against a user row that no longer
+exists and can be expected to fail — meaning deleting your account left the
+device apparently signed in, with tokens published, for an account that was
+gone.
+
+The revoke is now attempted first, its failure logged rather than shown, and the
+teardown runs unconditionally. The error is deliberately not surfaced: locally
+the user IS signed out, and telling them otherwise would be false. The residual
+— the refresh token is not revoked server-side and stays valid until it expires
+— is written down at the call site rather than papered over.
+
+No test, and I did not fake one. signOut is a @MainActor view-model method that
+drives five singletons directly; there is no seam to observe the teardown
+through and no AuthViewModelTests file at all. Adding the seam is a change with
+its own risk surface, so it is US-IOS141 rather than something to bundle into a
+security fix. Next iteration.
+
+NOT compile-verified: no macOS or Xcode here. Reviewed by reading.

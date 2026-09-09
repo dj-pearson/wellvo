@@ -4454,6 +4454,35 @@
       "notes": "DONE. NOT compile-verified — no macOS/Xcode in this environment; reviewed by reading. New nested SubscriptionService.SyncOutcome with mayFinishTransaction, 4 tests in SubscriptionServiceTests. NetworkRetry.isNonRetryable (already used by the offline queue) classifies the permanent case. Wired startRetryingWhenOnline() in DailyOKApp alongside the existing reconcile call. Deliberately NOT done: removing the new observer in deinit — SubscriptionService is a singleton that never deallocates, and the existing deinit already touches only updateTask; adding MainActor property access there is a compile risk I cannot check here."
     },
     {
+      "id": "US-IOS140",
+      "title": "Sign out locally even when the server revoke fails",
+      "description": "As someone handing this phone back to its owner, I want 'Sign out' to actually sign me out. AuthViewModel.signOut put the server revoke and the entire local teardown inside one do/catch, so a thrown revoke — a network call, so any offline tap — skipped all of it. The user saw an error and remained signed in, with the shared Keychain tokens still published to the App Group: the widget, the watch and Siri could go on checking in as them, and those are exactly the surfaces reachable by whoever holds the device next. Biometric stayed bound to the old account, the heartbeat kept reporting them active, and resetReconcileLatch never ran — which its own documentation says must happen on sign-out or the next user to sign in on this device is silently skipped. The delete-account path made it concrete rather than hypothetical: it calls signOut AFTER deleting the user row, so the revoke fails against a user that no longer exists, and the deleted account stayed apparently signed in.",
+      "acceptanceCriteria": [
+        "Local teardown runs unconditionally: shared Keychain tokens and snapshot cleared, biometric reset, heartbeat stopped, reconcile latch reset, currentUser nil, authState unauthenticated",
+        "Server-side revocation is attempted first and its failure logged, not surfaced — locally the user IS signed out and an error would say otherwise",
+        "The residual (refresh token not revoked server-side, valid until expiry) is documented at the call site",
+        "Deleting an account leaves no usable session on the device even though the revoke necessarily fails afterwards"
+      ],
+      "priority": 240,
+      "passes": true,
+      "notes": "DONE. NOT compile-verified — no macOS/Xcode here; reviewed by reading. No test added and none faked: signOut is a @MainActor ViewModel method that drives five singletons directly, there is no AuthViewModelTests harness and no seam to inject them through. Making it testable means injecting those dependencies, which is a refactor of its own — filed as US-IOS141."
+    },
+    {
+      "id": "US-IOS141",
+      "title": "Give AuthViewModel a seam so sign-out teardown can be tested",
+      "description": "As whoever next edits sign-out, I want a test that fails if the local teardown stops running. US-IOS140 fixed a bug where a failed server revoke skipped every local cleanup step, including clearing the shared Keychain tokens the widget, watch and Siri authenticate with. Nothing guards it. AuthViewModel.signOut reaches out to AuthService, BiometricService, HeartbeatService, SubscriptionService and SharedCheckInPublisher as singletons, so there is no way to observe the teardown from a test, and there is no AuthViewModelTests file at all.",
+      "acceptanceCriteria": [
+        "The collaborators signOut touches are reachable through a seam — a protocol-backed dependency struct with a live default is enough; a full DI container is not the ask",
+        "A test asserts that when the server revoke throws, the shared tokens are still cleared, the reconcile latch is still reset, and authState still becomes .unauthenticated",
+        "A test asserts the same teardown on the success path, so the two cannot diverge",
+        "Existing call sites (SettingsView.deleteAccount, anywhere else calling signOut) keep working unchanged",
+        "Scope is the sign-out path only — do not refactor the whole 700-line view model to get there"
+      ],
+      "priority": 241,
+      "passes": false,
+      "notes": "Split from US-IOS140 so a security-shaped fix could ship without waiting on a refactor. NEXT ITERATION."
+    },
+    {
       "id": "US-LEG001",
       "title": "Account deletion no longer throws for members who joined via an invite link",
       "description": "As a user who joined a family through an invite, I want Delete Account to actually delete my account, so that the erasure right the app advertises is real rather than an error dialog.",
