@@ -4402,8 +4402,24 @@
         "Fix the remaining escalation-tick type errors too if they are cheap and in the same blast radius (TS18048 escalation_step possibly undefined at :286, TS2345 request_id string|undefined at :180), or split them out with a reason"
       ],
       "priority": 236,
+      "passes": true,
+      "notes": "DONE and VERIFIED by typecheck: `deno check server.ts` went from the 7-error baseline to 3. All four escalation-tick errors are gone. Severity was confirmed empirically, not assumed: the Dockerfile runs `deno run`, which strips types without checking, and a minimal repro of the exact shape (const in one block, used in a sibling block) prints the push line and then throws `ReferenceError: safeName is not defined`. Both names hoisted to the enclosing scope where `receiver` is already fetched. Also fixed in the same blast radius: the step-1 reminder no longer sends a payload with an undefined checkin_request_id (it logs and skips, because the app ignores such a payload and the receiver would believe they answered), and the step-3 branch guards escalation_step against null explicitly. Remaining 3 baseline errors are APNsPayload structural-typing mismatches in shared/send-notification.ts and escalation-tick:27, plus a TS2774 no-op ternary in send-checkin-notification:108 — different blast radius, left alone. The reason all of this sat on main is US-EDGE002."
+    },
+    {
+      "id": "US-EDGE002",
+      "title": "Typecheck the edge functions in CI",
+      "description": "As whoever ships the next escalation change, I want a broken reference to fail the PR instead of the escalation. US-EDGE001 was a ReferenceError on the SMS escalation path — the most safety-critical code in the product — and it reached main and deployed because nothing typechecks edge-functions. The Dockerfile runs `deno run`, which strips types without checking, and .github/workflows has no deno step at all. `deno check server.ts` finds it in seconds.",
+      "acceptanceCriteria": [
+        "A CI job runs `deno check server.ts` (and `deno lint`, if it is clean or can be made clean) against edge-functions on pull requests that touch edge-functions/**, matching the path filtering the other workflows already use",
+        "The job fails the PR on a type error rather than warning",
+        "The 3 remaining baseline errors are fixed first, or explicitly suppressed with a comment naming why, so the gate starts green — a gate that starts red gets disabled",
+        "The two APNsPayload structural mismatches are addressed at the type level (sendByPlatform takes Record<string, unknown>, send-notification.ts has its own APNsPayload declaration that duplicates the one in shared/apns.ts) rather than by casting at the call sites",
+        "The TS2774 in send-checkin-notification:108 — `retry_count: supabaseAdmin.rpc ? undefined : undefined` — is a no-op that always evaluates to undefined; decide what the field was meant to do or delete it",
+        "Consider whether the Dockerfile should also `deno check` at build time so a bad image cannot be produced even outside CI"
+      ],
+      "priority": 237,
       "passes": false,
-      "notes": "Found while typechecking edge-functions for US-IOS138. NOT introduced by that change — present at baseline. NEXT ITERATION. Also worth asking why 7 type errors sit on main: there is no deno step in .github/workflows, so nothing catches these."
+      "notes": "Found while fixing US-EDGE001. This is the control that would have caught it. NEXT ITERATION."
     },
     {
       "id": "US-LEG001",

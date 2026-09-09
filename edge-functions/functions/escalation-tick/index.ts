@@ -177,17 +177,29 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
         slotKey = (requestRow?.slot_key as string | null | undefined) ?? null;
       }
 
-      const apnsPayload = buildCheckinPayload("", request_id, "escalation", escalation_step, undefined, slotKey);
-      const fcmPayload = buildFCMCheckinPayload("", request_id || "", receiver_id, "escalation", escalation_step, undefined, slotKey);
-      const results = await Promise.all(
-        receiverTokens.map((t: PushToken) => {
-          if (t.platform === "android") {
-            return sendFCMNotification(t.token, fcmPayload);
-          }
-          return sendPushNotification(t.token, apnsPayload, { priority: 10 });
-        })
-      );
-      await deactivateInvalidTokens(receiverTokens, results, receiver_id);
+      // A check-in reminder is only actionable if it carries the request it is
+      // about: the app keys its notification actions off checkin_request_id and
+      // silently ignores a payload without one. Sending it anyway produces a
+      // notification whose buttons do nothing, which is worse than not sending —
+      // the receiver believes they answered. So skip and say why.
+      if (!request_id) {
+        logWarn("Skipping step-1 reminder with no request_id", {
+          path: "/escalation-tick",
+          userId: receiver_id,
+        });
+      } else {
+        const apnsPayload = buildCheckinPayload("", request_id, "escalation", escalation_step, undefined, slotKey);
+        const fcmPayload = buildFCMCheckinPayload("", request_id, receiver_id, "escalation", escalation_step, undefined, slotKey);
+        const results = await Promise.all(
+          receiverTokens.map((t: PushToken) => {
+            if (t.platform === "android") {
+              return sendFCMNotification(t.token, fcmPayload);
+            }
+            return sendPushNotification(t.token, apnsPayload, { priority: 10 });
+          })
+        );
+        await deactivateInvalidTokens(receiverTokens, results, receiver_id);
+      }
     }
 
     await supabaseAdmin.from("notification_log").insert({
@@ -210,9 +222,15 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       .eq("id", receiver_id)
       .single();
 
+    // Declared here, not inside the push block below. The SMS fallback further
+    // down is a SIBLING block, not a nested one, so a const declared in the push
+    // block is out of scope there — `deno run` strips types without checking, so
+    // this reached production as a ReferenceError that killed the escalation SMS
+    // the moment an owner had SMS enabled and a phone on file (US-EDGE001).
+    const safeReceiverName = sanitizeDisplayName(receiver?.display_name || "Your family member");
+
     if (ownerTokens?.length) {
       const alertTitle = "Missed Check-In";
-      const safeReceiverName = sanitizeDisplayName(receiver?.display_name || "Your family member");
       const alertBody = `${safeReceiverName} hasn't checked in yet. They've been reminded twice.`;
       const payload = {
         aps: {
@@ -283,7 +301,7 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       type: "owner_alert",
       status: "sent",
     });
-  } else if (escalation_step >= 3) {
+  } else if (escalation_step != null && escalation_step >= 3) {
     // Step 3: Alert to all Viewers
     const { data: viewers } = await supabaseAdmin
       .from("family_members")
@@ -298,6 +316,11 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       .eq("id", receiver_id)
       .single();
 
+    // Same scoping bug as the owner path above, and worse: the viewer SMS branch
+    // has no sms_escalation_enabled gate, so it fired for ANY viewer with a phone
+    // number on file (US-EDGE001).
+    const safeViewerReceiverName = sanitizeDisplayName(receiver?.display_name || "A family member");
+
     if (viewers?.length) {
       for (const viewer of viewers) {
         const { data: viewerTokens } = await supabaseAdmin
@@ -308,7 +331,6 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
 
         if (viewerTokens?.length) {
           const alertTitle = "Family Alert";
-          const safeViewerReceiverName = sanitizeDisplayName(receiver?.display_name || "A family member");
           const alertBody = `${safeViewerReceiverName} has missed their check-in today.`;
           const payload = {
             aps: {

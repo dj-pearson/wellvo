@@ -2372,3 +2372,61 @@ escalation SMS throws the moment an owner with SMS escalation enabled and a
 phone on file reaches it. That is the most safety-critical path in the product.
 Next iteration. Worth noting separately that main carries 7 type errors at all,
 which is possible because .github/workflows has no deno step to catch them.
+
+================================================================================
+US-EDGE001 — escalation-tick threw on the SMS escalation path         2026-09-09
+================================================================================
+The escalation SMS — the fallback that exists for exactly the case where a push
+notification is not enough, when someone's parent has missed their check-in —
+could not have worked.
+
+  functions/escalation-tick/index.ts
+    safeReceiverName        declared :215 inside `if (ownerTokens?.length)`
+                            used     :263 inside `if (smsEnabled && phone)`
+    safeViewerReceiverName  declared :311 inside `if (viewerTokens?.length)`
+                            used     :339 inside `if (viewerUser?.phone)`
+
+Sibling blocks, not nested ones. A `const` in the first does not exist in the
+second.
+
+I did not assume the severity, I checked it. The Dockerfile's CMD is
+`deno run --allow-net --allow-env --allow-read=/app server.ts`, and `deno run`
+strips types without checking them. A minimal repro of the same shape:
+
+    push sent to Alice
+    error: Uncaught (in promise) ReferenceError: safeName is not defined
+
+So the owner alert PUSH went out, and then the function threw before the SMS —
+for any owner with SMS escalation enabled and a phone number on file. The viewer
+path is worse: its SMS branch has no sms_escalation_enabled gate at all, so it
+fired for any viewer with a phone on file.
+
+  mod  edge-functions/functions/escalation-tick/index.ts
+
+Both names hoisted to the enclosing scope, next to the `receiver` fetch they
+depend on. No change to the sanitized value or the fallback strings, which
+differ between the two paths ("Your family member" vs "A family member") and
+were kept as-is.
+
+Two more errors in the same blast radius, fixed here rather than left:
+
+  * The step-1 reminder passed a possibly-undefined request_id into the payload.
+    The app guards on `userInfo["checkin_request_id"] as? String` and returns if
+    it is missing, so that notification arrives with buttons that do nothing —
+    the receiver taps "I'm OK", sees the notification dismiss, and believes they
+    answered. It now logs and skips instead of sending an inert reminder.
+  * The step-3 branch compared a possibly-undefined escalation_step with `>= 3`.
+    Now guarded explicitly.
+
+`deno check server.ts`: 7 errors -> 3. The remaining 3 are APNsPayload
+structural-typing mismatches (send-notification.ts declares its own APNsPayload
+that duplicates shared/apns.ts) and a no-op ternary in
+send-checkin-notification:108 — different blast radius, left for US-EDGE002.
+
+Not fixed, noted: the step-1 path inserts notification_log status "sent" even
+when nothing was sent. Pre-existing, and true of the empty-token case too.
+
+The real finding is not the bug, it is that nothing would have caught it.
+.github/workflows has no deno step, so edge-functions is the one surface here
+with no type gate at all — and it is the surface that decides whether an alert
+reaches a family. Filed as US-EDGE002, next.
