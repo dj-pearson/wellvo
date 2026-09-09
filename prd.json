@@ -4558,6 +4558,38 @@
       "notes": "DONE. NOT compile-verified — no macOS/Xcode; reviewed by reading. Found by grepping for pattern (c) from this loop — a discarded result on a call whose success is load-bearing — across ios/DailyOK/Views: this was the ONLY destructive mutation with that shape, which is a good sign for the rest of the view layer. No new imports needed (DailyOKError is already used in this file). The ordering trap is the non-obvious half and is recorded in a comment."
     },
     {
+      "id": "US-EDGE004",
+      "title": "subscription-webhook let one user provision another user's family",
+      "description": "As a paying owner, I want nobody else able to touch my subscription. /subscription-webhook is not service-role-only — the iOS app calls it directly after a purchase — and it took app_account_token from the request body, resolved it to that user, and never checked it against the authenticated caller. Any signed-in user could name someone else's UUID and rewrite that family's subscription_tier, subscription_status, subscription_expires_at and seat limits. The obvious reading is self-upgrade; the sharper one is the reverse, setting a paying customer's expiry into the past to downgrade them. The two add-on handlers were worse still: they used `body.app_account_token || auth.userId` with no UUID validation and no ownership check at all, then called increment_max_receivers / increment_max_viewers against it.",
+      "acceptanceCriteria": [
+        "A caller may only provision their own account; a mismatched app_account_token is refused with 403",
+        "Service role remains trusted, because real App Store Server Notifications arrive server-to-server and legitimately act for another user",
+        "The tier path and both add-on paths share one rule rather than three near-copies",
+        "app_account_token is UUID-validated on every path, including the add-on paths that previously skipped it",
+        "The rejection is logged with the authenticated user id",
+        "deno check and deno lint stay clean"
+      ],
+      "priority": 247,
+      "passes": true,
+      "notes": "DONE and VERIFIED: deno check server.ts exits 0 and deno lint reports no problems across 48 files — both are CI-gated as of US-EDGE002/003. Shape mirrors the existing authorization check in process-checkin-response. Extracted resolveAuthorizedUserId so the tier path and both add-on paths cannot drift. Does NOT address receipt verification — that is US-EDGE005."
+    },
+    {
+      "id": "US-EDGE005",
+      "title": "Verify App Store receipts before granting entitlements",
+      "description": "As the business, I want a paid tier to require a payment. subscription-webhook maps a client-supplied product_id straight to a tier and writes it to the family, with no verification that a purchase happened. US-EDGE004 stopped a user provisioning OTHER accounts, but any authenticated user can still grant themselves family_plus by POSTing their own app_account_token with a familyplus product id and any transaction_id. transaction_id and original_id are accepted and, on the tier path, not checked against anything.",
+      "acceptanceCriteria": [
+        "Validate the transaction against the App Store Server API (JWS signed transaction / Get Transaction Info) before writing any tier, using the App Store Server API key held in Infisical — never a value committed to the repo",
+        "Verify the transaction's product id, bundle id and appAccountToken match the request and the resolved user",
+        "Reject a transaction id already recorded against a different user, so a real receipt cannot be replayed across accounts",
+        "Google Play purchases need the equivalent check against the Play Developer API; the net.dailyok.* namespace is still live per CLAUDE.md §E",
+        "Keep the endpoint idempotent — the client retries it, and US-IOS139 now leaves a transaction unfinished and replays it until it succeeds",
+        "Roll out carefully: this is the endpoint every real purchase depends on, so a bug here blocks paying customers. Consider logging verification failures without enforcing for one release, then enforcing"
+      ],
+      "priority": 248,
+      "passes": false,
+      "notes": "Found alongside US-EDGE004 on the last iteration of the improvement loop. Deliberately NOT attempted there: it needs Apple/Google credentials, JWS validation and a staged rollout, which is several iterations of work and cannot be tested from an environment with no store access."
+    },
+    {
       "id": "US-LEG001",
       "title": "Account deletion no longer throws for members who joined via an invite link",
       "description": "As a user who joined a family through an invite, I want Delete Account to actually delete my account, so that the erasure right the app advertises is real rather than an error dialog.",

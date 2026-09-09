@@ -2861,3 +2861,44 @@ properly. This was the outlier, not the convention.
 
 NOT compile-verified: no macOS or Xcode. No new imports needed — DailyOKError is
 already used in this file.
+
+================================================================================
+US-EDGE004 — subscription-webhook let one user provision another      2026-09-09
+================================================================================
+/subscription-webhook is not service-role-only — the iOS app calls it directly
+after a purchase — and it took app_account_token from the REQUEST BODY, resolved
+it to that user, and never compared it to the authenticated caller.
+
+So any signed-in user could send someone else's UUID and rewrite that family's
+subscription_tier, subscription_status, subscription_expires_at and seat limits.
+The obvious reading is self-upgrade. The sharper one is the reverse: set a
+paying customer's expiry into the past and downgrade them.
+
+The two add-on handlers were worse. They did:
+
+    const userId = body.app_account_token || auth.userId;
+
+with no UUID validation and no ownership check at all, then called
+increment_max_receivers / increment_max_viewers against whatever came back.
+
+  mod  edge-functions/functions/subscription-webhook/index.ts
+
+All three paths now go through one resolveAuthorizedUserId, so they cannot drift
+apart: UUID-validate the claimed token, refuse a mismatch with 403 unless the
+caller is service role, otherwise fall back to the JWT. Service role stays
+trusted because real App Store Server Notifications arrive server-to-server and
+legitimately act for another user. The shape is copied from the authorization
+check already in process-checkin-response, which had it right.
+
+VERIFIED: deno check server.ts exits 0, deno lint clean across 48 files. Both
+have been CI-gated since US-EDGE002/003 earlier in this loop, so this stays true.
+
+NOT fixed, filed as US-EDGE005: there is still no receipt verification at all.
+The endpoint maps a client-supplied product_id straight to a tier, so a user can
+grant THEMSELVES family_plus by posting their own token with a familyplus
+product id and any transaction_id. Fixing that means App Store Server API
+validation of the signed transaction, the Play Developer API equivalent for the
+still-live net.dailyok.* namespace, replay protection across accounts, and a
+staged rollout — because a bug in that path blocks every real purchase. Several
+iterations of work, and untestable from an environment with no store access, so
+it is written down rather than half-attempted.
