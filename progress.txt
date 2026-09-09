@@ -2773,3 +2773,58 @@ NOT compile-verified: no macOS or Xcode. Both cross-file calls
 declarations, and KeychainService.swift's existing imports (Foundation,
 Security) already cover UserDefaults and SecItemDelete — the import check that
 US-IOS142 taught me to do.
+
+================================================================================
+US-IOS145 — Refresh the mirrored token before confirming delivery     2026-09-09
+================================================================================
+The Notification Service Extension confirms delivery so the server stops
+retrying (US-IOS080). It authenticated that call with the mirrored access token
+and never checked whether the token had expired.
+
+It usually had. Supabase access tokens last about an hour. This app's entire
+design is one notification a day, and the token is only re-mirrored when the app
+runs. So by the time a scheduled reminder arrives, the mirrored token is
+typically hours or days stale.
+
+confirm-delivery requires a real user JWT — `if (!auth.userId && !auth.isServiceRole)`
+returns 401 — and the extension threw the response away:
+
+    _ = try? await PinnedURLSession.shared.data(for: request)
+
+So delivery was never confirmed. Migration 00012's pg_cron job retries while
+`delivery_confirmed_at IS NULL AND retry_count < max_retries`, with 2/4/8 minute
+backoff. The receiver got the same reminder at roughly T, T+2, T+6 and T+14
+minutes. Four buzzes for one check-in, aimed at an elderly person, and nothing
+anywhere to show for it because the 401 was discarded.
+
+  mod  ios/DailyOKNotificationService/NotificationService.swift
+  mod  ios/DailyOK/Services/SupabaseService.swift
+
+The extension now reads the whole mirrored session, checks expiry with the same
+60-second early margin SharedAuthTokens uses, and refreshes against the same
+endpoint SharedCheckInClient already hits.
+
+The write-back is not optional and is the part worth being careful about:
+Supabase ROTATES the refresh token on use, so refreshing without persisting
+would invalidate the copy the main app and the widget hold and eventually sign
+the user out of all of them. It writes update-then-add, never delete-then-add,
+for the reason US-IOS135 already established — an interrupted delete-then-add
+leaves every surface with no tokens. And a refresh that fails because a sibling
+surface rotated first re-reads the Keychain and adopts the newer token, which is
+exactly what SharedCheckInClient.refreshSession does.
+
+The refresh needs the anon key, which the extension had no way to reach. It now
+goes into the App Group defaults beside the URLs. That is a publishable key, not
+a secret: it already ships in the app binary and already sits in that same
+container inside the SharedCheckInState snapshot. The session tokens stay in the
+encrypted Keychain, which is the line SharedKeychain's doc comment draws.
+
+The notification is still delivered whatever any of this does — the completion
+is in a `defer`.
+
+NOT compile-verified: no macOS or Xcode. The extension compiles standalone, so
+the token struct and Keychain accessors are duplicated from SharedKeychain
+rather than imported, matching the note already in that file. Imports checked
+per the lesson from US-IOS142: Foundation and Security were already there,
+PinnedURLSession is already in this target per the existing comment, and the
+bare SecItemAdd/SecItemDelete call style matches KeychainService.

@@ -4527,6 +4527,23 @@
       "notes": "Split from US-IOS143 because it turns on an SDK behaviour that must be verified, not assumed, and guessing at another library's Keychain attributes would be worse than leaving it. Needs a machine that can build and run the app."
     },
     {
+      "id": "US-IOS145",
+      "title": "Refresh the mirrored token before confirming push delivery",
+      "description": "As a receiver, I want one reminder for one check-in, not four. The Notification Service Extension confirms delivery so the retry chain stops (US-IOS080), and it authenticated that call with the mirrored access token WITHOUT checking whether the token had expired. Supabase access tokens last about an hour; this app sends roughly one notification a day and only re-mirrors the token when the app runs, so by the time a scheduled reminder arrives the token has usually expired. confirm-delivery requires a real user JWT and returns 401 otherwise, and the extension discards the response — so delivery was never confirmed and the pg_cron retry job in migration 00012 re-sent the same reminder up to three more times at 2, 4 and 8 minute backoff. Four buzzes for one check-in, aimed at the person least likely to tolerate it, and invisible in every log because the response was thrown away.",
+      "acceptanceCriteria": [
+        "The extension reads the full mirrored session, not just the access token, and checks expiry with the same 60-second early margin as SharedAuthTokens",
+        "An expired token is refreshed against the same endpoint SharedCheckInClient already uses, before the confirm call",
+        "The refreshed session is written BACK to the shared Keychain — Supabase rotates the refresh token on use, so refreshing without persisting would invalidate the copy the app and widget hold",
+        "The write-back is update-then-add, never delete-then-add, per US-IOS135",
+        "A refresh that fails because a sibling surface rotated the token concurrently re-reads the Keychain and adopts the newer token, matching SharedCheckInClient.refreshSession",
+        "The anon key needed for the refresh reaches the extension through the App Group; the session tokens stay in the encrypted Keychain",
+        "The notification is still delivered regardless of what any of this does"
+      ],
+      "priority": 245,
+      "passes": true,
+      "notes": "DONE. NOT compile-verified — no macOS/Xcode; reviewed by reading. The extension compiles standalone so SharedTokens/read/write are duplicated from SharedKeychain rather than imported, matching the file's existing note about that. Imports were checked (Foundation, Security already present; PinnedURLSession is already compiled into this target per the existing comment), and the bare SecItemAdd/SecItemDelete call style matches KeychainService. The anon key is now published to the App Group: it is a publishable key that already ships in the binary and already sits in that same container inside SharedCheckInState, so this leaks nothing new."
+    },
+    {
       "id": "US-LEG001",
       "title": "Account deletion no longer throws for members who joined via an invite link",
       "description": "As a user who joined a family through an invite, I want Delete Account to actually delete my account, so that the erasure right the app advertises is real rather than an error dialog.",
