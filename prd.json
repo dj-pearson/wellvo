@@ -4479,8 +4479,8 @@
         "Scope is the sign-out path only — do not refactor the whole 700-line view model to get there"
       ],
       "priority": 241,
-      "passes": false,
-      "notes": "Split from US-IOS140 so a security-shaped fix could ship without waiting on a refactor. NEXT ITERATION."
+      "passes": true,
+      "notes": "DONE. NOT compile-verified or test-run — no macOS/Xcode here; reviewed by reading. New SignOutDependencies struct (5 @MainActor closures) with a `live` default reading the same singletons as before; AuthViewModel gains an optional signOutDependencies override and `init(bootstrap: Bool = true)` so a test can construct the view model without the network Task the real init starts (session check, auth listener, Apple credential state) — that Task would race the assertions. The only app call site, DailyOKApp.swift:7 AuthViewModel(), is unchanged by the default. New ios/DailyOKTests/AuthViewModelSignOutTests.swift, 5 tests, including one asserting the success and failure paths tear down IDENTICALLY so they cannot drift apart again. REGISTERED in project.pbxproj at all four required points (PBXBuildFile, PBXFileReference, DailyOKTests group children, Sources build phase) — the project uses objectVersion 56 with no fileSystemSynchronizedGroups, so new files must be listed explicitly or CI silently never runs them. Caught an ID collision doing it: B3U00007/F3U00007 were already StreaksTimezoneTests; the existing hand-authored ids run 00001-00012, so this uses 00013."
     },
     {
       "id": "US-LEG001",

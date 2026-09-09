@@ -2629,3 +2629,48 @@ its own risk surface, so it is US-IOS141 rather than something to bundle into a
 security fix. Next iteration.
 
 NOT compile-verified: no macOS or Xcode here. Reviewed by reading.
+
+================================================================================
+US-IOS141 — A seam for the sign-out teardown, and the test it enables 2026-09-09
+================================================================================
+US-IOS140 shipped without a test because there was nowhere to put one. signOut
+reached five singletons directly, so nothing could observe whether the teardown
+ran. This adds the seam and the regression test.
+
+  new  ios/DailyOKTests/AuthViewModelSignOutTests.swift    5 tests
+  mod  ios/DailyOK/ViewModels/AuthViewModel.swift
+  mod  ios/DailyOK.xcodeproj/project.pbxproj
+
+SignOutDependencies is five @MainActor closures with a `live` default that reads
+exactly the same singletons as before. AuthViewModel gets an optional override
+and nothing else — deliberately not a dependency container for a 700-line view
+model, just the sign-out path.
+
+The obstacle worth recording: the real init() starts a Task that does a session
+check, registers the Supabase auth listener and queries Apple credential state.
+Constructing the view model in a test would fire all of that and race the
+assertions. So init took `bootstrap: Bool = true`, and tests pass false. The
+default keeps the only app call site (DailyOKApp.swift:7) unchanged.
+
+Five tests. The one that matters asserts the shared Keychain tokens are cleared
+when the revoke THROWS, with the reason in the failure message so whoever breaks
+it learns why it matters rather than just that a bool flipped. Another asserts
+the success and failure paths tear down identically, which is the actual
+invariant — US-IOS140 was the two paths having drifted apart.
+
+XCODE REGISTRATION, which is easy to get silently wrong: the project is
+objectVersion 56 with no fileSystemSynchronizedGroups, so a new test file that
+is not listed in project.pbxproj simply never runs, and CI stays green while
+testing nothing. Registered at all four points — PBXBuildFile, PBXFileReference,
+the DailyOKTests group children, and the DailyOKTests Sources build phase.
+
+That step also caught a real mistake before it landed. My first pass used ids
+B3U00007/F3U00007 by pattern-matching the file above; those are already
+StreaksTimezoneTests. The existing hand-authored ids run 00001-00012, so this
+uses 00013. A duplicate id would have produced a project file Xcode either
+rejects or resolves to the wrong file — checking the committed file for the id
+before writing it is the step that caught it.
+
+NOT compile-verified and NOT test-run: no macOS or Xcode in this environment.
+The tests are written from reading; whether they compile is confirmed by the
+first CI run, not by me.

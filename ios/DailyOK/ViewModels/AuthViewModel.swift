@@ -10,6 +10,35 @@ enum AuthState: Equatable {
     case authenticated
 }
 
+/// The collaborators `AuthViewModel.signOut` tears down.
+///
+/// Exists so the teardown can be asserted (US-IOS141). US-IOS140 was a bug where
+/// a thrown server revoke skipped every one of these — including clearing the
+/// shared Keychain tokens the widget, watch and Siri authenticate with — and
+/// nothing could have caught it, because signOut reached five singletons
+/// directly and a test had no way to observe any of them.
+///
+/// Deliberately narrow. This is the sign-out path, not a dependency container
+/// for the whole view model.
+struct SignOutDependencies {
+    var revokeServerSession: @MainActor () async throws -> Void
+    var resetBiometric: @MainActor () async -> Void
+    var stopHeartbeat: @MainActor () -> Void
+    var resetReconcileLatch: @MainActor () -> Void
+    var clearSharedSession: @MainActor () -> Void
+
+    @MainActor
+    static var live: SignOutDependencies {
+        SignOutDependencies(
+            revokeServerSession: { try await AuthService.shared.signOut() },
+            resetBiometric: { await BiometricService.shared.reset() },
+            stopHeartbeat: { HeartbeatService.shared.stop() },
+            resetReconcileLatch: { SubscriptionService.shared.resetReconcileLatch() },
+            clearSharedSession: { SharedCheckInPublisher.clear() }
+        )
+    }
+}
+
 @MainActor
 final class AuthViewModel: ObservableObject {
     @Published var authState: AuthState = .loading
@@ -93,7 +122,14 @@ final class AuthViewModel: ObservableObject {
     /// so it must be retained and removed explicitly.
     private var appleRevocationObserver: NSObjectProtocol?
 
-    init() {
+    /// Overridden by tests; nil means the live singletons.
+    var signOutDependencies: SignOutDependencies?
+
+    /// `bootstrap: false` skips the session/Apple-credential work below, which is
+    /// network-bound and would race a test's assertions. Defaults to true, so
+    /// every app call site is unchanged.
+    init(bootstrap: Bool = true) {
+        guard bootstrap else { return }
         Task {
             await checkSession()
             listenForAuthStateChanges()
@@ -553,8 +589,10 @@ final class AuthViewModel: ObservableObject {
         //     because the next user to sign in on this device is then skipped
         //
         // Their intent is not ambiguous. Sign them out locally either way.
+        let deps = signOutDependencies ?? .live
+
         do {
-            try await AuthService.shared.signOut()
+            try await deps.revokeServerSession()
         } catch {
             // Not surfaced to the user: locally they ARE signed out, and an
             // error here would say otherwise. The residual is that the refresh
@@ -564,14 +602,14 @@ final class AuthViewModel: ObservableObject {
         }
 
         // Unconditional local teardown.
-        await BiometricService.shared.reset()
-        HeartbeatService.shared.stop()
+        await deps.resetBiometric()
+        deps.stopHeartbeat()
         // Allow the next (possibly different) user to reconcile entitlements
         // within this same process launch.
-        SubscriptionService.shared.resetReconcileLatch()
+        deps.resetReconcileLatch()
         // Drop the shared check-in snapshot so Siri/widget/watch can't act
         // on a stale session after sign-out.
-        SharedCheckInPublisher.clear()
+        deps.clearSharedSession()
         currentUser = nil
         authState = .unauthenticated
         biometricLocked = false
