@@ -130,4 +130,39 @@ final class SubscriptionServiceTests: XCTestCase {
         XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.family))
         XCTAssertTrue(purchased.isDisjoint(with: SubscriptionService.ProductIDs.caregiver))
     }
+
+    // MARK: - Finishing a transaction is gated on the sync outcome (US-IOS139)
+
+    /// `Transaction.updates` only ever redelivers transactions that were never
+    /// finished. So finishing one whose backend sync failed is the moment a paid
+    /// subscription becomes permanently invisible to the server: StoreKit
+    /// considers it handled and never mentions it again. Both the purchase path
+    /// and the renewal listener call `finish()` only when this says they may.
+
+    func testSyncedTransactionMayBeFinished() {
+        XCTAssertTrue(SubscriptionService.SyncOutcome.synced.mayFinishTransaction)
+    }
+
+    /// The bug this replaced: the sync swallowed its failure, so this case was
+    /// indistinguishable from success and the transaction was finished anyway.
+    func testTransientFailureMustNotFinishTheTransaction() {
+        XCTAssertFalse(SubscriptionService.SyncOutcome.transientFailure.mayFinishTransaction)
+    }
+
+    /// A deterministic 4xx will not succeed on the tenth launch either. Holding
+    /// the transaction open would mean StoreKit redelivering it on every launch
+    /// forever, so it is finished and surfaced to the user instead — the same
+    /// dead-letter reasoning as the offline check-in queue (US-IOS099).
+    func testPermanentRejectionFinishesRatherThanRedeliveringForever() {
+        XCTAssertTrue(SubscriptionService.SyncOutcome.permanentlyRejected.mayFinishTransaction)
+    }
+
+    /// Exactly one outcome holds the transaction open. If a future case is added
+    /// without deciding this, that is a paid subscription silently lost or a
+    /// redelivery loop — neither should be reachable by accident.
+    func testOnlyTransientFailureHoldsATransactionOpen() {
+        let held: [SubscriptionService.SyncOutcome] = [.synced, .transientFailure, .permanentlyRejected]
+            .filter { !$0.mayFinishTransaction }
+        XCTAssertEqual(held.count, 1)
+    }
 }

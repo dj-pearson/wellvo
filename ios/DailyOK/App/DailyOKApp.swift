@@ -127,6 +127,11 @@ struct DailyOKApp: App {
                 HeartbeatService.shared.appBecameActive()
                 // Reconcile any verified-but-unsynced subscription to the backend
                 // once per launch (reinstall / interrupted purchase) — US-IOS095.
+                // The latch only closes on success, and this registers a
+                // connectivity-restored retry, so a launch that happens before the
+                // network is up no longer leaves the user un-provisioned for the
+                // rest of the process lifetime (US-IOS139).
+                SubscriptionService.shared.startRetryingWhenOnline()
                 await SubscriptionService.shared.reconcileEntitlementsToBackendOnce()
                 // Non-urgent / best-effort work last.
                 await AnalyticsService.shared.track(.appOpened)

@@ -47,7 +47,31 @@ final class SubscriptionService: ObservableObject {
         static let caregiver: Set<String> = [caregiverMonthly, caregiverYearly]
     }
 
+    /// What happened when an entitlement was pushed to the backend.
+    ///
+    /// The distinction that matters is between a failure worth holding the
+    /// StoreKit transaction open for, and one that will never succeed no matter
+    /// how long we hold it.
+    enum SyncOutcome {
+        case synced
+        /// Network or server-side failure. The transaction must be left
+        /// unfinished so `Transaction.updates` redelivers it.
+        case transientFailure
+        /// The backend rejected it deterministically (4xx). Retrying is futile
+        /// and holding it open means redelivery on every launch, forever.
+        case permanentlyRejected
+
+        /// Whether it is safe to call `transaction.finish()`.
+        var mayFinishTransaction: Bool {
+            switch self {
+            case .synced, .permanentlyRejected: return true
+            case .transientFailure: return false
+            }
+        }
+    }
+
     private var updateTask: Task<Void, Never>?
+    private var connectivityObserver: NSObjectProtocol?
     /// Guards the once-per-launch backend reconcile so foregrounding doesn't
     /// re-push entitlements on every resume.
     private var hasReconciledThisLaunch = false
@@ -154,11 +178,17 @@ final class SubscriptionService: ObservableObject {
             // Sync to the backend BEFORE finishing the transaction. If we finish
             // first and the process is killed mid-sync, StoreKit can't redeliver
             // (it's already finished) and the family stays un-upgraded until a
-            // manual restore (US-IOS095). Finishing after the sync means an
-            // interrupted sync leaves the transaction unfinished, so it's
-            // redelivered via Transaction.updates / currentEntitlements.
-            await syncSubscriptionToBackend(transaction)
-            await transaction.finish()
+            // manual restore (US-IOS095).
+            //
+            // And only finish if the sync actually succeeded. A transient failure
+            // leaves it unfinished on purpose, which is what makes
+            // `Transaction.updates` redeliver it — the mechanism this comment
+            // claimed but did not previously have, because the sync swallowed its
+            // own failures (US-IOS139).
+            let outcome = await syncSubscriptionToBackend(transaction)
+            if outcome.mayFinishTransaction {
+                await transaction.finish()
+            }
 
             return transaction
 
@@ -220,8 +250,12 @@ final class SubscriptionService: ObservableObject {
     /// Once-per-launch reconcile, safe to call on every foreground.
     func reconcileEntitlementsToBackendOnce() async {
         guard !hasReconciledThisLaunch else { return }
-        hasReconciledThisLaunch = true
-        await reconcileEntitlementsToBackend()
+        // Latch on SUCCESS, not on attempt. The old order burned the latch before
+        // knowing the outcome, so a launch with no network yet — the common case,
+        // since this runs at startup — meant no reconcile for the entire process
+        // lifetime. A user whose purchase sync had also failed stayed
+        // un-provisioned until they force-quit and relaunched (US-IOS139).
+        hasReconciledThisLaunch = await reconcileEntitlementsToBackend()
     }
 
     /// Reset the once-per-launch reconcile latch. Must be called on sign-out so a
@@ -232,11 +266,33 @@ final class SubscriptionService: ObservableObject {
         hasReconciledThisLaunch = false
     }
 
-    func reconcileEntitlementsToBackend() async {
+    /// Returns true when every current entitlement reached the backend, so the
+    /// caller knows whether this is worth attempting again. A permanent rejection
+    /// counts as settled: repeating it would not change the answer.
+    @discardableResult
+    func reconcileEntitlementsToBackend() async -> Bool {
+        var allSettled = true
         for await result in Transaction.currentEntitlements {
             guard let transaction = try? checkVerified(result) else { continue }
             if let expiry = transaction.expirationDate, expiry <= Date() { continue }
-            await syncSubscriptionToBackend(transaction)
+            let outcome = await syncSubscriptionToBackend(transaction)
+            if case .transientFailure = outcome { allSettled = false }
+        }
+        return allSettled
+    }
+
+    /// Retry the reconcile when the network comes back, so a user whose launch
+    /// happened offline does not have to relaunch to get provisioned. Mirrors the
+    /// pattern HeartbeatService already uses for the same reason (US-IOS136).
+    /// Idempotent — the backend webhook is too, so a redundant push is harmless.
+    func startRetryingWhenOnline() {
+        guard connectivityObserver == nil else { return }
+        connectivityObserver = NotificationCenter.default.addObserver(
+            forName: OfflineCheckInService.connectivityRestored,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in await self?.reconcileEntitlementsToBackendOnce() }
         }
     }
 
@@ -298,12 +354,14 @@ final class SubscriptionService: ObservableObject {
             if let transaction = try? checkVerified(result) {
                 await updatePurchasedProducts()
                 // Sync to the backend BEFORE finishing, matching the purchase
-                // path (line ~154-162). `Transaction.updates` only redelivers
-                // *unfinished* transactions, so finishing first means a renewal
-                // whose sync fails (or whose app is killed mid-sync) is never
-                // re-pushed — the user silently loses provisioned entitlements.
-                await syncSubscriptionToBackend(transaction)
-                await transaction.finish()
+                // path. `Transaction.updates` only redelivers *unfinished*
+                // transactions, so finishing a renewal whose sync failed means it
+                // is never re-pushed and the user silently loses provisioned
+                // entitlements. Holding it unfinished is how it comes back.
+                let outcome = await syncSubscriptionToBackend(transaction)
+                if outcome.mayFinishTransaction {
+                    await transaction.finish()
+                }
             }
         }
     }
@@ -332,7 +390,17 @@ final class SubscriptionService: ObservableObject {
     }
 
     /// Sync subscription status to the Supabase backend with exponential backoff retry
-    private func syncSubscriptionToBackend(_ transaction: StoreKit.Transaction, attempt: Int = 1) async {
+    /// Push one entitlement to the backend. Returns the outcome so callers can
+    /// decide whether it is safe to finish the transaction.
+    ///
+    /// This used to return Void and swallow the failure after its retries. That
+    /// made the protection described at the `purchase` and `listenForTransactions`
+    /// call sites impossible: both say they finish only after a successful sync so
+    /// StoreKit can redeliver an unsynced transaction, but with the failure
+    /// invisible they finished unconditionally, and `Transaction.updates` only
+    /// redelivers transactions that were never finished (US-IOS139).
+    @discardableResult
+    private func syncSubscriptionToBackend(_ transaction: StoreKit.Transaction, attempt: Int = 1) async -> SyncOutcome {
         let maxRetries = 3
         do {
             try await EdgeFunctionsClient.invoke(
@@ -345,15 +413,26 @@ final class SubscriptionService: ObservableObject {
                     "app_account_token": transaction.appAccountToken?.uuidString ?? "",
                 ]
             )
+            return .synced
         } catch {
+            // A deterministic rejection (400/403/404) will never succeed, so
+            // neither retrying nor holding the transaction open helps — the same
+            // dead-letter reasoning as the offline check-in queue (US-IOS099).
+            // Without this, an unfinishable transaction would be redelivered by
+            // StoreKit on every single launch, forever.
+            if NetworkRetry.isNonRetryable(error) {
+                Log.subscription.error("Subscription sync permanently rejected: \(error.localizedDescription, privacy: .public)")
+                errorMessage = String(localized: "We couldn't activate your subscription. Please contact support.")
+                return .permanentlyRejected
+            }
             if attempt < maxRetries {
                 let delay = UInt64(pow(2.0, Double(attempt))) * 1_000_000_000 // exponential backoff
                 try? await Task.sleep(nanoseconds: delay)
-                await syncSubscriptionToBackend(transaction, attempt: attempt + 1)
-            } else {
-                Log.subscription.error("Failed to sync subscription after \(maxRetries, privacy: .public) attempts: \(error.localizedDescription, privacy: .public)")
-                errorMessage = String(localized: "Subscription activated but sync pending. It will retry automatically.")
+                return await syncSubscriptionToBackend(transaction, attempt: attempt + 1)
             }
+            Log.subscription.error("Failed to sync subscription after \(maxRetries, privacy: .public) attempts: \(error.localizedDescription, privacy: .public)")
+            errorMessage = String(localized: "Subscription activated. We're still finishing setup and will retry shortly.")
+            return .transientFailure
         }
     }
 

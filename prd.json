@@ -4437,6 +4437,23 @@
       "notes": "DONE and VERIFIED: `deno lint` reports no problems across 48 files and `deno check server.ts` still exits 0. The lint step is now in .github/workflows/edge-functions-check.yml and the comment explaining its absence is gone. Read before deleting, as required, and the answer was different for each rule. The two no-unused-vars were genuinely dead, not dropped call sites: invite-receiver imported truncateString but validates name length explicitly and 400s instead of silently truncating, which is the better behaviour; subscription-cancellation destructured product_id it never needed, since a family holds one subscription and cancellation is identified by owner. The three require-await were NOT fixed by dropping `async`, which is the obvious move and is wrong here: all three return a promise directly, and without `async` a synchronous throw from the returned expression would escape at the caller instead of arriving as a rejected promise. finishGeneration is documented as safe to run fire-and-forget, so a caller may attach .catch() rather than await — exactly the case that would break. All three use `return await`, which satisfies the rule, preserves the semantics and keeps the frame in the stack trace."
     },
     {
+      "id": "US-IOS139",
+      "title": "Don't finish a StoreKit transaction whose backend sync failed",
+      "description": "As someone who has just paid for a subscription, I want the family to actually be provisioned, even if the network dropped at the wrong moment. syncSubscriptionToBackend returned Void and swallowed its failure after three retries. Both call sites — purchase() and the Transaction.updates listener — carry comments explaining that they finish the transaction only after a successful sync, precisely so StoreKit can redeliver an unsynced one. With the failure invisible they finished unconditionally, and Transaction.updates only redelivers transactions that were never finished. The code did exactly what its own comment said must not happen. Compounding it, reconcileEntitlementsToBackendOnce set its once-per-launch latch BEFORE running, so a launch that happened before the network came up — the common case, since it runs at startup — meant no reconcile for the entire process lifetime. And the user was told 'It will retry automatically' when in-session nothing would.",
+      "acceptanceCriteria": [
+        "The sync reports its outcome, distinguishing a transient failure from a deterministic backend rejection",
+        "A transaction is finished only when the sync succeeded or was permanently rejected; a transient failure leaves it unfinished so Transaction.updates redelivers it",
+        "A deterministic 4xx is finished rather than held open, so it is not redelivered on every launch forever — the dead-letter reasoning from US-IOS099",
+        "The once-per-launch reconcile latch closes only on success, so an offline launch does not disable reconciliation for the rest of the process",
+        "A connectivity-restored observer retries the reconcile, mirroring the pattern HeartbeatService already uses (US-IOS136)",
+        "The user-facing message tells the truth about what will happen next",
+        "The finish/hold decision is a pure value so it can be tested without StoreKit"
+      ],
+      "priority": 239,
+      "passes": true,
+      "notes": "DONE. NOT compile-verified — no macOS/Xcode in this environment; reviewed by reading. New nested SubscriptionService.SyncOutcome with mayFinishTransaction, 4 tests in SubscriptionServiceTests. NetworkRetry.isNonRetryable (already used by the offline queue) classifies the permanent case. Wired startRetryingWhenOnline() in DailyOKApp alongside the existing reconcile call. Deliberately NOT done: removing the new observer in deinit — SubscriptionService is a singleton that never deallocates, and the existing deinit already touches only updateTask; adding MainActor property access there is a compile risk I cannot check here."
+    },
+    {
       "id": "US-LEG001",
       "title": "Account deletion no longer throws for members who joined via an invite link",
       "description": "As a user who joined a family through an invite, I want Delete Account to actually delete my account, so that the erasure right the app advertises is real rather than an error dialog.",

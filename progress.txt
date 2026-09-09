@@ -2521,3 +2521,58 @@ All three now use `return await`, which satisfies the rule, preserves the
 semantics exactly, and keeps the frame in the async stack trace.
 
 deno check still exits 0. Both gates are live.
+
+================================================================================
+US-IOS139 — Don't finish a StoreKit transaction whose sync failed      2026-09-09
+================================================================================
+Both call sites already knew the rule and said so in comments:
+
+  "Transaction.updates only redelivers *unfinished* transactions, so finishing
+   first means a renewal whose sync fails is never re-pushed — the user silently
+   loses provisioned entitlements."
+
+And then both finished unconditionally, because syncSubscriptionToBackend
+returned Void and swallowed its own failure after three retries. There was no
+way for a caller to know. The code did exactly what its own comment said must
+not happen.
+
+  mod  ios/DailyOK/Services/SubscriptionService.swift
+  mod  ios/DailyOK/App/DailyOKApp.swift
+  mod  ios/DailyOKTests/SubscriptionServiceTests.swift   + 4 tests
+
+The sync now returns SyncOutcome: .synced, .transientFailure, or
+.permanentlyRejected. Only .transientFailure holds the transaction open. The
+permanent case is finished deliberately — a deterministic 4xx will not succeed
+on the tenth launch either, and holding it would mean StoreKit redelivering it
+forever. That is the same dead-letter reasoning as the offline check-in queue in
+US-IOS099, using the NetworkRetry.isNonRetryable classifier that already exists
+for it.
+
+The second half was worse, and quieter. reconcileEntitlementsToBackendOnce set
+its once-per-launch latch BEFORE doing the work:
+
+    guard !hasReconciledThisLaunch else { return }
+    hasReconciledThisLaunch = true        // burned whether or not it worked
+    await reconcileEntitlementsToBackend()
+
+It runs at startup, which is exactly when the network is least likely to be up.
+One failed attempt disabled reconciliation for the whole process lifetime. Pair
+that with a purchase whose sync had also failed and the user stays un-provisioned
+until they think to force-quit and relaunch. The latch now closes only on
+success, and a connectivity-restored observer retries — the same pattern
+HeartbeatService already uses for the same reason (US-IOS136).
+
+The message shown after a failed sync said "It will retry automatically." In
+session, nothing did. It now says setup is still finishing and will retry
+shortly, which is true, and the permanent-rejection case says to contact support
+instead of implying a retry that will never help.
+
+The decision is a pure value, so the tests cover it without StoreKit. One of
+them asserts that exactly ONE outcome holds a transaction open — a future case
+added without deciding this is either a paid subscription silently lost or a
+redelivery loop, and neither should be reachable by forgetting.
+
+NOT compile-verified: no macOS or Xcode here. Reviewed by reading.
+Deliberately not done: removing the new observer in deinit. SubscriptionService
+is a singleton that never deallocates, and touching MainActor properties in
+deinit is a compile risk I cannot check from here.
