@@ -69,3 +69,15 @@ table/users_rows.csv
 /table
 /Tables
 user_rows.csv
+# Deno lockfile. NOT committed, deliberately.
+#
+# `deno check` / `deno cache` write this automatically, and the format is
+# versioned: Deno 2.9 emits lockfile v5, while CI (edge-functions-check.yml) and
+# production (edge-functions/Dockerfile, denoland/deno:2.1.4) both pin 2.1.4,
+# which only reads v4. A v5 lock committed from a newer local Deno fails BOTH
+# with "Unsupported lockfile version '5'" — the typecheck gate and the image
+# build. That is exactly how it got here: a `git add -A` swept one in.
+#
+# Committing a lockfile is worth doing, but only after the pinned Deno version
+# is the same everywhere. Until then, not having one is the safe state.
+edge-functions/deno.lock
