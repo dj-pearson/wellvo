@@ -101,11 +101,18 @@ export async function handleSendCheckinNotification(req: Request, _auth: AuthRes
   // Log notifications with retry tracking
   for (const result of results) {
     if (is_retry && notification_log_id) {
+      // retry_count is deliberately NOT touched here. The pg_cron retry job
+      // owns it — migration 00012 does `SET retry_count = rec.retry_count + 1`
+      // before it re-triggers this function — so incrementing it again would
+      // burn two of the three retries per attempt and cut the retry budget in
+      // half. The line that used to sit here,
+      // `retry_count: supabaseAdmin.rpc ? undefined : undefined`, was a no-op
+      // that always evaluated to undefined and was dropped by JSON.stringify,
+      // which is the only reason the double-count never happened (US-EDGE002).
       await supabaseAdmin
         .from("notification_log")
         .update({
           status: result.success ? "sent" : "failed",
-          retry_count: supabaseAdmin.rpc ? undefined : undefined,
         })
         .eq("id", notification_log_id);
     } else {

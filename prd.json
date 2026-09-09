@@ -4418,8 +4418,23 @@
         "Consider whether the Dockerfile should also `deno check` at build time so a bad image cannot be produced even outside CI"
       ],
       "priority": 237,
+      "passes": true,
+      "notes": "DONE and VERIFIED: `deno check server.ts` exits 0. Baseline was 7 errors when this loop started, 3 after US-EDGE001, now 0. New .github/workflows/edge-functions-check.yml runs it on pull_request and on push to main/develop, path-filtered to edge-functions/**, pinned to deno 2.1.4 to match the Dockerfile base image. Deliberately a separate workflow from edge-functions-deploy.yml, which only runs on push to main — a gate that first speaks after the merge is not a gate. The Dockerfile also runs `deno check` after `deno cache`, so a bad image cannot be built even outside CI. The three errors were real, not noise: shared/send-notification.ts redeclared its own APNsPayload with a wider \"interruption-level\"?: string than apns.ts accepts (fixed by exporting the canonical type and importing it, deleting the duplicate and a bogus `import type { sendPushNotification as APNsResult }`); escalation-tick's sendByPlatform took Record<string, unknown>, which let a malformed aps shape past the helper; and the send-checkin-notification no-op `retry_count: supabaseAdmin.rpc ? undefined : undefined` was DELETED rather than repaired, because migration 00012's pg_cron job already owns that increment — writing it here too would have burned two of the three retries per attempt. The no-op was the only reason that double-count never happened. deno lint is NOT gated: 6 pre-existing problems, split out as US-EDGE003. CAVEAT: verified with the deno 2.9.6 available in this environment; CI and the Dockerfile pin 2.1.4, whose bundled TypeScript is older."
+    },
+    {
+      "id": "US-EDGE003",
+      "title": "Clear deno lint and add it to the edge-functions gate",
+      "description": "As whoever added the type gate in US-EDGE002, I want lint gated too, but not at the cost of a gate that starts red. `deno lint` reports 6 problems today, so the workflow checks types only. Each is small, but two of them are the kind of thing that hides a real mistake: an unused import means someone deleted the call and left the intent behind, and an async function with no await usually means an await went missing.",
+      "acceptanceCriteria": [
+        "no-unused-vars: `product_id` in functions/subscription-cancellation/index.ts:11 and `truncateString` — establish whether each is dead or whether a call site was dropped, before deleting",
+        "prefer-const: `requestId` in functions/process-checkin-response/index.ts:71",
+        "require-await on aiGenerate (shared/ai.ts:319), finishGeneration (shared/blog-generator.ts:169) and sendByPlatform (functions/escalation-tick/index.ts:15) — check each for a missing await before removing the async keyword; sendByPlatform returns Promise.all so dropping async keeps its return type, but confirm the same for the other two",
+        "`deno lint` exits 0",
+        "The `deno lint` step is added to .github/workflows/edge-functions-check.yml and the comment there explaining its absence is removed"
+      ],
+      "priority": 238,
       "passes": false,
-      "notes": "Found while fixing US-EDGE001. This is the control that would have caught it. NEXT ITERATION."
+      "notes": "Split from US-EDGE002 to keep a CI change from carrying semantic edits. NEXT ITERATION."
     },
     {
       "id": "US-LEG001",

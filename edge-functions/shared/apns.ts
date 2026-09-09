@@ -17,7 +17,7 @@ const APNS_HOST =
 
 const BUNDLE_ID = Deno.env.get("APPLE_BUNDLE_ID") || "com.wellvo.ios";
 
-interface APNsPayload {
+export interface APNsPayload {
   aps: {
     alert: {
       title: string;

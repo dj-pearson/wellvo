@@ -2430,3 +2430,51 @@ The real finding is not the bug, it is that nothing would have caught it.
 .github/workflows has no deno step, so edge-functions is the one surface here
 with no type gate at all — and it is the surface that decides whether an alert
 reaches a family. Filed as US-EDGE002, next.
+
+================================================================================
+US-EDGE002 — Typecheck the edge functions in CI                       2026-09-09
+================================================================================
+`deno check server.ts` now exits 0. It was 7 errors when this loop started.
+
+  new  .github/workflows/edge-functions-check.yml
+  mod  edge-functions/Dockerfile                       + build-time deno check
+  mod  edge-functions/shared/apns.ts, shared/fcm.ts    export the payload types
+  mod  edge-functions/shared/send-notification.ts      -27 lines of duplicate
+  mod  edge-functions/functions/escalation-tick/index.ts
+  mod  edge-functions/functions/send-checkin-notification/index.ts
+
+The gate runs on pull_request and on push to main/develop, path-filtered to
+edge-functions/**, pinned to deno 2.1.4 to match the Dockerfile base image so
+CI checks what actually runs. It is a separate workflow from
+edge-functions-deploy.yml on purpose: that one runs only on push to main, and a
+gate that first speaks after the merge is not a gate. The Dockerfile checks too,
+after `deno cache`, so a bad image cannot be built even outside CI.
+
+The three remaining errors were all real:
+
+  * send-notification.ts redeclared its OWN APNsPayload, with
+    `"interruption-level"?: string` where apns.ts accepts a four-value union. So
+    every send from that module was a type error against the function it calls.
+    Fixed by exporting the canonical types from the modules that own them and
+    importing — which also removed a bogus
+    `import type { sendPushNotification as APNsResult }`, a function imported as
+    a type and never used.
+  * escalation-tick's sendByPlatform took `Record<string, unknown>`, so a
+    malformed `aps` shape passed the helper and only failed deeper in. Now typed.
+  * `retry_count: supabaseAdmin.rpc ? undefined : undefined` in
+    send-checkin-notification. DELETED rather than repaired. Migration 00012's
+    pg_cron job already does `SET retry_count = rec.retry_count + 1` before it
+    re-triggers this function, so writing it here too would have burned two of
+    the three retries per attempt and halved the retry budget. The expression
+    always evaluated to undefined and JSON.stringify dropped it — which is the
+    only reason that double-count never happened. Repairing the "intent" would
+    have introduced the bug the typo was accidentally preventing.
+
+deno lint is NOT gated. 6 pre-existing problems, and a gate that starts red gets
+disabled. Split out as US-EDGE003, with the note that two of the six
+(unused import, async with no await) are the shape of a dropped call site rather
+than style, so they want reading before deleting.
+
+CAVEAT: verified with deno 2.9.6, the version installable in this environment.
+CI and the Dockerfile pin 2.1.4, whose bundled TypeScript is older. The first CI
+run is the real confirmation for that version.

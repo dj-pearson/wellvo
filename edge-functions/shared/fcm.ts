@@ -12,7 +12,7 @@ interface ServiceAccountKey {
   token_uri: string;
 }
 
-interface FCMPayload {
+export interface FCMPayload {
   title: string;
   body: string;
   data?: Record<string, string>;

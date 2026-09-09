@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification, buildCheckinPayload } from "../../shared/apns.ts";
+import type { APNsPayload } from "../../shared/apns.ts";
 import { sendFCMNotification, buildFCMCheckinPayload, buildFCMAlertPayload } from "../../shared/fcm.ts";
 import { sendSMS, buildEscalationSMS } from "../../shared/sms.ts";
 import { logInfo, logWarn, logError } from "../../shared/logger.ts";
@@ -13,7 +14,11 @@ interface PushToken {
 
 async function sendByPlatform(
   tokens: PushToken[],
-  apnsPayload: Record<string, unknown>,
+  // APNsPayload, not Record<string, unknown>: the wider type let a payload with
+  // a bad `aps` shape through this helper and only failed at the sendPushNotification
+  // call inside it (US-EDGE002). Typing the parameter means a malformed alert is
+  // caught at the caller that built it.
+  apnsPayload: APNsPayload,
   fcmTitle: string,
   fcmBody: string,
   fcmData: Record<string, string>,
