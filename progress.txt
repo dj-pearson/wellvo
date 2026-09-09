@@ -2266,3 +2266,60 @@ H1 is a product decision that should have to break a test on the way through.
 
 Website suite: 29 passing + 1 failing -> 67 passing, 0 failing.
 Lint 19 problems — unchanged, still a candidate.
+
+================================================================================
+US-IOS137 — Slot key through the offline check-in queue                2026-09-09
+================================================================================
+A receiver on a multi-window custom schedule (US-IOS048) who was offline could
+only ever get ONE check-in through per day, and was told all of them landed.
+
+The queue deduped on (receiver, family, local day). performCheckIn accepted a
+slotKey and dropped it before queueing — deliberately, with a comment saying it
+avoided an on-device migration. So the morning tap queued a row; the evening tap
+matched that row on day alone and returned silently; the receiver saw the
+success state; nothing was queued; and the owner escalated on an evening window
+the receiver had answered. That is the precise failure the whole offline path
+exists to prevent, and it was hiding behind a reasonable-sounding tradeoff.
+
+  mod  ios/DailyOK/Models/OfflineCheckIn.swift          + slotKey: String?
+  mod  ios/DailyOK/Services/OfflineCheckInService.swift
+  mod  ios/DailyOKTests/OfflineCheckInServiceTests.swift  + 7 tests
+
+The migration the old comment was avoiding is a new OPTIONAL attribute, which
+SwiftData migrates lightly — there is no VersionedSchema here, the container is
+a plain ModelContainer(for: OfflineCheckIn.self). Existing queued rows come back
+with nil, which is exactly their old meaning: day-level. So the thing that was
+traded away was not worth what it cost.
+
+The dedup key is now (receiver, family, local day, slotKey). nil is a slot value
+like any other, so two day-level taps still dedup — no behaviour change at all
+for single-window schedules, which is nearly everyone.
+
+The slot comparison deliberately happens in Swift rather than inside #Predicate.
+Optional-to-optional equality against a captured value is awkward to express in
+a SwiftData predicate, and I cannot compile here to find out which spelling the
+macro accepts; the fetch is already narrowed to one receiver's unsynced rows for
+today, so it is a handful of objects. Choosing the construct I am confident
+about mattered more than saving that fetch.
+
+Dedup was extracted to a pure `isAlreadyQueued(slotKey:amongQueuedSlots:)` so it
+is testable without standing up a SwiftData container — 7 cases, including the
+two that would signal a regression: two day-level taps still dedup, and a
+day-level row does not swallow a windowed one.
+
+No backend change needed. process-checkin-response already dedups per slot and
+00049_checkin_slot_dedup_backfill.sql already partitions the unique index by
+COALESCE(slot_key,''), so the replayed slot lands correctly.
+
+NOT FIXED, split out as US-IOS138: the offline NOTIFICATION-response path in
+AppDelegate still queues day-level. It identifies the check-in by
+checkin_request_id and the slot is resolved server-side from that request —
+which is unreachable while offline, and the push payload does not carry
+slot_key. That needs an additive payload field in send-checkin-notification, so
+it crosses into edge-functions and is its own change.
+
+Not compile-verified: there is no macOS or Xcode in this environment. Every
+change here was reviewed by reading, and the signatures it depends on were
+checked against source (CheckInService.checkIn already takes slotKey; the only
+other queueCheckIn caller, AppDelegate.swift:314, still compiles because the new
+parameter defaults to nil).

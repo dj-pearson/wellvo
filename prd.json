@@ -4358,6 +4358,38 @@
       "notes": "From Services review #10. IMPLEMENTED. The 15-min Timer no-ops while offline; this closes the gap between reconnect and the next tick. Build verification pending CI."
     },
     {
+      "id": "US-IOS137",
+      "title": "Carry the schedule slot through the offline check-in queue",
+      "description": "As a receiver on a multi-window schedule whose phone is offline, I want every window I answer to reach my owner, so that nobody is alarmed about a check-in I actually made. OfflineCheckInService deduped queued rows on (receiver, family, local day) with no slot dimension, and performCheckIn deliberately dropped slotKey on the offline path to avoid a SwiftData migration. For a receiver on a custom multi-window schedule (US-IOS048) that meant the morning tap queued a row and every later window of the same day matched it and returned silently — the UI still said the check-in was saved and would sync, no row existed, and the owner escalated on a window the receiver had answered. False escalation is the exact failure the offline path exists to prevent.",
+      "acceptanceCriteria": [
+        "OfflineCheckIn persists the slot the check-in answers, as a new optional attribute so SwiftData migrates it lightly and existing queued rows keep nil (day-level, their current meaning)",
+        "The queue's dedup key is (receiver, family, local day, slotKey); repeat taps on one window still dedup, taps on different windows both survive",
+        "performCheckIn passes slotKey to the queue on both offline paths — the explicit-offline branch and the connectivity-error branch",
+        "syncPendingCheckIns replays the stored slot to process-checkin-response, whose unique index is already partitioned by COALESCE(slot_key,'') — no backend change needed",
+        "The dedup decision is a pure function so it can be tested without standing up a SwiftData container",
+        "No behaviour change for single-window schedules, which produce a nil slot"
+      ],
+      "priority": 234,
+      "passes": true,
+      "notes": "DONE. Not compile-verified — no macOS/Xcode in this environment; changes were reviewed by reading. Model gains `slotKey: String?`; dedup extracted to OfflineCheckInService.isAlreadyQueued(slotKey:amongQueuedSlots:) with 7 new tests in OfflineCheckInServiceTests. Server already dedups per slot (00049_checkin_slot_dedup_backfill.sql), so this is client-only. The offline NOTIFICATION-response path in AppDelegate still queues day-level because the push payload carries no slot_key — split out as US-IOS138."
+    },
+    {
+      "id": "US-IOS138",
+      "title": "Put the slot key in the check-in push payload",
+      "description": "As a receiver on a multi-window schedule who answers a check-in notification while offline, I want that answer to be attributed to the window it was for, so that the window is not reported as missed. US-IOS137 made the offline queue slot-aware, but the notification-response path in AppDelegate cannot supply a slot: it identifies the check-in by checkin_request_id, and the edge function resolves that request's slot_key server-side — which is unavailable when the device is offline. So an offline notification response still queues day-level, and for a multi-window receiver the window it answered can still escalate.",
+      "acceptanceCriteria": [
+        "send-checkin-notification (and any other sender that includes checkin_request_id: escalation-tick, on-demand-checkin) includes the request's slot_key in the push payload alongside checkin_request_id",
+        "The payload field is additive and optional — older installed builds ignore the unknown key, per the edge-function compatibility rules in CLAUDE.md",
+        "AppDelegate reads slot_key from userInfo and passes it to queueCheckIn on the offline branch",
+        "The online branch is unchanged: responding by request ID already inherits the request's slot_key server-side (process-checkin-response/index.ts:133-134), and the client must not override it",
+        "A receiver answering the evening notification while offline, on a two-window schedule, syncs as the evening slot rather than day-level",
+        "Absent slot_key still means day-level, so single-window schedules and older payloads behave exactly as now"
+      ],
+      "priority": 235,
+      "passes": false,
+      "notes": "Split from US-IOS137, which fixed the in-app tap path. Touches edge-functions AND iOS, so it crosses the release-compatibility boundary: the payload field must ship and be live before the client can rely on it, but the client change is safe to ship first because it reads an optional key. NEXT ITERATION."
+    },
+    {
       "id": "US-LEG001",
       "title": "Account deletion no longer throws for members who joined via an invite link",
       "description": "As a user who joined a family through an invite, I want Delete Account to actually delete my account, so that the erasure right the app advertises is real rather than an error dialog.",

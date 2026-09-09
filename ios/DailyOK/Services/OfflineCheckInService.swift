@@ -37,7 +37,13 @@ final class OfflineCheckInService: ObservableObject {
 
     // MARK: - Queue a Check-In (Offline)
 
-    func queueCheckIn(familyId: UUID, receiverId: UUID, mood: Mood?, source: CheckInSource) throws {
+    func queueCheckIn(
+        familyId: UUID,
+        receiverId: UUID,
+        mood: Mood?,
+        source: CheckInSource,
+        slotKey: String? = nil
+    ) throws {
         // Never treat an unpersisted check-in as "queued, will sync". If the
         // SwiftData store failed to initialize (disk full, migration error), the
         // old `guard let … else { return }` returned silently — the caller reported
@@ -46,11 +52,27 @@ final class OfflineCheckInService: ObservableObject {
         // throw so the failure surfaces to the user instead of vanishing.
         let context = try ensureContext()
 
-        // Per-day dedup: an anxious receiver who doesn't see immediate
+        // Per-slot, per-day dedup: an anxious receiver who doesn't see immediate
         // confirmation may tap "I'm OK" several times while offline. Each tap
         // must NOT enqueue a separate row — otherwise sync would create N
-        // duplicate check-ins for the same day. If an unsynced row already
-        // exists for this receiver+family on the same local day, no-op.
+        // duplicate check-ins for the same window.
+        //
+        // The dedup key is (receiver, family, local day, slotKey), NOT the day
+        // alone. Before US-IOS137 it was the day alone, which silently dropped
+        // every window after the first for a receiver on a multi-window custom
+        // schedule (US-IOS048): the morning tap queued a row, the evening tap
+        // matched that row and returned, the UI still said "saved, will sync",
+        // and the owner escalated on an evening window the receiver had in fact
+        // answered. False escalation is the one failure this whole file exists
+        // to prevent, so the slot has to be part of the identity.
+        //
+        // `slotKey` is nil for single-window schedules, which is the common
+        // case and behaves exactly as before: one row per receiver per day.
+        //
+        // The slot comparison is done in Swift rather than inside #Predicate.
+        // Optional-to-optional equality against a captured value is awkward to
+        // express in a SwiftData predicate, and the fetch is already narrowed to
+        // one receiver's unsynced rows for today — at most a handful.
         let startOfDay = Calendar.current.startOfDay(for: Date())
         let dedupDescriptor = FetchDescriptor<OfflineCheckIn>(
             predicate: #Predicate { row in
@@ -60,7 +82,8 @@ final class OfflineCheckInService: ObservableObject {
                 row.createdAt >= startOfDay
             }
         )
-        if let existing = try? context.fetch(dedupDescriptor), !existing.isEmpty {
+        if let sameDay = try? context.fetch(dedupDescriptor),
+           Self.isAlreadyQueued(slotKey: slotKey, amongQueuedSlots: sameDay.map(\.slotKey)) {
             return
         }
 
@@ -68,7 +91,8 @@ final class OfflineCheckInService: ObservableObject {
             familyId: familyId,
             receiverId: receiverId,
             mood: mood,
-            source: source
+            source: source,
+            slotKey: slotKey
         )
         context.insert(offlineCheckIn)
 
@@ -82,10 +106,15 @@ final class OfflineCheckInService: ObservableObject {
     }
 
     /// Attempt to check in — queues locally if offline, sends directly if online.
-    /// `slotKey` (US-IOS048) tags which scheduled window an online check-in
-    /// satisfies; it's intentionally dropped on the offline-queued path (a
-    /// later-synced check-in resolves to day-level), so no on-device migration
-    /// of the offline queue is needed.
+    /// `slotKey` (US-IOS048) tags which scheduled window this check-in satisfies
+    /// and is now carried through the offline queue as well (US-IOS137).
+    ///
+    /// It used to be dropped on the offline path, to avoid adding an attribute
+    /// to the SwiftData model. That traded a migration for a false-escalation
+    /// bug: with the slot missing, the queue's day-level dedup swallowed every
+    /// window after the first, and the receiver's later windows were reported as
+    /// missed. Carrying the slot costs one optional attribute, which SwiftData
+    /// migrates lightly, and old rows keep nil — day-level, exactly as before.
     func performCheckIn(familyId: UUID, mood: Mood? = nil, source: CheckInSource = .app, slotKey: String? = nil) async throws -> CheckIn? {
         guard let session = try? await SupabaseService.shared.client.auth.session else {
             throw CheckInError.notAuthenticated
@@ -107,15 +136,44 @@ final class OfflineCheckInService: ObservableObject {
                 // was surfaced as a raw error instead of being queued (the exact
                 // false-escalation risk we want to avoid).
                 if Self.isConnectivityError(error) {
-                    try queueCheckIn(familyId: familyId, receiverId: receiverId, mood: mood, source: source)
+                    try queueCheckIn(
+                        familyId: familyId,
+                        receiverId: receiverId,
+                        mood: mood,
+                        source: source,
+                        slotKey: slotKey
+                    )
                     throw NetworkError.offline
                 }
                 throw error
             }
         } else {
-            try queueCheckIn(familyId: familyId, receiverId: receiverId, mood: mood, source: source)
+            try queueCheckIn(
+                familyId: familyId,
+                receiverId: receiverId,
+                mood: mood,
+                source: source,
+                slotKey: slotKey
+            )
             return nil
         }
+    }
+
+    /// Whether a new offline check-in for `slotKey` is already covered by what is
+    /// queued. `queuedSlots` is the slot of every unsynced row this receiver has
+    /// for this family today.
+    ///
+    /// Slot identity, not day identity (US-IOS137). Two taps answering the same
+    /// window are a duplicate and the second must not enqueue a row; two taps
+    /// answering different windows of a multi-window schedule are two real
+    /// check-ins and both must survive, or the owner escalates on a window the
+    /// receiver actually answered.
+    ///
+    /// nil is a slot value like any other — it means "day-level", which is what
+    /// a single-window schedule produces and what rows written before this
+    /// shipped carry — so two day-level taps still dedup against each other.
+    nonisolated static func isAlreadyQueued(slotKey: String?, amongQueuedSlots queuedSlots: [String?]) -> Bool {
+        queuedSlots.contains(slotKey)
     }
 
     /// True when the error represents a loss of connectivity (as opposed to a
@@ -197,7 +255,13 @@ final class OfflineCheckInService: ObservableObject {
                 _ = try await CheckInService.shared.checkIn(
                     familyId: offlineCheckIn.familyId,
                     mood: mood,
-                    source: source
+                    source: source,
+                    // Replay the window this check-in actually answered, so the
+                    // server dedups against the right slot rather than folding
+                    // the day's windows into one (US-IOS137). nil for rows
+                    // queued by a single-window schedule, and for rows written
+                    // before this shipped — both mean day-level, as before.
+                    slotKey: offlineCheckIn.slotKey
                 )
 
                 offlineCheckIn.synced = true
