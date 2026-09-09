@@ -19,13 +19,15 @@ final class AuthViewModelSignOutTests: XCTestCase {
     /// Records which teardown steps ran, so a test can assert on the set rather
     /// than on five separate flags.
     private final class TeardownLog {
+        var pushTokenDeactivated = false
         var biometricReset = false
         var heartbeatStopped = false
         var reconcileLatchReset = false
         var sharedSessionCleared = false
 
         var everythingRan: Bool {
-            biometricReset && heartbeatStopped && reconcileLatchReset && sharedSessionCleared
+            pushTokenDeactivated && biometricReset && heartbeatStopped
+                && reconcileLatchReset && sharedSessionCleared
         }
     }
 
@@ -36,6 +38,7 @@ final class AuthViewModelSignOutTests: XCTestCase {
         revoke: @escaping @MainActor () async throws -> Void
     ) -> SignOutDependencies {
         SignOutDependencies(
+            deactivatePushToken: { log.pushTokenDeactivated = true },
             revokeServerSession: revoke,
             resetBiometric: { log.biometricReset = true },
             stopHeartbeat: { log.heartbeatStopped = true },
@@ -64,6 +67,10 @@ final class AuthViewModelSignOutTests: XCTestCase {
         XCTAssertTrue(
             log.sharedSessionCleared,
             "Shared Keychain tokens must be cleared even when the revoke fails — the widget, watch and Siri authenticate with them."
+        )
+        XCTAssertTrue(
+            log.pushTokenDeactivated,
+            "The outgoing user's device token must be deactivated, or their check-in requests keep arriving on a phone someone else now holds."
         )
         XCTAssertTrue(log.reconcileLatchReset)
         XCTAssertTrue(log.biometricReset)
@@ -104,6 +111,7 @@ final class AuthViewModelSignOutTests: XCTestCase {
         let failed = TeardownLog()
         await makeViewModel(dependencies(log: failed) { throw RevokeFailed() }).signOut()
 
+        XCTAssertEqual(succeeded.pushTokenDeactivated, failed.pushTokenDeactivated)
         XCTAssertEqual(succeeded.biometricReset, failed.biometricReset)
         XCTAssertEqual(succeeded.heartbeatStopped, failed.heartbeatStopped)
         XCTAssertEqual(succeeded.reconcileLatchReset, failed.reconcileLatchReset)

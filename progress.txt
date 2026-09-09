@@ -2674,3 +2674,55 @@ before writing it is the step that caught it.
 NOT compile-verified and NOT test-run: no macOS or Xcode in this environment.
 The tests are written from reading; whether they compile is confirmed by the
 first CI run, not by me.
+
+================================================================================
+US-IOS142 — Scope the push token to the signed-in user                2026-09-09
+================================================================================
+The cache that decides whether to register a push token was keyed on the bare
+string "lastPushToken" — device-wide, with no record of whose token it was.
+
+    let storedToken = KeychainService.load(key: "lastPushToken")
+    guard token != storedToken else { return }
+
+APNs gives the same device token to whoever is signed in. So when a second
+person signed in on a phone the first had used, that guard matched and returned.
+No push_tokens row was ever written for the new user. They received no check-in
+requests and no escalation alerts — the entire product, silently off, with
+nothing in the UI to suggest it.
+
+That is not an edge case here. It is the onboarding flow the app is built
+around: an adult child sets up a parent's phone, signs out, hands it over.
+
+  mod  ios/DailyOK/Services/PushNotificationService.swift
+  mod  ios/DailyOK/ViewModels/AuthViewModel.swift
+  mod  ios/DailyOKTests/AuthViewModelSignOutTests.swift
+
+The mirror image was live too, and is arguably worse. Sign-out never deactivated
+the device's token row, so the previous user stayed registered against a token
+that now belonged to whoever was holding the phone. Their check-in requests and
+family alerts would arrive on someone else's screen. deactivateCurrentDeviceToken
+now runs first in signOut — before the revoke, because the session is what
+identifies which row to deactivate — and it clears the cached key even when the
+network call fails, which is the US-IOS140 rule applied again: a failed network
+call must not leave the device half-signed-out.
+
+It goes through the SignOutDependencies seam from US-IOS141, so the existing
+tests cover it on both the success and failure paths without new machinery.
+That seam paid for itself one iteration after it was built.
+
+The legacy unscoped cache is DISCARDED, not migrated. There is no way to know
+whose token it held. Dropping it costs one extra upsert on next launch, which is
+idempotent; keeping it risks suppressing a registration for the wrong user,
+which is silent and permanent. Wrong-but-cheap beats right-looking-but-guessed.
+
+A DEFECT IN MY OWN EARLIER COMMIT, found in this pass and fixed here:
+US-IOS140 (ad784cc) added `Log.auth.error(... privacy: .public)` to
+AuthViewModel, which does not `import os`. The OSLogMessage interpolation that
+`privacy:` needs would not have resolved and the file would not have compiled.
+ReceiverViewModel is the in-repo precedent — it uses Log and imports os. Added
+the import to AuthViewModel and to PushNotificationService, which needed it for
+the same reason. This is exactly the class of error that "verified by reading"
+does not catch, which is the argument for the CI gate the edge functions now
+have and the iOS target does not.
+
+NOT compile-verified: no macOS or Xcode here.

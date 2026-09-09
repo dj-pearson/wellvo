@@ -2,6 +2,7 @@ import SwiftUI
 import AuthenticationServices
 import CryptoKit
 import Security
+import os
 import Supabase
 
 enum AuthState: Equatable {
@@ -21,6 +22,9 @@ enum AuthState: Equatable {
 /// Deliberately narrow. This is the sign-out path, not a dependency container
 /// for the whole view model.
 struct SignOutDependencies {
+    /// Runs BEFORE the revoke — it needs the session to know whose token row to
+    /// deactivate (US-IOS142).
+    var deactivatePushToken: @MainActor () async -> Void
     var revokeServerSession: @MainActor () async throws -> Void
     var resetBiometric: @MainActor () async -> Void
     var stopHeartbeat: @MainActor () -> Void
@@ -30,6 +34,7 @@ struct SignOutDependencies {
     @MainActor
     static var live: SignOutDependencies {
         SignOutDependencies(
+            deactivatePushToken: { await PushNotificationService.shared.deactivateCurrentDeviceToken() },
             revokeServerSession: { try await AuthService.shared.signOut() },
             resetBiometric: { await BiometricService.shared.reset() },
             stopHeartbeat: { HeartbeatService.shared.stop() },
@@ -590,6 +595,12 @@ final class AuthViewModel: ObservableObject {
         //
         // Their intent is not ambiguous. Sign them out locally either way.
         let deps = signOutDependencies ?? .live
+
+        // Before the revoke, while the session still identifies who to
+        // deactivate: stop this device receiving the outgoing user's
+        // notifications. Otherwise their check-in requests and family alerts keep
+        // arriving on a phone that now belongs to someone else (US-IOS142).
+        await deps.deactivatePushToken()
 
         do {
             try await deps.revokeServerSession()
