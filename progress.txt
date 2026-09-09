@@ -2828,3 +2828,36 @@ rather than imported, matching the note already in that file. Imports checked
 per the lesson from US-IOS142: Foundation and Security were already there,
 PinnedURLSession is already in this target per the existing comment, and the
 bare SecItemAdd/SecItemDelete call style matches KeychainService.
+
+================================================================================
+US-IOS146 — Report it when removing a family member fails             2026-09-09
+================================================================================
+Found by grepping directly for the pattern that produced US-IOS139 and
+US-IOS145: a discarded result on a call whose SUCCESS is the whole point.
+
+    try? await FamilyService.shared.removeMember(memberId: member.id)
+    await loadData()
+
+Across every view in the app that was the only destructive mutation shaped that
+way, which says something good about the rest of the view layer.
+
+  mod  ios/DailyOK/Views/Owner/FamilyView.swift
+
+Why it matters more than a dropped error usually would: removing a member is how
+an owner revokes a viewer's access to a relative's location and care notes. On
+failure the reload put the still-active member back in the list with no message,
+which reads as a UI glitch, not a failure. The owner either retries at random or
+concludes it worked.
+
+The non-obvious half is the ordering. loadData() clears errorMessage on entry,
+so the natural fix — set the error in a catch, then reload — silently wipes the
+message it just wrote. The failure is captured, the reload runs on both paths so
+the list always matches the server, and the error is reported afterwards. That
+sequencing is in a comment, because it is exactly the kind of thing a later edit
+would undo without noticing.
+
+resendInvite, immediately below in the same file, already reports its errors
+properly. This was the outlier, not the convention.
+
+NOT compile-verified: no macOS or Xcode. No new imports needed — DailyOKError is
+already used in this file.

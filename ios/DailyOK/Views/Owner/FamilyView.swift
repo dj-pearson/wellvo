@@ -250,8 +250,31 @@ struct FamilyView: View {
 
     private func removeMember(_ member: FamilyMember) async {
         guard member.role != .owner else { return }
-        try? await FamilyService.shared.removeMember(memberId: member.id)
+
+        // The failure used to be discarded with `try?` (US-IOS146). The reload
+        // below then put the still-active member back in the list with no
+        // explanation, which reads as a UI glitch rather than "this did not
+        // work" — and removing someone is how an owner revokes a viewer's access
+        // to a relative's location and care notes. Failing that quietly is the
+        // wrong way to fail.
+        //
+        // resendInvite, immediately below, already reports its errors; this was
+        // the one mutation in the file that did not.
+        var failure: Error?
+        do {
+            try await FamilyService.shared.removeMember(memberId: member.id)
+        } catch {
+            failure = error
+        }
+
+        // Reload either way, so the list matches the server whichever happened.
         await loadData()
+
+        // Reported AFTER the reload on purpose: loadData() clears errorMessage
+        // on entry, so setting it before would wipe the message we just wrote.
+        if let failure {
+            errorMessage = DailyOKError.network(failure).localizedDescription
+        }
     }
 
     private func resendInvite(_ member: FamilyMember) async {

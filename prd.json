@@ -4544,6 +4544,20 @@
       "notes": "DONE. NOT compile-verified — no macOS/Xcode; reviewed by reading. The extension compiles standalone so SharedTokens/read/write are duplicated from SharedKeychain rather than imported, matching the file's existing note about that. Imports were checked (Foundation, Security already present; PinnedURLSession is already compiled into this target per the existing comment), and the bare SecItemAdd/SecItemDelete call style matches KeychainService. The anon key is now published to the App Group: it is a publishable key that already ships in the binary and already sits in that same container inside SharedCheckInState, so this leaks nothing new."
     },
     {
+      "id": "US-IOS146",
+      "title": "Report it when removing a family member fails",
+      "description": "As an owner revoking someone's access, I want to know if it did not work. FamilyView.removeMember discarded the result with `try?` and then reloaded. A failed removal put the still-active member straight back into the list with no message, which reads as a UI glitch rather than a failure — so the owner either retries at random or assumes it worked. Removing a member is how an owner revokes a viewer's access to a relative's location and care notes, so a silent failure there leaves access in place that the owner believes they took away. It was the only mutation in the file that did not report its errors; resendInvite directly below it already does.",
+      "acceptanceCriteria": [
+        "A failed removal surfaces the error in the same banner the rest of the screen uses",
+        "The list still reloads on both paths, so it always matches the server",
+        "The error is set AFTER the reload, because loadData() clears errorMessage on entry — setting it first would silently wipe it",
+        "The owner guard is unchanged"
+      ],
+      "priority": 246,
+      "passes": true,
+      "notes": "DONE. NOT compile-verified — no macOS/Xcode; reviewed by reading. Found by grepping for pattern (c) from this loop — a discarded result on a call whose success is load-bearing — across ios/DailyOK/Views: this was the ONLY destructive mutation with that shape, which is a good sign for the rest of the view layer. No new imports needed (DailyOKError is already used in this file). The ordering trap is the non-obvious half and is recorded in a comment."
+    },
+    {
       "id": "US-LEG001",
       "title": "Account deletion no longer throws for members who joined via an invite link",
       "description": "As a user who joined a family through an invite, I want Delete Account to actually delete my account, so that the erasure right the app advertises is real rather than an error dialog.",
