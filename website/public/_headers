@@ -7,8 +7,14 @@
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
   X-Permitted-Cross-Domain-Policies: none
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://www.googletagmanager.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https://cloudflareinsights.com https://api.dailyok.net wss://api.dailyok.net https://functions.dailyok.net https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https: blob:; connect-src 'self' https://cloudflareinsights.com https://api.dailyok.net wss://api.dailyok.net https://functions.dailyok.net https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
 
 # Universal Links: AASA must be served as JSON with no redirect (US-IOS109).
 /.well-known/apple-app-site-association
   Content-Type: application/json
+
+# Self-hosted Inter (US-WEB020). The filename carries the upstream Inter
+# version, so a font update ships under a new name and this immutable year
+# is safe — never overwrite these files in place.
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable

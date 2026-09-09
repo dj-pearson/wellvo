@@ -2188,3 +2188,44 @@ dispatch is a better fit, linked to the Life Alert comparison. A page that only
 argued for us would not deserve to rank here.
 
 Prerender 33 -> 34, sitemap 32 -> 33. Tests 29 passing, lint 19 — unchanged.
+
+================================================================================
+US-WEB020 — Self-host Inter                                         2026-09-09
+================================================================================
+The head fetched https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700
+as a render-blocking stylesheet. That is two serial third-party round trips on
+the LCP path — googleapis has to resolve, handshake and answer before the
+browser learns the gstatic woff2 URLs, which then resolve and handshake in turn.
+The two preconnect hints shortened that; they could not remove it.
+
+  new  website/public/fonts/inter-v20-latin.woff2      48 KB
+  new  website/public/fonts/inter-v20-latin-ext.woff2  85 KB
+  new  website/src/test/fonts.test.ts
+  mod  website/src/index.css, website/pages/+onRenderHtml.tsx, website/public/_headers
+
+Variable font, so weights 400-700 arrive in one 48 KB request instead of the
+four static files the Google URL asked for. Only latin is preloaded; latin-ext
+carries its unicode-range and is fetched only if a page actually needs those
+codepoints, which on an English-only site is close to never. font-display: swap
+so text paints in the fallback stack meanwhile.
+
+Deliberately NOT done: size-adjust / ascent-override metric matching against the
+fallback. Guessing those numbers to chase a CLS score usually makes the swap
+look worse than it does now, and the system stack is already close enough to
+Inter at our body size that the reflow is not what anyone would notice.
+
+The privacy half matters as much as the speed half. Hotlinking gstatic hands
+every visitor's IP to Google before the cookie banner has been answered — the
+exact leak src/lib/consent.ts exists to prevent for GA4, arriving through the
+side door. The CSP now drops both Google origins from style-src and font-src,
+which also means a reintroduced <link> fails silently in production rather than
+loudly: blocked by CSP, font quietly falls back to system-ui, nobody notices.
+That is why src/test/fonts.test.ts asserts the absence, not just the presence.
+
+Filenames carry the upstream Inter version (v20), so the new immutable one-year
+Cache-Control on /fonts/* is honest — a font update ships under a new name
+rather than overwriting a file browsers were told to keep for a year.
+
+Tests 35 (30 -> 35, five new). One pre-existing failure carried over, unrelated:
+App.test.tsx "renders home page at /" looks for /know your loved ones are OK/i,
+which the home hero no longer says. Logged for the next iteration.

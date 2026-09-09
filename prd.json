@@ -4813,6 +4813,23 @@
       "priority": 260,
       "passes": false,
       "notes": "Tier 4. Volumes unvalidated — proposed from SERP inspection, not present in the Keyword Planner export. Do this last of the content stories: by then US-WEB013 will have shown what consolidation looks like and US-WEB015/016 will have established the cluster pattern. Deliberately NOT in scope anywhere in this batch: city, state and condition pages (pSEO templates #2, #4, #5). Those multiply pages against a domain that cannot yet rank one and are the fastest route to a manual action — revisit only once the welfare-check hub reaches page one."
+    },
+    {
+      "id": "US-WEB020",
+      "title": "Self-host Inter instead of hotlinking Google Fonts",
+      "description": "As a visitor on a phone who arrived from a search result about a relative who is not answering, I want the page to paint immediately, so that I read the answer instead of a blank block of text. The head fetched a render-blocking stylesheet from fonts.googleapis.com, which had to DNS-resolve, TLS-handshake and return before the browser even learned the woff2 URLs on fonts.gstatic.com — two serial third-party round trips on the LCP path that the two preconnect hints could shorten but never remove. It also handed every visitor's IP to Google before the consent banner had been answered, which is precisely the leak src/lib/consent.ts exists to prevent for GA4.",
+      "acceptanceCriteria": [
+        "Inter is served from the site's own origin; no request to fonts.googleapis.com or fonts.gstatic.com remains anywhere in the shipped head, CSS or CSP",
+        "The variable font file covers weights 400-700 in one request rather than the four static weights the Google URL asked for",
+        "Only the latin subset is preloaded; latin-ext is declared with its unicode-range so it is fetched only when a page needs it",
+        "font-display: swap, so text paints in the fallback stack while the font loads",
+        "The font filename carries the upstream Inter version, so the immutable one-year Cache-Control in public/_headers is safe",
+        "style-src and font-src in the CSP drop the Google origins",
+        "A test guards all of the above, because a reintroduced Google <link> fails silently — CSP would block it and the font would simply vanish"
+      ],
+      "priority": 261,
+      "passes": true,
+      "notes": "DONE. public/fonts/inter-v20-latin.woff2 (48 KB) and inter-v20-latin-ext.woff2 (85 KB), variable 400-700. Head now carries a single rel=preload for the latin subset; the two preconnects and the blocking stylesheet are gone. CSP tightened to style-src 'self' 'unsafe-inline' and font-src 'self' data:. Guarded by src/test/fonts.test.ts (5 assertions)."
     }
   ]
 }
