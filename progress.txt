@@ -3219,3 +3219,59 @@ VERIFIED: 33 of 33 indexable routes pass, 0 failures, 0 warnings. Titles now
 15-59, descriptions 79-160. Proved the gate bites by planting a 340-character
 description into dist/client/pricing/index.html — exit 1, correct route named —
 then restoring it for exit 0. tsc -b 0, build 0, vitest 107/107.
+
+================================================================================
+US-SEO010 — the pSEO pages were the least-linked URLs on the site       2026-09-10
+================================================================================
+Iteration 8. Found by building the internal link graph from the prerendered
+output rather than from the components — counting inbound links per route.
+
+The distribution was the finding. Every layout page had 32 inbound links,
+because the header and footer link them from everywhere. Then:
+
+  /compare/daily-ok-vs-life-alert/        14
+  /compare/daily-ok-vs-life360/           12
+  /compare/daily-ok-vs-snug-safety/       11
+  /compare/daily-ok-vs-aloe-care/          4
+  the other six comparison pages           1
+  every /what-to-do guide                  1  (2 for two of them)
+
+One inbound link, from the hub. On the pages the entire pSEO strategy is built
+around.
+
+Two separate causes:
+
+  1. ComparePost did `competitors.filter(c => c.slug !== slug).slice(0, 3)`.
+     The array order never changes, so all ten pages recommended the same first
+     three entries. Three competitors absorbed 37 links; six got none.
+  2. The /what-to-do guides linked UP to the hub and sideways to nothing. A
+     cluster whose spokes only point at the hub is not a cluster.
+
+  add  website/src/lib/siblings.ts
+  add  website/src/test/siblings.test.ts
+  mod  website/src/pages/ComparePost.tsx
+  mod  website/src/pages/WhatToDo.tsx
+  mod  website/src/components/Footer.tsx
+
+rotatingSiblings() takes the next N entries after the current index, wrapping.
+That fixes the distribution arithmetically rather than by taste: every item
+appears in exactly N sibling blocks whatever the array order is. It is
+deliberately deterministic — these pages are prerendered then hydrated, so a
+random or date-seeded pick would render one set on the server and another on
+the client, which is a hydration mismatch and a link graph that churns every
+build for no reason.
+
+The test asserts the property that actually matters. "Each page shows three
+links" is satisfied by the old slice; "every page RECEIVES three" is not, and
+that is what is asserted — including one case that states the old bug directly:
+min inbound under slice(0,3) is 0, min inbound under rotation is 3.
+
+Also found while counting: every page carried a follow link to /admin/, which
+robots.txt disallows. That is the classic way a robots-excluded URL still gets
+indexed URL-only — the crawler cannot fetch it to read a noindex, but it can
+see 33 internal links pointing at it. Now rel="nofollow".
+
+VERIFIED in dist: comparison pages went from 1/1/1/1/1/1/4/11/12/14 to
+4/4/4/4/4/4/4/5/6/8; guides from 1/1/1/1/2/2 to 4/4/4/4/5/5. Minimum inbound
+across all 16 pSEO pages is now 4, up from 1. Zero follow links to /admin
+remain. tsc -b 0, build 0, snippet check 33/33 clean, vitest 114/114 (was 107).

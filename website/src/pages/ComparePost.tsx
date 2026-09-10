@@ -3,6 +3,7 @@ import SEO from '../components/SEO'
 import { canonicalUrl } from '../lib/canonical'
 import { competitors, getCompetitor, type FeatureRow } from '../data/competitors'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
+import { rotatingSiblings } from '../lib/siblings'
 import './Compare.css'
 
 const SLUG_PREFIX = 'daily-ok-vs-'
@@ -78,7 +79,14 @@ export default function ComparePost() {
     { name: `Daily OK vs. ${competitor.name}`, path: `/compare/daily-ok-vs-${competitor.slug}` },
   ])
 
-  const siblings = competitors.filter((c) => c.slug !== competitor.slug).slice(0, 3)
+  // Rotating, not slice(0, 3) — the old slice pointed all ten pages at the
+  // same first three entries, so six competitors received a single inbound
+  // link and three absorbed the rest (US-SEO010).
+  const siblings = rotatingSiblings(
+    competitors,
+    competitors.findIndex((c) => c.slug === competitor.slug),
+    3,
+  )
 
   return (
     <>

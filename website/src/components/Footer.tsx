@@ -69,7 +69,14 @@ export default function Footer() {
             Available on the{' '}
             <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">App Store</a> for iPhone.
             {' · '}
-            <Link to="/admin/" className="footer-admin-link">Admin</Link>
+            {/*
+              rel="nofollow" because /admin is Disallow'd in robots.txt
+              (US-SEO010). A sitewide link to a blocked URL is the classic way
+              a robots-excluded page still gets indexed URL-only: the crawler
+              cannot fetch it to read a noindex, but it can see 33 internal
+              links pointing at it.
+            */}
+            <a href="/admin/" rel="nofollow" className="footer-admin-link">Admin</a>
           </p>
         </div>
       </div>

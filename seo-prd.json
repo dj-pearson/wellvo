@@ -121,6 +121,20 @@
       "priority": 9,
       "passes": true,
       "notes": "All 33 indexable routes now fit: titles 15-59 (was up to 79), descriptions 79-160 (was up to 266). 10 titles and 15 descriptions rewritten across 10 page components and src/data/whatToDo.ts. The check is now scripts/check-snippet-lengths.mjs, run in CI against the prerendered output: it measures UNESCAPED text (&#x27; is six characters in the file and one on screen), skips noindex routes, and warns rather than fails on /blog/* because that metadata is authored in the CMS. Proved it bites by planting a 340-character description in dist and watching it exit 1."
+    },
+    {
+      "id": "US-SEO010",
+      "title": "Stop starving the pSEO pages of internal links",
+      "description": "As a crawler, I want the comparison and guide pages to be reachable from more than one place so that the pages the whole pSEO strategy rests on are not the least-linked URLs on the site.",
+      "acceptanceCriteria": [
+        "Every comparison page receives the same number of sibling links",
+        "Every /what-to-do guide links sideways to sibling guides, not only up to the hub",
+        "Sibling selection is deterministic, so prerender and hydration agree",
+        "The sitewide link to the robots-disallowed /admin does not pass a follow signal"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "ComparePost used competitors.filter(...).slice(0, 3) on a fixed-order array, so all ten pages pointed at the same first three: Life Alert 14 inbound, Life360 12, Snug Safety 11, and one each — from the hub — for the other six. The /what-to-do guides were worse: they linked up to the hub and sideways to nothing, one inbound link each against the hub's 32. rotatingSiblings() takes the next N entries after the current index with wraparound, so every item appears in exactly N sibling blocks regardless of array order. Measured in dist: comparison pages went from min 1 to min 4, guides from min 1 to min 4."
     }
   ]
 }
