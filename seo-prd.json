@@ -93,6 +93,34 @@
       "priority": 7,
       "passes": true,
       "notes": "Added tsconfig.pages.json (types: node + vite/client, since the hooks run in Node but render browser markup and import .css) and referenced it from tsconfig.json. Only one pre-existing error surfaced — jsdom had no declarations in pages/fetchBlogForPrerender.ts — fixed by adding @types/jsdom as a devDependency rather than by declaring it any. Proved the gate bites: a planted `const x: number = 'a'` in +onRenderHtml.tsx fails tsc -b with TS2322. `npm run build` starts with tsc -b, so CI already gates it."
+    },
+    {
+      "id": "US-SEO008",
+      "title": "Stop Google truncating the comparison pages' SERP snippets",
+      "description": "As a searcher comparing products, I want the result snippet to read as a complete thought so that the page's actual differentiator reaches me instead of being cut off mid-sentence.",
+      "acceptanceCriteria": [
+        "Every comparison page title is <= 60 characters as rendered",
+        "Every comparison page description is <= 160 characters as rendered",
+        "Descriptions are hand-written for the SERP, not derived from page prose",
+        "A test fails if any competitor breaches either limit"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "The description was `daily_ok_verdict.split('.').slice(0,2).join('.')` — the first two sentences of on-page prose, which has no length ceiling. Result: 225-407 characters on the ten highest commercial-intent URLs on the site, every one truncated. Added meta_description (and meta_title where needed) to the competitor JSON, and an appendBrand=false option to <SEO> because 'Daily OK vs. X … | Daily OK' spent 11 of ~60 characters saying the brand twice. Verified in dist: titles now 45-56, descriptions 139-157."
+    },
+    {
+      "id": "US-SEO009",
+      "title": "Bring the core and /what-to-do page snippets inside the rendered width",
+      "description": "As a searcher, I want every page's snippet to read as a complete thought, not only the comparison pages fixed in US-SEO008.",
+      "acceptanceCriteria": [
+        "Every indexable route's title is <= 60 characters as rendered (unescaped)",
+        "Every indexable route's description is <= 160 characters as rendered",
+        "The length assertion runs over the prerendered dist output, so it covers every page rather than one data file",
+        "The check is wired into .github/workflows/website-check.yml"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "10 titles and 15 descriptions still overshoot. Worst: the homepage title at 79 characters and its description at 266, /pricing at 238, /welfare-check-on-elderly-parent at 221, /what-to-do/teenage-daughter-not-answering-phone at 203. Unlike US-SEO008 there is no generator to fix — each is a hand-written string in its own page component, so this is ~25 pieces of copywriting where every one is a conversion-affecting decision. Deliberately its own iteration rather than rushed onto the end of US-SEO008. Do the dist-walking assertion as part of it, once the pages can actually pass."
     }
   ]
 }

@@ -49,6 +49,13 @@ interface SEOProps {
   /** ISO timestamps, emitted only for ogType="article". */
   publishedTime?: string
   modifiedTime?: string
+  /**
+   * Appends " | Daily OK" to the title. Default true. Set false when the
+   * title already names the brand — "Daily OK vs. Life Alert: Honest
+   * Comparison (2026) | Daily OK" says it twice and spends 11 of the ~60
+   * characters Google renders on the repetition (US-SEO008).
+   */
+  appendBrand?: boolean
 }
 
 /**
@@ -74,10 +81,11 @@ export default function SEO({
   canonical,
   publishedTime,
   modifiedTime,
+  appendBrand = true,
 }: SEOProps) {
   // Trailing-slash form — that is what production serves (US-WEB010).
   const fullUrl = canonical ?? canonicalUrl(path)
-  const fullTitle = path === '/' ? title : `${title} | Daily OK`
+  const fullTitle = path === '/' || !appendBrand ? title : `${title} | Daily OK`
   const imageUrl = image ?? DEFAULT_IMAGE
   const imageAltText = imageAlt ?? DEFAULT_IMAGE_ALT
   const isDefaultImage = image === undefined

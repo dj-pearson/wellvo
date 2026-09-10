@@ -3118,3 +3118,59 @@ has exactly one og:image, one twitter:card, one canonical and one <title> (no
 duplicates from the migration); all 59 emitted JSON-LD blocks parse as JSON;
 the compare page's three schemas are intact as one array. tsc -b 0, build 0,
 34 documents, 33 sitemap URLs, vitest 84/84 (was 73).
+
+================================================================================
+US-SEO008 — Google was truncating every comparison page snippet         2026-09-10
+================================================================================
+Iteration 6. Found by measuring the prerendered output, unescaped — the first
+pass measured `&#x27;` as six characters and overstated everything, so the real
+numbers came from html.unescape() on the emitted <title> and description.
+
+ComparePost.tsx built its description like this:
+
+    competitor.daily_ok_verdict.split('.').slice(0, 2).join('.') + '.'
+
+The first two sentences of `daily_ok_verdict` — which is ~120 words of page
+prose written to be read on the page, with no length ceiling anywhere. It
+produced descriptions of 225 to 407 characters. Google renders about 920px,
+roughly 160 characters, so every one of the ten pages was cut off mid-sentence
+in the result people actually see. Apple Watch's 407-character description lost
+250 characters, including the whole "it only helps if they wear it" point that
+is the reason the page exists.
+
+Five titles overshot too, at 61-76 characters against a ~60 ceiling.
+
+  mod  website/src/data/competitors/*.json     (10 files: meta_description, +1 meta_title)
+  mod  website/src/data/competitors/index.ts
+  mod  website/src/components/SEO.tsx          (appendBrand)
+  mod  website/src/pages/ComparePost.tsx
+  add  website/src/test/snippetLength.test.ts
+
+The descriptions are now hand-written per competitor and treated as what they
+are: the ad copy for a commercial-intent query, not a prefix of an article. Each
+leads with the competitor's real strength, then the actual difference. "Life
+Alert answers the fall. Daily OK answers the other 364 days."
+
+The title fix is structural rather than editorial. `Daily OK vs. Life Alert:
+honest comparison (2026) | Daily OK` says the brand twice and the suffix costs
+11 of the ~60 characters. <SEO> gained appendBrand, default true, and these
+pages opt out because the title already names the brand. That alone brought
+nine of the ten inside the limit; Apple Watch needed a meta_title override
+because its display name is a phrase ("Apple Watch fall detection") rather than
+a brand, and that phrase stays as the H1 where there is room for it.
+
+snippetLength.test.ts asserts both ceilings per competitor, that snippets are
+distinct, and — the regression that matters — that no description is a prefix
+of its page's own verdict, which is what the old derivation produced.
+
+VERIFIED in dist: compare titles now 45-56 (was 46-76), descriptions 139-157
+(was 225-407). vitest 107/107 (was 84). tsc -b 0, build 0, 34 documents, 33
+sitemap URLs.
+
+NOT fixed, filed as US-SEO009: 10 titles and 15 descriptions on the core and
+/what-to-do pages still overshoot — the homepage worst at a 79-character title
+and a 266-character description. There is no generator to fix there; each is a
+hand-written string in its own component, so it is ~25 separate copywriting
+decisions and it gets its own iteration rather than being rushed onto the end of
+this one. The dist-walking length assertion belongs with it, once the pages can
+pass it.

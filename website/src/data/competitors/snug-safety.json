@@ -4,6 +4,7 @@
   "tagline": "Daily check-in app with a free tier and a shared app store category",
   "company_url": "https://www.snugsafe.com",
   "last_verified": "2026-04-22",
+  "meta_description": "Snug is built for the senior checking on themselves. Daily OK is built for the adult child who needs the quiet confirmation. Compared feature by feature.",
   "daily_ok_verdict": "Snug Safety is Daily OK's closest direct competitor — same basic category (a daily check-in app for independent older adults) with a different audience focus. Snug is built around the senior checking on themselves; Daily OK is built around the adult child getting a quiet confirmation. Snug offers a free tier that Daily OK does not, which is a real advantage for a single senior with no paying family member. Daily OK invests more heavily in family-side features: sibling coordination, SMS fallback, and a family-first escalation chain. If you are one senior living alone, try Snug's free tier. If you are an adult child coordinating with siblings and want the check-in routed to you first, Daily OK is the better fit.",
   "best_for_daily_ok": [
     "Adult children coordinating across multiple siblings on the same parent",
@@ -28,19 +29,84 @@
     "daily_check_in": "Yes — core product feature"
   },
   "feature_matrix": [
-    { "feature": "Daily 'I am OK' check-in", "daily_ok": "Yes", "competitor": "Yes", "winner": "tie" },
-    { "feature": "Free tier", "daily_ok": "No", "competitor": "Yes", "winner": "competitor" },
-    { "feature": "Starting paid price", "daily_ok": "$3.99/month (Caregiver)", "competitor": "Verify on Snug's pricing page", "winner": "different" },
-    { "feature": "Fall detection", "daily_ok": "No", "competitor": "No", "winner": "tie" },
-    { "feature": "GPS / location tracking", "daily_ok": "No", "competitor": "No", "winner": "tie" },
-    { "feature": "Family-first alert chain", "daily_ok": "Alerts caregiver first, escalates through family", "competitor": "Configurable contacts", "winner": "different" },
-    { "feature": "Sibling coordination view", "daily_ok": "Yes — Family and Family+ tiers include shared status", "competitor": "Available depending on tier", "winner": "different" },
-    { "feature": "SMS fallback when internet is down", "daily_ok": "On higher tiers", "competitor": "Verify tier availability on Snug's site", "winner": "different" },
-    { "feature": "Primary audience framing", "daily_ok": "Adult child / long-distance caregiver", "competitor": "Senior-first (the person checking in on themselves)", "winner": "different" },
-    { "feature": "Works on iOS and Android", "daily_ok": "Yes", "competitor": "Yes", "winner": "tie" },
-    { "feature": "Hardware required", "daily_ok": "None", "competitor": "None", "winner": "tie" },
-    { "feature": "Privacy posture", "daily_ok": "No GPS, no cameras, no location", "competitor": "Similar category posture", "winner": "tie" },
-    { "feature": "Setup time", "daily_ok": "Designed to take under two minutes", "competitor": "Also quick on their published materials", "winner": "tie" }
+    {
+      "feature": "Daily 'I am OK' check-in",
+      "daily_ok": "Yes",
+      "competitor": "Yes",
+      "winner": "tie"
+    },
+    {
+      "feature": "Free tier",
+      "daily_ok": "No",
+      "competitor": "Yes",
+      "winner": "competitor"
+    },
+    {
+      "feature": "Starting paid price",
+      "daily_ok": "$3.99/month (Caregiver)",
+      "competitor": "Verify on Snug's pricing page",
+      "winner": "different"
+    },
+    {
+      "feature": "Fall detection",
+      "daily_ok": "No",
+      "competitor": "No",
+      "winner": "tie"
+    },
+    {
+      "feature": "GPS / location tracking",
+      "daily_ok": "No",
+      "competitor": "No",
+      "winner": "tie"
+    },
+    {
+      "feature": "Family-first alert chain",
+      "daily_ok": "Alerts caregiver first, escalates through family",
+      "competitor": "Configurable contacts",
+      "winner": "different"
+    },
+    {
+      "feature": "Sibling coordination view",
+      "daily_ok": "Yes — Family and Family+ tiers include shared status",
+      "competitor": "Available depending on tier",
+      "winner": "different"
+    },
+    {
+      "feature": "SMS fallback when internet is down",
+      "daily_ok": "On higher tiers",
+      "competitor": "Verify tier availability on Snug's site",
+      "winner": "different"
+    },
+    {
+      "feature": "Primary audience framing",
+      "daily_ok": "Adult child / long-distance caregiver",
+      "competitor": "Senior-first (the person checking in on themselves)",
+      "winner": "different"
+    },
+    {
+      "feature": "Works on iOS and Android",
+      "daily_ok": "Yes",
+      "competitor": "Yes",
+      "winner": "tie"
+    },
+    {
+      "feature": "Hardware required",
+      "daily_ok": "None",
+      "competitor": "None",
+      "winner": "tie"
+    },
+    {
+      "feature": "Privacy posture",
+      "daily_ok": "No GPS, no cameras, no location",
+      "competitor": "Similar category posture",
+      "winner": "tie"
+    },
+    {
+      "feature": "Setup time",
+      "daily_ok": "Designed to take under two minutes",
+      "competitor": "Also quick on their published materials",
+      "winner": "tie"
+    }
   ],
   "pricing_breakdown": {
     "monthly": "Daily OK: $3.99 (Caregiver) / $6.99 (Family) / $9.99 (Family+). Snug Safety: free tier available plus paid tiers — see their current pricing page for exact dollar amounts.",

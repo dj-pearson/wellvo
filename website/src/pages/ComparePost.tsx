@@ -29,8 +29,14 @@ export default function ComparePost() {
     )
   }
 
-  const title = `Daily OK vs. ${competitor.name}: honest comparison (2026)`
-  const description = competitor.daily_ok_verdict.split('.').slice(0, 2).join('.') + '.'
+  // The <title> already contains "Daily OK", so it does not also take the
+  // brand suffix — see appendBrand below (US-SEO008).
+  const title =
+    competitor.meta_title ?? `Daily OK vs. ${competitor.name}: Honest Comparison (2026)`
+  // Hand-written, <=160 chars. Previously the first two sentences of
+  // daily_ok_verdict, which is page prose with no length ceiling and produced
+  // 225-407 character descriptions that Google truncated mid-sentence.
+  const description = competitor.meta_description
   // Trailing-slash form via the shared helper — this page builds its own
   // canonical rather than going through <SEO>, so it has to opt in (US-WEB010).
   const canonical = canonicalUrl(`/compare/daily-ok-vs-${competitor.slug}`)
@@ -88,6 +94,7 @@ export default function ComparePost() {
         description={description}
         path={`/compare/daily-ok-vs-${competitor.slug}`}
         canonical={canonical}
+        appendBrand={false}
         ogType="article"
         publishedTime={competitor.last_verified}
         modifiedTime={competitor.last_verified}
