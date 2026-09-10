@@ -2952,3 +2952,38 @@ comment block emitted as literal text into the head of all 34 pages), US-SEO004
 YOUR_CF_ANALYTICS_TOKEN), US-SEO005 (og:image has no width/height/type and no
 per-page override), US-SEO006 (GSC/Bing/Yandex verification still PASTE_*
 placeholders — blocked on tokens only the owner has).
+
+================================================================================
+US-SEO003 — a JSX comment was shipping as text in every page head       2026-09-10
+================================================================================
+Iteration 2. Found by reading the emitted HTML rather than the source.
+
+pages/+onRenderHtml.tsx builds the shared <head> as STATIC_HEAD, a TEMPLATE
+LITERAL. The file is .tsx and everything around it is JSX, so the rationale for
+self-hosting Inter had been written as `{/* ... */}` — inside the string. A
+template literal strips nothing, so all 940 bytes of it were copied verbatim
+into the head of every prerendered document: 34 pages, ~32 KB of source
+commentary served to crawlers as visible text.
+
+Silent failure. Valid-enough HTML, no console error, nothing wrong on screen.
+The only way to see it is to open dist/client/*/index.html, which is exactly
+what nothing in this repo did.
+
+  mod  website/pages/+onRenderHtml.tsx     (comment moved out of the literal)
+  add  website/src/test/head.test.ts
+  mod  .github/workflows/website-check.yml
+
+The prose was not deleted — it is load-bearing (it is why nobody pastes the
+Google Fonts link back in) and now sits in a real TypeScript comment above the
+literal, together with a note saying why an HTML comment is the only comment
+syntax that works inside it.
+
+Guarded at both ends because either alone is weak: head.test.ts asserts the
+literal carries no `{/*` or `*/}` and still carries the tags it exists for,
+while the workflow greps the emitted dist/client HTML — the source test is fast
+feedback, the grep is the thing crawlers actually read.
+
+VERIFIED: `grep -rho '{/\*' dist/client --include=*.html | wc -l` is 0, down
+from 34. tsc -b exits 0; npm run build exits 0, 34 documents, 33 sitemap URLs;
+vitest 71/71 (was 67). The new CI guard was exercised both ways — exit 0 on the
+clean tree, exit 1 against a file containing a JSX comment.

@@ -68,3 +68,15 @@ jobs:
           test -s dist/client/sitemap.xml
           grep -q '<loc>https://dailyok.net/</loc>' dist/client/sitemap.xml
           echo "sitemap URLs: $(grep -c '<loc>' dist/client/sitemap.xml)"
+
+      # US-SEO003. The shared <head> is a template literal in a .tsx file, so
+      # a JSX comment written inside it ships as visible text on every page
+      # and nothing else complains. Assert against the emitted HTML, not the
+      # source, because the emitted HTML is what crawlers read.
+      - name: Assert no JSX comment leaked into the emitted HTML
+        working-directory: website
+        run: |
+          if grep -rl '{/\*' dist/client --include='*.html'; then
+            echo "::error::A JSX comment was emitted as literal text into the document head."
+            exit 1
+          fi

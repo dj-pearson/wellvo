@@ -15,10 +15,33 @@ interface HelmetContext {
   helmet?: HelmetServerState
 }
 
-// Static <head> content shared by every prerendered page. Per-page <title>,
-// <meta name="description">, canonical links, and JSON-LD are rendered by
-// components (via react-helmet-async or plain React 19 tags) and lifted
-// from body → head after render by extractHeadTags().
+/*
+ * Static <head> content shared by every prerendered page. Per-page <title>,
+ * <meta name="description">, canonical links, and JSON-LD are rendered by
+ * components (via react-helmet-async or plain React 19 tags) and lifted
+ * from body → head after render by extractHeadTags().
+ *
+ * This is a TEMPLATE LITERAL, not JSX. Everything between the backticks is
+ * copied byte-for-byte into the document, so the only comment syntax that
+ * works inside it is an HTML comment — a `{/* … *\/}` block is not stripped
+ * by anything, it just ships as visible text in the head of all 34 pages
+ * (US-SEO003). Commentary that should not reach the browser, like the note
+ * below, belongs out here in TypeScript.
+ *
+ * Why Inter is self-hosted from /fonts rather than fetched from Google
+ * (US-WEB020) — two reasons, both load-bearing:
+ *   * Speed. The Google stylesheet was a render-blocking request to a
+ *     third-party origin that had to resolve, TLS-handshake and return before
+ *     the browser even learned the woff2 URLs — two round trips on the LCP
+ *     path that two preconnects could shorten but never remove.
+ *   * Privacy. Hotlinking fonts.gstatic.com hands every visitor's IP to
+ *     Google before the consent banner has been answered, which is exactly
+ *     the thing src/lib/consent.ts exists to prevent for GA4.
+ * Only the latin subset is preloaded; latin-ext is declared with its
+ * unicode-range so it is fetched only when a page actually needs it. The file
+ * is the variable font, so 400-700 costs one 48 KB request instead of the
+ * four static weights the Google URL asked for.
+ */
 const STATIC_HEAD = `
     <meta charset="UTF-8" />
     <!--
@@ -44,21 +67,6 @@ const STATIC_HEAD = `
       Bing Webmaster Tools:   <meta name="msvalidate.01" content="PASTE_BING_TOKEN" />
       Yandex Webmaster:       <meta name="yandex-verification" content="PASTE_YANDEX_TOKEN" />
     -->
-    {/*
-      Inter is self-hosted from /fonts (US-WEB020), not fetched from Google.
-      Two reasons, both load-bearing:
-        * Speed. The Google stylesheet was a render-blocking request to a
-          third-party origin that had to resolve, TLS-handshake and return
-          before the browser even learned the woff2 URLs — two round trips on
-          the LCP path that two preconnects could shorten but never remove.
-        * Privacy. Hotlinking fonts.gstatic.com hands every visitor's IP to
-          Google before the consent banner has been answered, which is exactly
-          the thing src/lib/consent.ts exists to prevent for GA4.
-      Only the latin subset is preloaded; latin-ext is declared with its
-      unicode-range so it is fetched only when a page actually needs it.
-      The file is the variable font, so 400-700 costs one 48 KB request
-      instead of the four static weights the Google URL asked for.
-    */}
     <link
       rel="preload"
       as="font"

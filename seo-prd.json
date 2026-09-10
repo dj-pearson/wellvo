@@ -40,8 +40,8 @@
         "fonts.test.ts still passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "pages/+onRenderHtml.tsx builds the head as a raw string, so the `{/* ... */}` wrapper around the self-hosted-Inter rationale is emitted verbatim as text into the head of all 34 prerendered pages. Roughly 1.3 KB of literal JSX comment on every document."
+      "passes": true,
+      "notes": "Root cause: STATIC_HEAD in pages/+onRenderHtml.tsx is a template literal in a .tsx file, so the JSX comment written inside it was copied byte-for-byte into the head of all 34 prerendered documents (940 bytes each, 31960 total). The prose now lives in a real TypeScript comment above the literal. Guarded twice: src/test/head.test.ts asserts the literal carries no JSX comment syntax, and website-check.yml greps the emitted dist/client HTML, which is what crawlers actually read."
     },
     {
       "id": "US-SEO004",
