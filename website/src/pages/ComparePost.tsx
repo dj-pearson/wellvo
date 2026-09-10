@@ -4,6 +4,7 @@ import { canonicalUrl } from '../lib/canonical'
 import { competitors, getCompetitor, type FeatureRow } from '../data/competitors'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { rotatingSiblings } from '../lib/siblings'
+import { buildEditorialArticleJsonLd } from '../lib/articleSchema'
 import './Compare.css'
 
 const SLUG_PREFIX = 'daily-ok-vs-'
@@ -52,21 +53,18 @@ export default function ComparePost() {
     })),
   }
 
-  const articleJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
+  // Shared builder (US-SEO015): adds the image this node was missing, and
+  // points publisher at the sitewide Organization by @id instead of declaring
+  // a second, partial Organization on the same page.
+  const articleJsonLd = buildEditorialArticleJsonLd({
     headline: title,
     description,
+    path: `/compare/daily-ok-vs-${competitor.slug}`,
+    canonical,
     datePublished: competitor.last_verified,
     dateModified: competitor.last_verified,
-    author: { '@type': 'Organization', name: 'Daily OK Editorial' },
-    publisher: {
-      '@type': 'Organization',
-      name: 'Daily OK',
-      url: 'https://dailyok.net',
-    },
-    mainEntityOfPage: canonical,
-  }
+    section: 'Comparisons',
+  })
 
   // BreadcrumbList for this nested page. SoftwareApplication / Organization /
   // WebSite are emitted site-wide from +onRenderHtml.tsx STATIC_HEAD, so we

@@ -4,6 +4,7 @@ import SEO, { APP_STORE_URL } from '../components/SEO'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { getWhatToDoPage, whatToDoPages, LAST_UPDATED } from '../data/whatToDo'
 import { rotatingSiblings } from '../lib/siblings'
+import { buildEditorialArticleJsonLd } from '../lib/articleSchema'
 import { ArrowRight, Phone, ShieldAlert, Clock, ClipboardList } from 'lucide-react'
 import './ElderlyCare.css'
 import './Landing.css'
@@ -98,6 +99,18 @@ export default function WhatToDo() {
   }
 
   const jsonLd = [
+    // These pages declare og:type="article" and render a visible
+    // "Last updated" byline, but carried no Article node — so the date and the
+    // authorship existed only as text (US-SEO015). On YMYL, health-adjacent
+    // guidance about someone who might be in trouble, dating and attribution
+    // are the E-E-A-T signals that matter most.
+    buildEditorialArticleJsonLd({
+      headline: page.h1,
+      description: page.metaDescription,
+      path: `/what-to-do/${page.slug}`,
+      datePublished: LAST_UPDATED,
+      section: "Doesn't answer the phone",
+    }),
     {
       '@context': 'https://schema.org',
       '@type': 'FAQPage',

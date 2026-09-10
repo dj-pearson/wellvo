@@ -122,6 +122,13 @@ const STATIC_HEAD = `
       (dailyok-daily-check-in) implies a third written form, so that is covered
       too — one entity, every spelling.
 
+      Each node carries a stable @id (US-SEO015) so that a page-level Article
+      can name this Organization by reference instead of declaring a second,
+      partial copy of it. Two Organization nodes on one page describing the
+      same company is the ambiguity US-WEB012 exists to remove. The same three
+      strings live in src/lib/entityIds.ts, which this literal cannot import;
+      src/test/entityGraph.test.ts asserts they stay identical.
+
       Deliberately ABSENT, so nobody adds them back by reflex:
         * SearchAction / Sitelinks Searchbox — there is no on-site search.
           Declaring one Google cannot exercise is a false claim about the site.
@@ -135,6 +142,7 @@ const STATIC_HEAD = `
       {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
+        "@id": "https://dailyok.net/#application",
         "name": "Daily OK",
         "alternateName": [
           "Daily OK",
@@ -149,6 +157,7 @@ const STATIC_HEAD = `
         "operatingSystem": "iOS, Android",
         "description": "Daily OK is a senior check-in app: adult children set up a once-a-day \\"I'm OK\\" for an aging parent and get escalating alerts the moment they miss it. No pendant, no GPS tracking, no cameras, no wearables. The same gentle daily check-in also works for teens and any loved one you worry about.",
         "url": "https://dailyok.net",
+        "publisher": { "@id": "https://dailyok.net/#organization" },
         "downloadUrl": "https://apps.apple.com/us/app/dailyok-daily-check-in/id6760836697",
         "image": "https://dailyok.net/og-image.png",
         "screenshot": "https://dailyok.net/og-image.png",
@@ -173,6 +182,7 @@ const STATIC_HEAD = `
       {
         "@context": "https://schema.org",
         "@type": "Organization",
+        "@id": "https://dailyok.net/#organization",
         "name": "Daily OK",
         "alternateName": [
           "Daily OK",
@@ -192,6 +202,7 @@ const STATIC_HEAD = `
       {
         "@context": "https://schema.org",
         "@type": "WebSite",
+        "@id": "https://dailyok.net/#website",
         "name": "Daily OK",
         "alternateName": [
           "Daily OK",
@@ -201,7 +212,9 @@ const STATIC_HEAD = `
           "Daily OK: Senior Check-In",
           "DailyOK Daily Check-In"
         ],
-        "url": "https://dailyok.net"
+        "url": "https://dailyok.net/",
+        "publisher": { "@id": "https://dailyok.net/#organization" },
+        "inLanguage": "en-US"
       }
     ]
     </script>${CF_BEACON}`

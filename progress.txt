@@ -3427,3 +3427,56 @@ Note on the checker: it matches <hN>...</hN> pairs, so a heading with a
 mismatched closing tag is skipped rather than reported. That is acceptable here
 because React cannot emit one — but it is why the first planted probe passed,
 and worth knowing before trusting the script against hand-written HTML.
+
+================================================================================
+US-SEO015 — og:type said article; the structured data said nothing      2026-09-10
+================================================================================
+Iteration 12. Validated the emitted JSON-LD field by field rather than checking
+that it parses.
+
+Seven pages — the six /what-to-do guides and /welfare-check-on-elderly-parent —
+declared og:type="article" in their meta tags and rendered a visible "By the
+Daily OK Editorial Team · Last updated 2026-08-29" byline, and emitted no
+Article node at all. Their publication date, modification date and authorship
+existed purely as text on the page. Those are the YMYL, health-adjacent pages
+about what to do when someone might be in trouble — the class of content where
+dating and attribution ARE the E-E-A-T signal.
+
+The ten comparison pages did emit an Article, missing `image`, and declaring
+its own partial Organization for the publisher. So every comparison page carried
+two Organization nodes describing the same company — which is precisely the
+ambiguity US-WEB012 exists to remove, on a site whose own brand name ranks 2.13.
+
+  add  website/src/lib/entityIds.ts
+  add  website/src/lib/articleSchema.ts
+  add  website/src/test/entityGraph.test.ts
+  add  website/scripts/check-structured-data.mjs
+  mod  website/pages/+onRenderHtml.tsx
+  mod  website/src/pages/{ComparePost,WhatToDo,WelfareCheck}.tsx
+  mod  .github/workflows/website-check.yml
+
+The three sitewide nodes now carry stable @ids and reference each other, so a
+page-level Article names its publisher by reference instead of by copy. The
+@id strings exist twice — in entityIds.ts and in the STATIC_HEAD template
+literal, which cannot import — so entityGraph.test.ts asserts they stay
+identical. Drift there would silently dangle every publisher reference on the
+site, and nothing would render differently.
+
+Worth recording because I got it wrong first: the author was initially
+`{'@id': ORGANIZATION_ID, name: 'Daily OK Editorial Team'}` — which asserts that
+one @id has two names, a contradiction rather than a nuance. It reads fine in a
+diff and only surfaces when the graph is resolved. The audit caught it, the
+editorial team became its own node hanging off the company via
+parentOrganization, and the CI check now tests for exactly that class of
+mistake.
+
+Author stays an Organization, never a Person: src/data/whatToDo.ts carries a
+standing YMYL constraint that until a licensed clinician is contracted the
+byline must not imply medical credentials, and a Person node invites that
+inference. There is a test asserting the name carries no Dr/MD/RN/LCSW/PhD.
+
+VERIFIED: Article nodes 10 -> 17. Across 33 routes: 0 dangling @id references,
+0 pages with two Organization nodes, 0 @ids claiming two names, every Article
+carrying all six required fields. The CI check exits 1 on a planted dangling
+reference and names the route and the id. tsc -b 0, build 0, headings 33/33,
+snippets 33/33, vitest 128/128 (was 119).

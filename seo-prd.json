@@ -188,6 +188,21 @@
       "priority": 14,
       "passes": true,
       "notes": "All 33 pages skipped h2 -> h4 because the footer's four column headings were h4; five landing pages skipped again mid-content where card headings inside an h2 section were also h4. Footer headings became h2 rather than h3 — they are landmark-level groupings alongside the page's own sections, not subsections of whichever section happens to come last, and h2 also keeps /blog/ valid on a build where no posts were fetched and the h1 is the only content heading. Card headings became h3. CSS selectors renamed in lockstep; the global reset zeroes heading margins, so nothing moved visually. Verified 0 issues across 33 pages, and the CI check exits 1 on a planted h1 -> h5."
+    },
+    {
+      "id": "US-SEO015",
+      "title": "Make the structured data resolve as one graph, and date the YMYL pages",
+      "description": "As a search engine resolving this page's entities, I want one company, one site, one app and a dated, attributed Article, so that the page's claims are attributable rather than ambiguous.",
+      "acceptanceCriteria": [
+        "The three sitewide nodes carry stable @ids and reference each other",
+        "Every editorial page that declares og:type=article emits an Article node",
+        "Article nodes carry image, datePublished, dateModified, author and publisher",
+        "No page declares two Organization nodes, and no @id claims two names",
+        "A CI check validates the graph, not just that the JSON parses"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": "Seven pages — the six /what-to-do guides and /welfare-check-on-elderly-parent — declared og:type=article and rendered a visible 'Last updated' byline but emitted no Article node at all, so their dating and authorship existed only as text. These are YMYL health-adjacent pages where that is the E-E-A-T signal. Article nodes went 10 to 17. The comparison pages' Article had no image and redeclared its own partial Organization; it now references the sitewide one by @id. Author is an Organization node of its own (#editorial-team, parentOrganization the company) — the first attempt reused ORGANIZATION_ID with the name 'Daily OK Editorial Team', which asserts one @id has two names; the audit caught it, which is why the CI check now tests for exactly that."
     }
   ]
 }

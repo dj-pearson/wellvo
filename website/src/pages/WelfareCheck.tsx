@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Clock, Phone, ShieldAlert, ClipboardList, HelpCircle } from 'lucide-react'
 import SEO from '../components/SEO'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
+import { buildEditorialArticleJsonLd } from '../lib/articleSchema'
 import { LAST_UPDATED } from '../data/whatToDo'
 import './ElderlyCare.css'
 import './Landing.css'
@@ -65,6 +66,15 @@ const FAQS: { q: string; a: string }[] = [
 
 export default function WelfareCheck() {
   const jsonLd = [
+    // og:type="article" with no Article node before US-SEO015.
+    buildEditorialArticleJsonLd({
+      headline: 'How to request a welfare check on an elderly parent',
+      description:
+        'Who can request a welfare check on an elderly parent, the non-emergency number to call, what to say, what happens when officers arrive, and when to call 911.',
+      path: '/welfare-check-on-elderly-parent',
+      datePublished: LAST_UPDATED,
+      section: 'Guides',
+    }),
     {
       '@context': 'https://schema.org',
       '@type': 'FAQPage',

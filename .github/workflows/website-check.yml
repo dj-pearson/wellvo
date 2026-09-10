@@ -103,6 +103,13 @@ jobs:
         working-directory: website
         run: node scripts/check-heading-outline.mjs
 
+      # US-SEO015. "It parses" is not validation: the defects this caught were
+      # Article nodes with no image, pages carrying two Organization nodes for
+      # the same company, and one @id asserting two different names.
+      - name: Assert the structured-data graph resolves
+        working-directory: website
+        run: node scripts/check-structured-data.mjs
+
       # US-SEO004. A placeholder analytics token is a third-party request on
       # every page that reports nothing. The beacon is emitted only when
       # VITE_CF_ANALYTICS_TOKEN holds a real token, which CI does not set.
