@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
 import { describe, it, expect } from 'vitest'
-import { BlogSeedProvider, seedFromPageContext, type BlogSeed } from '../lib/blogSeed'
+import { BlogSeedProvider } from '../lib/blogSeed'
+import { seedFromPageContext, type BlogSeed } from '../lib/blogSeedContext'
 import type { PublicPost, PublicPostSummary } from '../lib/blogTypes'
 import Blog from '../pages/Blog'
 import BlogPost from '../pages/BlogPost'
@@ -70,6 +71,41 @@ describe('blog prerender seed', () => {
     expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: 'A seeded post' })).toBeInTheDocument()
     expect(screen.getByText('Seeded body copy.')).toBeInTheDocument()
+  })
+
+  it('gives a post a full social card, falling back to the sitewide image', async () => {
+    // US-SEO005. Posts hand-rolled their own <Helmet> and emitted og:image
+    // only when the post had one, and twitter:card never — so a post without
+    // a featured image shared as a bare link.
+    renderSeeded('/blog/a-seeded-post', { blogIndex: null, blogPost: POST })
+    await waitFor(() =>
+      expect(document.head.querySelector('meta[property="og:image"]')).not.toBeNull(),
+    )
+
+    const content = (sel: string) =>
+      document.head.querySelector(sel)?.getAttribute('content') ?? null
+
+    expect(content('meta[property="og:image"]')).toBe('https://dailyok.net/og-image.png')
+    expect(content('meta[name="twitter:card"]')).toBe('summary_large_image')
+    expect(content('meta[property="og:type"]')).toBe('article')
+    expect(content('meta[property="article:published_time"]')).toBe(POST.published_at)
+    expect(
+      document.head.querySelector('link[rel="canonical"]')?.getAttribute('href'),
+    ).toBe('https://dailyok.net/blog/a-seeded-post/')
+  })
+
+  it('prefers the post\'s own image when it has one', async () => {
+    const withImage = { ...POST, og_image_url: 'https://cdn.example.com/post.jpg' }
+    renderSeeded('/blog/a-seeded-post', { blogIndex: null, blogPost: withImage })
+    await waitFor(() =>
+      expect(document.head.querySelector('meta[property="og:image"]')).not.toBeNull(),
+    )
+
+    expect(
+      document.head.querySelector('meta[property="og:image"]')?.getAttribute('content'),
+    ).toBe('https://cdn.example.com/post.jpg')
+    // Dimensions of a remote upload are not knowable here, so they are not claimed.
+    expect(document.head.querySelector('meta[property="og:image:width"]')).toBeNull()
   })
 
   it('ignores a seed whose slug does not match the route', () => {

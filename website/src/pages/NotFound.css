@@ -29,3 +29,38 @@
   color: var(--gray-600);
   margin-bottom: 32px;
 }
+
+/* Recovery links (US-SEO016). Left-aligned inside the centred block: a list of
+   sentences is read, not scanned, and centring ragged text makes both edges
+   ragged. Measure is capped so the descriptions stay readable. */
+.not-found h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 16px;
+}
+
+.not-found-links {
+  list-style: none;
+  text-align: left;
+  max-width: 34rem;
+  margin: 0 auto 32px;
+  display: grid;
+  gap: 14px;
+}
+
+.not-found-links li {
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--gray-600);
+}
+
+.not-found-links a {
+  font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  .not-found-code {
+    font-size: 84px;
+  }
+}

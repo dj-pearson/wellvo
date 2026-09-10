@@ -1,17 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
-
-interface AdminSessionState {
-  loading: boolean
-  session: Session | null
-  isAdmin: boolean
-  adminCheckDone: boolean
-  signOut: () => Promise<void>
-  refreshAdminStatus: () => Promise<void>
-}
-
-const AdminAuthContext = createContext<AdminSessionState | null>(null)
+import { AdminAuthContext, type AdminSessionState } from './adminAuthContext'
 
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
@@ -93,10 +83,4 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   )
 
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>
-}
-
-export function useAdminAuth(): AdminSessionState {
-  const ctx = useContext(AdminAuthContext)
-  if (!ctx) throw new Error('useAdminAuth must be used inside AdminAuthProvider')
-  return ctx
 }

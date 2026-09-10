@@ -2902,3 +2902,746 @@ still-live net.dailyok.* namespace, replay protection across accounts, and a
 staged rollout — because a bug in that path blocks every real purchase. Several
 iterations of work, and untestable from an environment with no store access, so
 it is written down rather than half-attempted.
+
+================================================================================
+US-SEO001 — the website build was red, so nothing shipped                2026-09-10
+================================================================================
+Iteration 1 of an SEO loop. The first SEO element is the one that gates every
+other one: whether the site deploys at all.
+
+website/package.json's build is a chain —
+
+    tsc -b && vite build && vike prerender && generate-sitemap && indexnow-ping
+
+— and `tsc -b` exits 2 on origin/main. src/test/fonts.test.ts arrived with
+US-WEB020 (b6924bf) using node:fs, node:path and __dirname, but tsconfig.app.json
+includes all of src/ with types ["vite/client"], so four errors. Cloudflare Pages
+runs that same script, so the deploy has been failing since yesterday and the
+live site is frozen on its last good build. Every canonical, JSON-LD block,
+sitemap entry and IndexNow ping is produced by the steps AFTER the one that
+fails, so no SEO work in this loop could reach production until this was fixed.
+
+The tests themselves were never broken — `npx vitest run` is 67/67 green. Only
+the typecheck was, and only because the tests were being typed as browser code.
+
+  add  website/tsconfig.test.json
+  mod  website/tsconfig.json          (reference the new project)
+  mod  website/tsconfig.app.json      (exclude src/test)
+  add  .github/workflows/website-check.yml
+
+The fix gives the tests their own project with types ["node", "vite/client",
+"vitest/globals", "@testing-library/jest-dom"] rather than widening the app
+project — app code must not gain node globals to satisfy a test file. vite/client
+is in that list because the tests import components that import .css.
+
+VERIFIED: npx tsc -b exits 0; npm run build exits 0, 34 HTML documents
+prerendered, sitemap written with 33 URLs (1 noindex skipped), IndexNow correctly
+dry-run without INDEXNOW_SUBMIT; vitest 67/67.
+
+The new workflow runs tests + build on website/** PRs and asserts sitemap.xml
+came out non-empty — a prerender that emits nothing otherwise "succeeds". There
+was no website workflow at all before, which is why a red build reached main
+unseen.
+
+`npm run lint` is deliberately NOT a step yet: 9 pre-existing eslint errors would
+gate every PR on red from day one. Filed as US-SEO002.
+
+NOT fixed, filed in the new seo-prd.json: US-SEO002 (lint), US-SEO003 (a JSX
+comment block emitted as literal text into the head of all 34 pages), US-SEO004
+(a Cloudflare Insights beacon shipping with the literal token
+YOUR_CF_ANALYTICS_TOKEN), US-SEO005 (og:image has no width/height/type and no
+per-page override), US-SEO006 (GSC/Bing/Yandex verification still PASTE_*
+placeholders — blocked on tokens only the owner has).
+
+================================================================================
+US-SEO003 — a JSX comment was shipping as text in every page head       2026-09-10
+================================================================================
+Iteration 2. Found by reading the emitted HTML rather than the source.
+
+pages/+onRenderHtml.tsx builds the shared <head> as STATIC_HEAD, a TEMPLATE
+LITERAL. The file is .tsx and everything around it is JSX, so the rationale for
+self-hosting Inter had been written as `{/* ... */}` — inside the string. A
+template literal strips nothing, so all 940 bytes of it were copied verbatim
+into the head of every prerendered document: 34 pages, ~32 KB of source
+commentary served to crawlers as visible text.
+
+Silent failure. Valid-enough HTML, no console error, nothing wrong on screen.
+The only way to see it is to open dist/client/*/index.html, which is exactly
+what nothing in this repo did.
+
+  mod  website/pages/+onRenderHtml.tsx     (comment moved out of the literal)
+  add  website/src/test/head.test.ts
+  mod  .github/workflows/website-check.yml
+
+The prose was not deleted — it is load-bearing (it is why nobody pastes the
+Google Fonts link back in) and now sits in a real TypeScript comment above the
+literal, together with a note saying why an HTML comment is the only comment
+syntax that works inside it.
+
+Guarded at both ends because either alone is weak: head.test.ts asserts the
+literal carries no `{/*` or `*/}` and still carries the tags it exists for,
+while the workflow greps the emitted dist/client HTML — the source test is fast
+feedback, the grep is the thing crawlers actually read.
+
+VERIFIED: `grep -rho '{/\*' dist/client --include=*.html | wc -l` is 0, down
+from 34. tsc -b exits 0; npm run build exits 0, 34 documents, 33 sitemap URLs;
+vitest 71/71 (was 67). The new CI guard was exercised both ways — exit 0 on the
+clean tree, exit 1 against a file containing a JSX comment.
+
+================================================================================
+US-SEO004 — a placeholder analytics beacon on every page                2026-09-10
+================================================================================
+Iteration 3.
+
+    <script defer src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon='{"token": "YOUR_CF_ANALYTICS_TOKEN"}'></script>
+
+That shipped, verbatim, on all 34 pages. Both halves were wrong at once. Every
+visitor paid a DNS lookup, TLS handshake and script download to a third-party
+origin to report telemetry Cloudflare then discards, because the token is not a
+token. And /privacy and /cookies both tell visitors "We use Cloudflare Web
+Analytics" — a claim that has never been true in production.
+
+The token is deploy configuration, not source, so it cannot be committed. The
+tag is now conditional on VITE_CF_ANALYTICS_TOKEN at build time: a real token
+emits the beacon, an absent one emits nothing. A missing beacon is honest and
+free; a placeholder beacon is a request on the LCP path that buys nothing.
+
+  mod  website/pages/+onRenderHtml.tsx
+  mod  website/src/vite-env.d.ts
+  mod  website/.env.example
+  mod  website/src/test/head.test.ts
+  mod  .github/workflows/website-check.yml
+  mod  docs/COMPLIANCE_AUDIT.md
+
+The token is interpolated into a JSON attribute inside a single-quoted HTML
+attribute, so it is validated rather than trusted — Cloudflare site tokens are
+32 hex characters, and anything else is refused with a build warning instead of
+being pasted into the document. Without that, a mis-set environment variable is
+an HTML injection into every page.
+
+VERIFIED across three real builds:
+  * no token          -> 0 beacon tags, 0 occurrences of the placeholder
+  * 32-hex token      -> 34 beacon tags, token intact in the attribute
+  * `"}'></script>…`  -> 0 beacon tags, build warns and continues
+tsc -b exits 0; vitest 73/73 (was 71); sitemap still 33 URLs.
+
+OWNER ACTION, not a code change: set VITE_CF_ANALYTICS_TOKEN in the Cloudflare
+Pages build environment. Until then no analytics runs, and the /privacy and
+/cookies statements about Cloudflare Web Analytics describe something that is
+not happening. Both become accurate the moment the token is configured — this
+is noted in docs/COMPLIANCE_AUDIT.md so it is not lost.
+
+NOT fixed, filed as US-SEO007: pages/ is not typechecked at all. tsconfig.app
+covers only src/ and tsconfig.node only vite.config.ts, so the SSR entry point
+that produces every canonical, JSON-LD block and meta tag is the one file tsc
+never looks at.
+
+================================================================================
+US-SEO007 — pages/ was the one directory tsc never looked at             2026-09-10
+================================================================================
+Iteration 4. Found while fixing US-SEO004, when it turned out that editing
++onRenderHtml.tsx produced no typechecking at all.
+
+tsconfig.app.json includes only `src`, tsconfig.node.json only `vite.config.ts`,
+and the tsconfig.test.json added in US-SEO001 only `src/test`. Nothing included
+`pages`. So +onRenderHtml.tsx, +Page.tsx, +config.ts, +onBeforePrerenderStart.ts
+and fetchBlogForPrerender.ts were unchecked — and that set is precisely the SSR
+entry point that emits every title, canonical, meta tag and JSON-LD block on the
+site, plus the build-time blog fetch that decides which posts exist at all.
+
+  add  website/tsconfig.pages.json
+  mod  website/tsconfig.json
+  mod  website/package.json + package-lock.json   (@types/jsdom, devDependency)
+
+types is ["node", "vite/client"] because these hooks run in Node at prerender
+time but render browser markup and import the app's .css modules — neither type
+surface alone covers the directory.
+
+Turning it on surfaced exactly one pre-existing error: jsdom had no declarations
+in fetchBlogForPrerender.ts. Fixed by installing @types/jsdom, not by declaring
+the module `any` — an `any` there would have re-hidden the DOMPurify window the
+blog sanitizer depends on.
+
+VERIFIED that the gate actually bites, rather than trusting a green run: planted
+`const _seoGuardProbe: number = "not a number"` in +onRenderHtml.tsx and tsc -b
+reported TS2322 at pages/+onRenderHtml.tsx(299,7) and exited 2; removing it
+returned to exit 0. npm run build exits 0, 34 documents, 33 sitemap URLs;
+vitest 73/73. No CI change needed — `npm run build` begins with tsc -b, so the
+website-check workflow added in US-SEO001 already covers pages/ from now on.
+
+================================================================================
+US-SEO005 — the comparison pages had no social card at all              2026-09-10
+================================================================================
+Iteration 5. Started as "add og:image dimensions" and turned out to be larger.
+
+Two page families never went through <SEO>. ComparePost.tsx and BlogPost.tsx
+each hand-rolled a <Helmet>, and between them they emitted:
+
+  * no og:image on any of the 10 comparison pages
+  * no twitter:card on either family
+  * on a blog post, og:image ONLY when the post had a featured image
+
+Those 10 comparison pages are the highest commercial-intent URLs in the whole
+pSEO strategy — "Daily OK vs. Life Alert" and friends — and they are the URLs
+most likely to be pasted into a family group chat. Every one of them shared as
+a bare blue link.
+
+  mod  website/src/components/SEO.tsx
+  mod  website/src/pages/ComparePost.tsx     (Helmet -> SEO)
+  mod  website/src/pages/BlogPost.tsx        (Helmet -> SEO)
+  add  website/src/test/seo.test.tsx
+  mod  website/src/test/blogSeed.test.tsx
+
+<SEO> gained what those two needed so the migration did not lose anything:
+per-page `image`/`imageAlt`, an explicit `canonical` override (a post may point
+at an original elsewhere), `publishedTime`/`modifiedTime` gated on
+ogType="article", plus og:locale and og:image:width/height/type for everyone.
+
+The dimensions are measured, not assumed. src/test/seo.test.tsx reads the PNG's
+IHDR chunk and asserts the declared 1200x630 matches the actual file, because a
+wrong number is worse than none — the consumer crops to the ratio it is told.
+They are emitted only for the sitewide image: a post's featured image is a
+remote upload whose size is not knowable at render time, so nothing is claimed.
+
+One thing nearly lost in the migration and deliberately kept: BlogPost escaped
+`<` to < in its JSON-LD and the shared component did not. Post titles and
+excerpts are operator- and LLM-authored, so `</script>` in a headline was a real
+path out of the script tag. serializeJsonLd() now does it for every caller.
+
+Blog titles change suffix from " — Daily OK" to " | Daily OK", matching the rest
+of the site. That is a visible SERP change and it is the point.
+
+VERIFIED against dist, not intent: compare pages now carry og:image with
+width/height/type, og:locale, article timestamps and twitter:card; every page
+has exactly one og:image, one twitter:card, one canonical and one <title> (no
+duplicates from the migration); all 59 emitted JSON-LD blocks parse as JSON;
+the compare page's three schemas are intact as one array. tsc -b 0, build 0,
+34 documents, 33 sitemap URLs, vitest 84/84 (was 73).
+
+================================================================================
+US-SEO008 — Google was truncating every comparison page snippet         2026-09-10
+================================================================================
+Iteration 6. Found by measuring the prerendered output, unescaped — the first
+pass measured `&#x27;` as six characters and overstated everything, so the real
+numbers came from html.unescape() on the emitted <title> and description.
+
+ComparePost.tsx built its description like this:
+
+    competitor.daily_ok_verdict.split('.').slice(0, 2).join('.') + '.'
+
+The first two sentences of `daily_ok_verdict` — which is ~120 words of page
+prose written to be read on the page, with no length ceiling anywhere. It
+produced descriptions of 225 to 407 characters. Google renders about 920px,
+roughly 160 characters, so every one of the ten pages was cut off mid-sentence
+in the result people actually see. Apple Watch's 407-character description lost
+250 characters, including the whole "it only helps if they wear it" point that
+is the reason the page exists.
+
+Five titles overshot too, at 61-76 characters against a ~60 ceiling.
+
+  mod  website/src/data/competitors/*.json     (10 files: meta_description, +1 meta_title)
+  mod  website/src/data/competitors/index.ts
+  mod  website/src/components/SEO.tsx          (appendBrand)
+  mod  website/src/pages/ComparePost.tsx
+  add  website/src/test/snippetLength.test.ts
+
+The descriptions are now hand-written per competitor and treated as what they
+are: the ad copy for a commercial-intent query, not a prefix of an article. Each
+leads with the competitor's real strength, then the actual difference. "Life
+Alert answers the fall. Daily OK answers the other 364 days."
+
+The title fix is structural rather than editorial. `Daily OK vs. Life Alert:
+honest comparison (2026) | Daily OK` says the brand twice and the suffix costs
+11 of the ~60 characters. <SEO> gained appendBrand, default true, and these
+pages opt out because the title already names the brand. That alone brought
+nine of the ten inside the limit; Apple Watch needed a meta_title override
+because its display name is a phrase ("Apple Watch fall detection") rather than
+a brand, and that phrase stays as the H1 where there is room for it.
+
+snippetLength.test.ts asserts both ceilings per competitor, that snippets are
+distinct, and — the regression that matters — that no description is a prefix
+of its page's own verdict, which is what the old derivation produced.
+
+VERIFIED in dist: compare titles now 45-56 (was 46-76), descriptions 139-157
+(was 225-407). vitest 107/107 (was 84). tsc -b 0, build 0, 34 documents, 33
+sitemap URLs.
+
+NOT fixed, filed as US-SEO009: 10 titles and 15 descriptions on the core and
+/what-to-do pages still overshoot — the homepage worst at a 79-character title
+and a 266-character description. There is no generator to fix there; each is a
+hand-written string in its own component, so it is ~25 separate copywriting
+decisions and it gets its own iteration rather than being rushed onto the end of
+this one. The dist-walking length assertion belongs with it, once the pages can
+pass it.
+
+================================================================================
+US-SEO009 — the other 25 snippets Google was cutting off                2026-09-10
+================================================================================
+Iteration 7, finishing what US-SEO008 started on the comparison pages.
+
+10 titles and 15 descriptions still overshot the width Google renders. The
+homepage was the worst on both counts: a 79-character title that lost
+everything after "Aging Parents", and a 266-character description. /pricing ran
+to 238, /welfare-check-on-elderly-parent to 221.
+
+Unlike the comparison pages there was no generator to fix — each is a
+hand-written string in its own component — so this was 25 separate rewrites.
+
+  mod  website/src/pages/{Home,Pricing,Support,ElderlyCare,ChildSafety}.tsx
+  mod  website/src/pages/{CheckInAppForElderly,DailyCheckInAppForSeniors}.tsx
+  mod  website/src/pages/{PeaceOfMindAppForElderlyParents,WelfareCheck}.tsx
+  mod  website/src/pages/WhatToDoIndex.tsx
+  mod  website/src/data/whatToDo.ts
+  add  website/scripts/check-snippet-lengths.mjs
+  mod  .github/workflows/website-check.yml
+
+Cutting a description is not the same as truncating it. Each one keeps the
+concrete hook and drops the qualifier Google was going to eat anyway — the
+homepage went from a four-sentence pitch to "One tap a day says your aging
+parent is OK. Miss it and family is alerted. No pendant, no GPS, no cameras.
+From $3.99/mo with a free trial." Every title keeps the exact keyword phrase it
+targets; what came off is the em-dash tail ("— Stop Wondering All Day",
+"— Calm Guides", "— Aging in Place, Safely") that was never being rendered.
+
+Titles are budgeted against 49, not 60, on every page but the homepage: <SEO>
+appends " | Daily OK", and the homepage is the one route that does not get it.
+
+The check is now a script over the prerendered output rather than assertions
+against a data file, so it covers every route including ones added later. Two
+details it gets right: it measures UNESCAPED text, because `&#x27;` is six
+characters in the file and one on screen and measuring raw attributes overstates
+every apostrophe by five; and it warns instead of failing on /blog/*, whose
+metadata is authored in the CMS — a long excerpt is a content decision, not a
+reason to block a deploy.
+
+VERIFIED: 33 of 33 indexable routes pass, 0 failures, 0 warnings. Titles now
+15-59, descriptions 79-160. Proved the gate bites by planting a 340-character
+description into dist/client/pricing/index.html — exit 1, correct route named —
+then restoring it for exit 0. tsc -b 0, build 0, vitest 107/107.
+
+================================================================================
+US-SEO010 — the pSEO pages were the least-linked URLs on the site       2026-09-10
+================================================================================
+Iteration 8. Found by building the internal link graph from the prerendered
+output rather than from the components — counting inbound links per route.
+
+The distribution was the finding. Every layout page had 32 inbound links,
+because the header and footer link them from everywhere. Then:
+
+  /compare/daily-ok-vs-life-alert/        14
+  /compare/daily-ok-vs-life360/           12
+  /compare/daily-ok-vs-snug-safety/       11
+  /compare/daily-ok-vs-aloe-care/          4
+  the other six comparison pages           1
+  every /what-to-do guide                  1  (2 for two of them)
+
+One inbound link, from the hub. On the pages the entire pSEO strategy is built
+around.
+
+Two separate causes:
+
+  1. ComparePost did `competitors.filter(c => c.slug !== slug).slice(0, 3)`.
+     The array order never changes, so all ten pages recommended the same first
+     three entries. Three competitors absorbed 37 links; six got none.
+  2. The /what-to-do guides linked UP to the hub and sideways to nothing. A
+     cluster whose spokes only point at the hub is not a cluster.
+
+  add  website/src/lib/siblings.ts
+  add  website/src/test/siblings.test.ts
+  mod  website/src/pages/ComparePost.tsx
+  mod  website/src/pages/WhatToDo.tsx
+  mod  website/src/components/Footer.tsx
+
+rotatingSiblings() takes the next N entries after the current index, wrapping.
+That fixes the distribution arithmetically rather than by taste: every item
+appears in exactly N sibling blocks whatever the array order is. It is
+deliberately deterministic — these pages are prerendered then hydrated, so a
+random or date-seeded pick would render one set on the server and another on
+the client, which is a hydration mismatch and a link graph that churns every
+build for no reason.
+
+The test asserts the property that actually matters. "Each page shows three
+links" is satisfied by the old slice; "every page RECEIVES three" is not, and
+that is what is asserted — including one case that states the old bug directly:
+min inbound under slice(0,3) is 0, min inbound under rotation is 3.
+
+Also found while counting: every page carried a follow link to /admin/, which
+robots.txt disallows. That is the classic way a robots-excluded URL still gets
+indexed URL-only — the crawler cannot fetch it to read a noindex, but it can
+see 33 internal links pointing at it. Now rel="nofollow".
+
+VERIFIED in dist: comparison pages went from 1/1/1/1/1/1/4/11/12/14 to
+4/4/4/4/4/4/4/5/6/8; guides from 1/1/1/1/2/2 to 4/4/4/4/5/5. Minimum inbound
+across all 16 pSEO pages is now 4, up from 1. Zero follow links to /admin
+remain. tsc -b 0, build 0, snippet check 33/33 clean, vitest 114/114 (was 107).
+
+================================================================================
+US-SEO011 — llms.txt omitted the pages it exists to advertise           2026-09-10
+================================================================================
+Iteration 9. Diffed the URLs in llms.txt against the actual prerendered routes.
+
+llms.txt is the manifest handed to AI crawlers — the file the whole
+"get cited by ChatGPT/Perplexity/AI Overviews" half of pSEO.md rests on. It
+listed 18 of 33 indexable routes. The 15 it omitted were the plan itself:
+
+  * seven of the ten comparison pages (the same three that hogged the internal
+    links in US-SEO010 were the three that were listed — same root cause,
+    a hand-curated subset that never grew)
+  * the entire /what-to-do cluster, all seven pages
+  * /welfare-check-on-elderly-parent
+
+Worse, it carried a comment stating those guides were "NOT yet built, so they
+are deliberately omitted to avoid shipping dead links" — accurate when written,
+wrong ever since US-WEB005 built them. A stale exclusion note is more durable
+than a stale list, because it explains the absence and stops anyone looking.
+
+And all 17 URLs in it, plus 15 of 17 in llms-full.txt, used the no-slash form
+that production 308s (US-WEB010). Canonicals, the sitemap and internal links
+were all converted; these two files were missed. An agent that does not follow
+redirects got nothing from any of them.
+
+  add  website/scripts/generate-llms-txt.mjs
+  del  website/public/llms.txt              (now generated)
+  mod  website/public/llms-full.txt         (slash form + the missing cluster)
+  mod  website/package.json                 (build step)
+  mod  .github/workflows/website-check.yml
+
+The fix is to stop hand-maintaining it. The generator walks the same
+dist/client/**/index.html the sitemap generator walks, so a page cannot be
+published without appearing, and it reads each page's own <title> and meta
+description rather than a separate blurb, so the descriptions cannot drift from
+what the page says. That also means US-SEO008/009's rewritten snippets flowed
+into llms.txt automatically.
+
+Blog posts are excluded deliberately: they publish between builds through the
+generation webhook without a redeploy, so a build-time list of them would be
+wrong the moment it shipped. /blog is listed instead.
+
+llms-full.txt stays hand-written — it is long-form narrative, not a manifest —
+but it gained the "they aren't answering the phone" section it was missing
+entirely, and its comparison line now says all ten exist.
+
+The CI check diffs llms.txt against sitemap.xml. Both are generated from the
+same walk, so disagreement means a generator is broken; that is a stronger
+assertion than either file checking itself.
+
+VERIFIED: llms.txt covers 33 of 33 routes with 0 URLs in the redirecting form,
+up from 18 of 33 with 17 redirecting. The two manifests agree on all 33 URLs.
+tsc -b 0, build 0, snippet check 33/33, vitest 114/114.
+
+================================================================================
+US-SEO012 — 1.4 MB of hashed assets revalidated on every navigation     2026-09-10
+================================================================================
+Iteration 10.
+
+public/_headers had exactly one Cache-Control rule, for /fonts/*. Cloudflare
+Pages sends `public, max-age=0, must-revalidate` for every path it is not told
+about, so the absence of a rule is not a neutral default — it is a revalidation
+round-trip per navigation. That applied to all 1.4 MB of JS and CSS under
+/assets, every file of which is content-hashed and could safely have been cached
+for a year.
+
+Core Web Vitals is a ranking signal and this is the cheapest possible move on
+it: no code changes, no bundle work, just telling the CDN what the filenames
+already guarantee.
+
+  mod  website/public/_headers
+  add  website/src/test/headers.test.ts
+
+/assets/* now gets the immutable year. It is deliberately NOT extended further:
+index.html and the index.pageContext.json beside it keep stable names across
+deploys, so an immutable year there would pin visitors to a stale build with no
+way to recover, and sitemap.xml / robots.txt / llms.txt must stay revalidated
+because a crawler has to see them fresh. That mirror-image mistake is the one
+worth guarding against, so the test pins both directions rather than only
+asserting the good case.
+
+The eleven unhashed brand assets (og-image, favicons, logos) get a week with
+stale-while-revalidate instead — replacing one is then picked up in the
+background rather than costing the next visitor a blocking fetch. They are
+listed one path at a time rather than by extension, because an extension glob
+would silently catch a future hashed or user-uploaded image; a test asserts the
+list still matches what public/ actually contains.
+
+Also added X-Robots-Tag: noindex to /admin. _redirects rewrites /admin/* to the
+homepage shell, so a crawler reaching it is served the homepage's HTML under an
+/admin URL. That is now handled three ways — robots.txt Disallow, the nofollow
+added in US-SEO010, and this header, which is the only one that still applies if
+the Disallow is ever relaxed.
+
+VERIFIED: _headers ships verbatim into dist/client; tsc -b 0, build 0, snippet
+check 33/33, vitest 119/119 (was 114).
+
+NOT fixed, filed as US-SEO013 and blocked on input rather than effort: the CSP
+connect-src lists api.dailyok.net and functions.dailyok.net but nothing that is
+obviously the Supabase host, and src/lib/supabase.ts connects to
+VITE_SUPABASE_URL, whose production value is not in this repo. If Supabase is
+served from api.dailyok.net it is already fine; if it is a separate host — which
+self-hosted Supabase usually is — then every client-side blog fetch and the
+admin login are CSP-blocked in production. Guessing a hostname would widen the
+policy for nothing and hide the real problem, so it is written down instead.
+
+================================================================================
+US-SEO014 — every page skipped a heading level                          2026-09-10
+================================================================================
+Iteration 11. Walked the document outline of all 33 prerendered pages.
+
+Every single one skipped h2 -> h4. The cause was the footer: its four column
+headings ("Product", "Senior Check-In", "Support", "Legal") were <h4>, and the
+footer renders after content that ends at h2. Five landing pages skipped a
+second time mid-content, where card headings sitting inside an <h2> section were
+also h4 — "One screen, one button", "Playing outside", "No location, ever".
+
+Invisible by construction: the styling comes from the container class
+(.footer-col h4, .cs-scenario-card h4), not from the tag, so the page looks
+identical whichever level is used. What breaks is what nobody looks at — screen
+reader heading navigation, and the outline an extractor uses to decide which
+passage answers a query. These pages are competing for AI Overview and People
+Also Ask placement, which is passage-level attribution.
+
+  mod  website/src/components/Footer.tsx + .css      (4 h4 -> h2)
+  mod  website/src/pages/{CheckInAppForElderly,ChildSafety}.tsx
+  mod  website/src/pages/{DailyCheckInAppForSeniors,ElderlyCare}.tsx
+  mod  website/src/pages/PeaceOfMindAppForElderlyParents.tsx   (31 h4 -> h3)
+  mod  website/src/pages/{ChildSafety,ElderlyCare}.css
+  add  website/scripts/check-heading-outline.mjs
+  mod  .github/workflows/website-check.yml
+
+The footer went to h2, not h3. Its columns are landmark-level groupings that sit
+alongside the page's own sections, not subsections of whichever section happened
+to come last — and h2 is also the only choice that keeps /blog/ valid on a build
+where no posts were fetched, because then the h1 is the only content heading and
+an h3 footer would still be a skip. Card headings went to h3, which is what they
+always were semantically.
+
+CSS selectors were renamed in lockstep, and index.css zeroes heading margins
+globally, so nothing moved on screen. No h4 remains anywhere in src/.
+
+VERIFIED: 0 heading issues across 33 pages, down from 33 pages with at least one
+each. The CI check exits 1 on a planted h1 -> h5 in dist and names the route and
+the offending heading text; 0 on the clean tree. tsc -b 0, build 0, snippet
+check 33/33, vitest 119/119.
+
+Note on the checker: it matches <hN>...</hN> pairs, so a heading with a
+mismatched closing tag is skipped rather than reported. That is acceptable here
+because React cannot emit one — but it is why the first planted probe passed,
+and worth knowing before trusting the script against hand-written HTML.
+
+================================================================================
+US-SEO015 — og:type said article; the structured data said nothing      2026-09-10
+================================================================================
+Iteration 12. Validated the emitted JSON-LD field by field rather than checking
+that it parses.
+
+Seven pages — the six /what-to-do guides and /welfare-check-on-elderly-parent —
+declared og:type="article" in their meta tags and rendered a visible "By the
+Daily OK Editorial Team · Last updated 2026-08-29" byline, and emitted no
+Article node at all. Their publication date, modification date and authorship
+existed purely as text on the page. Those are the YMYL, health-adjacent pages
+about what to do when someone might be in trouble — the class of content where
+dating and attribution ARE the E-E-A-T signal.
+
+The ten comparison pages did emit an Article, missing `image`, and declaring
+its own partial Organization for the publisher. So every comparison page carried
+two Organization nodes describing the same company — which is precisely the
+ambiguity US-WEB012 exists to remove, on a site whose own brand name ranks 2.13.
+
+  add  website/src/lib/entityIds.ts
+  add  website/src/lib/articleSchema.ts
+  add  website/src/test/entityGraph.test.ts
+  add  website/scripts/check-structured-data.mjs
+  mod  website/pages/+onRenderHtml.tsx
+  mod  website/src/pages/{ComparePost,WhatToDo,WelfareCheck}.tsx
+  mod  .github/workflows/website-check.yml
+
+The three sitewide nodes now carry stable @ids and reference each other, so a
+page-level Article names its publisher by reference instead of by copy. The
+@id strings exist twice — in entityIds.ts and in the STATIC_HEAD template
+literal, which cannot import — so entityGraph.test.ts asserts they stay
+identical. Drift there would silently dangle every publisher reference on the
+site, and nothing would render differently.
+
+Worth recording because I got it wrong first: the author was initially
+`{'@id': ORGANIZATION_ID, name: 'Daily OK Editorial Team'}` — which asserts that
+one @id has two names, a contradiction rather than a nuance. It reads fine in a
+diff and only surfaces when the graph is resolved. The audit caught it, the
+editorial team became its own node hanging off the company via
+parentOrganization, and the CI check now tests for exactly that class of
+mistake.
+
+Author stays an Organization, never a Person: src/data/whatToDo.ts carries a
+standing YMYL constraint that until a licensed clinician is contracted the
+byline must not imply medical credentials, and a Person node invites that
+inference. There is a test asserting the name carries no Dr/MD/RN/LCSW/PhD.
+
+VERIFIED: Article nodes 10 -> 17. Across 33 routes: 0 dangling @id references,
+0 pages with two Organization nodes, 0 @ids claiming two names, every Article
+carrying all six required fields. The CI check exits 1 on a planted dangling
+reference and names the route and the id. tsc -b 0, build 0, headings 33/33,
+snippets 33/33, vitest 128/128 (was 119).
+
+================================================================================
+US-SEO016 — the 404 page was never actually served                      2026-09-10
+================================================================================
+Iteration 13.
+
+src/pages/NotFound.tsx exists, is routed at path="*", and has a stylesheet. It
+had never been served to anybody. Nothing prerendered it, so there was no
+dist/client/404.html, and Cloudflare Pages answers an unmatched path with its
+own generic page when that file is absent. The component could only render
+during a client-side navigation inside an already-loaded SPA — which is the one
+situation where the visitor is not lost. Every direct hit, every stale backlink,
+every crawler fetch got the generic page.
+
+The status code was always correct, so this never showed up as an indexing
+error. It showed up as nothing at all.
+
+  mod  website/src/pages/NotFound.tsx  + .css
+  mod  website/src/components/SEO.tsx        (noindex prop)
+  mod  website/pages/+onBeforePrerenderStart.ts
+  add  website/scripts/emit-404.mjs
+  mod  website/package.json
+  mod  website/src/test/seo.test.tsx
+  mod  .github/workflows/website-check.yml
+
+/404 is prerendered, lifted to dist/client/404.html, and the /404/ directory is
+then removed so the site does not also answer 200 at a URL duplicating the error
+page.
+
+Two details that are easy to get wrong and were:
+
+  * robots is "noindex, follow", not "none". The page must never rank, but the
+    recovery links on it are worth crawling; "none" throws that away for nothing.
+  * the canonical is suppressed entirely when noindex is set. The first build
+    emitted <link rel="canonical" href="https://dailyok.net/404/"> — pointing at
+    a URL that had just been deleted, and asking Google to index the very page
+    the robots tag on the line above forbids. CI now fails if a canonical
+    reappears there.
+
+The page itself gained the reason to exist: five hub links with a sentence each,
+instead of a single "Back to Home". Someone who followed a dead link to a
+specific guide is one click from the guide index rather than back at the top of
+the funnel.
+
+Both generators already skip pages carrying a noindex robots tag, so it stays
+out of sitemap.xml and llms.txt with no special-casing — verified, 0 mentions in
+either.
+
+VERIFIED: dist/client/404.html exists, robots "noindex, follow", no canonical,
+17 internal links including all five hubs, /404/ directory gone, 0 references in
+sitemap or llms.txt. tsc -b 0, build 0, headings 33/33, schema 33/33 with 17
+Articles, snippets 33/33, vitest 131/131 (was 128).
+
+================================================================================
+US-SEO002 — lint clean, and gated                                       2026-09-10
+================================================================================
+Iteration 14, closing the story deferred in iteration 1. 9 errors and 10
+warnings to zero, with `--max-warnings 0` so it stays there.
+
+None of it was suppressed. Four groups, four different real fixes:
+
+1. `react-refresh/only-export-components` (3). blogSeed.tsx and
+   AdminAuthProvider.tsx each exported a component alongside plain functions.
+   That rule is about Fast Refresh being physically unable to hot-swap such a
+   file — a disable comment does not make the dev server reload less. Split
+   into blogSeedContext.ts and adminAuthContext.ts, five importers repointed.
+
+2. `react-hooks/set-state-in-effect` (5). Blog.tsx and BlogPost.tsx both did
+   `if (!isSupabaseConfigured()) { setError(...); setLoading(false) }` inside an
+   effect. Whether Supabase is configured is a synchronous fact about the build,
+   so it is derived during render now and the effect only handles the async
+   path. AdminAnalytics' `loading` became derived too — it is exactly "the
+   window on screen is not the window we have data for", which needed a state
+   variable and a render pass to express as a flag. AdminUsers' two debounced
+   list effects moved their resets inside the debounce callback, which is also
+   the better UX: previous results stay put while you are still typing.
+
+3. `react-hooks/exhaustive-deps` unused directives (5). Four of them were
+   written INSIDE the effect body:
+
+       useEffect(() => { void fetchAssets() /* eslint-disable-next-line ... */ }, [filter])
+
+   `disable-next-line` from there targets the line after the comment, not the
+   dependency array — so those four comments silenced nothing and the warning
+   they were written for was firing the whole time. Moved onto their own line
+   with the reason spelled out. The fifth was genuinely dead and removed.
+
+4. `@typescript-eslint/no-explicit-any` (1) and a complex dep expression.
+   analytics.ts cast window to any to read __cfBeacon; it now declares the
+   global properly. AdminBlogEditor had `draft.tags.join('|')` in a dependency
+   array; extracted to a named variable, which is what the rule asks for and
+   also documents why a joined string is the right key.
+
+  add  website/src/lib/blogSeedContext.ts
+  add  website/src/admin/adminAuthContext.ts
+  mod  website/src/lib/blogSeed.tsx, src/admin/AdminAuthProvider.tsx
+  mod  website/src/pages/{Blog,BlogPost}.tsx
+  mod  website/src/admin/{AdminAnalytics,AdminUsers,AdminBlogAssets}.tsx
+  mod  website/src/admin/{AdminBlogEditor,AdminBlogHistory,AdminBlogRefresh}.tsx
+  mod  website/src/admin/{AdminLayout,AdminLogin}.tsx, src/utils/analytics.ts
+  mod  website/package.json                (--max-warnings 0)
+  mod  .github/workflows/website-check.yml (Lint step added)
+
+VERIFIED: npm run lint exits 0 with --max-warnings 0; tsc -b 0; build 0;
+headings 33/33; schema 33/33 with 17 Articles; snippets 33/33; vitest 131/131.
+
+================================================================================
+US-SEO017 — the two hub pages never got the card migration               2026-09-10
+================================================================================
+Iteration 15, the last of the loop.
+
+US-SEO005 migrated ComparePost and BlogPost off their hand-rolled <Helmet>
+blocks and missed the two HUB pages above them.
+
+/compare/ is the entry point to all ten comparison pages — the most linked-to
+page in the pSEO cluster, with 32 inbound links. It declared og:title,
+og:description, og:type and og:url, and no og:image and no twitter:card. So the
+one page most likely to be sent to a sibling while deciding what to buy for a
+parent shared as a bare link. It also carried a second og:description that said
+something different from its meta description, for no reason anyone could act
+on.
+
+/blog/ was worse: a title, a description, a canonical, and nothing else. No
+og:type, no og:image, no twitter:card, no og:site_name.
+
+  mod  website/src/pages/Compare.tsx
+  mod  website/src/pages/Blog.tsx
+
+Both now go through <SEO>, which also gave them the BreadcrumbList the deeper
+pages already had. react-helmet-async is no longer imported by any page
+component — <SEO> is the only place head tags are written, which is what makes
+the sitewide assertions below meaningful rather than coincidental.
+
+VERIFIED across all 33 indexable pages: each carries exactly one og:image, one
+twitter:card, one og:image:width, one canonical and one og:site_name. Zero
+duplicates, zero omissions.
+
+--------------------------------------------------------------------------------
+End of the 15-iteration SEO loop. Final state, all measured from dist:
+
+  build                 red on main at the start; green, and gated by CI
+  SERP snippets         25 titles/descriptions over the rendered width -> 0/33
+  social cards          2 page families with none at all -> 33/33 complete
+  internal links        min inbound on a pSEO page 1 -> 4
+  heading outline       33/33 pages skipped a level -> 0
+  structured data       10 Article nodes, 10 pages with duplicate Organization
+                        -> 17 Articles, 0 duplicates, 0 dangling @id references
+  llms.txt              18 of 33 routes, all in the redirecting form -> 33/33,
+                        generated, cross-checked against sitemap.xml
+  404                   never served -> emitted, noindex/follow, 17 links
+  caching               1.4 MB of hashed assets revalidated per navigation ->
+                        immutable year
+  lint                  9 errors / 10 warnings -> 0, gated at --max-warnings 0
+  tests                 67 -> 131
+
+CI gates that did not exist before this loop: the website build itself, lint,
+unit tests, sitemap non-emptiness, leaked JSX comments, placeholder analytics
+tokens, SERP snippet lengths, heading outline, structured-data resolution, the
+404 artifact, and llms.txt/sitemap.xml agreement.
+
+Still open, both needing input rather than effort:
+  US-SEO006   GSC / Bing / Yandex verification tokens — values only the owner has
+  US-SEO013   CSP connect-src may not cover the Supabase host the blog fetches
+  US-SEO018   the /blog/* fallback canonical — diagnosed, needs a staging run
+              with real Supabase config before a routing change is safe

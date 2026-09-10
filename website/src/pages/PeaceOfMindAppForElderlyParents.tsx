@@ -53,8 +53,8 @@ export default function PeaceOfMindAppForElderlyParents() {
   return (
     <>
       <SEO
-        title="Peace-of-Mind App for Elderly Parents — Stop Wondering All Day"
-        description="Daily OK is the peace-of-mind app for adult children of elderly parents. One daily 'I'm OK' tap, automatic alerts if it's missed — so you can stop carrying the worry. No tracking. From $3.99/mo."
+        title="Peace-of-Mind App for Elderly Parents"
+        description="One daily 'I'm OK' tap from your parent, automatic alerts if it is missed, so you can stop carrying the worry all day. No tracking. From $3.99/mo."
         path="/peace-of-mind-app-for-elderly-parents"
         keywords="peace of mind app for elderly parents, app for adult children of aging parents, worry about elderly parent app, long distance caregiver app, app to stop worrying about parents, aging parent reassurance app"
         jsonLd={jsonLd}
@@ -218,28 +218,28 @@ export default function PeaceOfMindAppForElderlyParents() {
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>No tracking</h4>
+                <h3>No tracking</h3>
                 <p>No location, camera, or microphone. It's reassurance, not surveillance.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>Your parent controls it</h4>
+                <h3>Your parent controls it</h3>
                 <p>They send the signal. It affirms independence rather than questioning it.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>Fewer "just checking" calls</h4>
+                <h3>Fewer "just checking" calls</h3>
                 <p>The check-in already happened, so contact can be about connection.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>Quiet by design</h4>
+                <h3>Quiet by design</h3>
                 <p>One prompt a day. It runs in the background of both your lives.</p>
               </div>
             </div>

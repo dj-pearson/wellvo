@@ -38,6 +38,23 @@ export interface CompetitorData {
   company_url: string
   /** Date the competitor data was last manually verified (YYYY-MM-DD). */
   last_verified: string
+  /**
+   * SERP title override (US-SEO008). Only needed when the default —
+   * `Daily OK vs. {name}: Honest Comparison (2026)` — exceeds the ~60
+   * characters Google renders before truncating. Apple Watch is the one
+   * competitor whose display name is a phrase rather than a brand.
+   */
+  meta_title?: string
+  /**
+   * Hand-written SERP description, <=160 characters (US-SEO008).
+   *
+   * This used to be derived by taking the first two sentences of
+   * daily_ok_verdict, which is prose written to be read on the page and has
+   * no length ceiling — it produced descriptions of 225 to 407 characters, so
+   * Google cut every one of them off mid-sentence. The snippet is the ad; it
+   * gets written as one.
+   */
+  meta_description: string
   /** ~120-word hand-written TL;DR verdict, unique per page. */
   daily_ok_verdict: string
   /** 3–5 bullets: who should pick Daily OK. */

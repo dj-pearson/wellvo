@@ -62,7 +62,7 @@ export default function Support() {
     <>
       <SEO
         title="Support & FAQ"
-        description="Get help with Daily OK, the daily check-in app for families and caregivers. Find answers about setting up check-ins for elderly parents, children, and loved ones."
+        description="Help with Daily OK: setting up a daily check-in for an elderly parent, child or partner, plus alerts, billing and troubleshooting."
         path="/support"
         keywords="dailyok support, daily check-in app help, elderly parent check-in setup, caregiver app FAQ, family safety app support"
         jsonLd={faqJsonLd}

@@ -1,8 +1,10 @@
 import { Link, useParams } from 'react-router-dom'
-import { Helmet } from 'react-helmet-async'
+import SEO from '../components/SEO'
 import { canonicalUrl } from '../lib/canonical'
 import { competitors, getCompetitor, type FeatureRow } from '../data/competitors'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
+import { rotatingSiblings } from '../lib/siblings'
+import { buildEditorialArticleJsonLd } from '../lib/articleSchema'
 import './Compare.css'
 
 const SLUG_PREFIX = 'daily-ok-vs-'
@@ -29,8 +31,14 @@ export default function ComparePost() {
     )
   }
 
-  const title = `Daily OK vs. ${competitor.name}: honest comparison (2026)`
-  const description = competitor.daily_ok_verdict.split('.').slice(0, 2).join('.') + '.'
+  // The <title> already contains "Daily OK", so it does not also take the
+  // brand suffix — see appendBrand below (US-SEO008).
+  const title =
+    competitor.meta_title ?? `Daily OK vs. ${competitor.name}: Honest Comparison (2026)`
+  // Hand-written, <=160 chars. Previously the first two sentences of
+  // daily_ok_verdict, which is page prose with no length ceiling and produced
+  // 225-407 character descriptions that Google truncated mid-sentence.
+  const description = competitor.meta_description
   // Trailing-slash form via the shared helper — this page builds its own
   // canonical rather than going through <SEO>, so it has to opt in (US-WEB010).
   const canonical = canonicalUrl(`/compare/daily-ok-vs-${competitor.slug}`)
@@ -45,21 +53,18 @@ export default function ComparePost() {
     })),
   }
 
-  const articleJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
+  // Shared builder (US-SEO015): adds the image this node was missing, and
+  // points publisher at the sitewide Organization by @id instead of declaring
+  // a second, partial Organization on the same page.
+  const articleJsonLd = buildEditorialArticleJsonLd({
     headline: title,
     description,
+    path: `/compare/daily-ok-vs-${competitor.slug}`,
+    canonical,
     datePublished: competitor.last_verified,
     dateModified: competitor.last_verified,
-    author: { '@type': 'Organization', name: 'Daily OK Editorial' },
-    publisher: {
-      '@type': 'Organization',
-      name: 'Daily OK',
-      url: 'https://dailyok.net',
-    },
-    mainEntityOfPage: canonical,
-  }
+    section: 'Comparisons',
+  })
 
   // BreadcrumbList for this nested page. SoftwareApplication / Organization /
   // WebSite are emitted site-wide from +onRenderHtml.tsx STATIC_HEAD, so we
@@ -72,22 +77,35 @@ export default function ComparePost() {
     { name: `Daily OK vs. ${competitor.name}`, path: `/compare/daily-ok-vs-${competitor.slug}` },
   ])
 
-  const siblings = competitors.filter((c) => c.slug !== competitor.slug).slice(0, 3)
+  // Rotating, not slice(0, 3) — the old slice pointed all ten pages at the
+  // same first three entries, so six competitors received a single inbound
+  // link and three absorbed the rest (US-SEO010).
+  const siblings = rotatingSiblings(
+    competitors,
+    competitors.findIndex((c) => c.slug === competitor.slug),
+    3,
+  )
 
   return (
     <>
-      <Helmet>
-        <title>{`${title} | Daily OK`}</title>
-        <meta name="description" content={description} />
-        <link rel="canonical" href={canonical} />
-        <meta property="og:title" content={title} />
-        <meta property="og:description" content={description} />
-        <meta property="og:type" content="article" />
-        <meta property="og:url" content={canonical} />
-        <script type="application/ld+json">{JSON.stringify(faqJsonLd)}</script>
-        <script type="application/ld+json">{JSON.stringify(articleJsonLd)}</script>
-        <script type="application/ld+json">{JSON.stringify(breadcrumbJsonLd)}</script>
-      </Helmet>
+      {/*
+        Goes through <SEO> rather than a hand-rolled <Helmet> (US-SEO005).
+        These ten comparison pages are the highest commercial-intent URLs on
+        the site and the ones most likely to be pasted into a group chat, and
+        they were shipping with no og:image and no twitter:card at all — so
+        every share rendered as a bare blue link.
+      */}
+      <SEO
+        title={title}
+        description={description}
+        path={`/compare/daily-ok-vs-${competitor.slug}`}
+        canonical={canonical}
+        appendBrand={false}
+        ogType="article"
+        publishedTime={competitor.last_verified}
+        modifiedTime={competitor.last_verified}
+        jsonLd={[faqJsonLd, articleJsonLd, breadcrumbJsonLd]}
+      />
 
       <article className="compare-article">
         <div className="container" style={{ maxWidth: 960 }}>

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Helmet } from 'react-helmet-async'
+import SEO from '../components/SEO'
+import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
-import { useBlogSeed } from '../lib/blogSeed'
+import { useBlogSeed } from '../lib/blogSeedContext'
 import { POST_SUMMARY_COLUMNS, type PublicPostSummary } from '../lib/blogTypes'
-import { canonicalUrl } from '../lib/canonical'
 import './Blog.css'
 
 export default function Blog() {
@@ -13,17 +13,22 @@ export default function Blog() {
   // no path into the blog at all (US-WEB008). Absent on client-side
   // navigation and for a build with no Supabase config — then we fetch.
   const { blogIndex } = useBlogSeed()
+
+  // Whether Supabase is configured is a synchronous fact about the build, not
+  // something to discover in an effect. Deriving it during render — rather
+  // than setting error state from inside useEffect — is what
+  // react-hooks/set-state-in-effect is asking for, and it removes a render
+  // pass on every unconfigured build (US-SEO002).
+  const needsFetch = blogIndex === null && isSupabaseConfigured()
+  const unconfigured = blogIndex === null && !isSupabaseConfigured()
+
   const [posts, setPosts] = useState<PublicPostSummary[]>(blogIndex ?? [])
-  const [loading, setLoading] = useState(blogIndex === null)
-  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(needsFetch)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const error = unconfigured ? 'Blog is not configured yet.' : fetchError
 
   useEffect(() => {
-    if (blogIndex !== null) return
-    if (!isSupabaseConfigured()) {
-      setError('Blog is not configured yet.')
-      setLoading(false)
-      return
-    }
+    if (!needsFetch) return
     const supabase = getSupabase()
     supabase
       .from('blog_posts')
@@ -34,22 +39,31 @@ export default function Blog() {
       .limit(100)
       .then(({ data, error: err }) => {
         if (err) {
-          setError(err.message)
+          setFetchError(err.message)
           setLoading(false)
           return
         }
         setPosts((data as PublicPostSummary[]) ?? [])
         setLoading(false)
       })
-  }, [blogIndex])
+  }, [needsFetch])
 
   return (
     <>
-      <Helmet>
-        <title>Blog — Daily OK</title>
-        <meta name="description" content="Guides, tips, and stories about daily check-ins, caregiving, and family safety." />
-        <link rel="canonical" href={canonicalUrl('/blog')} />
-      </Helmet>
+      {/*
+        Was a hand-rolled <Helmet> with a title, a description and a canonical
+        and nothing else — no og:image, no og:type, no twitter:card at all
+        (US-SEO017). Every share of the blog index rendered as a bare link.
+      */}
+      <SEO
+        title="Blog"
+        description="Guides, tips and stories about daily check-ins, caregiving, and keeping an eye on someone without hovering."
+        path="/blog"
+        jsonLd={buildBreadcrumbJsonLd([
+          { name: 'Home', path: '/' },
+          { name: 'Blog', path: '/blog' },
+        ])}
+      />
 
       <section className="blog-hero">
         <div className="container">

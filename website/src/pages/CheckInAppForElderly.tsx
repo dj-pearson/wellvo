@@ -53,8 +53,8 @@ export default function CheckInAppForElderly() {
   return (
     <>
       <SEO
-        title="Check-In App for Elderly Parents — One Tap a Day, Auto Alerts"
-        description="Daily OK is a check-in app for the elderly: your aging parent taps 'I'm OK' once a day and family is alerted automatically if they don't. No hardware, no location tracking. From $3.99/mo."
+        title="Check-In App for Elderly Parents — One Tap a Day"
+        description="Your aging parent taps 'I'm OK' once a day; family is alerted automatically if they do not. No hardware, no location tracking. From $3.99/mo."
         path="/check-in-app-for-elderly"
         keywords="check in app for elderly, check in app for elderly parents, elderly check in app, daily check in for elderly, app to check on elderly parent, senior check in app, wellness check app for seniors, elderly safety app no hardware"
         jsonLd={jsonLd}
@@ -186,28 +186,28 @@ export default function CheckInAppForElderly() {
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>One screen, one button</h4>
+                <h3>One screen, one button</h3>
                 <p>No menus, no login, no settings on the senior's side. You configure everything.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>Respond from the notification</h4>
+                <h3>Respond from the notification</h3>
                 <p>They never have to find or open the app to check in.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>Accessibility built in</h4>
+                <h3>Accessibility built in</h3>
                 <p>VoiceOver support and Dynamic Type scaling for vision-impaired users.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>Dignity by design</h4>
+                <h3>Dignity by design</h3>
                 <p>No location, camera, or microphone access — ever.</p>
               </div>
             </div>

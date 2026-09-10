@@ -2,7 +2,9 @@ import { Link, useParams } from 'react-router-dom'
 import { trackEvent } from '../utils/analytics'
 import SEO, { APP_STORE_URL } from '../components/SEO'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
-import { getWhatToDoPage, LAST_UPDATED } from '../data/whatToDo'
+import { getWhatToDoPage, whatToDoPages, LAST_UPDATED } from '../data/whatToDo'
+import { rotatingSiblings } from '../lib/siblings'
+import { buildEditorialArticleJsonLd } from '../lib/articleSchema'
 import { ArrowRight, Phone, ShieldAlert, Clock, ClipboardList } from 'lucide-react'
 import './ElderlyCare.css'
 import './Landing.css'
@@ -50,6 +52,13 @@ export default function WhatToDo() {
   const page = slug ? getWhatToDoPage(slug) : undefined
   const preventionLink =
     (page && PREVENTION_LINK[page.slug]) || DEFAULT_PREVENTION_LINK
+  // Rotating so every guide receives the same number of sibling links; see
+  // src/lib/siblings.ts (US-SEO010).
+  const siblingGuides = rotatingSiblings(
+    whatToDoPages,
+    whatToDoPages.findIndex((p) => p.slug === page?.slug),
+    3,
+  )
 
   if (!page) {
     return (
@@ -90,6 +99,18 @@ export default function WhatToDo() {
   }
 
   const jsonLd = [
+    // These pages declare og:type="article" and render a visible
+    // "Last updated" byline, but carried no Article node — so the date and the
+    // authorship existed only as text (US-SEO015). On YMYL, health-adjacent
+    // guidance about someone who might be in trouble, dating and attribution
+    // are the E-E-A-T signals that matter most.
+    buildEditorialArticleJsonLd({
+      headline: page.h1,
+      description: page.metaDescription,
+      path: `/what-to-do/${page.slug}`,
+      datePublished: LAST_UPDATED,
+      section: "Doesn't answer the phone",
+    }),
     {
       '@context': 'https://schema.org',
       '@type': 'FAQPage',
@@ -272,7 +293,19 @@ export default function WhatToDo() {
           </div>
 
           <h2>Related guides</h2>
+          {/*
+            Sibling guides come first, and they rotate (US-SEO010). Before
+            this, every guide linked up to the hub and sideways to nothing, so
+            each one had exactly one internal inbound link — from /what-to-do
+            — while the hub itself had 32. A cluster whose spokes only point
+            at the hub is not a cluster.
+          */}
           <div className="lp-links">
+            {siblingGuides.map((g) => (
+              <Link key={g.slug} to={`/what-to-do/${g.slug}/`}>
+                {g.title}
+              </Link>
+            ))}
             <Link to="/welfare-check-on-elderly-parent/">
               How to request a welfare check
             </Link>

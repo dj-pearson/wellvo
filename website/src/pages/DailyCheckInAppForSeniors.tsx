@@ -53,8 +53,8 @@ export default function DailyCheckInAppForSeniors() {
   return (
     <>
       <SEO
-        title="Daily Check-In App for Seniors — Aging in Place, Safely"
-        description="Daily OK is a daily check-in app for seniors who want to stay independent at home. One tap a day proves they're fine; family is alerted if it's missed. No hardware, no tracking. From $3.99/mo."
+        title="Daily Check-In App for Seniors — Aging in Place"
+        description="For seniors staying independent at home: one tap a day proves they are fine, and family is alerted if it is missed. No hardware, no tracking."
         path="/daily-check-in-app-for-seniors"
         keywords="daily check in app for seniors, check in app for seniors, senior check in app, aging in place app, senior independence app, app for seniors living alone, daily wellness check for seniors, stay at home senior safety app"
         jsonLd={jsonLd}
@@ -186,28 +186,28 @@ export default function DailyCheckInAppForSeniors() {
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>No location, ever</h4>
+                <h3>No location, ever</h3>
                 <p>The app cannot see where the senior is. It only knows "tapped" or "didn't".</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>The senior controls the signal</h4>
+                <h3>The senior controls the signal</h3>
                 <p>They prove they're fine — it's the opposite of being checked up on.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>No new device to learn</h4>
+                <h3>No new device to learn</h3>
                 <p>Runs on the phone they already use. Nothing to wear or charge.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>Quiet by default</h4>
+                <h3>Quiet by default</h3>
                 <p>One prompt a day. No constant notifications or family hovering.</p>
               </div>
             </div>

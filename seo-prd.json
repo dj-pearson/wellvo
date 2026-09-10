@@ -1,0 +1,285 @@
+{
+  "project": "Daily OK — SEO iteration loop",
+  "branchName": "claude/seo-iterative-loop-f2xzk2",
+  "description": "One SEO element repaired or improved per iteration, evidence-first: every story is verified against the actual prerendered output in website/dist/client, not against intent. Work that does not fit a single iteration is written down here rather than half-attempted. Strategy context lives in pSEO.md and docs/SEO_STRATEGY.md.",
+  "userStories": [
+    {
+      "id": "US-SEO001",
+      "title": "Unbreak the website production build so SEO changes can actually deploy",
+      "description": "As the site owner, I want `npm run build` to succeed so that Cloudflare Pages keeps deploying, because every SEO surface this repo owns (prerendered HTML, canonicals, JSON-LD, sitemap.xml, the IndexNow ping) is emitted by that one script.",
+      "acceptanceCriteria": [
+        "`npx tsc -b` exits 0 in website/",
+        "`npm run build` exits 0 and prerenders every route",
+        "dist/client/sitemap.xml is regenerated and non-empty",
+        "A GitHub Actions workflow gates website/** pull requests on the build"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Root cause: src/test/fonts.test.ts (added by US-WEB020) uses node:fs and __dirname, but tsconfig.app.json includes src/ with types ['vite/client'] only, so tsc -b exited 2 and the whole build script stopped before vite build. Fixed by giving the tests their own project (tsconfig.test.json) and excluding src/test from the app project. Guarded by .github/workflows/website-check.yml."
+    },
+    {
+      "id": "US-SEO002",
+      "title": "Make website eslint clean and add it to the CI gate",
+      "description": "As a maintainer, I want `npm run lint` green and gated so that the website check workflow can enforce it the way edge-functions-check.yml enforces deno lint.",
+      "acceptanceCriteria": [
+        "`npm run lint` exits 0 in website/",
+        "No rule is disabled wholesale to get there — each error is fixed or suppressed inline with a reason",
+        "A `Lint` step is added back to .github/workflows/website-check.yml and passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Went from 9 errors / 10 warnings to zero, and the gate runs with --max-warnings 0. The real fixes: two modules exporting a component alongside plain functions were split (blogSeed, AdminAuthProvider) rather than suppressed — that rule is about Fast Refresh being unable to hot-swap such a file, which suppressing does not change. Five set-state-in-effect errors became derived render-time state: whether Supabase is configured is a synchronous fact about the build, and AdminAnalytics' loading flag is just 'the window on screen is not the window we have data for'. Four eslint-disable directives sat INSIDE the effect body, where disable-next-line targeted the wrong line and silenced nothing — they now sit on their own line with the reason written down."
+    },
+    {
+      "id": "US-SEO003",
+      "title": "Stop leaking a JSX comment block into every page's <head>",
+      "description": "As a crawler, I want the document head to contain only markup so that the shipped HTML is valid and not padded with source commentary.",
+      "acceptanceCriteria": [
+        "No `{/*` sequence appears in any file under dist/client",
+        "The explanatory prose survives as a real source comment in pages/+onRenderHtml.tsx or as an HTML comment",
+        "fonts.test.ts still passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Root cause: STATIC_HEAD in pages/+onRenderHtml.tsx is a template literal in a .tsx file, so the JSX comment written inside it was copied byte-for-byte into the head of all 34 prerendered documents (940 bytes each, 31960 total). The prose now lives in a real TypeScript comment above the literal. Guarded twice: src/test/head.test.ts asserts the literal carries no JSX comment syntax, and website-check.yml greps the emitted dist/client HTML, which is what crawlers actually read."
+    },
+    {
+      "id": "US-SEO004",
+      "title": "Remove or configure the placeholder Cloudflare Insights beacon",
+      "description": "As a visitor, I don't want a third-party script requested on every page with a token that was never filled in, because it costs a connection on the LCP path and returns nothing.",
+      "acceptanceCriteria": [
+        "No script tag ships with a literal PLACEHOLDER/YOUR_* token",
+        "Either a real token is injected from an env var at build time, or the beacon is removed",
+        "If it stays, it is gated behind the same consent flow as GA4 (src/lib/consent.ts)"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "The tag now renders only when VITE_CF_ANALYTICS_TOKEN holds a 32-hex token, and the token is validated before interpolation because it lands inside a JSON attribute. Verified across three builds: no token -> 0 beacons, real token -> 34 beacons with the token intact, hostile token -> 0 beacons plus a build warning. OWNER ACTION: /privacy and /cookies tell visitors Cloudflare Web Analytics is in use; that is only true once the token is set in the Cloudflare Pages build environment."
+    },
+    {
+      "id": "US-SEO005",
+      "title": "Complete the social card contract across every page family",
+      "description": "As a link shared into Slack/X/iMessage, I want a fully-specified card so previews render large instead of falling back to a small thumbnail while the image is fetched.",
+      "acceptanceCriteria": [
+        "og:image:width, og:image:height and og:image:type emitted alongside og:image",
+        "Dimensions match the real og-image.png rather than being assumed",
+        "SEO.tsx accepts an optional per-page image so comparison and /what-to-do pages can override the sitewide default"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Bigger than the original note. Two page families — the 10 comparison pages and every blog post — hand-rolled their own <Helmet> and emitted NO og:image and NO twitter:card at all, so the highest commercial-intent URLs on the site shared as bare links. Both now go through <SEO>, which also gained og:image:width/height/type (measured from the real PNG and asserted against its IHDR), og:locale, article timestamps, a per-page image override, an explicit-canonical override, and `<` escaping in the JSON-LD payload that BlogPost previously had and the shared component did not. Verified in dist: compare pages carry the full card, exactly one og:image / twitter:card / canonical / title per page, and all 59 emitted JSON-LD blocks parse."
+    },
+    {
+      "id": "US-SEO006",
+      "title": "Land the search-console verification tokens",
+      "description": "As the site owner, I want Google, Bing and Yandex ownership verified so that indexing coverage and query data are observable at all.",
+      "acceptanceCriteria": [
+        "Verification meta tags emitted from env vars, or ownership verified via DNS and the commented block deleted",
+        "No PASTE_* placeholder remains in pages/+onRenderHtml.tsx"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "The three tags are commented out with PASTE_*_TOKEN placeholders. Real tokens are secrets and are not in this repo — this story needs values from the owner, so it is blocked on input rather than on effort."
+    },
+    {
+      "id": "US-SEO007",
+      "title": "Typecheck the pages/ directory",
+      "description": "As a maintainer, I want tsc to cover pages/ so that the file producing every page's <head> is not the one file nobody typechecks.",
+      "acceptanceCriteria": [
+        "pages/**/*.ts(x) is included in a TypeScript project reachable from tsconfig.json",
+        "`npx tsc -b` exits 0 with it included",
+        "vike/types and vite/client types resolve there"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Added tsconfig.pages.json (types: node + vite/client, since the hooks run in Node but render browser markup and import .css) and referenced it from tsconfig.json. Only one pre-existing error surfaced — jsdom had no declarations in pages/fetchBlogForPrerender.ts — fixed by adding @types/jsdom as a devDependency rather than by declaring it any. Proved the gate bites: a planted `const x: number = 'a'` in +onRenderHtml.tsx fails tsc -b with TS2322. `npm run build` starts with tsc -b, so CI already gates it."
+    },
+    {
+      "id": "US-SEO008",
+      "title": "Stop Google truncating the comparison pages' SERP snippets",
+      "description": "As a searcher comparing products, I want the result snippet to read as a complete thought so that the page's actual differentiator reaches me instead of being cut off mid-sentence.",
+      "acceptanceCriteria": [
+        "Every comparison page title is <= 60 characters as rendered",
+        "Every comparison page description is <= 160 characters as rendered",
+        "Descriptions are hand-written for the SERP, not derived from page prose",
+        "A test fails if any competitor breaches either limit"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "The description was `daily_ok_verdict.split('.').slice(0,2).join('.')` — the first two sentences of on-page prose, which has no length ceiling. Result: 225-407 characters on the ten highest commercial-intent URLs on the site, every one truncated. Added meta_description (and meta_title where needed) to the competitor JSON, and an appendBrand=false option to <SEO> because 'Daily OK vs. X … | Daily OK' spent 11 of ~60 characters saying the brand twice. Verified in dist: titles now 45-56, descriptions 139-157."
+    },
+    {
+      "id": "US-SEO009",
+      "title": "Bring the core and /what-to-do page snippets inside the rendered width",
+      "description": "As a searcher, I want every page's snippet to read as a complete thought, not only the comparison pages fixed in US-SEO008.",
+      "acceptanceCriteria": [
+        "Every indexable route's title is <= 60 characters as rendered (unescaped)",
+        "Every indexable route's description is <= 160 characters as rendered",
+        "The length assertion runs over the prerendered dist output, so it covers every page rather than one data file",
+        "The check is wired into .github/workflows/website-check.yml"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "All 33 indexable routes now fit: titles 15-59 (was up to 79), descriptions 79-160 (was up to 266). 10 titles and 15 descriptions rewritten across 10 page components and src/data/whatToDo.ts. The check is now scripts/check-snippet-lengths.mjs, run in CI against the prerendered output: it measures UNESCAPED text (&#x27; is six characters in the file and one on screen), skips noindex routes, and warns rather than fails on /blog/* because that metadata is authored in the CMS. Proved it bites by planting a 340-character description in dist and watching it exit 1."
+    },
+    {
+      "id": "US-SEO010",
+      "title": "Stop starving the pSEO pages of internal links",
+      "description": "As a crawler, I want the comparison and guide pages to be reachable from more than one place so that the pages the whole pSEO strategy rests on are not the least-linked URLs on the site.",
+      "acceptanceCriteria": [
+        "Every comparison page receives the same number of sibling links",
+        "Every /what-to-do guide links sideways to sibling guides, not only up to the hub",
+        "Sibling selection is deterministic, so prerender and hydration agree",
+        "The sitewide link to the robots-disallowed /admin does not pass a follow signal"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "ComparePost used competitors.filter(...).slice(0, 3) on a fixed-order array, so all ten pages pointed at the same first three: Life Alert 14 inbound, Life360 12, Snug Safety 11, and one each — from the hub — for the other six. The /what-to-do guides were worse: they linked up to the hub and sideways to nothing, one inbound link each against the hub's 32. rotatingSiblings() takes the next N entries after the current index with wraparound, so every item appears in exactly N sibling blocks regardless of array order. Measured in dist: comparison pages went from min 1 to min 4, guides from min 1 to min 4."
+    },
+    {
+      "id": "US-SEO011",
+      "title": "Generate llms.txt instead of hand-maintaining a stale one",
+      "description": "As an AI crawler, I want the site's manifest to list every page that exists, at the URL that actually serves 200, so that the pages built for AI citation are the ones I can find.",
+      "acceptanceCriteria": [
+        "llms.txt lists every indexable prerendered route",
+        "Every URL in llms.txt and llms-full.txt uses the trailing-slash form production serves",
+        "The file is generated at build time from the prerendered output, not hand-edited",
+        "CI fails if llms.txt and sitemap.xml disagree about which pages exist"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "The hand-maintained file listed 18 of 33 routes. The 15 missing were the pSEO plan itself: seven of ten comparison pages, the whole /what-to-do cluster and /welfare-check-on-elderly-parent — and it carried a comment calling those guides 'not yet built' long after US-WEB005 built them. Every URL was in the no-slash form that production 308s (US-WEB010), so an agent that does not follow redirects got nothing. scripts/generate-llms-txt.mjs now walks the same prerendered output the sitemap walks and reads each page's own title and meta description, so blurbs cannot drift from the page. Blog posts are excluded on purpose: they publish between builds via the webhook, so a build-time list of them is wrong on arrival. Verified 33/33 routes, 0 redirecting URLs, and CI diffs llms.txt against sitemap.xml."
+    },
+    {
+      "id": "US-SEO012",
+      "title": "Give the content-hashed build output a real cache policy",
+      "description": "As a returning visitor, I want the JS and CSS to come from my own cache so that the second page view is not gated on 1.4 MB of revalidation round-trips.",
+      "acceptanceCriteria": [
+        "/assets/* is served with a one-year immutable Cache-Control",
+        "No stable-named path (HTML, sitemap.xml, robots.txt, llms.txt) is cached immutably",
+        "Unhashed brand assets get a bounded lifetime with stale-while-revalidate",
+        "A test asserts both directions, and that every unhashed public asset has a rule"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "Cloudflare Pages sends `public, max-age=0, must-revalidate` for anything _headers does not mention, so the absence of a rule was a revalidation round-trip per navigation for every one of the content-hashed files under /assets. Only /fonts/* had a policy. The mirror-image mistake is worse and silent — an immutable year on a stable-named path pins visitors to a stale build — so the test pins both directions. Also added X-Robots-Tag: noindex to /admin, which _redirects rewrites to the homepage shell."
+    },
+    {
+      "id": "US-SEO013",
+      "title": "Confirm the CSP connect-src covers the Supabase host the blog fetches from",
+      "description": "As a visitor reading a post published since the last deploy, I want the client-side fetch to succeed so that the post renders instead of an empty shell.",
+      "acceptanceCriteria": [
+        "VITE_SUPABASE_URL's origin is present in the Content-Security-Policy connect-src",
+        "A post published via the generation webhook (no redeploy) renders in a browser with the production CSP applied"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "BLOCKED ON INPUT, not effort. connect-src currently lists 'self', cloudflareinsights.com, api.dailyok.net, functions.dailyok.net and the Google Analytics hosts. src/lib/supabase.ts connects to VITE_SUPABASE_URL, whose production value is not in this repo. If Supabase is served from api.dailyok.net this is already fine and the story closes as a no-op; if it is a separate host (self-hosted Supabase usually is) then every client-side blog fetch and the admin login are CSP-blocked in production. Deliberately not guessed: adding a hostname that turns out to be wrong widens the policy for nothing and hides the real problem. Owner: confirm the value of VITE_SUPABASE_URL in the Cloudflare Pages build environment."
+    },
+    {
+      "id": "US-SEO014",
+      "title": "Repair the heading outline on every page",
+      "description": "As a screen-reader user or a passage extractor, I want the document outline to descend one level at a time so that the page structure is navigable and its sections are attributable.",
+      "acceptanceCriteria": [
+        "Exactly one h1 per indexable page, and it comes first",
+        "No heading level is skipped on any indexable page",
+        "The check runs over the prerendered output in CI"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": "All 33 pages skipped h2 -> h4 because the footer's four column headings were h4; five landing pages skipped again mid-content where card headings inside an h2 section were also h4. Footer headings became h2 rather than h3 — they are landmark-level groupings alongside the page's own sections, not subsections of whichever section happens to come last, and h2 also keeps /blog/ valid on a build where no posts were fetched and the h1 is the only content heading. Card headings became h3. CSS selectors renamed in lockstep; the global reset zeroes heading margins, so nothing moved visually. Verified 0 issues across 33 pages, and the CI check exits 1 on a planted h1 -> h5."
+    },
+    {
+      "id": "US-SEO015",
+      "title": "Make the structured data resolve as one graph, and date the YMYL pages",
+      "description": "As a search engine resolving this page's entities, I want one company, one site, one app and a dated, attributed Article, so that the page's claims are attributable rather than ambiguous.",
+      "acceptanceCriteria": [
+        "The three sitewide nodes carry stable @ids and reference each other",
+        "Every editorial page that declares og:type=article emits an Article node",
+        "Article nodes carry image, datePublished, dateModified, author and publisher",
+        "No page declares two Organization nodes, and no @id claims two names",
+        "A CI check validates the graph, not just that the JSON parses"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": "Seven pages — the six /what-to-do guides and /welfare-check-on-elderly-parent — declared og:type=article and rendered a visible 'Last updated' byline but emitted no Article node at all, so their dating and authorship existed only as text. These are YMYL health-adjacent pages where that is the E-E-A-T signal. Article nodes went 10 to 17. The comparison pages' Article had no image and redeclared its own partial Organization; it now references the sitewide one by @id. Author is an Organization node of its own (#editorial-team, parentOrganization the company) — the first attempt reused ORGANIZATION_ID with the name 'Daily OK Editorial Team', which asserts one @id has two names; the audit caught it, which is why the CI check now tests for exactly that."
+    },
+    {
+      "id": "US-SEO016",
+      "title": "Actually serve the site's own 404 page",
+      "description": "As someone following a stale link, I want a 404 that offers a way back into the site rather than a generic hosting error page.",
+      "acceptanceCriteria": [
+        "dist/client/404.html exists, so Cloudflare Pages serves it for unmatched paths",
+        "It carries noindex, follow and no canonical",
+        "It links to the site's hubs, not only the homepage",
+        "It is excluded from sitemap.xml and llms.txt",
+        "CI asserts all of the above"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": "src/pages/NotFound.tsx existed and was routed at path='*', but nothing prerendered it and Cloudflare Pages has no 404.html to serve — so it could only render during a client-side navigation inside an already-loaded SPA, the one case where nobody is lost. Every direct hit, stale backlink and crawler fetch got Pages' generic page. /404 is now prerendered, lifted to dist/client/404.html by scripts/emit-404.mjs, and the /404/ directory removed so the site does not also answer 200 there. <SEO> gained a noindex prop that emits 'noindex, follow' — the links are worth crawling even though the page must not rank — and suppresses the canonical, which would otherwise point at a URL that no longer exists and contradict the robots tag. Both generators already skip noindex pages, so it stays out of the sitemap and llms.txt with no special-casing."
+    },
+    {
+      "id": "US-SEO017",
+      "title": "Finish the social card migration: the blog and compare hubs",
+      "description": "As someone sharing the entry point to the comparison pages or the blog, I want a real card rather than a bare link.",
+      "acceptanceCriteria": [
+        "No page component imports react-helmet-async directly",
+        "Every indexable page carries exactly one og:image, twitter:card, canonical and og:site_name",
+        "The two hubs carry a BreadcrumbList"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": "US-SEO005 migrated ComparePost and BlogPost but missed the two HUB pages. /compare/ — the entry point to all ten comparison pages — declared og:title/description/type/url and no og:image and no twitter:card, plus a second og:description that differed from its meta description for no actionable reason. /blog/ had a title, a description and a canonical and nothing else at all. Both now go through <SEO>; react-helmet-async is no longer imported by any page component. Verified: all 33 indexable pages carry exactly one og:image, twitter:card, og:image:width, canonical and og:site_name."
+    },
+    {
+      "id": "US-SEO018",
+      "title": "Stop serving the blog index's canonical for posts published between builds",
+      "description": "As a post published through the generation webhook without a redeploy, I want the URL I am served at to not declare itself a copy of the blog index.",
+      "acceptanceCriteria": [
+        "A request for an unbuilt /blog/<slug> returns HTML that does not claim rel=canonical https://dailyok.net/blog/",
+        "The fallback shell is excluded from sitemap.xml and llms.txt by path, not by a noindex meta",
+        "A post published via the webhook still renders client-side rather than 404ing"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "DIAGNOSED, NOT FIXED — deliberately. public/_redirects maps /blog/* to /blog/index.html with a 200, so a post published since the last build is served the blog index's prerendered HTML, which declares <title>Blog | Daily OK</title> and <link rel=\"canonical\" href=\"https://dailyok.net/blog/\">. Google is told the post URL is a copy of the index. It renders JS and BlogPost's Helmet then rewrites both, so this may resolve in practice — but the first, strongest signal in the initial HTML contradicts it. Proposed fix: prerender a dedicated /blog/pending shell that emits NO canonical (BlogPost's loading/not-found branch renders no SEO tags, so it comes out neutral) and point the fallback at that instead; exclude it from both generators by path. NOT shipped in this loop because it changes production routing for blog delivery and cannot be exercised here — this environment has no Supabase config, so no post is ever prerendered and the webhook path cannot be run. Shipping a routing change to blog delivery on reasoning alone is how you 404 every new post. Needs a staging run with real Supabase config before it merges."
+    }
+  ],
+  "status": {
+    "loop": "15 iterations, 2026-09-10",
+    "completed": [
+      "US-SEO001",
+      "US-SEO002",
+      "US-SEO003",
+      "US-SEO004",
+      "US-SEO005",
+      "US-SEO007",
+      "US-SEO008",
+      "US-SEO009",
+      "US-SEO010",
+      "US-SEO011",
+      "US-SEO012",
+      "US-SEO014",
+      "US-SEO015",
+      "US-SEO016",
+      "US-SEO017"
+    ],
+    "open": [
+      "US-SEO006",
+      "US-SEO013",
+      "US-SEO018"
+    ],
+    "gates_added": [
+      "Check Website workflow: lint (--max-warnings 0), unit tests, full build",
+      "sitemap non-empty",
+      "no leaked JSX comment",
+      "no placeholder analytics token",
+      "SERP snippet lengths",
+      "heading outline",
+      "structured-data graph resolves",
+      "404.html emitted, noindex, no canonical",
+      "llms.txt agrees with sitemap.xml"
+    ]
+  }
+}

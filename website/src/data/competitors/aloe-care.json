@@ -4,6 +4,7 @@
   "tagline": "Voice-activated in-home medical alert hub with a caregiver app",
   "company_url": "https://www.aloecare.com",
   "last_verified": "2026-05-17",
+  "meta_description": "Aloe Care puts a hub and sensors in your parent's home. Daily OK is one tap a day on the phone they already own. Real costs and trade-offs, side by side.",
   "daily_ok_verdict": "Aloe Care Health and Daily OK both put a caregiver app in the family's hands, but the resemblance stops there. Aloe Care is a hardware system — a voice-activated Smart Hub with motion and air-quality sensors, plus optional fall-detection wearables and professional emergency dispatch. Daily OK is software only: one daily tap, family-first alerts, no sensors and no monitoring center. For a parent with real fall risk who is comfortable with an always-listening hub in the home, Aloe Care does things Daily OK deliberately does not. For an independent parent who would find ambient sensors intrusive and just needs a daily 'I'm OK', Daily OK is the lighter, cheaper, privacy-first fit. They can also coexist.",
   "best_for_daily_ok": [
     "Independent parents who would find an always-on in-home hub intrusive",
@@ -29,21 +30,96 @@
     "daily_check_in": "No (sensor- and event-driven, not a proactive daily tap)"
   },
   "feature_matrix": [
-    { "feature": "Starting monthly price", "daily_ok": "$3.99 (Caregiver tier)", "competitor": "~$29.99 per published materials", "winner": "daily_ok" },
-    { "feature": "Hardware required", "daily_ok": "None — uses existing smartphone", "competitor": "Smart Hub + sensors", "winner": "daily_ok" },
-    { "feature": "Upfront equipment cost", "daily_ok": "None", "competitor": "Yes — one-time purchase", "winner": "daily_ok" },
-    { "feature": "Contract length", "daily_ok": "Monthly, cancel anytime", "competitor": "Monthly + equipment kept", "winner": "daily_ok" },
-    { "feature": "Fall detection", "daily_ok": "No — not a medical device", "competitor": "Yes (enabled tiers)", "winner": "competitor" },
-    { "feature": "24/7 professional monitoring", "daily_ok": "No", "competitor": "Yes", "winner": "competitor" },
-    { "feature": "Ambient in-home sensors", "daily_ok": "None by design", "competitor": "Motion, air quality", "winner": "different" },
-    { "feature": "Always-listening voice hub", "daily_ok": "None", "competitor": "Yes", "winner": "different" },
-    { "feature": "Daily proactive check-in", "daily_ok": "Yes — one tap each morning", "competitor": "No", "winner": "daily_ok" },
-    { "feature": "Who gets alerted first", "daily_ok": "Family you designate", "competitor": "Emergency dispatch + caregivers", "winner": "different" },
-    { "feature": "Parent-side effort", "daily_ok": "One tap on existing phone", "competitor": "Live with hub/sensors", "winner": "daily_ok" },
-    { "feature": "Privacy footprint", "daily_ok": "No location, mic, or camera", "competitor": "Mic + ambient sensors in home", "winner": "daily_ok" },
-    { "feature": "Caregiver dashboard", "daily_ok": "Yes (Family / Family+)", "competitor": "Yes (caregiver app)", "winner": "tie" },
-    { "feature": "Works on iOS and Android", "daily_ok": "Yes", "competitor": "App yes; core is hardware", "winner": "different" },
-    { "feature": "Time to set up", "daily_ok": "Under two minutes on caregiver's phone", "competitor": "Hub install + sensor placement", "winner": "daily_ok" }
+    {
+      "feature": "Starting monthly price",
+      "daily_ok": "$3.99 (Caregiver tier)",
+      "competitor": "~$29.99 per published materials",
+      "winner": "daily_ok"
+    },
+    {
+      "feature": "Hardware required",
+      "daily_ok": "None — uses existing smartphone",
+      "competitor": "Smart Hub + sensors",
+      "winner": "daily_ok"
+    },
+    {
+      "feature": "Upfront equipment cost",
+      "daily_ok": "None",
+      "competitor": "Yes — one-time purchase",
+      "winner": "daily_ok"
+    },
+    {
+      "feature": "Contract length",
+      "daily_ok": "Monthly, cancel anytime",
+      "competitor": "Monthly + equipment kept",
+      "winner": "daily_ok"
+    },
+    {
+      "feature": "Fall detection",
+      "daily_ok": "No — not a medical device",
+      "competitor": "Yes (enabled tiers)",
+      "winner": "competitor"
+    },
+    {
+      "feature": "24/7 professional monitoring",
+      "daily_ok": "No",
+      "competitor": "Yes",
+      "winner": "competitor"
+    },
+    {
+      "feature": "Ambient in-home sensors",
+      "daily_ok": "None by design",
+      "competitor": "Motion, air quality",
+      "winner": "different"
+    },
+    {
+      "feature": "Always-listening voice hub",
+      "daily_ok": "None",
+      "competitor": "Yes",
+      "winner": "different"
+    },
+    {
+      "feature": "Daily proactive check-in",
+      "daily_ok": "Yes — one tap each morning",
+      "competitor": "No",
+      "winner": "daily_ok"
+    },
+    {
+      "feature": "Who gets alerted first",
+      "daily_ok": "Family you designate",
+      "competitor": "Emergency dispatch + caregivers",
+      "winner": "different"
+    },
+    {
+      "feature": "Parent-side effort",
+      "daily_ok": "One tap on existing phone",
+      "competitor": "Live with hub/sensors",
+      "winner": "daily_ok"
+    },
+    {
+      "feature": "Privacy footprint",
+      "daily_ok": "No location, mic, or camera",
+      "competitor": "Mic + ambient sensors in home",
+      "winner": "daily_ok"
+    },
+    {
+      "feature": "Caregiver dashboard",
+      "daily_ok": "Yes (Family / Family+)",
+      "competitor": "Yes (caregiver app)",
+      "winner": "tie"
+    },
+    {
+      "feature": "Works on iOS and Android",
+      "daily_ok": "Yes",
+      "competitor": "App yes; core is hardware",
+      "winner": "different"
+    },
+    {
+      "feature": "Time to set up",
+      "daily_ok": "Under two minutes on caregiver's phone",
+      "competitor": "Hub install + sensor placement",
+      "winner": "daily_ok"
+    }
   ],
   "pricing_breakdown": {
     "monthly": "Daily OK: $3.99 (Caregiver) / $6.99 (Family) / $9.99 (Family+). Aloe Care Health: starting around $29.99/month plus one-time hardware per their published materials — verify current pricing on aloecare.com.",
@@ -59,14 +135,37 @@
     "If cancelling Aloe Care, review their current terms for equipment return or retention before you call."
   ],
   "faqs": [
-    { "q": "Is Daily OK a replacement for Aloe Care Health?", "a": "Not if you need fall detection, ambient sensors, or professional dispatch. Aloe Care is a hardware monitoring system; Daily OK is a lightweight daily check-in app. For an independent parent who finds a hub intrusive, Daily OK is often the better daily fit." },
-    { "q": "Why is Aloe Care more expensive?", "a": "It bundles a hardware hub, sensors, optional fall-detection wearables, and professional monitoring. Daily OK is software only with family-first alerts, which is why it starts at $3.99/month." },
-    { "q": "Does Daily OK use in-home sensors or a microphone?", "a": "No. Daily OK has no location, microphone, camera, or ambient sensors. It only knows whether your parent tapped the daily check-in." },
-    { "q": "Can I use both?", "a": "Yes. Some families keep Aloe Care for fall coverage and add Daily OK for the simple daily confirmation that nothing is wrong." },
-    { "q": "Is Aloe Care's price current on this page?", "a": "We list an approximate starting figure from Aloe Care's published materials and date it. Prices change — always confirm the current cost on aloecare.com before deciding." }
+    {
+      "q": "Is Daily OK a replacement for Aloe Care Health?",
+      "a": "Not if you need fall detection, ambient sensors, or professional dispatch. Aloe Care is a hardware monitoring system; Daily OK is a lightweight daily check-in app. For an independent parent who finds a hub intrusive, Daily OK is often the better daily fit."
+    },
+    {
+      "q": "Why is Aloe Care more expensive?",
+      "a": "It bundles a hardware hub, sensors, optional fall-detection wearables, and professional monitoring. Daily OK is software only with family-first alerts, which is why it starts at $3.99/month."
+    },
+    {
+      "q": "Does Daily OK use in-home sensors or a microphone?",
+      "a": "No. Daily OK has no location, microphone, camera, or ambient sensors. It only knows whether your parent tapped the daily check-in."
+    },
+    {
+      "q": "Can I use both?",
+      "a": "Yes. Some families keep Aloe Care for fall coverage and add Daily OK for the simple daily confirmation that nothing is wrong."
+    },
+    {
+      "q": "Is Aloe Care's price current on this page?",
+      "a": "We list an approximate starting figure from Aloe Care's published materials and date it. Prices change — always confirm the current cost on aloecare.com before deciding."
+    }
   ],
   "sources": [
-    { "title": "Aloe Care Health products and pricing", "url": "https://www.aloecare.com", "accessed": "2026-05-17" },
-    { "title": "Daily OK pricing", "url": "https://dailyok.net/pricing/", "accessed": "2026-05-17" }
+    {
+      "title": "Aloe Care Health products and pricing",
+      "url": "https://www.aloecare.com",
+      "accessed": "2026-05-17"
+    },
+    {
+      "title": "Daily OK pricing",
+      "url": "https://dailyok.net/pricing/",
+      "accessed": "2026-05-17"
+    }
   ]
 }

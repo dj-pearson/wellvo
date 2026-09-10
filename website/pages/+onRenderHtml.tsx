@@ -4,7 +4,8 @@ import { StaticRouter } from 'react-router-dom'
 import { HelmetProvider, type HelmetServerState } from 'react-helmet-async'
 import { AdminAuthProvider } from '../src/admin/AdminAuthProvider'
 import ErrorBoundary from '../src/components/ErrorBoundary'
-import { BlogSeedProvider, seedFromPageContext } from '../src/lib/blogSeed'
+import { BlogSeedProvider } from '../src/lib/blogSeed'
+import { seedFromPageContext } from '../src/lib/blogSeedContext'
 import type { PageContextServer } from 'vike/types'
 import Page from './+Page'
 
@@ -15,10 +16,71 @@ interface HelmetContext {
   helmet?: HelmetServerState
 }
 
-// Static <head> content shared by every prerendered page. Per-page <title>,
-// <meta name="description">, canonical links, and JSON-LD are rendered by
-// components (via react-helmet-async or plain React 19 tags) and lifted
-// from body → head after render by extractHeadTags().
+/*
+ * Cloudflare Web Analytics beacon (US-SEO004).
+ *
+ * The token is deploy configuration, not source. It shipped hard-coded as the
+ * literal `YOUR_CF_ANALYTICS_TOKEN`, which means every visitor to every page
+ * has been paying a DNS lookup, TLS handshake and script download to
+ * static.cloudflareinsights.com to report telemetry that Cloudflare discards —
+ * while /privacy and /cookies told them we collect it. Neither half was true.
+ *
+ * So the tag is now conditional: it is emitted only when a real token is
+ * present at build time in VITE_CF_ANALYTICS_TOKEN, and omitted entirely
+ * otherwise. A missing beacon is honest and free; a placeholder beacon is a
+ * third-party request on the LCP path that buys nothing.
+ *
+ * The token is interpolated into a JSON attribute, so it is validated rather
+ * than trusted: Cloudflare site tokens are 32 hex characters, and anything
+ * else is refused instead of being pasted into the document. Note this
+ * beacon is cookieless and does not identify individuals, which is why it
+ * does not go through the consent gate that GA4 would need.
+ */
+const CF_ANALYTICS_TOKEN = (import.meta.env.VITE_CF_ANALYTICS_TOKEN ?? '').trim()
+const CF_TOKEN_RE = /^[0-9a-f]{32}$/i
+
+const CF_BEACON = (() => {
+  if (!CF_ANALYTICS_TOKEN) return ''
+  if (!CF_TOKEN_RE.test(CF_ANALYTICS_TOKEN)) {
+    console.warn(
+      `[head] VITE_CF_ANALYTICS_TOKEN is not a 32-character hex token; ` +
+        `omitting the Cloudflare Web Analytics beacon rather than emitting a broken one.`,
+    )
+    return ''
+  }
+  return (
+    `\n    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" ` +
+    `data-cf-beacon='{"token": "${CF_ANALYTICS_TOKEN}"}'></script>`
+  )
+})()
+
+/*
+ * Static <head> content shared by every prerendered page. Per-page <title>,
+ * <meta name="description">, canonical links, and JSON-LD are rendered by
+ * components (via react-helmet-async or plain React 19 tags) and lifted
+ * from body → head after render by extractHeadTags().
+ *
+ * This is a TEMPLATE LITERAL, not JSX. Everything between the backticks is
+ * copied byte-for-byte into the document, so the only comment syntax that
+ * works inside it is an HTML comment — a `{/* … *\/}` block is not stripped
+ * by anything, it just ships as visible text in the head of all 34 pages
+ * (US-SEO003). Commentary that should not reach the browser, like the note
+ * below, belongs out here in TypeScript.
+ *
+ * Why Inter is self-hosted from /fonts rather than fetched from Google
+ * (US-WEB020) — two reasons, both load-bearing:
+ *   * Speed. The Google stylesheet was a render-blocking request to a
+ *     third-party origin that had to resolve, TLS-handshake and return before
+ *     the browser even learned the woff2 URLs — two round trips on the LCP
+ *     path that two preconnects could shorten but never remove.
+ *   * Privacy. Hotlinking fonts.gstatic.com hands every visitor's IP to
+ *     Google before the consent banner has been answered, which is exactly
+ *     the thing src/lib/consent.ts exists to prevent for GA4.
+ * Only the latin subset is preloaded; latin-ext is declared with its
+ * unicode-range so it is fetched only when a page actually needs it. The file
+ * is the variable font, so 400-700 costs one 48 KB request instead of the
+ * four static weights the Google URL asked for.
+ */
 const STATIC_HEAD = `
     <meta charset="UTF-8" />
     <!--
@@ -44,21 +106,6 @@ const STATIC_HEAD = `
       Bing Webmaster Tools:   <meta name="msvalidate.01" content="PASTE_BING_TOKEN" />
       Yandex Webmaster:       <meta name="yandex-verification" content="PASTE_YANDEX_TOKEN" />
     -->
-    {/*
-      Inter is self-hosted from /fonts (US-WEB020), not fetched from Google.
-      Two reasons, both load-bearing:
-        * Speed. The Google stylesheet was a render-blocking request to a
-          third-party origin that had to resolve, TLS-handshake and return
-          before the browser even learned the woff2 URLs — two round trips on
-          the LCP path that two preconnects could shorten but never remove.
-        * Privacy. Hotlinking fonts.gstatic.com hands every visitor's IP to
-          Google before the consent banner has been answered, which is exactly
-          the thing src/lib/consent.ts exists to prevent for GA4.
-      Only the latin subset is preloaded; latin-ext is declared with its
-      unicode-range so it is fetched only when a page actually needs it.
-      The file is the variable font, so 400-700 costs one 48 KB request
-      instead of the four static weights the Google URL asked for.
-    */}
     <link
       rel="preload"
       as="font"
@@ -76,6 +123,13 @@ const STATIC_HEAD = `
       (dailyok-daily-check-in) implies a third written form, so that is covered
       too — one entity, every spelling.
 
+      Each node carries a stable @id (US-SEO015) so that a page-level Article
+      can name this Organization by reference instead of declaring a second,
+      partial copy of it. Two Organization nodes on one page describing the
+      same company is the ambiguity US-WEB012 exists to remove. The same three
+      strings live in src/lib/entityIds.ts, which this literal cannot import;
+      src/test/entityGraph.test.ts asserts they stay identical.
+
       Deliberately ABSENT, so nobody adds them back by reflex:
         * SearchAction / Sitelinks Searchbox — there is no on-site search.
           Declaring one Google cannot exercise is a false claim about the site.
@@ -89,6 +143,7 @@ const STATIC_HEAD = `
       {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
+        "@id": "https://dailyok.net/#application",
         "name": "Daily OK",
         "alternateName": [
           "Daily OK",
@@ -103,6 +158,7 @@ const STATIC_HEAD = `
         "operatingSystem": "iOS, Android",
         "description": "Daily OK is a senior check-in app: adult children set up a once-a-day \\"I'm OK\\" for an aging parent and get escalating alerts the moment they miss it. No pendant, no GPS tracking, no cameras, no wearables. The same gentle daily check-in also works for teens and any loved one you worry about.",
         "url": "https://dailyok.net",
+        "publisher": { "@id": "https://dailyok.net/#organization" },
         "downloadUrl": "https://apps.apple.com/us/app/dailyok-daily-check-in/id6760836697",
         "image": "https://dailyok.net/og-image.png",
         "screenshot": "https://dailyok.net/og-image.png",
@@ -127,6 +183,7 @@ const STATIC_HEAD = `
       {
         "@context": "https://schema.org",
         "@type": "Organization",
+        "@id": "https://dailyok.net/#organization",
         "name": "Daily OK",
         "alternateName": [
           "Daily OK",
@@ -146,6 +203,7 @@ const STATIC_HEAD = `
       {
         "@context": "https://schema.org",
         "@type": "WebSite",
+        "@id": "https://dailyok.net/#website",
         "name": "Daily OK",
         "alternateName": [
           "Daily OK",
@@ -155,11 +213,12 @@ const STATIC_HEAD = `
           "Daily OK: Senior Check-In",
           "DailyOK Daily Check-In"
         ],
-        "url": "https://dailyok.net"
+        "url": "https://dailyok.net/",
+        "publisher": { "@id": "https://dailyok.net/#organization" },
+        "inLanguage": "en-US"
       }
     ]
-    </script>
-    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "YOUR_CF_ANALYTICS_TOKEN"}'></script>`
+    </script>${CF_BEACON}`
 
 const DEFAULT_TITLE = '<title>Daily OK — Senior Check-In App for Aging Parents</title>'
 const DEFAULT_DESCRIPTION = '<meta name="description" content="Daily OK is the senior check-in app: a once-a-day &quot;I&#39;m OK&quot; for an aging parent, with escalating alerts if they miss it. No pendant, no GPS tracking. Works for teens and any loved one too." />'

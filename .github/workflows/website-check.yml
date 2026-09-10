@@ -1,0 +1,147 @@
+# Build gate for the marketing website.
+#
+# This exists because of US-SEO001. `npm run build` starts with `tsc -b`, and
+# a Node-flavoured test file added under src/ (which tsconfig.app.json typed
+# with browser-only libs) made that step exit 2. Every SEO surface this repo
+# owns — prerendered HTML, canonicals, JSON-LD, sitemap.xml, the IndexNow
+# ping — is produced by the later steps of that same script, so a red `tsc -b`
+# means Cloudflare Pages fails the deploy and the live site silently freezes
+# on its last good build. Nothing in CI ran the website build, so it reached
+# main unnoticed.
+#
+# The build is the assertion: it typechecks, prerenders all routes, and
+# regenerates the sitemap, so a break in any of them fails here instead of in
+# a Pages deploy nobody is watching.
+
+name: Check Website
+
+on:
+  pull_request:
+    paths:
+      - 'website/**'
+      - '.github/workflows/website-check.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'website/**'
+      - '.github/workflows/website-check.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install dependencies
+        working-directory: website
+        run: npm ci
+
+      # US-SEO002. Clean since the react-hooks and react-refresh violations were
+      # fixed; --max-warnings 0 keeps it that way, because a warning nobody
+      # fails on is a warning that accumulates.
+      - name: Lint
+        working-directory: website
+        run: npm run lint
+
+      - name: Unit tests
+        working-directory: website
+        run: npm test
+
+      # Runs tsc -b, vite build, vike prerender, the sitemap generator and the
+      # IndexNow script. INDEXNOW_SUBMIT is unset here, so the ping stays a
+      # dry run — CI must never announce URLs to Bing on a pull request.
+      - name: Build (typecheck + prerender + sitemap)
+        working-directory: website
+        run: npm run build
+
+      # A prerender that silently emits nothing still "succeeds"; the sitemap
+      # is the observable proof that real HTML came out the other end.
+      - name: Assert the sitemap was generated and is non-empty
+        working-directory: website
+        run: |
+          test -s dist/client/sitemap.xml
+          grep -q '<loc>https://dailyok.net/</loc>' dist/client/sitemap.xml
+          echo "sitemap URLs: $(grep -c '<loc>' dist/client/sitemap.xml)"
+
+      # US-SEO003. The shared <head> is a template literal in a .tsx file, so
+      # a JSX comment written inside it ships as visible text on every page
+      # and nothing else complains. Assert against the emitted HTML, not the
+      # source, because the emitted HTML is what crawlers read.
+      # US-SEO011. llms.txt is the manifest handed to AI crawlers. It is now
+      # generated from the prerendered output, and so is sitemap.xml — so if
+      # the two disagree, one of the generators is broken. Cross-checking them
+      # is stronger than either one asserting about itself.
+      - name: Assert llms.txt covers exactly the sitemap's URLs
+        working-directory: website
+        run: |
+          grep -o '<loc>[^<]*</loc>' dist/client/sitemap.xml \
+            | sed 's|<loc>||; s|</loc>||' | sort -u > /tmp/sitemap-urls.txt
+          grep -o 'https://dailyok\.net/[^ )]*' dist/client/llms.txt \
+            | grep -v '\.txt$' | sort -u > /tmp/llms-urls.txt
+          if ! diff -u /tmp/sitemap-urls.txt /tmp/llms-urls.txt; then
+            echo "::error::llms.txt and sitemap.xml disagree about which pages exist."
+            exit 1
+          fi
+          echo "llms.txt and sitemap.xml agree on $(wc -l < /tmp/llms-urls.txt) URLs"
+
+      # US-SEO009. Titles and descriptions that overshoot the width Google
+      # renders are invisible everywhere except the search result itself.
+      - name: Assert SERP snippets fit the rendered width
+        working-directory: website
+        run: node scripts/check-snippet-lengths.mjs
+
+      # US-SEO014. A skipped heading level is invisible on screen — the
+      # styling comes from the container class, not the tag — but it breaks
+      # screen-reader navigation and passage extraction.
+      - name: Assert the heading outline has no gaps
+        working-directory: website
+        run: node scripts/check-heading-outline.mjs
+
+      # US-SEO016. Cloudflare Pages serves /404.html for any unmatched path.
+      # Without the file it answers with its own generic page, and the site's
+      # own 404 component is unreachable in production.
+      - name: Assert a 404 page was emitted and is noindex
+        working-directory: website
+        run: |
+          test -s dist/client/404.html
+          grep -q 'name="robots" content="noindex' dist/client/404.html
+          if grep -q 'rel="canonical"' dist/client/404.html; then
+            echo "::error::The 404 page carries a canonical, which contradicts its robots tag."
+            exit 1
+          fi
+          test ! -d dist/client/404
+
+      # US-SEO015. "It parses" is not validation: the defects this caught were
+      # Article nodes with no image, pages carrying two Organization nodes for
+      # the same company, and one @id asserting two different names.
+      - name: Assert the structured-data graph resolves
+        working-directory: website
+        run: node scripts/check-structured-data.mjs
+
+      # US-SEO004. A placeholder analytics token is a third-party request on
+      # every page that reports nothing. The beacon is emitted only when
+      # VITE_CF_ANALYTICS_TOKEN holds a real token, which CI does not set.
+      - name: Assert no placeholder analytics token shipped
+        working-directory: website
+        run: |
+          if grep -rl 'YOUR_CF_ANALYTICS_TOKEN' dist/client; then
+            echo "::error::A placeholder Cloudflare Web Analytics token was emitted."
+            exit 1
+          fi
+
+      - name: Assert no JSX comment leaked into the emitted HTML
+        working-directory: website
+        run: |
+          if grep -rl '{/\*' dist/client --include='*.html'; then
+            echo "::error::A JSX comment was emitted as literal text into the document head."
+            exit 1
+          fi

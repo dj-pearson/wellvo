@@ -15,8 +15,8 @@ export default function WhatToDoIndex() {
   return (
     <>
       <SEO
-        title="What to Do When Someone Doesn't Answer the Phone — Calm Guides"
-        description="Calm, step-by-step guides for when a parent, grandparent, teen, college student or spouse isn't answering the phone: the first 30 minutes, the first 24 hours, and when to escalate."
+        title="What to Do When Someone Won't Answer the Phone"
+        description="Step-by-step guides for when a parent, grandparent, teen or partner is not answering: the first 30 minutes, the first 24 hours, and when to escalate."
         path="/what-to-do"
         jsonLd={jsonLd}
       />

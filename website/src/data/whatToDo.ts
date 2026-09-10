@@ -74,9 +74,9 @@ export const whatToDoPages: WhatToDoPage[] = [
     slug: 'elderly-father-not-answering-phone',
     who: 'your elderly parent',
     title:
-      "Elderly Parent Not Answering: The First 30 Minutes",
+      "Elderly Parent Not Answering: First 30 Minutes",
     metaDescription:
-      "An ordered plan for the first 30 minutes and the first 24 hours, the point at which silence justifies escalating, and the exact words to use when requesting a police welfare check.",
+      "An ordered plan for the first 30 minutes and the first 24 hours, when silence justifies escalating, and the words to use to request a welfare check.",
     h1: "What to do when an elderly parent doesn't answer the phone",
     directAnswer:
       "Call twice, then text. Note whether it rang out or went straight to voicemail — that tells you whether the phone is off or simply out of reach. Message anyone who lives nearby and ask them to knock. If an hour passes and the silence is unusual for them, request a police welfare check rather than waiting out the day.",
@@ -148,7 +148,7 @@ export const whatToDoPages: WhatToDoPage[] = [
     title:
       "Grandparent Won't Pick Up: The First 30 Minutes",
     metaDescription:
-      "What to do first when a grandparent isn't answering, who to contact before escalating, when silence justifies a welfare check, and exactly what to say when you call.",
+      "What to do first when a grandparent isn't answering, who to contact before escalating, and exactly what to say when you request a welfare check.",
     h1: "What to do when a grandparent won't pick up the phone",
     directAnswer:
       "Call again and send a text, then message whoever coordinates their care — a parent, an aunt, an uncle. They often already know why the phone is unanswered. If nobody can reach them and nobody can call in, phone the non-emergency police line for their area and request a welfare check.",
@@ -202,7 +202,7 @@ export const whatToDoPages: WhatToDoPage[] = [
     title:
       "Teen Not Answering: What to Do in the First Hour",
     metaDescription:
-      "A proportionate plan for the first hour: what to check before you worry, who to contact, when a missed call is genuinely a signal, and how to agree an escalation rule that doesn't feel like surveillance.",
+      "A proportionate plan for the first hour: what to check before you worry, who to contact, and how to agree an escalation rule that isn't surveillance.",
     h1: "What to do when your teenager isn't answering the phone",
     directAnswer:
       "Text rather than call again — teenagers answer texts far more readily than calls. Check the ordinary explanations first: school, practice, a shift, a friend's house, gaming with notifications off. If it is well past a time you agreed on, message one or two close friends or their parents before escalating further.",
@@ -297,9 +297,9 @@ export const whatToDoPages: WhatToDoPage[] = [
     slug: 'spouse-not-answering-phone',
     who: 'your spouse',
     title:
-      "Spouse Not Answering: The First Hour, Step by Step",
+      "Spouse Not Answering: The First Hour",
     metaDescription:
-      "What to do in the first hour when a partner isn't answering, how to judge whether the silence is out of character, and the point at which contacting their workplace or police is reasonable.",
+      "What to do in the first hour when a partner isn't answering, how to judge whether the silence is out of character, and when to call their workplace.",
     h1: "What to do when your spouse isn't answering the phone",
     directAnswer:
       "Call twice, then text. Note whether it rang out or went straight to voicemail. Work through today's plan — a meeting, a commute, a dead battery, a dead zone. If the silence is genuinely out of character and several hours pass, contact their workplace or a close friend before calling police.",
@@ -339,9 +339,9 @@ export const whatToDoPages: WhatToDoPage[] = [
     slug: 'adult-child-not-answering-phone',
     who: 'your adult child',
     title:
-      "Adult Child Not Answering: When to Worry, What to Do",
+      "Adult Child Not Answering: When to Worry",
     metaDescription:
-      "How long to wait before a grown child's silence is worth acting on, who to contact first, and when requesting a welfare check is proportionate rather than an overreaction.",
+      "How long to wait before a grown child's silence is worth acting on, who to contact first, and when a welfare check is proportionate, not an overreaction.",
     h1: "What to do when your adult child isn't answering the phone",
     directAnswer:
       "Call and text once each, then allow a few hours — adult children miss calls for entirely ordinary reasons. If it is unlike them and a full day passes, contact a partner, housemate or close friend. Request a police welfare check only if you have a concrete reason to believe something is wrong.",

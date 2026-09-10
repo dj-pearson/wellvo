@@ -59,7 +59,7 @@ export default function ChildSafety() {
     <>
       <SEO
         title="Daily Check-In App for Kids & Teen Safety"
-        description="Daily OK helps parents stay connected with children playing outside, walking home from school, or home alone. Simple one-tap daily check-in with alerts. No GPS tracking. Free on iPhone."
+        description="Stay connected with kids walking home, playing outside or home alone. One tap a day, alerts if it is missed. No GPS tracking."
         path="/child-safety"
         keywords="child safety check-in app, kids check-in app, teen safety app, latchkey kid app, child wellness check app, kids playing outside safety, after school check-in app, parent child check-in, child safety app no tracking, teen check-in app for parents, kid home alone safety app"
         jsonLd={faqJsonLd}
@@ -107,7 +107,7 @@ export default function ChildSafety() {
           <div className="cs-scenarios-grid">
             <div className="cs-scenario-card">
               <div className="cs-scenario-emoji" role="img" aria-label="Bicycle">🚲</div>
-              <h4>Playing outside</h4>
+              <h3>Playing outside</h3>
               <p>
                 Kids riding bikes, playing at the park, or hanging out with friends in the
                 neighborhood. Set a check-in for when they should be heading home.
@@ -115,7 +115,7 @@ export default function ChildSafety() {
             </div>
             <div className="cs-scenario-card">
               <div className="cs-scenario-emoji" role="img" aria-label="School">🏫</div>
-              <h4>Walking home from school</h4>
+              <h3>Walking home from school</h3>
               <p>
                 A daily check-in timed to when they should arrive home. If they don't
                 respond, you'll know right away — not an hour later.
@@ -123,7 +123,7 @@ export default function ChildSafety() {
             </div>
             <div className="cs-scenario-card">
               <div className="cs-scenario-emoji" role="img" aria-label="House">🏠</div>
-              <h4>Home alone after school</h4>
+              <h3>Home alone after school</h3>
               <p>
                 Latchkey kids who let themselves in. A quick check-in confirms they got
                 home safely so you can focus at work.
@@ -131,7 +131,7 @@ export default function ChildSafety() {
             </div>
             <div className="cs-scenario-card">
               <div className="cs-scenario-emoji" role="img" aria-label="Tent">⛺</div>
-              <h4>Summer activities & camps</h4>
+              <h3>Summer activities & camps</h3>
               <p>
                 When kids are at day camps, summer programs, or spending time at a
                 friend's house. Stay connected without being overbearing.
@@ -150,7 +150,7 @@ export default function ChildSafety() {
 
           <div className="cs-compare-grid">
             <div className="cs-compare-card cs-compare-old">
-              <h4>Texting</h4>
+              <h3>Texting</h3>
               <ul>
                 <li>Gets buried in group chats</li>
                 <li>No way to know if they saw it</li>
@@ -160,7 +160,7 @@ export default function ChildSafety() {
               </ul>
             </div>
             <div className="cs-compare-card cs-compare-new">
-              <h4>Daily OK</h4>
+              <h3>Daily OK</h3>
               <ul>
                 <li><CheckCircle size={16} /> Dedicated check-in notification</li>
                 <li><CheckCircle size={16} /> One-tap response from notification</li>
@@ -187,22 +187,22 @@ export default function ChildSafety() {
           <div className="cs-privacy-grid">
             <div className="cs-privacy-item">
               <div className="no-icon"><MapPin size={24} /></div>
-              <h4>No GPS tracking</h4>
+              <h3>No GPS tracking</h3>
               <p>We never access your child's location</p>
             </div>
             <div className="cs-privacy-item">
               <div className="no-icon"><Camera size={24} /></div>
-              <h4>No camera access</h4>
+              <h3>No camera access</h3>
               <p>No photos, no video, no screen monitoring</p>
             </div>
             <div className="cs-privacy-item">
               <div className="no-icon"><Mic size={24} /></div>
-              <h4>No microphone</h4>
+              <h3>No microphone</h3>
               <p>We never listen in — ever</p>
             </div>
             <div className="cs-privacy-item">
               <div className="no-icon"><Shield size={24} /></div>
-              <h4>No social features</h4>
+              <h3>No social features</h3>
               <p>No messaging, no friends list, no social pressure</p>
             </div>
           </div>
