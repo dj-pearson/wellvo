@@ -3702,3 +3702,79 @@ once the server honours the timestamp the stale bound relaxes.
 VERIFICATION LIMIT, stated plainly: this container is Linux with no Xcode and no
 Swift toolchain, so nothing here was compiled or run. The change was reviewed by
 reading; ios-tests.yml compiles it and runs the new tests on the PR.
+
+================================================================================
+iOS improvement loop — iteration 2/15
+================================================================================
+
+US-IOS147 as promised: carry the moment a check-in was made, end to end.
+
+Iteration 1 stopped iOS replaying a stale queued check-in as today's, by
+dropping it. That removed the false "checked in today" but threw away a real
+check-in. This is the actual fix.
+
+CHANGED:
+  new  edge-functions/shared/checkin-time.ts
+  new  edge-functions/shared/checkin-time_test.ts   (17 tests)
+  mod  edge-functions/functions/process-checkin-response/index.ts
+  mod  .github/workflows/edge-functions-check.yml
+  mod  ios/DailyOK/Services/CheckInService.swift
+  mod  ios/DailyOK/Services/OfflineCheckInService.swift
+  mod  ios/DailyOKTests/CheckInServiceTests.swift
+  mod  ios/DailyOKTests/OfflineCheckInServiceTests.swift
+  mod  prd.json
+
+Server: `occurred_at` is an optional RFC 3339 request field. resolveOccurredAt
+validates it — 7-day max age, 5-minute future skew, clamps a small future value
+to now — and NEVER rejects the request: refusing a check-in is itself an
+escalation, so a malformed value from a future client degrades to now(), which
+is exactly today's behaviour. checked_in_at is written from it, and both the
+local-day and the slot_key dedup key off it.
+
+Backfill semantics, which is the part that matters. A check-in whose local day
+is already over repairs history; it must not speak for today. So it does NOT
+clear a pending checkin_request and does NOT end a running escalation Live
+Activity — otherwise a three-day-old queued tap would silently stand down a live
+escalation, which is the same false reassurance in a new place. Any push it
+sends carries the weekday and date ("Late check-in ✓ — Mon, Mar 9, 10:03 AM.
+Their phone was offline… this does not cover today"), because a bare time on a
+notification received Thursday reads as Thursday. A late-delivered help request
+keeps its urgency; it just says when.
+
+`backfilled` added to the response. Additive — Swift Decodable and the Android
+adapters ignore unknown keys — per the CLAUDE.md API rules.
+
+FOUND WHILE IN HERE — a live DST bug, not part of the story:
+
+localDayBoundsUTC computed local midnight using the UTC offset in effect at the
+instant passed in. On a DST transition day that is not the offset that was in
+effect at midnight, so the entire day window slid an hour: on the US
+spring-forward Sunday it ran 23:00 the previous local day → 23:00 that day. A
+check-in made at 23:30 local on that Sunday fell OUTSIDE its own day, so the
+server's dedup and the app's Calendar.current.startOfDay disagreed — the exact
+permanent-Pending failure the function's own comment says it exists to prevent.
+Twice a year, for everyone.
+
+Now resolved in two passes (offset at the candidate midnight, not at midday) and
+the end bound is the next local midnight rather than start + 86,400,000ms.
+Verified: spring-forward day 23h, fall-back day 25h, ordinary day 24h, and a
+timezone ahead of UTC.
+
+iOS: sends occurred_at from OfflineCheckIn.createdAt on the sync path only — a
+live check-in still omits it, so that request is byte-identical to what shipped
+builds send. The drop from iteration 1 is now bounded by maxReplayAge (7 days)
+instead of "not today", pinned equal to the server's OCCURRED_AT_MAX_AGE_MS by a
+test. The two bounds have to agree: past the server's bound it falls back to
+now(), which is the original bug.
+
+VERIFIED (this time actually run — Deno 2.1.4 installed locally, matching the
+Dockerfile and the CI pin):
+  deno check server.ts    50 files, clean
+  deno lint               clean
+  deno test               17 passed, 0 failed
+The repo had no Deno tests at all; edge-functions-check.yml now runs them.
+The Swift side is still read-only review — no Xcode on this Linux container.
+ios-tests.yml compiles it and runs the 12 new/rewritten Swift tests on the PR.
+
+NEXT: Android's offline queue replays without occurred_at, so Android users keep
+the false-"today" behaviour. Same three-line shape as iOS. Iteration 3.

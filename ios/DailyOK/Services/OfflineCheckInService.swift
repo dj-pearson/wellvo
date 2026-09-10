@@ -53,10 +53,8 @@ final class OfflineCheckInService: ObservableObject {
         // throw so the failure surfaces to the user instead of vanishing.
         let context = try ensureContext()
 
-        // Clear out anything left from a previous day first, so a device that
-        // stayed offline across midnight doesn't keep reporting yesterday's
-        // unsent row as pending — and doesn't hold it for a replay that would
-        // land as today's check-in.
+        // Clear out anything too old to replay first, so the queue does not keep
+        // advertising a row that sync will only ever drop.
         pruneStaleQueuedCheckIns()
 
         // Per-slot, per-day dedup: an anxious receiver who doesn't see immediate
@@ -183,31 +181,35 @@ final class OfflineCheckInService: ObservableObject {
         queuedSlots.contains(slotKey)
     }
 
-    /// Whether a queued row has outlived the day it was meant to answer.
+    /// How far back a queued check-in may be replayed, matching
+    /// `OCCURRED_AT_MAX_AGE_MS` in edge-functions/shared/checkin-time.ts.
     ///
-    /// The sync path replays a queued check-in through
-    /// `process-checkin-response`, which stamps `checked_in_at` server-side with
-    /// `now()` — the request carries no client timestamp (see US-IOS147). So a
-    /// row queued on Monday and synced on Thursday is not recorded as Monday's
-    /// check-in: it is recorded as a *Thursday* check-in the receiver never
-    /// made. The owner's dashboard then reads "checked in today" for someone who
-    /// has not touched their phone in three days.
+    /// The two bounds have to agree. Past this age the server stops honouring
+    /// the client timestamp and falls back to now(), so replaying a row older
+    /// than this would record it as a check-in made today — the failure
+    /// `isStale` exists to prevent.
+    static let maxReplayAge: TimeInterval = 7 * 24 * 60 * 60
+
+    /// Whether a queued row is too old to replay.
     ///
-    /// False reassurance is strictly worse than the false escalation the rest of
-    /// this file guards against — the escalation is the product working. So a
-    /// row whose local day has passed is dropped rather than replayed. Monday's
-    /// window already escalated when it was missed; nothing is recovered by
-    /// fabricating a Thursday check-in, and the receiver's real safety signal is
-    /// not overwritten.
+    /// The sync path sends `occurred_at` (US-IOS147) so the server records the
+    /// check-in against the moment it was made rather than the moment it
+    /// arrived. Without that, a row queued Monday and synced Thursday is
+    /// recorded as a *Thursday* check-in nobody made, and the owner's dashboard
+    /// reads "checked in today" for someone who has not touched their phone in
+    /// three days. False reassurance is the one outcome worse than the false
+    /// escalation the rest of this file guards against.
     ///
-    /// Same-day rows (the overwhelmingly common case: a tunnel, a dead cell,
-    /// airplane mode for an hour) sync exactly as before.
+    /// The server bounds how far back it will trust a client timestamp, and
+    /// beyond that bound it silently falls back to now() — which is that exact
+    /// bug. So the client refuses to replay anything the server would not
+    /// honour, and drops it instead.
     nonisolated static func isStale(
         queuedAt: Date,
         now: Date = Date(),
-        calendar: Calendar = .current
+        maxAge: TimeInterval = maxReplayAge
     ) -> Bool {
-        !calendar.isDate(queuedAt, inSameDayAs: now)
+        now.timeIntervalSince(queuedAt) > maxAge
     }
 
     /// True when the error represents a loss of connectivity (as opposed to a
@@ -271,12 +273,11 @@ final class OfflineCheckInService: ObservableObject {
         var syncedAny = false
 
         for offlineCheckIn in pending {
-            // A row that has outlived its day would be recorded as a check-in
-            // for TODAY (the server stamps `checked_in_at` itself), so replaying
-            // it tells the owner the receiver is fine when they may not be.
-            // Drop it instead — see `isStale`.
+            // Past the age the server will honour, a replay would be recorded
+            // as a check-in made TODAY, telling the owner the receiver is fine
+            // when they may not be. Drop it instead — see `isStale`.
             if Self.isStale(queuedAt: offlineCheckIn.createdAt) {
-                Log.offline.notice("Dropping stale queued check-in from a previous day rather than replaying it as today's")
+                Log.offline.notice("Dropping queued check-in older than the replay window rather than recording it as today's")
                 context.delete(offlineCheckIn)
                 try? context.save()
                 continue
@@ -308,7 +309,14 @@ final class OfflineCheckInService: ObservableObject {
                     // the day's windows into one (US-IOS137). nil for rows
                     // queued by a single-window schedule, and for rows written
                     // before this shipped — both mean day-level, as before.
-                    slotKey: offlineCheckIn.slotKey
+                    slotKey: offlineCheckIn.slotKey,
+                    // The moment the receiver actually tapped. The server
+                    // records the check-in against this rather than against
+                    // arrival, and treats a check-in whose local day is already
+                    // over as a backfill: it repairs history without clearing
+                    // today's pending request or standing down today's
+                    // escalation (US-IOS147).
+                    occurredAt: offlineCheckIn.createdAt
                 )
 
                 // Delete rather than flag. Nothing reads a synced row — every
@@ -403,22 +411,22 @@ final class OfflineCheckInService: ObservableObject {
         monitor.start(queue: monitorQueue)
     }
 
-    /// Remove queued rows that have outlived the day they were meant to answer.
+    /// Remove queued rows too old for the server to honour a timestamp on.
     ///
     /// Sync drops them too, but sync only runs when the device is online and
     /// signed in. Pruning here keeps `pendingCount` — which drives the "waiting
     /// to send" UI — from advertising a check-in that will never be sent.
     private func pruneStaleQueuedCheckIns() {
         guard let context = sharedContext else { return }
-        let startOfToday = Calendar.current.startOfDay(for: Date())
+        let cutoff = Date().addingTimeInterval(-Self.maxReplayAge)
         let descriptor = FetchDescriptor<OfflineCheckIn>(
-            predicate: #Predicate { $0.createdAt < startOfToday }
+            predicate: #Predicate { $0.createdAt < cutoff }
         )
         guard let stale = try? context.fetch(descriptor), !stale.isEmpty else { return }
         for row in stale { context.delete(row) }
         do {
             try context.save()
-            Log.offline.notice("Pruned \(stale.count, privacy: .public) queued check-in(s) left over from a previous day")
+            Log.offline.notice("Pruned \(stale.count, privacy: .public) queued check-in(s) too old to replay")
         } catch {
             Log.offline.error("Failed to prune stale queued check-ins: \(error.localizedDescription, privacy: .public)")
         }

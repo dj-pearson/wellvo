@@ -17,7 +17,8 @@ actor CheckInService {
         batteryLevel: Double? = nil,
         locationLabel: String? = nil,
         kidResponseType: String? = nil,
-        slotKey: String? = nil
+        slotKey: String? = nil,
+        occurredAt: Date? = nil
     ) async throws -> CheckIn {
         guard let session = try? await supabase.auth.session else {
             throw CheckInError.notAuthenticated
@@ -33,7 +34,8 @@ actor CheckInService {
             batteryLevel: batteryLevel,
             locationLabel: locationLabel,
             kidResponseType: kidResponseType,
-            slotKey: slotKey
+            slotKey: slotKey,
+            occurredAt: occurredAt
         )
 
         // Use the edge function which handles location, response type, and alerts
@@ -58,7 +60,8 @@ actor CheckInService {
         batteryLevel: Double?,
         locationLabel: String?,
         kidResponseType: String?,
-        slotKey: String?
+        slotKey: String?,
+        occurredAt: Date? = nil
     ) -> [String: JSONValue] {
         var body: [String: JSONValue] = [
             "receiver_id": .string(receiverId.uuidString.lowercased()),
@@ -93,7 +96,28 @@ actor CheckInService {
         if let kidResponseType {
             body["kid_response_type"] = .string(kidResponseType)
         }
+        // US-IOS147: when this check-in is being replayed from the offline
+        // queue, say when it actually happened. Omitted for a live check-in,
+        // where the server's now() is the same instant. A server that predates
+        // the field ignores it and records now(), which is the old behaviour —
+        // which is why the sync path also refuses to replay anything older than
+        // `OfflineCheckInService.maxReplayAge`.
+        if let occurredAt {
+            body["occurred_at"] = .string(wireTimestamp(occurredAt))
+        }
         return body
+    }
+
+    /// RFC 3339 in UTC, which is what `Date.parse` on the Deno side accepts
+    /// unambiguously. Built per call rather than held in a static: the type is
+    /// an actor, and `ISO8601DateFormatter` is a mutable reference type, so a
+    /// shared instance is exactly the kind of state Swift 6 concurrency
+    /// checking rejects. This runs once per check-in.
+    static func wireTimestamp(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        return formatter.string(from: date)
     }
 
     /// Respond to a specific check-in request (from notification)

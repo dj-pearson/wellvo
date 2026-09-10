@@ -45,3 +45,11 @@ jobs:
       - name: Lint
         working-directory: edge-functions
         run: deno lint
+
+      - name: Unit tests
+        working-directory: edge-functions
+        # The pure helpers — check-in day arithmetic, validation — are testable
+        # without a Supabase client or network. `deno check` proves they compile;
+        # only this proves they are right. Handlers that build a Supabase client
+        # at module load are deliberately not imported here.
+        run: deno test
