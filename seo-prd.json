@@ -91,8 +91,8 @@
         "vike/types and vite/client types resolve there"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": "tsconfig.app.json includes only src/, and tsconfig.node.json only vite.config.ts, so pages/+onRenderHtml.tsx, +Page.tsx, +config.ts and +onBeforePrerenderStart.ts are wholly unchecked today. That is the SSR entry point and the source of every canonical, JSON-LD block and meta tag. Adding it may surface a batch of pre-existing errors, which is why it is its own story."
+      "passes": true,
+      "notes": "Added tsconfig.pages.json (types: node + vite/client, since the hooks run in Node but render browser markup and import .css) and referenced it from tsconfig.json. Only one pre-existing error surfaced — jsdom had no declarations in pages/fetchBlogForPrerender.ts — fixed by adding @types/jsdom as a devDependency rather than by declaring it any. Proved the gate bites: a planted `const x: number = 'a'` in +onRenderHtml.tsx fails tsc -b with TS2322. `npm run build` starts with tsc -b, so CI already gates it."
     }
   ]
 }

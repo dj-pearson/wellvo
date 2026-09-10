@@ -3036,3 +3036,36 @@ NOT fixed, filed as US-SEO007: pages/ is not typechecked at all. tsconfig.app
 covers only src/ and tsconfig.node only vite.config.ts, so the SSR entry point
 that produces every canonical, JSON-LD block and meta tag is the one file tsc
 never looks at.
+
+================================================================================
+US-SEO007 — pages/ was the one directory tsc never looked at             2026-09-10
+================================================================================
+Iteration 4. Found while fixing US-SEO004, when it turned out that editing
++onRenderHtml.tsx produced no typechecking at all.
+
+tsconfig.app.json includes only `src`, tsconfig.node.json only `vite.config.ts`,
+and the tsconfig.test.json added in US-SEO001 only `src/test`. Nothing included
+`pages`. So +onRenderHtml.tsx, +Page.tsx, +config.ts, +onBeforePrerenderStart.ts
+and fetchBlogForPrerender.ts were unchecked — and that set is precisely the SSR
+entry point that emits every title, canonical, meta tag and JSON-LD block on the
+site, plus the build-time blog fetch that decides which posts exist at all.
+
+  add  website/tsconfig.pages.json
+  mod  website/tsconfig.json
+  mod  website/package.json + package-lock.json   (@types/jsdom, devDependency)
+
+types is ["node", "vite/client"] because these hooks run in Node at prerender
+time but render browser markup and import the app's .css modules — neither type
+surface alone covers the directory.
+
+Turning it on surfaced exactly one pre-existing error: jsdom had no declarations
+in fetchBlogForPrerender.ts. Fixed by installing @types/jsdom, not by declaring
+the module `any` — an `any` there would have re-hidden the DOMPurify window the
+blog sanitizer depends on.
+
+VERIFIED that the gate actually bites, rather than trusting a green run: planted
+`const _seoGuardProbe: number = "not a number"` in +onRenderHtml.tsx and tsc -b
+reported TS2322 at pages/+onRenderHtml.tsx(299,7) and exited 2; removing it
+returned to exit 0. npm run build exits 0, 34 documents, 33 sitemap URLs;
+vitest 73/73. No CI change needed — `npm run build` begins with tsc -b, so the
+website-check workflow added in US-SEO001 already covers pages/ from now on.
