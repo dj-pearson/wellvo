@@ -2987,3 +2987,52 @@ VERIFIED: `grep -rho '{/\*' dist/client --include=*.html | wc -l` is 0, down
 from 34. tsc -b exits 0; npm run build exits 0, 34 documents, 33 sitemap URLs;
 vitest 71/71 (was 67). The new CI guard was exercised both ways — exit 0 on the
 clean tree, exit 1 against a file containing a JSX comment.
+
+================================================================================
+US-SEO004 — a placeholder analytics beacon on every page                2026-09-10
+================================================================================
+Iteration 3.
+
+    <script defer src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon='{"token": "YOUR_CF_ANALYTICS_TOKEN"}'></script>
+
+That shipped, verbatim, on all 34 pages. Both halves were wrong at once. Every
+visitor paid a DNS lookup, TLS handshake and script download to a third-party
+origin to report telemetry Cloudflare then discards, because the token is not a
+token. And /privacy and /cookies both tell visitors "We use Cloudflare Web
+Analytics" — a claim that has never been true in production.
+
+The token is deploy configuration, not source, so it cannot be committed. The
+tag is now conditional on VITE_CF_ANALYTICS_TOKEN at build time: a real token
+emits the beacon, an absent one emits nothing. A missing beacon is honest and
+free; a placeholder beacon is a request on the LCP path that buys nothing.
+
+  mod  website/pages/+onRenderHtml.tsx
+  mod  website/src/vite-env.d.ts
+  mod  website/.env.example
+  mod  website/src/test/head.test.ts
+  mod  .github/workflows/website-check.yml
+  mod  docs/COMPLIANCE_AUDIT.md
+
+The token is interpolated into a JSON attribute inside a single-quoted HTML
+attribute, so it is validated rather than trusted — Cloudflare site tokens are
+32 hex characters, and anything else is refused with a build warning instead of
+being pasted into the document. Without that, a mis-set environment variable is
+an HTML injection into every page.
+
+VERIFIED across three real builds:
+  * no token          -> 0 beacon tags, 0 occurrences of the placeholder
+  * 32-hex token      -> 34 beacon tags, token intact in the attribute
+  * `"}'></script>…`  -> 0 beacon tags, build warns and continues
+tsc -b exits 0; vitest 73/73 (was 71); sitemap still 33 URLs.
+
+OWNER ACTION, not a code change: set VITE_CF_ANALYTICS_TOKEN in the Cloudflare
+Pages build environment. Until then no analytics runs, and the /privacy and
+/cookies statements about Cloudflare Web Analytics describe something that is
+not happening. Both become accurate the moment the token is configured — this
+is noted in docs/COMPLIANCE_AUDIT.md so it is not lost.
+
+NOT fixed, filed as US-SEO007: pages/ is not typechecked at all. tsconfig.app
+covers only src/ and tsconfig.node only vite.config.ts, so the SSR entry point
+that produces every canonical, JSON-LD block and meta tag is the one file tsc
+never looks at.

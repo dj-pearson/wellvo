@@ -53,8 +53,8 @@
         "If it stays, it is gated behind the same consent flow as GA4 (src/lib/consent.ts)"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": "dist/client/**/index.html currently carries `data-cf-beacon='{\"token\": \"YOUR_CF_ANALYTICS_TOKEN\"}'`. Note Cloudflare Pages can also inject Web Analytics automatically, in which case this hand-rolled tag is a duplicate."
+      "passes": true,
+      "notes": "The tag now renders only when VITE_CF_ANALYTICS_TOKEN holds a 32-hex token, and the token is validated before interpolation because it lands inside a JSON attribute. Verified across three builds: no token -> 0 beacons, real token -> 34 beacons with the token intact, hostile token -> 0 beacons plus a build warning. OWNER ACTION: /privacy and /cookies tell visitors Cloudflare Web Analytics is in use; that is only true once the token is set in the Cloudflare Pages build environment."
     },
     {
       "id": "US-SEO005",
@@ -80,6 +80,19 @@
       "priority": 6,
       "passes": false,
       "notes": "The three tags are commented out with PASTE_*_TOKEN placeholders. Real tokens are secrets and are not in this repo — this story needs values from the owner, so it is blocked on input rather than on effort."
+    },
+    {
+      "id": "US-SEO007",
+      "title": "Typecheck the pages/ directory",
+      "description": "As a maintainer, I want tsc to cover pages/ so that the file producing every page's <head> is not the one file nobody typechecks.",
+      "acceptanceCriteria": [
+        "pages/**/*.ts(x) is included in a TypeScript project reachable from tsconfig.json",
+        "`npx tsc -b` exits 0 with it included",
+        "vike/types and vite/client types resolve there"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "tsconfig.app.json includes only src/, and tsconfig.node.json only vite.config.ts, so pages/+onRenderHtml.tsx, +Page.tsx, +config.ts and +onBeforePrerenderStart.ts are wholly unchecked today. That is the SSR entry point and the source of every canonical, JSON-LD block and meta tag. Adding it may surface a batch of pre-existing errors, which is why it is its own story."
     }
   ]
 }

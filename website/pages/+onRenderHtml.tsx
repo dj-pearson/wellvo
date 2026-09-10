@@ -16,6 +16,44 @@ interface HelmetContext {
 }
 
 /*
+ * Cloudflare Web Analytics beacon (US-SEO004).
+ *
+ * The token is deploy configuration, not source. It shipped hard-coded as the
+ * literal `YOUR_CF_ANALYTICS_TOKEN`, which means every visitor to every page
+ * has been paying a DNS lookup, TLS handshake and script download to
+ * static.cloudflareinsights.com to report telemetry that Cloudflare discards —
+ * while /privacy and /cookies told them we collect it. Neither half was true.
+ *
+ * So the tag is now conditional: it is emitted only when a real token is
+ * present at build time in VITE_CF_ANALYTICS_TOKEN, and omitted entirely
+ * otherwise. A missing beacon is honest and free; a placeholder beacon is a
+ * third-party request on the LCP path that buys nothing.
+ *
+ * The token is interpolated into a JSON attribute, so it is validated rather
+ * than trusted: Cloudflare site tokens are 32 hex characters, and anything
+ * else is refused instead of being pasted into the document. Note this
+ * beacon is cookieless and does not identify individuals, which is why it
+ * does not go through the consent gate that GA4 would need.
+ */
+const CF_ANALYTICS_TOKEN = (import.meta.env.VITE_CF_ANALYTICS_TOKEN ?? '').trim()
+const CF_TOKEN_RE = /^[0-9a-f]{32}$/i
+
+const CF_BEACON = (() => {
+  if (!CF_ANALYTICS_TOKEN) return ''
+  if (!CF_TOKEN_RE.test(CF_ANALYTICS_TOKEN)) {
+    console.warn(
+      `[head] VITE_CF_ANALYTICS_TOKEN is not a 32-character hex token; ` +
+        `omitting the Cloudflare Web Analytics beacon rather than emitting a broken one.`,
+    )
+    return ''
+  }
+  return (
+    `\n    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" ` +
+    `data-cf-beacon='{"token": "${CF_ANALYTICS_TOKEN}"}'></script>`
+  )
+})()
+
+/*
  * Static <head> content shared by every prerendered page. Per-page <title>,
  * <meta name="description">, canonical links, and JSON-LD are rendered by
  * components (via react-helmet-async or plain React 19 tags) and lifted
@@ -166,8 +204,7 @@ const STATIC_HEAD = `
         "url": "https://dailyok.net"
       }
     ]
-    </script>
-    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "YOUR_CF_ANALYTICS_TOKEN"}'></script>`
+    </script>${CF_BEACON}`
 
 const DEFAULT_TITLE = '<title>Daily OK — Senior Check-In App for Aging Parents</title>'
 const DEFAULT_DESCRIPTION = '<meta name="description" content="Daily OK is the senior check-in app: a once-a-day &quot;I&#39;m OK&quot; for an aging parent, with escalating alerts if they miss it. No pendant, no GPS tracking. Works for teens and any loved one too." />'

@@ -52,6 +52,28 @@ describe('the static <head> template', () => {
     expect(head).toContain('application/ld+json')
   })
 
+  it('ships no placeholder analytics token', () => {
+    // US-SEO004. The Cloudflare beacon is emitted only when
+    // VITE_CF_ANALYTICS_TOKEN holds a real 32-hex token; a hard-coded one in
+    // the template means every visitor pays a third-party request for
+    // telemetry Cloudflare throws away.
+    expect(staticHead()).not.toContain('YOUR_CF_ANALYTICS_TOKEN')
+    expect(staticHead()).not.toContain('cloudflareinsights.com')
+    expect(source).toContain('VITE_CF_ANALYTICS_TOKEN')
+  })
+
+  it('refuses a Cloudflare token that is not 32 hex characters', () => {
+    // The token is interpolated straight into a JSON attribute, so the guard
+    // that keeps arbitrary text out of the document must actually be there.
+    const re = /const CF_TOKEN_RE = (\/.+\/i?)/.exec(source)
+    expect(re).not.toBeNull()
+    const pattern = new RegExp(re![1].slice(1, re![1].lastIndexOf('/')), 'i')
+    expect(pattern.test('0123456789abcdef0123456789abcdef')).toBe(true)
+    expect(pattern.test('YOUR_CF_ANALYTICS_TOKEN')).toBe(false)
+    expect(pattern.test('"}\'></script><script>alert(1)</script>')).toBe(false)
+    expect(pattern.test('')).toBe(false)
+  })
+
   it('leaves per-page tags to the SEO component', () => {
     // title, description and canonical are per-URL and come from SEO.tsx via
     // extractHeadTags(). Hard-coding one here would give all 34 pages the

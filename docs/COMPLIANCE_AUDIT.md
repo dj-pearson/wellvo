@@ -130,7 +130,7 @@ Previously `pages/+onRenderHtml.tsx` unconditionally loaded GA4 (`G-J2H67EW9JY`)
 - Prerender verified: 0 of 39 static HTML pages contain GA; the banner is client-only (not in SSR HTML).
 - Cookie Notice and Privacy Policy updated to disclose GA + Google LLC as a processor and describe the opt-in.
 
-**Remaining (deploy config, not code):** the Cloudflare Web Analytics beacon token in `+onRenderHtml.tsx` is still the placeholder `YOUR_CF_ANALYTICS_TOKEN` — set the real token so cookieless analytics actually reports.
+**Remaining (deploy config, not code):** the Cloudflare Web Analytics beacon is emitted only when `VITE_CF_ANALYTICS_TOKEN` is set at build time (US-SEO004) — set it in the Cloudflare Pages build environment so cookieless analytics actually reports. Until it is set no beacon ships at all, which means /privacy and /cookies currently describe analytics that is not running; both statements become accurate the moment the token is configured.
 
 ### 6.2 🟠 Placeholder business address — **REAL DATA NEEDED**
 `1234 Example Street, Salt Lake City, UT 84101` appears in `Privacy.tsx`, `Terms.tsx`, `DMCA.tsx`, and `Footer.tsx` (each flagged *"update as required when finalized"*). GDPR Art. 13 and CCPA require the controller's real identity/contact; the DMCA agent address must be real to be effective. Provide the registered business address (and confirm the legal entity — pages say **Pearson Media LLC d/b/a Daily OK**).
