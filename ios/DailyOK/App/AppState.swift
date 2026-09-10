@@ -14,6 +14,22 @@ final class AppState: ObservableObject {
     /// blocking overlay; transient "couldn't evaluate" states never set this.
     @Published var secureConnectionFailed: Bool = false
 
+    /// Result of a deep link that performed an ACTION rather than navigation —
+    /// today, the escalation Live Activity's "Stand down" button.
+    ///
+    /// It used to only log. The owner taps Stand down on an overdue relative,
+    /// the app opens, nothing visible happens, and if the call failed the
+    /// escalation is still running while they believe they cancelled it. An
+    /// action taken on someone's behalf has to report whether it happened.
+    @Published var deepLinkOutcome: DeepLinkOutcome?
+
+    struct DeepLinkOutcome: Identifiable, Equatable {
+        let id = UUID()
+        let title: String
+        let message: String
+        let isFailure: Bool
+    }
+
     /// Non-essential haptics (selection, light, medium). Outcome haptics
     /// (success/warning/error) always fire so users don't miss a failure.
     @Published var hapticsEnabled: Bool {

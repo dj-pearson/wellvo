@@ -4066,3 +4066,49 @@ GUARD, because "the file exists" was never the question:
 VERIFICATION: all five manifests parse as plists (checked with plistlib), and
 the pbxproj stays balanced with 5 build files, 5 file references and 5 Resources
 phases. Not compiled — no Xcode here.
+
+================================================================================
+iOS improvement loop — iteration 8/15
+================================================================================
+
+FOUND: "Stand down" on an escalation Live Activity reports nothing.
+
+The owner sees an overdue alert for a relative on their Lock Screen and taps
+Stand down. That opens `dailyok://standdown?receiver=…&family=…`, the app
+handles it, and every outcome — success, no session, malformed parameters,
+network failure, a rejection from cancel-escalation — was a `Log.general.error`
+and nothing else. The app opens on whatever screen it was on and looks normal.
+
+If the call failed, the escalation is STILL RUNNING: the timer continues, the
+next contact in the chain will be called, and the owner has every reason to
+believe they cancelled it. Silence reads as success. This is the same failure
+shape as the offline check-ins in earlier iterations, on the owner's side
+instead of the receiver's.
+
+CHANGED:
+  mod  ios/DailyOK/App/AppState.swift      (+deepLinkOutcome)
+  mod  ios/DailyOK/App/DailyOKApp.swift    (report every branch)
+  mod  ios/DailyOK/App/ContentView.swift   (root alert)
+
+Every branch of the stand-down now says what happened:
+
+  success              "Stood down — this alert is cancelled. Nobody else will
+                        be contacted about it."
+  no session           "Sign in to stand down"
+  malformed link       "That link was incomplete. Open the alert in Daily OK
+                        and stand down from there."
+  call failed          "Still escalating — Daily OK couldn't cancel this alert,
+                        it is still running." Named that way deliberately: the
+                        owner has to know the alert is live, not merely that a
+                        tap didn't work.
+
+The outcome haptic fires with it. DailyOKHaptics.success/error deliberately
+ignore the user's haptics preference — that gate only covers the non-essential
+vocabulary, precisely so a failure is never silent — so this needed no special
+casing.
+
+The alert is presented at the root, in ContentView, because a Live Activity tap
+can arrive over any screen and, on a cold start, over none of them yet.
+
+Malformed parameters now `return` early rather than falling through a nested
+`if let`, which is also why the branch can report at all.

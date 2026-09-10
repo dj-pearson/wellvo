@@ -51,6 +51,21 @@ struct ContentView: View {
                     .transition(.opacity)
             }
         }
+        // The result of an action taken from a deep link (today: the escalation
+        // Live Activity's "Stand down"). Presented at the root because the link
+        // can arrive over any screen, and on a cold start over none of them yet.
+        .alert(
+            appState.deepLinkOutcome?.title ?? "",
+            isPresented: Binding(
+                get: { appState.deepLinkOutcome != nil },
+                set: { if !$0 { appState.deepLinkOutcome = nil } }
+            ),
+            presenting: appState.deepLinkOutcome
+        ) { _ in
+            Button("OK", role: .cancel) { appState.deepLinkOutcome = nil }
+        } message: { outcome in
+            Text(outcome.message)
+        }
         .animation(reduceMotion ? nil : .easeInOut, value: authViewModel.authState)
         .animation(reduceMotion ? nil : .easeInOut, value: authViewModel.biometricLocked)
         .onChange(of: authViewModel.authState) { newState in
