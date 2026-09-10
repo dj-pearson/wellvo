@@ -40,6 +40,13 @@ struct OwnerStatusView: View {
     @Environment(\.widgetFamily) private var family
     let entry: OwnerStatusEntry
 
+    /// Everything below reads status as of the ENTRY's date, not as of the
+    /// moment the snapshot was written. Only the phone app writes that snapshot,
+    /// so an owner who has not opened the app since yesterday would otherwise
+    /// see yesterday's green ticks — a stale "checked in" is the false
+    /// reassurance the whole product exists to prevent.
+    private var now: Date { entry.date }
+
     var body: some View {
         if let state = entry.state, !state.receivers.isEmpty {
             switch family {
@@ -53,12 +60,12 @@ struct OwnerStatusView: View {
     }
 
     private func summaryText(_ s: SharedOwnerState) -> String {
-        "\(s.checkedInCount) of \(s.total) checked in"
+        "\(s.checkedInCount(asOf: now)) of \(s.total) checked in"
     }
 
     @ViewBuilder private func accessory(_ s: SharedOwnerState) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: s.checkedInCount == s.total ? "checkmark.circle.fill" : "person.2.fill")
+            Image(systemName: s.checkedInCount(asOf: now) == s.total ? "checkmark.circle.fill" : "person.2.fill")
             VStack(alignment: .leading) {
                 Text("Family check-ins").font(.headline)
                 Text(summaryText(s)).font(.caption2).foregroundStyle(.secondary)
@@ -69,9 +76,10 @@ struct OwnerStatusView: View {
     @ViewBuilder private func small(_ s: SharedOwnerState) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(summaryText(s)).font(.caption).fontWeight(.semibold)
-            if let r = s.mostRelevant {
+            if let r = s.mostRelevant(asOf: now) {
+                let status = r.status(asOf: now)
                 HStack(spacing: 6) {
-                    Image(systemName: icon(for: r.status)).foregroundStyle(color(for: r.status))
+                    Image(systemName: icon(for: status)).foregroundStyle(color(for: status))
                     Text(r.name).font(.subheadline).lineLimit(1)
                 }
             }
@@ -83,15 +91,19 @@ struct OwnerStatusView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(summaryText(s)).font(.caption).fontWeight(.semibold).foregroundStyle(.secondary)
             ForEach(s.receivers.prefix(family == .systemLarge ? 8 : 3)) { r in
+                let status = r.status(asOf: now)
                 HStack(spacing: 8) {
-                    Image(systemName: icon(for: r.status)).foregroundStyle(color(for: r.status))
+                    Image(systemName: icon(for: status)).foregroundStyle(color(for: status))
                     Text(r.name).font(.subheadline).lineLimit(1)
                     Spacer()
-                    if r.status == "checked_in", let at = r.lastCheckInAt {
+                    // A bare time — "8:15 AM" — reads as today. Only show it
+                    // when it IS today; otherwise the status word carries the
+                    // truth.
+                    if status == "checked_in", let at = r.lastCheckIn(asOf: now) {
                         Text(at.formatted(date: .omitted, time: .shortened))
                             .font(.caption2).foregroundStyle(.secondary)
                     } else {
-                        Text(label(for: r.status)).font(.caption2).foregroundStyle(color(for: r.status))
+                        Text(label(for: status)).font(.caption2).foregroundStyle(color(for: status))
                     }
                 }
             }

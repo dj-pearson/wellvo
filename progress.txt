@@ -4220,3 +4220,61 @@ would change nothing.
 VERIFIED: deno check (50 files), deno lint, deno test (17 passed) all clean on
 the edge-function change. The Swift is read-only review as usual — no Xcode —
 with one new routing test that ios-tests.yml will run.
+
+================================================================================
+iOS improvement loop — iteration 11/15
+================================================================================
+
+FOUND: the owner widget shows yesterday's green ticks indefinitely.
+
+The receiver's own check-in widget is carefully day-scoped — `CheckInEntry.from`
+calls `state.isCheckedIn(asOf: date)` with a comment saying it exists "so the
+widget flips back to 'tap I'm OK' at a new day even if the phone hasn't synced a
+fresh snapshot."
+
+The OWNER's widget has no equivalent. It renders `receiver.status` verbatim.
+
+Only the phone app writes that snapshot (SharedOwnerPublisher). If the owner
+does not open the app — overnight, over a weekend, or with background refresh
+switched off — the snapshot never changes, so the widget keeps showing
+"3 of 3 checked in", green ticks beside every name, and a bare "8:15 AM" that
+reads as this morning. On a day nobody has answered.
+
+Refreshing the timeline more often does not help: getTimeline re-reads the same
+stale snapshot. Every 5 minutes it faithfully re-renders yesterday.
+
+This is the same failure as the offline replays in iterations 1–2 and 6, on the
+glanceable surface the owner is most likely to actually look at. The owner
+glances, sees green, and stops wondering.
+
+CHANGED:
+  new  ios/DailyOKTests/SharedOwnerStateTests.swift   (11 tests)
+  mod  ios/DailyOK/Shared/SharedOwnerState.swift
+  mod  ios/DailyOKWidgets/OwnerStatusWidget.swift
+  mod  ios/DailyOKWidgets/OwnerStatusProvider.swift
+  mod  ios/DailyOK.xcodeproj/project.pbxproj
+
+`SharedOwnerReceiver.status(asOf:)` reverts a `checked_in` whose lastCheckInAt
+is not today — or is missing — to `pending`: "we don't know yet", which is the
+truth. Deliberately never to `missed`: whether a window has elapsed is the
+server's call, and a widget guessing would invent an escalation nobody raised.
+
+`lastCheckIn(asOf:)` withholds the timestamp on the same rule, because a bare
+"8:15 AM" in a row reads as today no matter what the icon says.
+
+`checkedInCount(asOf:)` and `mostRelevant(asOf:)` follow, so the summary line
+cannot carry yesterday forward and a stale tick cannot outrank someone who
+genuinely has not answered. A real "missed" still wins the ordering.
+
+The timeline now emits TWO entries — now, and next local midnight — so the day
+flip renders at midnight rather than whenever the next reload lands. The views
+read status as of the entry's date, so the midnight entry shows an unanswered
+new day from an unchanged snapshot. That is the whole point: the snapshot will
+not change until the owner opens the app.
+
+`needsAttention` (the 5-vs-15-minute refresh cadence) is now evaluated
+day-scoped too, so a stale "checked in" no longer reads as "nothing to watch".
+
+VERIFICATION: checked every other reader of these members — SharedOwnerPublisher
+writes, the widget reads, nothing else touches them, so no caller was left on
+the old un-scoped path. 11 tests. Not compiled; no Xcode here.
