@@ -58,7 +58,7 @@
     },
     {
       "id": "US-SEO005",
-      "title": "Complete the social card contract: image dimensions, type, and twitter:site",
+      "title": "Complete the social card contract across every page family",
       "description": "As a link shared into Slack/X/iMessage, I want a fully-specified card so previews render large instead of falling back to a small thumbnail while the image is fetched.",
       "acceptanceCriteria": [
         "og:image:width, og:image:height and og:image:type emitted alongside og:image",
@@ -66,8 +66,8 @@
         "SEO.tsx accepts an optional per-page image so comparison and /what-to-do pages can override the sitewide default"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": "website/src/components/SEO.tsx ships one hard-coded og-image.png for all 33 indexable URLs."
+      "passes": true,
+      "notes": "Bigger than the original note. Two page families — the 10 comparison pages and every blog post — hand-rolled their own <Helmet> and emitted NO og:image and NO twitter:card at all, so the highest commercial-intent URLs on the site shared as bare links. Both now go through <SEO>, which also gained og:image:width/height/type (measured from the real PNG and asserted against its IHDR), og:locale, article timestamps, a per-page image override, an explicit-canonical override, and `<` escaping in the JSON-LD payload that BlogPost previously had and the shared component did not. Verified in dist: compare pages carry the full card, exactly one og:image / twitter:card / canonical / title per page, and all 59 emitted JSON-LD blocks parse."
     },
     {
       "id": "US-SEO006",

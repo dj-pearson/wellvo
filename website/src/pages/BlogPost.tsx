@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Helmet } from 'react-helmet-async'
+import SEO from '../components/SEO'
 import DOMPurify from 'dompurify'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
 import { buildPostSchemas } from '../lib/schemaMarkup'
@@ -119,34 +119,34 @@ export default function BlogPost() {
 
   return (
     <>
-      <Helmet>
-        <title>{`${seoTitle} — Daily OK`}</title>
-        {seoDescription && <meta name="description" content={seoDescription} />}
-        <link rel="canonical" href={post.canonical_url || canonicalUrl(`/blog/${post.slug}`)} />
-        <meta property="og:url" content={post.canonical_url || canonicalUrl(`/blog/${post.slug}`)} />
-        <meta property="og:title" content={seoTitle} />
-        {seoDescription && <meta property="og:description" content={seoDescription} />}
-        {ogImage && <meta property="og:image" content={ogImage} />}
-        <meta property="og:type" content="article" />
-        <meta property="article:published_time" content={post.published_at} />
-        {post.updated_at && (
-          <meta property="article:modified_time" content={post.updated_at} />
-        )}
-        {schemas.map((schema, i) => (
-          <script key={i} type="application/ld+json">
-            {JSON.stringify(schema).replace(/</g, '\\u003c')}
-          </script>
-        ))}
-        <script type="application/ld+json">
-          {JSON.stringify(
-            buildBreadcrumbJsonLd([
-              { name: 'Home', path: '/' },
-              { name: 'Blog', path: '/blog' },
-              { name: post.title, path: `/blog/${post.slug}` },
-            ]),
-          ).replace(/</g, '\\u003c')}
-        </script>
-      </Helmet>
+      {/*
+        Goes through <SEO> rather than a hand-rolled <Helmet> (US-SEO005).
+        Posts previously emitted og:image only when one existed and no
+        twitter:card at all, so every post shared as a bare link on X and got
+        no image on a first scrape elsewhere. <SEO> also falls back to the
+        sitewide card for a post with no featured image, instead of no image.
+        It escapes `<` in the JSON-LD payload, which post titles and excerpts
+        need because they are operator- and LLM-authored.
+      */}
+      <SEO
+        title={seoTitle}
+        description={seoDescription ?? post.excerpt ?? post.title}
+        path={`/blog/${post.slug}`}
+        canonical={post.canonical_url || canonicalUrl(`/blog/${post.slug}`)}
+        ogType="article"
+        image={ogImage}
+        imageAlt={ogImage ? post.title : undefined}
+        publishedTime={post.published_at}
+        modifiedTime={post.updated_at ?? undefined}
+        jsonLd={[
+          ...schemas,
+          buildBreadcrumbJsonLd([
+            { name: 'Home', path: '/' },
+            { name: 'Blog', path: '/blog' },
+            { name: post.title, path: `/blog/${post.slug}` },
+          ]),
+        ]}
+      />
 
       <article className="blog-article">
         <div className="container" style={{ maxWidth: 760 }}>

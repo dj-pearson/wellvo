@@ -3069,3 +3069,52 @@ reported TS2322 at pages/+onRenderHtml.tsx(299,7) and exited 2; removing it
 returned to exit 0. npm run build exits 0, 34 documents, 33 sitemap URLs;
 vitest 73/73. No CI change needed — `npm run build` begins with tsc -b, so the
 website-check workflow added in US-SEO001 already covers pages/ from now on.
+
+================================================================================
+US-SEO005 — the comparison pages had no social card at all              2026-09-10
+================================================================================
+Iteration 5. Started as "add og:image dimensions" and turned out to be larger.
+
+Two page families never went through <SEO>. ComparePost.tsx and BlogPost.tsx
+each hand-rolled a <Helmet>, and between them they emitted:
+
+  * no og:image on any of the 10 comparison pages
+  * no twitter:card on either family
+  * on a blog post, og:image ONLY when the post had a featured image
+
+Those 10 comparison pages are the highest commercial-intent URLs in the whole
+pSEO strategy — "Daily OK vs. Life Alert" and friends — and they are the URLs
+most likely to be pasted into a family group chat. Every one of them shared as
+a bare blue link.
+
+  mod  website/src/components/SEO.tsx
+  mod  website/src/pages/ComparePost.tsx     (Helmet -> SEO)
+  mod  website/src/pages/BlogPost.tsx        (Helmet -> SEO)
+  add  website/src/test/seo.test.tsx
+  mod  website/src/test/blogSeed.test.tsx
+
+<SEO> gained what those two needed so the migration did not lose anything:
+per-page `image`/`imageAlt`, an explicit `canonical` override (a post may point
+at an original elsewhere), `publishedTime`/`modifiedTime` gated on
+ogType="article", plus og:locale and og:image:width/height/type for everyone.
+
+The dimensions are measured, not assumed. src/test/seo.test.tsx reads the PNG's
+IHDR chunk and asserts the declared 1200x630 matches the actual file, because a
+wrong number is worse than none — the consumer crops to the ratio it is told.
+They are emitted only for the sitewide image: a post's featured image is a
+remote upload whose size is not knowable at render time, so nothing is claimed.
+
+One thing nearly lost in the migration and deliberately kept: BlogPost escaped
+`<` to < in its JSON-LD and the shared component did not. Post titles and
+excerpts are operator- and LLM-authored, so `</script>` in a headline was a real
+path out of the script tag. serializeJsonLd() now does it for every caller.
+
+Blog titles change suffix from " — Daily OK" to " | Daily OK", matching the rest
+of the site. That is a visible SERP change and it is the point.
+
+VERIFIED against dist, not intent: compare pages now carry og:image with
+width/height/type, og:locale, article timestamps and twitter:card; every page
+has exactly one og:image, one twitter:card, one canonical and one <title> (no
+duplicates from the migration); all 59 emitted JSON-LD blocks parse as JSON;
+the compare page's three schemas are intact as one array. tsc -b 0, build 0,
+34 documents, 33 sitemap URLs, vitest 84/84 (was 73).

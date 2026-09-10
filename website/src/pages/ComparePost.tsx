@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { Helmet } from 'react-helmet-async'
+import SEO from '../components/SEO'
 import { canonicalUrl } from '../lib/canonical'
 import { competitors, getCompetitor, type FeatureRow } from '../data/competitors'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
@@ -76,18 +76,23 @@ export default function ComparePost() {
 
   return (
     <>
-      <Helmet>
-        <title>{`${title} | Daily OK`}</title>
-        <meta name="description" content={description} />
-        <link rel="canonical" href={canonical} />
-        <meta property="og:title" content={title} />
-        <meta property="og:description" content={description} />
-        <meta property="og:type" content="article" />
-        <meta property="og:url" content={canonical} />
-        <script type="application/ld+json">{JSON.stringify(faqJsonLd)}</script>
-        <script type="application/ld+json">{JSON.stringify(articleJsonLd)}</script>
-        <script type="application/ld+json">{JSON.stringify(breadcrumbJsonLd)}</script>
-      </Helmet>
+      {/*
+        Goes through <SEO> rather than a hand-rolled <Helmet> (US-SEO005).
+        These ten comparison pages are the highest commercial-intent URLs on
+        the site and the ones most likely to be pasted into a group chat, and
+        they were shipping with no og:image and no twitter:card at all — so
+        every share rendered as a bare blue link.
+      */}
+      <SEO
+        title={title}
+        description={description}
+        path={`/compare/daily-ok-vs-${competitor.slug}`}
+        canonical={canonical}
+        ogType="article"
+        publishedTime={competitor.last_verified}
+        modifiedTime={competitor.last_verified}
+        jsonLd={[faqJsonLd, articleJsonLd, breadcrumbJsonLd]}
+      />
 
       <article className="compare-article">
         <div className="container" style={{ maxWidth: 960 }}>
