@@ -1,0 +1,70 @@
+# Build gate for the marketing website.
+#
+# This exists because of US-SEO001. `npm run build` starts with `tsc -b`, and
+# a Node-flavoured test file added under src/ (which tsconfig.app.json typed
+# with browser-only libs) made that step exit 2. Every SEO surface this repo
+# owns — prerendered HTML, canonicals, JSON-LD, sitemap.xml, the IndexNow
+# ping — is produced by the later steps of that same script, so a red `tsc -b`
+# means Cloudflare Pages fails the deploy and the live site silently freezes
+# on its last good build. Nothing in CI ran the website build, so it reached
+# main unnoticed.
+#
+# The build is the assertion: it typechecks, prerenders all routes, and
+# regenerates the sitemap, so a break in any of them fails here instead of in
+# a Pages deploy nobody is watching.
+#
+# `npm run lint` is deliberately NOT a step yet: eslint currently reports 9
+# pre-existing errors in website/src, so adding it here would gate every PR on
+# red from day one. Cleaning those up and then adding the step is US-SEO002 in
+# seo-prd.json.
+name: Check Website
+
+on:
+  pull_request:
+    paths:
+      - 'website/**'
+      - '.github/workflows/website-check.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'website/**'
+      - '.github/workflows/website-check.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install dependencies
+        working-directory: website
+        run: npm ci
+
+      - name: Unit tests
+        working-directory: website
+        run: npm test
+
+      # Runs tsc -b, vite build, vike prerender, the sitemap generator and the
+      # IndexNow script. INDEXNOW_SUBMIT is unset here, so the ping stays a
+      # dry run — CI must never announce URLs to Bing on a pull request.
+      - name: Build (typecheck + prerender + sitemap)
+        working-directory: website
+        run: npm run build
+
+      # A prerender that silently emits nothing still "succeeds"; the sitemap
+      # is the observable proof that real HTML came out the other end.
+      - name: Assert the sitemap was generated and is non-empty
+        working-directory: website
+        run: |
+          test -s dist/client/sitemap.xml
+          grep -q '<loc>https://dailyok.net/</loc>' dist/client/sitemap.xml
+          echo "sitemap URLs: $(grep -c '<loc>' dist/client/sitemap.xml)"

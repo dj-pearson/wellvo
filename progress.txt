@@ -2902,3 +2902,53 @@ still-live net.dailyok.* namespace, replay protection across accounts, and a
 staged rollout — because a bug in that path blocks every real purchase. Several
 iterations of work, and untestable from an environment with no store access, so
 it is written down rather than half-attempted.
+
+================================================================================
+US-SEO001 — the website build was red, so nothing shipped                2026-09-10
+================================================================================
+Iteration 1 of an SEO loop. The first SEO element is the one that gates every
+other one: whether the site deploys at all.
+
+website/package.json's build is a chain —
+
+    tsc -b && vite build && vike prerender && generate-sitemap && indexnow-ping
+
+— and `tsc -b` exits 2 on origin/main. src/test/fonts.test.ts arrived with
+US-WEB020 (b6924bf) using node:fs, node:path and __dirname, but tsconfig.app.json
+includes all of src/ with types ["vite/client"], so four errors. Cloudflare Pages
+runs that same script, so the deploy has been failing since yesterday and the
+live site is frozen on its last good build. Every canonical, JSON-LD block,
+sitemap entry and IndexNow ping is produced by the steps AFTER the one that
+fails, so no SEO work in this loop could reach production until this was fixed.
+
+The tests themselves were never broken — `npx vitest run` is 67/67 green. Only
+the typecheck was, and only because the tests were being typed as browser code.
+
+  add  website/tsconfig.test.json
+  mod  website/tsconfig.json          (reference the new project)
+  mod  website/tsconfig.app.json      (exclude src/test)
+  add  .github/workflows/website-check.yml
+
+The fix gives the tests their own project with types ["node", "vite/client",
+"vitest/globals", "@testing-library/jest-dom"] rather than widening the app
+project — app code must not gain node globals to satisfy a test file. vite/client
+is in that list because the tests import components that import .css.
+
+VERIFIED: npx tsc -b exits 0; npm run build exits 0, 34 HTML documents
+prerendered, sitemap written with 33 URLs (1 noindex skipped), IndexNow correctly
+dry-run without INDEXNOW_SUBMIT; vitest 67/67.
+
+The new workflow runs tests + build on website/** PRs and asserts sitemap.xml
+came out non-empty — a prerender that emits nothing otherwise "succeeds". There
+was no website workflow at all before, which is why a red build reached main
+unseen.
+
+`npm run lint` is deliberately NOT a step yet: 9 pre-existing eslint errors would
+gate every PR on red from day one. Filed as US-SEO002.
+
+NOT fixed, filed in the new seo-prd.json: US-SEO002 (lint), US-SEO003 (a JSX
+comment block emitted as literal text into the head of all 34 pages), US-SEO004
+(a Cloudflare Insights beacon shipping with the literal token
+YOUR_CF_ANALYTICS_TOKEN), US-SEO005 (og:image has no width/height/type and no
+per-page override), US-SEO006 (GSC/Bing/Yandex verification still PASTE_*
+placeholders — blocked on tokens only the owner has).

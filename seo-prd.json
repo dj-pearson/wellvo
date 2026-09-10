@@ -1,0 +1,85 @@
+{
+  "project": "Daily OK — SEO iteration loop",
+  "branchName": "claude/seo-iterative-loop-f2xzk2",
+  "description": "One SEO element repaired or improved per iteration, evidence-first: every story is verified against the actual prerendered output in website/dist/client, not against intent. Work that does not fit a single iteration is written down here rather than half-attempted. Strategy context lives in pSEO.md and docs/SEO_STRATEGY.md.",
+  "userStories": [
+    {
+      "id": "US-SEO001",
+      "title": "Unbreak the website production build so SEO changes can actually deploy",
+      "description": "As the site owner, I want `npm run build` to succeed so that Cloudflare Pages keeps deploying, because every SEO surface this repo owns (prerendered HTML, canonicals, JSON-LD, sitemap.xml, the IndexNow ping) is emitted by that one script.",
+      "acceptanceCriteria": [
+        "`npx tsc -b` exits 0 in website/",
+        "`npm run build` exits 0 and prerenders every route",
+        "dist/client/sitemap.xml is regenerated and non-empty",
+        "A GitHub Actions workflow gates website/** pull requests on the build"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Root cause: src/test/fonts.test.ts (added by US-WEB020) uses node:fs and __dirname, but tsconfig.app.json includes src/ with types ['vite/client'] only, so tsc -b exited 2 and the whole build script stopped before vite build. Fixed by giving the tests their own project (tsconfig.test.json) and excluding src/test from the app project. Guarded by .github/workflows/website-check.yml."
+    },
+    {
+      "id": "US-SEO002",
+      "title": "Make website eslint clean and add it to the CI gate",
+      "description": "As a maintainer, I want `npm run lint` green and gated so that the website check workflow can enforce it the way edge-functions-check.yml enforces deno lint.",
+      "acceptanceCriteria": [
+        "`npm run lint` exits 0 in website/",
+        "No rule is disabled wholesale to get there — each error is fixed or suppressed inline with a reason",
+        "A `Lint` step is added back to .github/workflows/website-check.yml and passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "9 errors / 10 warnings today, concentrated in react-hooks/set-state-in-effect (Blog.tsx, BlogPost.tsx, admin/*) and @typescript-eslint/no-explicit-any (utils/analytics.ts). The set-state-in-effect ones are real refactors of the blog data-loading path, not cosmetic — likely its own iteration."
+    },
+    {
+      "id": "US-SEO003",
+      "title": "Stop leaking a JSX comment block into every page's <head>",
+      "description": "As a crawler, I want the document head to contain only markup so that the shipped HTML is valid and not padded with source commentary.",
+      "acceptanceCriteria": [
+        "No `{/*` sequence appears in any file under dist/client",
+        "The explanatory prose survives as a real source comment in pages/+onRenderHtml.tsx or as an HTML comment",
+        "fonts.test.ts still passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "pages/+onRenderHtml.tsx builds the head as a raw string, so the `{/* ... */}` wrapper around the self-hosted-Inter rationale is emitted verbatim as text into the head of all 34 prerendered pages. Roughly 1.3 KB of literal JSX comment on every document."
+    },
+    {
+      "id": "US-SEO004",
+      "title": "Remove or configure the placeholder Cloudflare Insights beacon",
+      "description": "As a visitor, I don't want a third-party script requested on every page with a token that was never filled in, because it costs a connection on the LCP path and returns nothing.",
+      "acceptanceCriteria": [
+        "No script tag ships with a literal PLACEHOLDER/YOUR_* token",
+        "Either a real token is injected from an env var at build time, or the beacon is removed",
+        "If it stays, it is gated behind the same consent flow as GA4 (src/lib/consent.ts)"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "dist/client/**/index.html currently carries `data-cf-beacon='{\"token\": \"YOUR_CF_ANALYTICS_TOKEN\"}'`. Note Cloudflare Pages can also inject Web Analytics automatically, in which case this hand-rolled tag is a duplicate."
+    },
+    {
+      "id": "US-SEO005",
+      "title": "Complete the social card contract: image dimensions, type, and twitter:site",
+      "description": "As a link shared into Slack/X/iMessage, I want a fully-specified card so previews render large instead of falling back to a small thumbnail while the image is fetched.",
+      "acceptanceCriteria": [
+        "og:image:width, og:image:height and og:image:type emitted alongside og:image",
+        "Dimensions match the real og-image.png rather than being assumed",
+        "SEO.tsx accepts an optional per-page image so comparison and /what-to-do pages can override the sitewide default"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "website/src/components/SEO.tsx ships one hard-coded og-image.png for all 33 indexable URLs."
+    },
+    {
+      "id": "US-SEO006",
+      "title": "Land the search-console verification tokens",
+      "description": "As the site owner, I want Google, Bing and Yandex ownership verified so that indexing coverage and query data are observable at all.",
+      "acceptanceCriteria": [
+        "Verification meta tags emitted from env vars, or ownership verified via DNS and the commented block deleted",
+        "No PASTE_* placeholder remains in pages/+onRenderHtml.tsx"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "The three tags are commented out with PASTE_*_TOKEN placeholders. Real tokens are secrets and are not in this repo — this story needs values from the owner, so it is blocked on input rather than on effort."
+    }
+  ]
+}
