@@ -73,6 +73,23 @@ jobs:
       # a JSX comment written inside it ships as visible text on every page
       # and nothing else complains. Assert against the emitted HTML, not the
       # source, because the emitted HTML is what crawlers read.
+      # US-SEO011. llms.txt is the manifest handed to AI crawlers. It is now
+      # generated from the prerendered output, and so is sitemap.xml — so if
+      # the two disagree, one of the generators is broken. Cross-checking them
+      # is stronger than either one asserting about itself.
+      - name: Assert llms.txt covers exactly the sitemap's URLs
+        working-directory: website
+        run: |
+          grep -o '<loc>[^<]*</loc>' dist/client/sitemap.xml \
+            | sed 's|<loc>||; s|</loc>||' | sort -u > /tmp/sitemap-urls.txt
+          grep -o 'https://dailyok\.net/[^ )]*' dist/client/llms.txt \
+            | grep -v '\.txt$' | sort -u > /tmp/llms-urls.txt
+          if ! diff -u /tmp/sitemap-urls.txt /tmp/llms-urls.txt; then
+            echo "::error::llms.txt and sitemap.xml disagree about which pages exist."
+            exit 1
+          fi
+          echo "llms.txt and sitemap.xml agree on $(wc -l < /tmp/llms-urls.txt) URLs"
+
       # US-SEO009. Titles and descriptions that overshoot the width Google
       # renders are invisible everywhere except the search result itself.
       - name: Assert SERP snippets fit the rendered width

@@ -3275,3 +3275,57 @@ VERIFIED in dist: comparison pages went from 1/1/1/1/1/1/4/11/12/14 to
 4/4/4/4/4/4/4/5/6/8; guides from 1/1/1/1/2/2 to 4/4/4/4/5/5. Minimum inbound
 across all 16 pSEO pages is now 4, up from 1. Zero follow links to /admin
 remain. tsc -b 0, build 0, snippet check 33/33 clean, vitest 114/114 (was 107).
+
+================================================================================
+US-SEO011 — llms.txt omitted the pages it exists to advertise           2026-09-10
+================================================================================
+Iteration 9. Diffed the URLs in llms.txt against the actual prerendered routes.
+
+llms.txt is the manifest handed to AI crawlers — the file the whole
+"get cited by ChatGPT/Perplexity/AI Overviews" half of pSEO.md rests on. It
+listed 18 of 33 indexable routes. The 15 it omitted were the plan itself:
+
+  * seven of the ten comparison pages (the same three that hogged the internal
+    links in US-SEO010 were the three that were listed — same root cause,
+    a hand-curated subset that never grew)
+  * the entire /what-to-do cluster, all seven pages
+  * /welfare-check-on-elderly-parent
+
+Worse, it carried a comment stating those guides were "NOT yet built, so they
+are deliberately omitted to avoid shipping dead links" — accurate when written,
+wrong ever since US-WEB005 built them. A stale exclusion note is more durable
+than a stale list, because it explains the absence and stops anyone looking.
+
+And all 17 URLs in it, plus 15 of 17 in llms-full.txt, used the no-slash form
+that production 308s (US-WEB010). Canonicals, the sitemap and internal links
+were all converted; these two files were missed. An agent that does not follow
+redirects got nothing from any of them.
+
+  add  website/scripts/generate-llms-txt.mjs
+  del  website/public/llms.txt              (now generated)
+  mod  website/public/llms-full.txt         (slash form + the missing cluster)
+  mod  website/package.json                 (build step)
+  mod  .github/workflows/website-check.yml
+
+The fix is to stop hand-maintaining it. The generator walks the same
+dist/client/**/index.html the sitemap generator walks, so a page cannot be
+published without appearing, and it reads each page's own <title> and meta
+description rather than a separate blurb, so the descriptions cannot drift from
+what the page says. That also means US-SEO008/009's rewritten snippets flowed
+into llms.txt automatically.
+
+Blog posts are excluded deliberately: they publish between builds through the
+generation webhook without a redeploy, so a build-time list of them would be
+wrong the moment it shipped. /blog is listed instead.
+
+llms-full.txt stays hand-written — it is long-form narrative, not a manifest —
+but it gained the "they aren't answering the phone" section it was missing
+entirely, and its comparison line now says all ten exist.
+
+The CI check diffs llms.txt against sitemap.xml. Both are generated from the
+same walk, so disagreement means a generator is broken; that is a stronger
+assertion than either file checking itself.
+
+VERIFIED: llms.txt covers 33 of 33 routes with 0 URLs in the redirecting form,
+up from 18 of 33 with 17 redirecting. The two manifests agree on all 33 URLs.
+tsc -b 0, build 0, snippet check 33/33, vitest 114/114.

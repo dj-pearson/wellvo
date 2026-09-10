@@ -34,7 +34,7 @@ wearable — it is a phone app on iOS and Android. Optional mood tracking and
 pattern alerts surface gradual changes in routine that can signal e.g.
 dementia progression.
 
-## Pricing (https://dailyok.net/pricing)
+## Pricing (https://dailyok.net/pricing/)
 
 Every plan includes a 7-day free trial.
 
@@ -54,7 +54,7 @@ FAQ highlights:
 - *What are Critical Alerts?* Family+ feature: missed-check-in alerts bypass Do
   Not Disturb so a late-night escalation is never silenced.
 
-## Elderly care use case (https://dailyok.net/elderly-care)
+## Elderly care use case (https://dailyok.net/elderly-care/)
 
 Daily OK for an aging parent living alone: a low-friction one-tap morning
 confirmation instead of a daily phone call the parent may resent or forget.
@@ -62,7 +62,7 @@ Escalation gives the adult child confidence without surveillance. Pattern
 alerts highlight gradual routine changes (later check-ins, missed days) that
 can be early signals of cognitive or health decline.
 
-## Secondary use case: child & teen safety (https://dailyok.net/child-safety)
+## Secondary use case: child & teen safety (https://dailyok.net/child-safety/)
 
 The same daily check-in also serves children and teens: consent-based check-ins
 (the child taps "I'm OK" after school, on arrival, etc.) without continuous GPS
@@ -71,24 +71,46 @@ monitoring. This is a secondary use case — Daily OK leads as a senior check-in
 
 ## Comparisons
 
-- **vs Life Alert (https://dailyok.net/compare/daily-ok-vs-life-alert)** — Life
+- **vs Life Alert (https://dailyok.net/compare/daily-ok-vs-life-alert/)** — Life
   Alert is a hardware medical-alert pendant with monitoring contracts; Daily OK
   is a software daily check-in with no hardware and a monthly subscription. Daily
   OK suits proactive daily reassurance; a pendant suits in-the-moment fall SOS.
-- **vs Life360 (https://dailyok.net/compare/daily-ok-vs-life360)** — Life360 is
+- **vs Life360 (https://dailyok.net/compare/daily-ok-vs-life360/)** — Life360 is
   continuous family location tracking; Daily OK is a consented daily check-in
   with no live location. Choose Daily OK for privacy-respecting reassurance,
   Life360 for real-time whereabouts.
-- **vs Snug Safety (https://dailyok.net/compare/daily-ok-vs-snug-safety)** — Both
+- **vs Snug Safety (https://dailyok.net/compare/daily-ok-vs-snug-safety/)** — Both
   are daily check-in apps; compared on escalation chain, pricing, and privacy.
-- **All comparisons:** https://dailyok.net/compare
+- **All comparisons:** https://dailyok.net/compare/ — all ten head-to-heads,
+  including Aloe Care Health, Apple Watch fall detection, Bay Alarm Medical,
+  CheckinBee, Lively, Medical Guardian and MobileHelp.
+
+## "They aren't answering the phone" — what to do
+
+The most common moment someone goes looking for help is the one where a call
+goes unanswered. These guides give an ordered plan rather than reassurance: what
+to check in the first 30 minutes, who to contact before escalating, the point at
+which silence justifies a police welfare check, and the exact words to use when
+requesting one. The advice genuinely differs by relationship, so each guide is
+written for one.
+
+- **Index:** https://dailyok.net/what-to-do/
+- Elderly parent: https://dailyok.net/what-to-do/elderly-father-not-answering-phone/
+- Grandparent: https://dailyok.net/what-to-do/grandpa-wont-pick-up/
+- Teenager: https://dailyok.net/what-to-do/teenage-daughter-not-answering-phone/
+- College student: https://dailyok.net/what-to-do/college-student-not-answering-phone/
+- Spouse or partner: https://dailyok.net/what-to-do/spouse-not-answering-phone/
+- Adult child: https://dailyok.net/what-to-do/adult-child-not-answering-phone/
+- **How to request a welfare check:** https://dailyok.net/welfare-check-on-elderly-parent/
+  — who can ask, the non-emergency number to call, what to say, what happens
+  when officers arrive, and when to call 911 instead.
 
 ## Legal & support
 
-- Support: https://dailyok.net/support
-- Privacy policy: https://dailyok.net/privacy
-- Terms of use: https://dailyok.net/terms
-- Accessibility statement: https://dailyok.net/accessibility
-- Cookie policy: https://dailyok.net/cookies
-- DMCA policy: https://dailyok.net/dmca
-- Blog: https://dailyok.net/blog
+- Support: https://dailyok.net/support/
+- Privacy policy: https://dailyok.net/privacy/
+- Terms of use: https://dailyok.net/terms/
+- Accessibility statement: https://dailyok.net/accessibility/
+- Cookie policy: https://dailyok.net/cookies/
+- DMCA policy: https://dailyok.net/dmca/
+- Blog: https://dailyok.net/blog/

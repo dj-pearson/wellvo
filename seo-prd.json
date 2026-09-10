@@ -135,6 +135,20 @@
       "priority": 10,
       "passes": true,
       "notes": "ComparePost used competitors.filter(...).slice(0, 3) on a fixed-order array, so all ten pages pointed at the same first three: Life Alert 14 inbound, Life360 12, Snug Safety 11, and one each — from the hub — for the other six. The /what-to-do guides were worse: they linked up to the hub and sideways to nothing, one inbound link each against the hub's 32. rotatingSiblings() takes the next N entries after the current index with wraparound, so every item appears in exactly N sibling blocks regardless of array order. Measured in dist: comparison pages went from min 1 to min 4, guides from min 1 to min 4."
+    },
+    {
+      "id": "US-SEO011",
+      "title": "Generate llms.txt instead of hand-maintaining a stale one",
+      "description": "As an AI crawler, I want the site's manifest to list every page that exists, at the URL that actually serves 200, so that the pages built for AI citation are the ones I can find.",
+      "acceptanceCriteria": [
+        "llms.txt lists every indexable prerendered route",
+        "Every URL in llms.txt and llms-full.txt uses the trailing-slash form production serves",
+        "The file is generated at build time from the prerendered output, not hand-edited",
+        "CI fails if llms.txt and sitemap.xml disagree about which pages exist"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "The hand-maintained file listed 18 of 33 routes. The 15 missing were the pSEO plan itself: seven of ten comparison pages, the whole /what-to-do cluster and /welfare-check-on-elderly-parent — and it carried a comment calling those guides 'not yet built' long after US-WEB005 built them. Every URL was in the no-slash form that production 308s (US-WEB010), so an agent that does not follow redirects got nothing. scripts/generate-llms-txt.mjs now walks the same prerendered output the sitemap walks and reads each page's own title and meta description, so blurbs cannot drift from the page. Blog posts are excluded on purpose: they publish between builds via the webhook, so a build-time list of them is wrong on arrival. Verified 33/33 routes, 0 redirecting URLs, and CI diffs llms.txt against sitemap.xml."
     }
   ]
 }
