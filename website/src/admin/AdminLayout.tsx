@@ -7,7 +7,7 @@ import {
   BarChart3,
   LogOut,
 } from 'lucide-react'
-import { useAdminAuth } from './AdminAuthProvider'
+import { useAdminAuth } from './adminAuthContext'
 import './admin.css'
 
 export default function AdminLayout() {

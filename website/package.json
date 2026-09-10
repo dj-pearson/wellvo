@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build && vike prerender && node scripts/emit-404.mjs && node scripts/generate-sitemap.mjs && node scripts/generate-llms-txt.mjs && node scripts/indexnow-ping.mjs",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"

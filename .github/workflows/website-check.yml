@@ -12,11 +12,7 @@
 # The build is the assertion: it typechecks, prerenders all routes, and
 # regenerates the sitemap, so a break in any of them fails here instead of in
 # a Pages deploy nobody is watching.
-#
-# `npm run lint` is deliberately NOT a step yet: eslint currently reports 9
-# pre-existing errors in website/src, so adding it here would gate every PR on
-# red from day one. Cleaning those up and then adding the step is US-SEO002 in
-# seo-prd.json.
+
 name: Check Website
 
 on:
@@ -48,6 +44,13 @@ jobs:
       - name: Install dependencies
         working-directory: website
         run: npm ci
+
+      # US-SEO002. Clean since the react-hooks and react-refresh violations were
+      # fixed; --max-warnings 0 keeps it that way, because a warning nobody
+      # fails on is a warning that accumulates.
+      - name: Lint
+        working-directory: website
+        run: npm run lint
 
       - name: Unit tests
         working-directory: website

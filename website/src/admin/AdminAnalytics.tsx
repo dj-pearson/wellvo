@@ -6,21 +6,35 @@ import './admin.css'
 export default function AdminAnalytics() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [series, setSeries] = useState<DailyPoint[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loadedDays, setLoadedDays] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [days, setDays] = useState(30)
+  const loading = loadedDays !== days
 
   const cfDashboardUrl = import.meta.env.VITE_CLOUDFLARE_ANALYTICS_URL as string | undefined
 
+  // `loading` is derived, not set synchronously inside the effect: it is
+  // simply "the window on screen is not the window we have data for"
+  // (US-SEO002). Setting it in the effect body queued a second render on every
+  // change of `days` for no added information.
   useEffect(() => {
-    setLoading(true)
+    let cancelled = false
     loadMetrics(days)
       .then((res) => {
+        if (cancelled) return
         setMetrics(res.metrics)
         setSeries(res.timeseries)
+        setError(null)
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load'))
-      .finally(() => setLoading(false))
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load')
+      })
+      .finally(() => {
+        if (!cancelled) setLoadedDays(days)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [days])
 
   return (

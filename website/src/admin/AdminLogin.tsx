@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
-import { useAdminAuth } from './AdminAuthProvider'
+import { useAdminAuth } from './adminAuthContext'
 import './admin.css'
 
 export default function AdminLogin() {

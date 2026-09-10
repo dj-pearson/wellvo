@@ -112,7 +112,6 @@ export default function AdminBlogEditor() {
         .finally(() => setLoading(false))
       return () => { cancelled = true }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, mode, editor])
 
   const save = async (e: FormEvent | null, overrides: Partial<Draft> = {}, opts: { force?: boolean } = {}) => {
@@ -740,6 +739,12 @@ function SeoScorePanel({ draft }: { draft: Draft }) {
   const [err, setErr] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
 
+  // Extracted so the dependency array holds a statically-checkable value
+  // rather than a call expression (US-SEO002). A joined string is the right
+  // key here: the effect should rerun when the SET of tags changes, not when
+  // the array identity does, and the array is rebuilt on every keystroke.
+  const tagsKey = draft.tags.join('|')
+
   // Debounce-rescore as the draft changes. 600ms idle is enough to avoid
   // hammering the function while still feeling live.
   useEffect(() => {
@@ -771,7 +776,7 @@ function SeoScorePanel({ draft }: { draft: Draft }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     draft.title, draft.slug, draft.excerpt, draft.content_html,
-    draft.seo_title, draft.seo_description, draft.tags.join('|'),
+    draft.seo_title, draft.seo_description, tagsKey,
   ])
 
   const score = result?.score ?? null
@@ -1143,7 +1148,13 @@ function CitationsPanel({ postId }: { postId: string }) {
     }
   }
 
-  useEffect(() => { void fetchCites() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [postId])
+  // fetchCites is re-created on every render, so listing it would refetch on
+  // every render. The effect is keyed on postId, which is what actually
+  // changes what gets fetched. The directive has to sit on its own line —
+  // inside the effect body it targeted the wrong line and did nothing
+  // (US-SEO002).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { void fetchCites() }, [postId])
 
   const remove = async (id: string) => {
     setBusyId(id)

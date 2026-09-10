@@ -5,7 +5,7 @@ import DOMPurify from 'dompurify'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
 import { buildPostSchemas } from '../lib/schemaMarkup'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
-import { useBlogSeed } from '../lib/blogSeed'
+import { useBlogSeed } from '../lib/blogSeedContext'
 import { BLOG_HTML_ALLOWLIST, POST_COLUMNS, type PublicPost } from '../lib/blogTypes'
 import { canonicalUrl } from '../lib/canonical'
 import './Blog.css'
@@ -21,18 +21,18 @@ export default function BlogPost() {
   const { blogPost } = useBlogSeed()
   const seeded = blogPost && blogPost.slug === slug ? blogPost : null
 
+  // Derived during render, not discovered in an effect: whether Supabase is
+  // configured is a synchronous fact about the build (US-SEO002).
+  const needsFetch = Boolean(slug) && seeded === null && isSupabaseConfigured()
+  const unconfigured = Boolean(slug) && seeded === null && !isSupabaseConfigured()
+
   const [post, setPost] = useState<PublicPost | null>(seeded)
-  const [loading, setLoading] = useState(seeded === null)
-  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(seeded === null && !unconfigured)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const error = unconfigured ? 'Blog is not configured yet.' : fetchError
 
   useEffect(() => {
-    if (!slug) return
-    if (seeded) return
-    if (!isSupabaseConfigured()) {
-      setError('Blog is not configured yet.')
-      setLoading(false)
-      return
-    }
+    if (!needsFetch) return
     const supabase = getSupabase()
     supabase
       .from('blog_posts')
@@ -43,19 +43,19 @@ export default function BlogPost() {
       .maybeSingle()
       .then(({ data, error: err }) => {
         if (err) {
-          setError(err.message)
+          setFetchError(err.message)
           setLoading(false)
           return
         }
         if (!data) {
-          setError('not found')
+          setFetchError('not found')
           setLoading(false)
           return
         }
         setPost(data as PublicPost)
         setLoading(false)
       })
-  }, [slug, seeded])
+  }, [needsFetch, slug])
 
   const safeHtml = useMemo(() => {
     if (!post?.content_html) return ''

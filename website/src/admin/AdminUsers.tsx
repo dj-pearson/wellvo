@@ -77,9 +77,13 @@ function FamilyTreeView({ search, onSelect }: { search: string; onSelect: (id: s
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setError(null)
+    // Reset inside the debounce rather than synchronously in the effect body
+    // (US-SEO002). It also matches what a debounced search should look like:
+    // the previous results stay put while the user is still typing, and the
+    // spinner appears when a request actually goes out.
     const timer = setTimeout(() => {
+      setLoading(true)
+      setError(null)
       listFamilyTree({ search })
         .then((res) => { if (!cancelled) setData(res) })
         .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load') })
@@ -286,9 +290,13 @@ function FlatList({ search, onSelect }: { search: string; onSelect: (id: string)
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setError(null)
+    // Reset inside the debounce rather than synchronously in the effect body
+    // (US-SEO002). It also matches what a debounced search should look like:
+    // the previous results stay put while the user is still typing, and the
+    // spinner appears when a request actually goes out.
     const timer = setTimeout(() => {
+      setLoading(true)
+      setError(null)
       listUsers({ search, limit: PAGE_SIZE, offset })
         .then((res) => {
           if (cancelled) return

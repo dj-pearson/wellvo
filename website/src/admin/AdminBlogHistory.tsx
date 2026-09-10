@@ -48,7 +48,13 @@ export default function AdminBlogHistory() {
     }
   }
 
-  useEffect(() => { fetchRevisions(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [id])
+  // fetchRevisions is re-created on every render, so listing it would refetch on
+  // every render. The effect is keyed on id, which is what actually
+  // changes what gets fetched. The directive has to sit on its own line —
+  // inside the effect body it targeted the wrong line and did nothing
+  // (US-SEO002).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchRevisions() }, [id])
 
   const toggleSelect = (revisionId: string) => {
     if (selA === revisionId) { setSelA(null); return }

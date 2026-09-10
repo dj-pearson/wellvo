@@ -27,8 +27,8 @@
         "A `Lint` step is added back to .github/workflows/website-check.yml and passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "9 errors / 10 warnings today, concentrated in react-hooks/set-state-in-effect (Blog.tsx, BlogPost.tsx, admin/*) and @typescript-eslint/no-explicit-any (utils/analytics.ts). The set-state-in-effect ones are real refactors of the blog data-loading path, not cosmetic — likely its own iteration."
+      "passes": true,
+      "notes": "Went from 9 errors / 10 warnings to zero, and the gate runs with --max-warnings 0. The real fixes: two modules exporting a component alongside plain functions were split (blogSeed, AdminAuthProvider) rather than suppressed — that rule is about Fast Refresh being unable to hot-swap such a file, which suppressing does not change. Five set-state-in-effect errors became derived render-time state: whether Supabase is configured is a synchronous fact about the build, and AdminAnalytics' loading flag is just 'the window on screen is not the window we have data for'. Four eslint-disable directives sat INSIDE the effect body, where disable-next-line targeted the wrong line and silenced nothing — they now sit on their own line with the reason written down."
     },
     {
       "id": "US-SEO003",

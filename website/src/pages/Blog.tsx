@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
-import { useBlogSeed } from '../lib/blogSeed'
+import { useBlogSeed } from '../lib/blogSeedContext'
 import { POST_SUMMARY_COLUMNS, type PublicPostSummary } from '../lib/blogTypes'
 import { canonicalUrl } from '../lib/canonical'
 import './Blog.css'
@@ -13,17 +13,22 @@ export default function Blog() {
   // no path into the blog at all (US-WEB008). Absent on client-side
   // navigation and for a build with no Supabase config — then we fetch.
   const { blogIndex } = useBlogSeed()
+
+  // Whether Supabase is configured is a synchronous fact about the build, not
+  // something to discover in an effect. Deriving it during render — rather
+  // than setting error state from inside useEffect — is what
+  // react-hooks/set-state-in-effect is asking for, and it removes a render
+  // pass on every unconfigured build (US-SEO002).
+  const needsFetch = blogIndex === null && isSupabaseConfigured()
+  const unconfigured = blogIndex === null && !isSupabaseConfigured()
+
   const [posts, setPosts] = useState<PublicPostSummary[]>(blogIndex ?? [])
-  const [loading, setLoading] = useState(blogIndex === null)
-  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(needsFetch)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const error = unconfigured ? 'Blog is not configured yet.' : fetchError
 
   useEffect(() => {
-    if (blogIndex !== null) return
-    if (!isSupabaseConfigured()) {
-      setError('Blog is not configured yet.')
-      setLoading(false)
-      return
-    }
+    if (!needsFetch) return
     const supabase = getSupabase()
     supabase
       .from('blog_posts')
@@ -34,14 +39,14 @@ export default function Blog() {
       .limit(100)
       .then(({ data, error: err }) => {
         if (err) {
-          setError(err.message)
+          setFetchError(err.message)
           setLoading(false)
           return
         }
         setPosts((data as PublicPostSummary[]) ?? [])
         setLoading(false)
       })
-  }, [blogIndex])
+  }, [needsFetch])
 
   return (
     <>

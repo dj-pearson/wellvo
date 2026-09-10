@@ -49,7 +49,13 @@ export default function AdminBlogRefresh() {
     }
   }
 
-  useEffect(() => { void fetchItems() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [filter])
+  // fetchItems is re-created on every render, so listing it would refetch on
+  // every render. The effect is keyed on filter, which is what actually
+  // changes what gets fetched. The directive has to sit on its own line —
+  // inside the effect body it targeted the wrong line and did nothing
+  // (US-SEO002).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { void fetchItems() }, [filter])
 
   const propose = async (item: RefreshQueueItem) => {
     setBusyId(item.id)
