@@ -75,6 +75,12 @@ struct ContentView: View {
         }
         .animation(reduceMotion ? nil : .easeInOut, value: authViewModel.authState)
         .animation(reduceMotion ? nil : .easeInOut, value: authViewModel.biometricLocked)
+        .onReceive(NotificationCenter.default.publisher(for: AppDelegate.showDashboardRequested)) { _ in
+            // "View Details" on a location / low-battery / missed-check-in
+            // notification. The action already brings the app forward; this
+            // decides where it lands.
+            appState.selectedTab = .dashboard
+        }
         .onChange(of: authViewModel.authState) { newState in
             if newState == .unauthenticated {
                 appState.currentUserRole = nil

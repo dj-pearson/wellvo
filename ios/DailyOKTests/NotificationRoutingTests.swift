@@ -19,6 +19,15 @@ final class NotificationRoutingTests: XCTestCase {
         XCTAssertEqual(NotificationRoute.route(for: "CALL_RECEIVER_ACTION"), .callReceiver)
     }
 
+    /// The server attaches LOCATION_ALERT to geofence, low-battery and viewer
+    /// alerts as of the same change that registered this route. Before it, the
+    /// registered "View Details" action mapped to `.none` — it opened the app
+    /// (the action is `.foreground`) and then sat on whatever screen the owner
+    /// had left behind.
+    func testViewDetailsActionRoutesToDetails() {
+        XCTAssertEqual(NotificationRoute.route(for: "VIEW_LOCATION_ACTION"), .viewDetails)
+    }
+
     func testDefaultActionOpensApp() {
         XCTAssertEqual(NotificationRoute.route(for: UNNotificationDefaultActionIdentifier), .openApp)
     }

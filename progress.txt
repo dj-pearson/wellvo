@@ -4157,3 +4157,66 @@ change to their app, not a fix.
 NOT TESTED as a unit: this is a scene-phase side effect and a rendering order,
 neither of which a hosted XCTest can meaningfully assert. It wants a device
 check — enable Face ID lock, background the app, look at the App Switcher.
+
+================================================================================
+iOS improvement loop — iteration 10/15
+================================================================================
+
+FOUND: the owner's missed-check-in alert has no action buttons, and never had.
+
+Three notification categories are registered by the app. Cross-checking them
+against what the backend actually sends:
+
+  registered, sent      CHECKIN_REQUEST    (the receiver's reminder)
+  registered, sent      URGENT_ALERT       (need help / call me)
+  registered, NEVER SENT LOCATION_ALERT    ("View Details" — dead since it was written)
+  sent, NEVER REGISTERED KID_RESPONSE      (pick me up / stay longer)
+  sent, NEVER REGISTERED CHECKIN_CONFIRMED (routine "checked in ✓")
+
+And the payload that matters most carried no category at all. escalation-tick's
+`owner_alert` — "Mum hasn't checked in yet. They've been reminded twice." — is
+the single most time-sensitive push this product sends, and iOS rendered it as a
+bare banner. No Call Now. The owner's only path was: open the app, find the
+family member, find their number, dial.
+
+Worse, it would not have worked even with a category: `handleCallReceiver`
+looks the number up from `userInfo["receiver_id"]`, and the APNs payload never
+included it. The FCM data block right underneath it always did, so Android had
+the id and iOS did not.
+
+Same for the geofence and low-battery alerts: LOCATION_ALERT was written,
+registered, given a "View Details" action — and nothing ever attached it.
+
+CHANGED:
+  mod  edge-functions/functions/escalation-tick/index.ts
+  mod  ios/DailyOK/App/AppDelegate.swift
+  mod  ios/DailyOK/App/ContentView.swift
+  mod  ios/DailyOKTests/NotificationRoutingTests.swift
+
+Server:
+  owner_alert     + category URGENT_ALERT, + receiver_id  (so Call Now works)
+  geofence_alert  + category LOCATION_ALERT
+  low_battery     + category LOCATION_ALERT
+  viewer_alert    + category LOCATION_ALERT, + receiver_id, + thread-id
+                    A viewer cannot stand an escalation down, so it gets the
+                    read-only category rather than URGENT_ALERT's Call Now.
+
+iOS:
+  KID_RESPONSE registered, with the existing Call Now action — the payload
+  already carries receiver_id, so a parent can now ring their child straight
+  from "pick me up" instead of reading a banner and hunting for the app.
+
+  VIEW_LOCATION_ACTION now routes to `.viewDetails` and lands on the dashboard.
+  It previously fell through to `.none`: the action is `.foreground`, so it
+  opened the app and then sat on whatever screen the owner had last left.
+  AppDelegate has no route into the SwiftUI environment, so it posts a
+  Notification that ContentView observes — the same bridge the app already uses
+  for offline-sync completion.
+
+CHECKIN_CONFIRMED is left unregistered on purpose. It is a courtesy "they
+checked in" notification with nothing to act on; a category with no actions
+would change nothing.
+
+VERIFIED: deno check (50 files), deno lint, deno test (17 passed) all clean on
+the edge-function change. The Swift is read-only review as usual — no Xcode —
+with one new routing test that ios-tests.yml will run.
