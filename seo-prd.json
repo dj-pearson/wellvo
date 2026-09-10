@@ -119,8 +119,8 @@
         "The check is wired into .github/workflows/website-check.yml"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": "10 titles and 15 descriptions still overshoot. Worst: the homepage title at 79 characters and its description at 266, /pricing at 238, /welfare-check-on-elderly-parent at 221, /what-to-do/teenage-daughter-not-answering-phone at 203. Unlike US-SEO008 there is no generator to fix — each is a hand-written string in its own page component, so this is ~25 pieces of copywriting where every one is a conversion-affecting decision. Deliberately its own iteration rather than rushed onto the end of US-SEO008. Do the dist-walking assertion as part of it, once the pages can actually pass."
+      "passes": true,
+      "notes": "All 33 indexable routes now fit: titles 15-59 (was up to 79), descriptions 79-160 (was up to 266). 10 titles and 15 descriptions rewritten across 10 page components and src/data/whatToDo.ts. The check is now scripts/check-snippet-lengths.mjs, run in CI against the prerendered output: it measures UNESCAPED text (&#x27; is six characters in the file and one on screen), skips noindex routes, and warns rather than fails on /blog/* because that metadata is authored in the CMS. Proved it bites by planting a 340-character description in dist and watching it exit 1."
     }
   ]
 }

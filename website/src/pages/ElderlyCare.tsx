@@ -57,8 +57,8 @@ export default function ElderlyCare() {
   return (
     <>
       <SEO
-        title="Daily Check-In App for Elderly Parents & Dementia Caregivers"
-        description="Daily OK helps adult children check on aging parents living alone — especially those with dementia or Alzheimer's. One tap daily check-in with escalating alerts. No location tracking. Free on iPhone."
+        title="Check-In App for Elderly Parents & Dementia Care"
+        description="For adult children of a parent living alone, dementia included. One tap a day, escalating alerts if it is missed. No location tracking."
         path="/elderly-care"
         keywords="elderly parent check-in app, dementia caregiver app, alzheimers check-in app, aging parent safety, senior daily check-in, check on elderly parents app, dementia daily wellness check, aging in place app, elderly living alone safety, caregiver peace of mind app, senior wellness monitoring, daily check-in for seniors"
         jsonLd={faqJsonLd}

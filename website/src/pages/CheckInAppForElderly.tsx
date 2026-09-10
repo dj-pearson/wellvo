@@ -53,8 +53,8 @@ export default function CheckInAppForElderly() {
   return (
     <>
       <SEO
-        title="Check-In App for Elderly Parents — One Tap a Day, Auto Alerts"
-        description="Daily OK is a check-in app for the elderly: your aging parent taps 'I'm OK' once a day and family is alerted automatically if they don't. No hardware, no location tracking. From $3.99/mo."
+        title="Check-In App for Elderly Parents — One Tap a Day"
+        description="Your aging parent taps 'I'm OK' once a day; family is alerted automatically if they do not. No hardware, no location tracking. From $3.99/mo."
         path="/check-in-app-for-elderly"
         keywords="check in app for elderly, check in app for elderly parents, elderly check in app, daily check in for elderly, app to check on elderly parent, senior check in app, wellness check app for seniors, elderly safety app no hardware"
         jsonLd={jsonLd}

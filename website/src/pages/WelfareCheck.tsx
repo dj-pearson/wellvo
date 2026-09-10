@@ -83,8 +83,8 @@ export default function WelfareCheck() {
   return (
     <>
       <SEO
-        title="Welfare Check on an Elderly Parent: How to Request One"
-        description="Who can request a welfare check or wellness check on an elderly parent, the non-emergency number to call, exactly what to say and have ready, what happens when officers arrive, what it costs, and when to call 911 instead."
+        title="Welfare Check on an Elderly Parent: How to Ask"
+        description="Who can request a welfare check on an elderly parent, the non-emergency number to call, what to say, what happens when officers arrive, and when to call 911."
         path="/welfare-check-on-elderly-parent"
         ogType="article"
         jsonLd={jsonLd}

@@ -59,7 +59,7 @@ export default function ChildSafety() {
     <>
       <SEO
         title="Daily Check-In App for Kids & Teen Safety"
-        description="Daily OK helps parents stay connected with children playing outside, walking home from school, or home alone. Simple one-tap daily check-in with alerts. No GPS tracking. Free on iPhone."
+        description="Stay connected with kids walking home, playing outside or home alone. One tap a day, alerts if it is missed. No GPS tracking."
         path="/child-safety"
         keywords="child safety check-in app, kids check-in app, teen safety app, latchkey kid app, child wellness check app, kids playing outside safety, after school check-in app, parent child check-in, child safety app no tracking, teen check-in app for parents, kid home alone safety app"
         jsonLd={faqJsonLd}

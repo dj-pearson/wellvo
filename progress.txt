@@ -3174,3 +3174,48 @@ hand-written string in its own component, so it is ~25 separate copywriting
 decisions and it gets its own iteration rather than being rushed onto the end of
 this one. The dist-walking length assertion belongs with it, once the pages can
 pass it.
+
+================================================================================
+US-SEO009 — the other 25 snippets Google was cutting off                2026-09-10
+================================================================================
+Iteration 7, finishing what US-SEO008 started on the comparison pages.
+
+10 titles and 15 descriptions still overshot the width Google renders. The
+homepage was the worst on both counts: a 79-character title that lost
+everything after "Aging Parents", and a 266-character description. /pricing ran
+to 238, /welfare-check-on-elderly-parent to 221.
+
+Unlike the comparison pages there was no generator to fix — each is a
+hand-written string in its own component — so this was 25 separate rewrites.
+
+  mod  website/src/pages/{Home,Pricing,Support,ElderlyCare,ChildSafety}.tsx
+  mod  website/src/pages/{CheckInAppForElderly,DailyCheckInAppForSeniors}.tsx
+  mod  website/src/pages/{PeaceOfMindAppForElderlyParents,WelfareCheck}.tsx
+  mod  website/src/pages/WhatToDoIndex.tsx
+  mod  website/src/data/whatToDo.ts
+  add  website/scripts/check-snippet-lengths.mjs
+  mod  .github/workflows/website-check.yml
+
+Cutting a description is not the same as truncating it. Each one keeps the
+concrete hook and drops the qualifier Google was going to eat anyway — the
+homepage went from a four-sentence pitch to "One tap a day says your aging
+parent is OK. Miss it and family is alerted. No pendant, no GPS, no cameras.
+From $3.99/mo with a free trial." Every title keeps the exact keyword phrase it
+targets; what came off is the em-dash tail ("— Stop Wondering All Day",
+"— Calm Guides", "— Aging in Place, Safely") that was never being rendered.
+
+Titles are budgeted against 49, not 60, on every page but the homepage: <SEO>
+appends " | Daily OK", and the homepage is the one route that does not get it.
+
+The check is now a script over the prerendered output rather than assertions
+against a data file, so it covers every route including ones added later. Two
+details it gets right: it measures UNESCAPED text, because `&#x27;` is six
+characters in the file and one on screen and measuring raw attributes overstates
+every apostrophe by five; and it warns instead of failing on /blog/*, whose
+metadata is authored in the CMS — a long excerpt is a content decision, not a
+reason to block a deploy.
+
+VERIFIED: 33 of 33 indexable routes pass, 0 failures, 0 warnings. Titles now
+15-59, descriptions 79-160. Proved the gate bites by planting a 340-character
+description into dist/client/pricing/index.html — exit 1, correct route named —
+then restoring it for exit 0. tsc -b 0, build 0, vitest 107/107.

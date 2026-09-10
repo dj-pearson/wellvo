@@ -21,8 +21,8 @@ export default function Home() {
   return (
     <>
       <SEO
-        title="Daily OK — Senior Check-In App for Aging Parents | Daily &quot;I'm OK&quot; & Care Alerts"
-        description="Daily OK is the senior check-in app: set up a once-a-day &quot;I'm OK&quot; for an aging parent and get escalating alerts the moment they miss it. No pendant, no GPS tracking, no cameras. Works for teens and any loved one you worry about, too. From $3.99/mo with a free trial."
+        title="Daily OK — Senior Check-In App for Aging Parents"
+        description="One tap a day says your aging parent is OK. Miss it and family is alerted. No pendant, no GPS, no cameras. From $3.99/mo with a free trial."
         path="/"
         keywords="senior check-in app, check-in app for elderly, daily check-in app for seniors, check-in app for elderly parents, elderly safety app, aging parent check-in, wellness check app, welfare check elderly parent, medical alert alternative, aging in place app, dementia caregiver app, caregiver app for elderly, check on elderly parents, teen check-in app"
       />

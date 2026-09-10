@@ -113,7 +113,7 @@ export default function Pricing() {
     <>
       <SEO
         title="Pricing — Caregiver, Family & Family+ Plans"
-        description="Daily OK pricing starts at $3.99/mo for the Caregiver plan — built for families watching over one parent with dementia. Family ($6.99/mo) and Family+ ($9.99/mo with Critical Alerts) for larger households. Every plan includes a free trial."
+        description="Plans from $3.99/mo: Caregiver for one parent, Family at $6.99, Family+ at $9.99 with Critical Alerts. Every plan starts with a free trial."
         path="/pricing"
         keywords="dailyok pricing, dementia caregiver app cost, family check-in app price, elderly parent monitoring app subscription, caregiver app free trial"
         jsonLd={faqJsonLd}

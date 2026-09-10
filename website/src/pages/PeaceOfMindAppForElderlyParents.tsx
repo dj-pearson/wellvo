@@ -53,8 +53,8 @@ export default function PeaceOfMindAppForElderlyParents() {
   return (
     <>
       <SEO
-        title="Peace-of-Mind App for Elderly Parents — Stop Wondering All Day"
-        description="Daily OK is the peace-of-mind app for adult children of elderly parents. One daily 'I'm OK' tap, automatic alerts if it's missed — so you can stop carrying the worry. No tracking. From $3.99/mo."
+        title="Peace-of-Mind App for Elderly Parents"
+        description="One daily 'I'm OK' tap from your parent, automatic alerts if it is missed, so you can stop carrying the worry all day. No tracking. From $3.99/mo."
         path="/peace-of-mind-app-for-elderly-parents"
         keywords="peace of mind app for elderly parents, app for adult children of aging parents, worry about elderly parent app, long distance caregiver app, app to stop worrying about parents, aging parent reassurance app"
         jsonLd={jsonLd}
