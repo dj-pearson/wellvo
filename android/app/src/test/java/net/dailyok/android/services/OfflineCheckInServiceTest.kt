@@ -8,10 +8,12 @@ import kotlinx.coroutines.test.runTest
 import net.dailyok.android.data.OfflineCheckIn
 import net.dailyok.android.data.OfflineCheckInDao
 import net.dailyok.android.network.DailyOKError
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class OfflineCheckInServiceTest {
@@ -53,13 +55,21 @@ class OfflineCheckInServiceTest {
             OfflineCheckIn("id2", "f1", "r1", "happy", "app", 2000L, false)
         )
         coEvery { dao.getUnsynced() } returns pending
-        coEvery { checkInService.checkIn(any(), any(), any(), any(), any()) } returns "ok"
+        // occurredAt must be matched explicitly: the sync path now passes it,
+        // and a stub that leaves it at its null default would not match.
+        coEvery {
+            checkInService.checkIn(any(), any(), any(), any(), any(), occurredAt = any())
+        } returns "ok"
 
         syncPendingHelper()
 
-        coVerify(exactly = 2) { checkInService.checkIn(any(), any(), any(), any(), any()) }
-        coVerify { dao.markSynced("id1") }
-        coVerify { dao.markSynced("id2") }
+        coVerify(exactly = 2) {
+            checkInService.checkIn(any(), any(), any(), any(), any(), occurredAt = any())
+        }
+        // Deleted, not flagged: nothing reads a synced row, so flagging grew
+        // the table for the life of the install (US-IOS147).
+        coVerify { dao.deleteById("id1") }
+        coVerify { dao.deleteById("id2") }
     }
 
     @Test
@@ -69,12 +79,35 @@ class OfflineCheckInServiceTest {
             OfflineCheckIn("id2", "f1", "r1", null, "app", 2000L, false)
         )
         coEvery { dao.getUnsynced() } returns pending
-        coEvery { checkInService.checkIn(any(), any(), "id1", any(), any()) } throws RuntimeException("fail")
+        coEvery {
+            checkInService.checkIn(any(), any(), "id1", any(), any(), occurredAt = any())
+        } throws RuntimeException("fail")
 
         syncPendingHelper()
 
-        coVerify(exactly = 1) { checkInService.checkIn(any(), any(), any(), any(), any()) }
-        coVerify(exactly = 0) { dao.markSynced(any()) }
+        coVerify(exactly = 1) {
+            checkInService.checkIn(any(), any(), any(), any(), any(), occurredAt = any())
+        }
+        coVerify(exactly = 0) { dao.deleteById(any()) }
+    }
+
+    // MARK: occurred_at (US-IOS147)
+
+    @Test
+    fun `queued row timestamp is sent as RFC 3339 in UTC`() {
+        // This string decides which local calendar day the server files the
+        // check-in under, so the wire format is worth pinning. Without it the
+        // server stamps now() and a Monday tap synced on Thursday is recorded
+        // as a Thursday check-in nobody made.
+        assertEquals("2026-03-13T18:30:00Z", Instant.ofEpochMilli(1_773_426_600_000L).toString())
+    }
+
+    @Test
+    fun `replay window matches the server and iOS bound`() {
+        // OCCURRED_AT_MAX_AGE_MS in edge-functions/shared/checkin-time.ts and
+        // OfflineCheckInService.maxReplayAge on iOS. Past this bound the server
+        // falls back to now(), which is the bug.
+        assertEquals(7L * 24 * 60 * 60 * 1000, OfflineCheckInService.MAX_REPLAY_AGE_MS)
     }
 
     // Mirrors OfflineCheckInService.performCheckIn logic
@@ -92,6 +125,11 @@ class OfflineCheckInServiceTest {
         catch (_: DailyOKError.Network) { false }
     }
 
+    // NOTE: this helper re-implements syncPendingCheckIns rather than calling
+    // it (the service needs a Context and a live ConnectivityManager). It
+    // therefore proves the shape of the flow, not the production code — a
+    // mirror test passes even when the real method diverges. Worth replacing
+    // with an injectable seam; kept in step by hand for now.
     // Mirrors OfflineCheckInService.syncPendingCheckIns logic
     private suspend fun syncPendingHelper() {
         val unsynced = dao.getUnsynced()
@@ -99,9 +137,10 @@ class OfflineCheckInServiceTest {
             try {
                 checkInService.checkIn(
                     familyId = checkIn.familyId, receiverId = checkIn.receiverId,
-                    requestId = checkIn.id, mood = checkIn.mood, source = checkIn.source
+                    requestId = checkIn.id, mood = checkIn.mood, source = checkIn.source,
+                    occurredAt = Instant.ofEpochMilli(checkIn.createdAt).toString()
                 )
-                dao.markSynced(checkIn.id)
+                dao.deleteById(checkIn.id)
             } catch (_: Exception) {
                 break
             }

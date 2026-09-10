@@ -3778,3 +3778,51 @@ ios-tests.yml compiles it and runs the 12 new/rewritten Swift tests on the PR.
 
 NEXT: Android's offline queue replays without occurred_at, so Android users keep
 the false-"today" behaviour. Same three-line shape as iOS. Iteration 3.
+
+================================================================================
+iOS improvement loop — iteration 3/15
+================================================================================
+
+Android half of US-IOS147. The story is now closed.
+
+The queue had exactly the iOS bug, plus the same unbounded growth: rows were
+flagged `synced = 1` and never deleted, and nothing reads a synced row.
+
+CHANGED:
+  mod  android/.../network/ApiService.kt             occurredAt field + wire mapping
+  mod  android/.../services/CheckInService.kt        passthrough param
+  mod  android/.../data/OfflineCheckIn.kt            deleteById, deleteOlderThan
+  mod  android/.../services/OfflineCheckInService.kt sends occurredAt, prunes, deletes
+  mod  android/.../test/.../OfflineCheckInServiceTest.kt
+  mod  prd.json  (US-IOS147 -> passes, +US-A066)
+
+MAX_REPLAY_AGE_MS = 7 days, pinned by a test and equal to iOS's maxReplayAge and
+the server's OCCURRED_AT_MAX_AGE_MS. All three have to agree: past the server's
+bound it stops honouring the timestamp and falls back to now(), which is the
+original bug.
+
+Adding DAO methods changes no schema, so no Room version bump — a bump without a
+migration throws at runtime (CLAUDE.md, on-device state).
+
+The two sync tests needed their mockk stubs widened. `checkIn(any() x5)`
+resolved occurredAt to its null default, so once the sync path started passing a
+real timestamp the stub silently stopped matching — the relaxed mock would have
+returned "" and `coVerify(exactly = 2)` would have failed. Matched explicitly
+now.
+
+FOUND, filed as US-A066: Android never sends `slot_key` at all — not live, not
+from the queue. Every Android check-in therefore falls back to day-level dedup
+on the server, so a receiver on a multi-window schedule has their evening tap
+deduped against the morning one and the owner escalates on a window that was
+answered. That is the same failure US-IOS137 fixed for iOS. Needs a Room
+migration for the new column, so it is a story, not an inline fix.
+
+Also noted in the test file rather than fixed: OfflineCheckInServiceTest tests a
+private helper that re-implements syncPendingCheckIns, because the real service
+needs a Context and a live ConnectivityManager. A mirror test passes even when
+production diverges. Candidate for a later iteration.
+
+VERIFICATION LIMIT: no Android SDK in this container (`SDK location not found`),
+so the Kotlin was not compiled and the tests were not run. android-build.yml
+does both on the PR. The edge-function side of this story was verified locally
+in iteration 2 and is unchanged here.
