@@ -218,6 +218,68 @@
       "priority": 16,
       "passes": true,
       "notes": "src/pages/NotFound.tsx existed and was routed at path='*', but nothing prerendered it and Cloudflare Pages has no 404.html to serve — so it could only render during a client-side navigation inside an already-loaded SPA, the one case where nobody is lost. Every direct hit, stale backlink and crawler fetch got Pages' generic page. /404 is now prerendered, lifted to dist/client/404.html by scripts/emit-404.mjs, and the /404/ directory removed so the site does not also answer 200 there. <SEO> gained a noindex prop that emits 'noindex, follow' — the links are worth crawling even though the page must not rank — and suppresses the canonical, which would otherwise point at a URL that no longer exists and contradict the robots tag. Both generators already skip noindex pages, so it stays out of the sitemap and llms.txt with no special-casing."
+    },
+    {
+      "id": "US-SEO017",
+      "title": "Finish the social card migration: the blog and compare hubs",
+      "description": "As someone sharing the entry point to the comparison pages or the blog, I want a real card rather than a bare link.",
+      "acceptanceCriteria": [
+        "No page component imports react-helmet-async directly",
+        "Every indexable page carries exactly one og:image, twitter:card, canonical and og:site_name",
+        "The two hubs carry a BreadcrumbList"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": "US-SEO005 migrated ComparePost and BlogPost but missed the two HUB pages. /compare/ — the entry point to all ten comparison pages — declared og:title/description/type/url and no og:image and no twitter:card, plus a second og:description that differed from its meta description for no actionable reason. /blog/ had a title, a description and a canonical and nothing else at all. Both now go through <SEO>; react-helmet-async is no longer imported by any page component. Verified: all 33 indexable pages carry exactly one og:image, twitter:card, og:image:width, canonical and og:site_name."
+    },
+    {
+      "id": "US-SEO018",
+      "title": "Stop serving the blog index's canonical for posts published between builds",
+      "description": "As a post published through the generation webhook without a redeploy, I want the URL I am served at to not declare itself a copy of the blog index.",
+      "acceptanceCriteria": [
+        "A request for an unbuilt /blog/<slug> returns HTML that does not claim rel=canonical https://dailyok.net/blog/",
+        "The fallback shell is excluded from sitemap.xml and llms.txt by path, not by a noindex meta",
+        "A post published via the webhook still renders client-side rather than 404ing"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "DIAGNOSED, NOT FIXED — deliberately. public/_redirects maps /blog/* to /blog/index.html with a 200, so a post published since the last build is served the blog index's prerendered HTML, which declares <title>Blog | Daily OK</title> and <link rel=\"canonical\" href=\"https://dailyok.net/blog/\">. Google is told the post URL is a copy of the index. It renders JS and BlogPost's Helmet then rewrites both, so this may resolve in practice — but the first, strongest signal in the initial HTML contradicts it. Proposed fix: prerender a dedicated /blog/pending shell that emits NO canonical (BlogPost's loading/not-found branch renders no SEO tags, so it comes out neutral) and point the fallback at that instead; exclude it from both generators by path. NOT shipped in this loop because it changes production routing for blog delivery and cannot be exercised here — this environment has no Supabase config, so no post is ever prerendered and the webhook path cannot be run. Shipping a routing change to blog delivery on reasoning alone is how you 404 every new post. Needs a staging run with real Supabase config before it merges."
     }
-  ]
+  ],
+  "status": {
+    "loop": "15 iterations, 2026-09-10",
+    "completed": [
+      "US-SEO001",
+      "US-SEO002",
+      "US-SEO003",
+      "US-SEO004",
+      "US-SEO005",
+      "US-SEO007",
+      "US-SEO008",
+      "US-SEO009",
+      "US-SEO010",
+      "US-SEO011",
+      "US-SEO012",
+      "US-SEO014",
+      "US-SEO015",
+      "US-SEO016",
+      "US-SEO017"
+    ],
+    "open": [
+      "US-SEO006",
+      "US-SEO013",
+      "US-SEO018"
+    ],
+    "gates_added": [
+      "Check Website workflow: lint (--max-warnings 0), unit tests, full build",
+      "sitemap non-empty",
+      "no leaked JSX comment",
+      "no placeholder analytics token",
+      "SERP snippet lengths",
+      "heading outline",
+      "structured-data graph resolves",
+      "404.html emitted, noindex, no canonical",
+      "llms.txt agrees with sitemap.xml"
+    ]
+  }
 }

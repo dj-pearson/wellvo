@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Helmet } from 'react-helmet-async'
+import SEO from '../components/SEO'
+import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
 import { useBlogSeed } from '../lib/blogSeedContext'
 import { POST_SUMMARY_COLUMNS, type PublicPostSummary } from '../lib/blogTypes'
-import { canonicalUrl } from '../lib/canonical'
 import './Blog.css'
 
 export default function Blog() {
@@ -50,11 +50,20 @@ export default function Blog() {
 
   return (
     <>
-      <Helmet>
-        <title>Blog — Daily OK</title>
-        <meta name="description" content="Guides, tips, and stories about daily check-ins, caregiving, and family safety." />
-        <link rel="canonical" href={canonicalUrl('/blog')} />
-      </Helmet>
+      {/*
+        Was a hand-rolled <Helmet> with a title, a description and a canonical
+        and nothing else — no og:image, no og:type, no twitter:card at all
+        (US-SEO017). Every share of the blog index rendered as a bare link.
+      */}
+      <SEO
+        title="Blog"
+        description="Guides, tips and stories about daily check-ins, caregiving, and keeping an eye on someone without hovering."
+        path="/blog"
+        jsonLd={buildBreadcrumbJsonLd([
+          { name: 'Home', path: '/' },
+          { name: 'Blog', path: '/blog' },
+        ])}
+      />
 
       <section className="blog-hero">
         <div className="container">

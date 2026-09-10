@@ -1,27 +1,29 @@
 import { Link } from 'react-router-dom'
-import { Helmet } from 'react-helmet-async'
-import { canonicalUrl } from '../lib/canonical'
+import SEO from '../components/SEO'
+import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { competitors } from '../data/competitors'
 import './Compare.css'
 
 export default function Compare() {
   return (
     <>
-      <Helmet>
-        <title>Daily OK vs. alternatives — honest comparisons | Daily OK</title>
-        <meta
-          name="description"
-          content="Side-by-side comparisons of Daily OK versus the most-searched medical alert and family safety apps. Honest verdicts, real pricing, no manufactured star ratings."
-        />
-        <link rel="canonical" href={canonicalUrl('/compare')} />
-        <meta property="og:title" content="Daily OK vs. alternatives — honest comparisons" />
-        <meta
-          property="og:description"
-          content="Honest head-to-head comparisons of Daily OK against Life Alert, Life360, Snug Safety, and more."
-        />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content={canonicalUrl('/compare')} />
-      </Helmet>
+      {/*
+        The last hand-rolled <Helmet> on a hub page (US-SEO017). It declared
+        og:title, description, type and url — and no og:image and no
+        twitter:card, so the entry point to all ten comparison pages shared as
+        a bare link. It also carried a second, different og:description from
+        its meta description, for no reason anyone could act on.
+      */}
+      <SEO
+        title="Daily OK vs. alternatives — honest comparisons"
+        description="Side-by-side comparisons of Daily OK versus the most-searched medical alert and family safety apps. Honest verdicts, real pricing, no manufactured star ratings."
+        path="/compare"
+        appendBrand={false}
+        jsonLd={buildBreadcrumbJsonLd([
+          { name: 'Home', path: '/' },
+          { name: 'Compare', path: '/compare' },
+        ])}
+      />
 
       <section className="section compare-hero">
         <div className="container">

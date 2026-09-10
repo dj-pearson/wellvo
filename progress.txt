@@ -3585,3 +3585,63 @@ None of it was suppressed. Four groups, four different real fixes:
 
 VERIFIED: npm run lint exits 0 with --max-warnings 0; tsc -b 0; build 0;
 headings 33/33; schema 33/33 with 17 Articles; snippets 33/33; vitest 131/131.
+
+================================================================================
+US-SEO017 — the two hub pages never got the card migration               2026-09-10
+================================================================================
+Iteration 15, the last of the loop.
+
+US-SEO005 migrated ComparePost and BlogPost off their hand-rolled <Helmet>
+blocks and missed the two HUB pages above them.
+
+/compare/ is the entry point to all ten comparison pages — the most linked-to
+page in the pSEO cluster, with 32 inbound links. It declared og:title,
+og:description, og:type and og:url, and no og:image and no twitter:card. So the
+one page most likely to be sent to a sibling while deciding what to buy for a
+parent shared as a bare link. It also carried a second og:description that said
+something different from its meta description, for no reason anyone could act
+on.
+
+/blog/ was worse: a title, a description, a canonical, and nothing else. No
+og:type, no og:image, no twitter:card, no og:site_name.
+
+  mod  website/src/pages/Compare.tsx
+  mod  website/src/pages/Blog.tsx
+
+Both now go through <SEO>, which also gave them the BreadcrumbList the deeper
+pages already had. react-helmet-async is no longer imported by any page
+component — <SEO> is the only place head tags are written, which is what makes
+the sitewide assertions below meaningful rather than coincidental.
+
+VERIFIED across all 33 indexable pages: each carries exactly one og:image, one
+twitter:card, one og:image:width, one canonical and one og:site_name. Zero
+duplicates, zero omissions.
+
+--------------------------------------------------------------------------------
+End of the 15-iteration SEO loop. Final state, all measured from dist:
+
+  build                 red on main at the start; green, and gated by CI
+  SERP snippets         25 titles/descriptions over the rendered width -> 0/33
+  social cards          2 page families with none at all -> 33/33 complete
+  internal links        min inbound on a pSEO page 1 -> 4
+  heading outline       33/33 pages skipped a level -> 0
+  structured data       10 Article nodes, 10 pages with duplicate Organization
+                        -> 17 Articles, 0 duplicates, 0 dangling @id references
+  llms.txt              18 of 33 routes, all in the redirecting form -> 33/33,
+                        generated, cross-checked against sitemap.xml
+  404                   never served -> emitted, noindex/follow, 17 links
+  caching               1.4 MB of hashed assets revalidated per navigation ->
+                        immutable year
+  lint                  9 errors / 10 warnings -> 0, gated at --max-warnings 0
+  tests                 67 -> 131
+
+CI gates that did not exist before this loop: the website build itself, lint,
+unit tests, sitemap non-emptiness, leaked JSX comments, placeholder analytics
+tokens, SERP snippet lengths, heading outline, structured-data resolution, the
+404 artifact, and llms.txt/sitemap.xml agreement.
+
+Still open, both needing input rather than effort:
+  US-SEO006   GSC / Bing / Yandex verification tokens — values only the owner has
+  US-SEO013   CSP connect-src may not cover the Supabase host the blog fetches
+  US-SEO018   the /blog/* fallback canonical — diagnosed, needs a staging run
+              with real Supabase config before a routing change is safe
