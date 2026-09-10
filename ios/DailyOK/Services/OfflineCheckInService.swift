@@ -27,6 +27,7 @@ final class OfflineCheckInService: ObservableObject {
 
     init() {
         setupModelContainer()
+        pruneStaleQueuedCheckIns()
         startNetworkMonitoring()
     }
 
@@ -51,6 +52,12 @@ final class OfflineCheckInService: ObservableObject {
         // the owner escalated falsely. Recover the container if we can; otherwise
         // throw so the failure surfaces to the user instead of vanishing.
         let context = try ensureContext()
+
+        // Clear out anything left from a previous day first, so a device that
+        // stayed offline across midnight doesn't keep reporting yesterday's
+        // unsent row as pending — and doesn't hold it for a replay that would
+        // land as today's check-in.
+        pruneStaleQueuedCheckIns()
 
         // Per-slot, per-day dedup: an anxious receiver who doesn't see immediate
         // confirmation may tap "I'm OK" several times while offline. Each tap
@@ -176,6 +183,33 @@ final class OfflineCheckInService: ObservableObject {
         queuedSlots.contains(slotKey)
     }
 
+    /// Whether a queued row has outlived the day it was meant to answer.
+    ///
+    /// The sync path replays a queued check-in through
+    /// `process-checkin-response`, which stamps `checked_in_at` server-side with
+    /// `now()` — the request carries no client timestamp (see US-IOS147). So a
+    /// row queued on Monday and synced on Thursday is not recorded as Monday's
+    /// check-in: it is recorded as a *Thursday* check-in the receiver never
+    /// made. The owner's dashboard then reads "checked in today" for someone who
+    /// has not touched their phone in three days.
+    ///
+    /// False reassurance is strictly worse than the false escalation the rest of
+    /// this file guards against — the escalation is the product working. So a
+    /// row whose local day has passed is dropped rather than replayed. Monday's
+    /// window already escalated when it was missed; nothing is recovered by
+    /// fabricating a Thursday check-in, and the receiver's real safety signal is
+    /// not overwritten.
+    ///
+    /// Same-day rows (the overwhelmingly common case: a tunnel, a dead cell,
+    /// airplane mode for an hour) sync exactly as before.
+    nonisolated static func isStale(
+        queuedAt: Date,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Bool {
+        !calendar.isDate(queuedAt, inSameDayAs: now)
+    }
+
     /// True when the error represents a loss of connectivity (as opposed to a
     /// server/auth/client error). Used to decide whether to optimistically queue
     /// a check-in for later sync.
@@ -237,9 +271,22 @@ final class OfflineCheckInService: ObservableObject {
         var syncedAny = false
 
         for offlineCheckIn in pending {
+            // A row that has outlived its day would be recorded as a check-in
+            // for TODAY (the server stamps `checked_in_at` itself), so replaying
+            // it tells the owner the receiver is fine when they may not be.
+            // Drop it instead — see `isStale`.
+            if Self.isStale(queuedAt: offlineCheckIn.createdAt) {
+                Log.offline.notice("Dropping stale queued check-in from a previous day rather than replaying it as today's")
+                context.delete(offlineCheckIn)
+                try? context.save()
+                continue
+            }
+
             // Leave rows queued by a different (now signed-out) account for when
             // that user signs back in — the edge function records for the
             // current session and would otherwise attribute it to the wrong user.
+            // Such rows are still bounded: once the day turns they are stale and
+            // the branch above removes them.
             guard offlineCheckIn.receiverId == currentUserId else { continue }
 
             do {
@@ -264,7 +311,12 @@ final class OfflineCheckInService: ObservableObject {
                     slotKey: offlineCheckIn.slotKey
                 )
 
-                offlineCheckIn.synced = true
+                // Delete rather than flag. Nothing reads a synced row — every
+                // query in this file filters on `!synced` — so flagging them
+                // grew the store for the life of the install and left other
+                // people's check-in history (receiver id, family id, mood) on
+                // the device forever. The row has done its job; remove it.
+                context.delete(offlineCheckIn)
                 try context.save()
                 syncedAny = true
             } catch {
@@ -274,7 +326,7 @@ final class OfflineCheckInService: ObservableObject {
                     // leaves the queue) and keep going. Otherwise one poison row
                     // would stall every later queued check-in forever (US-IOS099).
                     Log.offline.error("Dropping un-syncable queued check-in: \(error.localizedDescription, privacy: .public)")
-                    offlineCheckIn.synced = true
+                    context.delete(offlineCheckIn)
                     try? context.save()
                     continue
                 }
@@ -349,6 +401,28 @@ final class OfflineCheckInService: ObservableObject {
             }
         }
         monitor.start(queue: monitorQueue)
+    }
+
+    /// Remove queued rows that have outlived the day they were meant to answer.
+    ///
+    /// Sync drops them too, but sync only runs when the device is online and
+    /// signed in. Pruning here keeps `pendingCount` — which drives the "waiting
+    /// to send" UI — from advertising a check-in that will never be sent.
+    private func pruneStaleQueuedCheckIns() {
+        guard let context = sharedContext else { return }
+        let startOfToday = Calendar.current.startOfDay(for: Date())
+        let descriptor = FetchDescriptor<OfflineCheckIn>(
+            predicate: #Predicate { $0.createdAt < startOfToday }
+        )
+        guard let stale = try? context.fetch(descriptor), !stale.isEmpty else { return }
+        for row in stale { context.delete(row) }
+        do {
+            try context.save()
+            Log.offline.notice("Pruned \(stale.count, privacy: .public) queued check-in(s) left over from a previous day")
+        } catch {
+            Log.offline.error("Failed to prune stale queued check-ins: \(error.localizedDescription, privacy: .public)")
+        }
+        updatePendingCount()
     }
 
     private func updatePendingCount() {

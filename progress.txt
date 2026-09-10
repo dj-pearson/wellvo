@@ -3645,3 +3645,60 @@ Still open, both needing input rather than effort:
   US-SEO013   CSP connect-src may not cover the Supabase host the blog fetches
   US-SEO018   the /blog/* fallback canonical — diagnosed, needs a staging run
               with real Supabase config before a routing change is safe
+
+================================================================================
+iOS improvement loop — iteration 1/15
+================================================================================
+
+FOUND: a late offline sync fabricates a check-in for TODAY.
+
+OfflineCheckInService.syncPendingCheckIns replays every queued row through
+`process-checkin-response`. That request carries no client timestamp, and the
+edge function stamps `checked_in_at` itself with now() (verified:
+edge-functions/functions/process-checkin-response/index.ts sets no timestamp on
+insert and dedups on `checked_in_at` between the receiver's local day bounds).
+
+So a row queued Monday in a dead-signal area and synced Thursday is not recorded
+as Monday's check-in. It is recorded as a Thursday one — and the owner's
+dashboard reads "checked in today" for a receiver who has not touched their
+phone in three days. Every other guard in that file exists to prevent a false
+escalation; this is the opposite failure, and it is the worse one.
+
+Two smaller things fell out of the same read:
+  - synced rows were flagged `synced = true` and never deleted. Nothing reads a
+    synced row (every query filters `!synced`), so the SwiftData store grew for
+    the life of the install.
+  - rows queued by a since-signed-out account are deliberately kept for that
+    user's return, and were therefore kept forever — another person's receiver
+    id, family id and mood sitting on the device indefinitely.
+
+CHANGED:
+  mod  ios/DailyOK/Services/OfflineCheckInService.swift
+  mod  ios/DailyOKTests/OfflineCheckInServiceTests.swift
+  mod  prd.json  (+US-IOS147)
+
+  - `isStale(queuedAt:now:calendar:)` — nonisolated, pure, unit-testable in the
+    same style as `isAlreadyQueued`. True when the row's local calendar day is
+    no longer today.
+  - sync drops stale rows instead of replaying them. Same-day rows (a tunnel, a
+    dead cell, an hour of airplane mode — the common case) sync exactly as
+    before.
+  - `pruneStaleQueuedCheckIns()` runs at init and before each enqueue, so a
+    device that stayed offline across midnight stops advertising yesterday's
+    row as pending.
+  - success and dead-letter paths now `context.delete(row)` rather than
+    flagging, which bounds the store and clears the signed-out account's rows.
+  - 5 new tests: same-day, across-midnight-by-ten-minutes, yesterday, days ago,
+    and a DST spring-forward day (2026-03-08 America/Chicago) that must still
+    count as one day.
+
+NOT DONE (US-IOS147, next iteration): the real fix is to carry the original
+timestamp end to end — an optional `occurred_at` on process-checkin-response,
+with the local-day and slot_key dedup, escalation and streaks all reading it
+instead of now(). That is edge function + iOS + Android, so it is a story. The
+drop shipped here removes the false "today" but discards a genuine check-in;
+once the server honours the timestamp the stale bound relaxes.
+
+VERIFICATION LIMIT, stated plainly: this container is Linux with no Xcode and no
+Swift toolchain, so nothing here was compiled or run. The change was reviewed by
+reading; ios-tests.yml compiles it and runs the new tests on the PR.

@@ -141,4 +141,81 @@ final class OfflineCheckInServiceTests: XCTestCase {
             OfflineCheckInService.isAlreadyQueued(slotKey: "09:00", amongQueuedSlots: [])
         )
     }
+
+    // MARK: - Queued rows expire with the day they answer (US-IOS147)
+
+    /// The sync path replays a queued row through `process-checkin-response`,
+    /// which stamps `checked_in_at` server-side. A row queued yesterday and
+    /// synced today is therefore recorded as TODAY's check-in — the dashboard
+    /// then shows "checked in" for a receiver who has not touched their phone.
+    /// False reassurance is the one outcome worse than a false escalation, so a
+    /// row whose day has passed must be dropped, not replayed.
+
+    private var calendar: Calendar {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "America/Chicago") ?? .current
+        return cal
+    }
+
+    private func date(_ iso: String) -> Date {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter.date(from: iso)!
+    }
+
+    func testRowQueuedEarlierTheSameDayIsNotStale() {
+        XCTAssertFalse(
+            OfflineCheckInService.isStale(
+                queuedAt: date("2026-03-10 08:15"),
+                now: date("2026-03-10 21:59"),
+                calendar: calendar
+            )
+        )
+    }
+
+    func testRowQueuedYesterdayIsStale() {
+        XCTAssertTrue(
+            OfflineCheckInService.isStale(
+                queuedAt: date("2026-03-09 23:50"),
+                now: date("2026-03-10 00:05"),
+                calendar: calendar
+            )
+        )
+    }
+
+    /// Ten minutes apart, but across midnight: the local day is what the server
+    /// dedups on, so this row can no longer answer the window it was queued for.
+    func testRowQueuedAcrossMidnightIsStaleEvenIfRecent() {
+        XCTAssertTrue(
+            OfflineCheckInService.isStale(
+                queuedAt: date("2026-03-09 23:55"),
+                now: date("2026-03-10 00:05"),
+                calendar: calendar
+            )
+        )
+    }
+
+    func testRowQueuedDaysAgoIsStale() {
+        XCTAssertTrue(
+            OfflineCheckInService.isStale(
+                queuedAt: date("2026-03-06 09:00"),
+                now: date("2026-03-10 09:00"),
+                calendar: calendar
+            )
+        )
+    }
+
+    /// A DST spring-forward day is still one calendar day: a morning row must
+    /// remain syncable that evening.
+    func testRowQueuedOnADSTTransitionDayIsNotStale() {
+        XCTAssertFalse(
+            OfflineCheckInService.isStale(
+                queuedAt: date("2026-03-08 01:30"),
+                now: date("2026-03-08 22:00"),
+                calendar: calendar
+            )
+        )
+    }
 }

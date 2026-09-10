@@ -5078,6 +5078,23 @@
       "priority": 262,
       "passes": true,
       "notes": "DONE. src/test/App.test.tsx rewritten. 6 brittle prose assertions -> 38 route-integrity assertions over 18 public routes. Whole website suite 29 passing + 1 failing -> 67 passing, 0 failing."
+    },
+    {
+      "id": "US-IOS147",
+      "title": "Record an offline check-in at the moment it was made",
+      "description": "As a receiver who tapped \"I'm OK\" with no signal, I want that check-in recorded against the day I actually made it. The offline queue replays rows through `process-checkin-response`, and that request carries no client timestamp — the server stamps `checked_in_at` with now(). So a row queued Monday and synced Thursday is recorded as a THURSDAY check-in nobody made, and the owner's dashboard reads \"checked in today\" for a receiver who has not touched their phone in three days. False reassurance is the one outcome worse than a false escalation. iOS now drops rows whose local day has passed rather than replaying them (see notes), which removes the false 'today', but it also discards a real check-in. The full fix is to carry the original timestamp end to end.",
+      "acceptanceCriteria": [
+        "process-checkin-response accepts an optional `occurred_at` (RFC 3339). Additive and optional, so shipped clients that omit it behave exactly as today — the server falls back to now()",
+        "occurred_at is validated: well-formed, not in the future beyond a small skew allowance, and not older than a bounded window; anything else falls back to now() rather than 400ing an in-flight client",
+        "The receiver's-local-day dedup and the slot_key dedup both run against occurred_at, not now(), so a replayed row dedups against the day it answers",
+        "Escalation and streak computation read the same column, so a late-synced check-in retroactively resolves the day it belongs to rather than inflating today",
+        "iOS sends occurred_at from OfflineCheckIn.createdAt on the sync path, and the stale-row drop added in the notes below is relaxed to a much longer bound once the server honours the timestamp",
+        "Android's offline queue sends the same field",
+        "The 'checked in today' status on the owner dashboard never reflects a check-in made on an earlier day"
+      ],
+      "priority": 263,
+      "passes": false,
+      "notes": "OPEN — next iteration. Cross-surface (edge function + iOS + Android), which is why it is a story rather than an inline fix. The iOS-side mitigation shipped separately: OfflineCheckInService.isStale drops queued rows whose local day has passed instead of replaying them as today's check-in, and synced/dead-lettered rows are now deleted instead of flagged so the SwiftData store stays bounded. Per CLAUDE.md the new request field is additive and optional, so it is safe in a single release; the reader change (dedup on occurred_at) must ship with it, not before."
     }
   ]
 }
