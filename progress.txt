@@ -3890,3 +3890,49 @@ NOT DONE, and stated rather than glossed:
   - AC5, Package.resolved. Filed as US-IOS148 instead of attempted: a correct
     one lists exact revisions for transitive dependencies too, and hand-writing
     those risks a file that breaks resolution for everyone.
+
+================================================================================
+iOS improvement loop — iteration 5/15
+================================================================================
+
+FOUND: the SwiftLint gate may be inspecting zero files.
+
+.swiftlint.yml's `included:` entries are repo-root-relative:
+
+    included:
+      - ios/DailyOK
+      - ios/DailyOKWidgets
+      …
+
+but the step ran with `working-directory: ios` and `--config ../.swiftlint.yml`,
+so those resolve against `ios/` — i.e. `ios/ios/DailyOK`, which does not exist.
+A path that matches nothing is not an error to SwiftLint: it lints zero files,
+reports zero violations, and the step goes green. force_cast and force_try are
+configured as errors specifically to gate CI, and they cannot fire on a file
+that was never opened.
+
+CHANGED:
+  mod  .github/workflows/ios-e2e-tests.yml
+
+Two things, because I could not run SwiftLint here to settle which path
+semantics apply (Linux container, no SwiftLint binary):
+
+1. The lint now runs from the repository root with `--config .swiftlint.yml`.
+   That is correct under either interpretation — root-relative `included:`
+   entries resolve from the root by definition — so the fix does not depend on
+   my being right about the cause.
+
+2. A guard that proves it, which is the part that actually matters. SwiftLint's
+   summary line carries the number of files it linted; a run that linted 0 is
+   now red, with an error message naming the reason. Deliberately tolerant of a
+   wording change: if the count cannot be parsed at all it warns rather than
+   failing, because breaking every iOS PR on a SwiftLint release note would be
+   worse than the gap it guards. A count that IS found and is zero is
+   unambiguous.
+
+Workflow YAML parses; the swiftlint job now has four steps.
+
+This is the same class of problem as the two gates the repo already documents
+in its own workflow comments — ios-tests.yml ("a gate that first speaks after
+the merge is not a gate") and edge-functions-check.yml. A gate that runs, passes,
+and inspected nothing is the quieter version of it.

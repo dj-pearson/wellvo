@@ -22,11 +22,40 @@ jobs:
       - name: Install SwiftLint
         run: brew install swiftlint
       - name: Lint iOS sources
-        working-directory: ios
-        # Uses the checked-in .swiftlint.yml. Non-strict: warnings don't fail the
-        # build yet, but rule violations configured as errors (and any future
-        # `--strict` flip) gate CI (US-IOS092).
-        run: swiftlint lint --config ../.swiftlint.yml
+        # Runs from the REPOSITORY ROOT, deliberately. .swiftlint.yml's
+        # `included:` entries are repo-root-relative ("ios/DailyOK", …), and
+        # this step used to run with working-directory: ios, where those resolve
+        # against the wrong base ("ios/ios/DailyOK"). A path that matches nothing
+        # is not an error to SwiftLint — it lints zero files, reports zero
+        # violations, and the step goes green. A gate that inspects nothing is
+        # not a gate.
+        #
+        # Non-strict: warnings don't fail the build yet, but rules configured as
+        # errors (force_cast, force_try) gate CI (US-IOS092).
+        run: |
+          set -o pipefail
+          swiftlint lint --config .swiftlint.yml 2>&1 | tee "$RUNNER_TEMP/swiftlint.log"
+
+      - name: Assert SwiftLint actually inspected the iOS sources
+        # The guard for the failure above: whatever the path semantics, a run
+        # that linted 0 files must be red. SwiftLint's summary line carries the
+        # count it linted.
+        #
+        # Deliberately tolerant of a wording change: if the count cannot be
+        # found at all, this warns instead of failing, because breaking every
+        # iOS PR on a SwiftLint release note would be worse than the gap it
+        # guards. A count that IS found and is zero is unambiguous, and fails.
+        run: |
+          COUNT=$(grep -oE 'in [0-9]+ files' "$RUNNER_TEMP/swiftlint.log" | tail -1 | grep -oE '[0-9]+' || true)
+          if [ -z "$COUNT" ]; then
+            echo "::warning::Could not read a file count from SwiftLint's output — the non-empty guard needs updating."
+            exit 0
+          fi
+          echo "SwiftLint linted $COUNT files."
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::SwiftLint linted 0 files. The 'included:' paths in .swiftlint.yml do not resolve from the directory this step runs in, so the lint gate is inspecting nothing."
+            exit 1
+          fi
 
   api-integration-tests:
     name: API Integration Tests
