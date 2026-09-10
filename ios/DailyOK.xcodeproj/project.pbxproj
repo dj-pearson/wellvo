@@ -113,6 +113,7 @@
 		B1S00001 /* SharedAppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00001; };
 		B1S00002 /* SharedCheckInState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00002; };
 		B1S00003 /* SharedCheckInClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00003; };
+		B1S0000A /* OfflineCheckInMarker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S0000A; };
 		B1S00004 /* CheckInIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00004; };
 		B1S00005 /* DailyOKAppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00005; };
 		B1S00006 /* SharedOwnerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00006; };
@@ -139,6 +140,7 @@
 		B3U00008 /* ScheduleResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00008; };
 		B3U00009 /* ReleaseReadinessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00009; };
 		B3U000A1 /* SupabaseSessionStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U000A1; };
+		B3U000A2 /* OfflineMarkerPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U000A2; };
 		B3U00010 /* EscalationActivityManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00010; };
 		B3U00011 /* NotificationRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00011; };
 		B3U00012 /* CheckInServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00012; };
@@ -175,6 +177,7 @@
 		B4S00001 /* SharedAppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00001; };
 		B4S00002 /* SharedCheckInState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00002; };
 		B4S00003 /* SharedCheckInClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00003; };
+		B4S0000A /* OfflineCheckInMarker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S0000A; };
 		B4S00008 /* SharedKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00008; };
 		B4S00009 /* CertificatePinning.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1S00009; };
 		/* Embed watch app into the iOS app */
@@ -288,6 +291,7 @@
 		F1S00001 /* SharedAppGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedAppGroup.swift; sourceTree = "<group>"; };
 		F1S00002 /* SharedCheckInState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedCheckInState.swift; sourceTree = "<group>"; };
 		F1S00003 /* SharedCheckInClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedCheckInClient.swift; sourceTree = "<group>"; };
+		F1S0000A /* OfflineCheckInMarker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineCheckInMarker.swift; sourceTree = "<group>"; };
 		F1S00004 /* CheckInIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInIntent.swift; sourceTree = "<group>"; };
 		F1S00005 /* DailyOKAppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyOKAppShortcuts.swift; sourceTree = "<group>"; };
 		F1S00006 /* SharedOwnerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedOwnerState.swift; sourceTree = "<group>"; };
@@ -324,6 +328,7 @@
 		F3U00008 /* ScheduleResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleResolverTests.swift; sourceTree = "<group>"; };
 		F3U00009 /* ReleaseReadinessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseReadinessTests.swift; sourceTree = "<group>"; };
 		F3U000A1 /* SupabaseSessionStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseSessionStorageTests.swift; sourceTree = "<group>"; };
+		F3U000A2 /* OfflineMarkerPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineMarkerPolicyTests.swift; sourceTree = "<group>"; };
 		F3U00010 /* EscalationActivityManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscalationActivityManagerTests.swift; sourceTree = "<group>"; };
 		F3U00011 /* NotificationRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationRoutingTests.swift; sourceTree = "<group>"; };
 		F3U00012 /* CheckInServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInServiceTests.swift; sourceTree = "<group>"; };
@@ -635,6 +640,7 @@
 				F1S00007 /* EscalationActivityAttributes.swift */,
 				F1S00008 /* SharedKeychain.swift */,
 				F1S00009 /* CertificatePinning.swift */,
+				F1S0000A /* OfflineCheckInMarker.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -857,6 +863,7 @@
 				F3U00008 /* ScheduleResolverTests.swift */,
 				F3U00009 /* ReleaseReadinessTests.swift */,
 				F3U000A1 /* SupabaseSessionStorageTests.swift */,
+				F3U000A2 /* OfflineMarkerPolicyTests.swift */,
 				F3U00010 /* EscalationActivityManagerTests.swift */,
 				F3U00011 /* NotificationRoutingTests.swift */,
 				F3U00012 /* CheckInServiceTests.swift */,
@@ -1148,6 +1155,7 @@
 				B1S00004 /* CheckInIntent.swift in Sources */,
 				B1S00008 /* SharedKeychain.swift in Sources */,
 				B1S00009 /* CertificatePinning.swift in Sources */,
+				B1S0000A /* OfflineCheckInMarker.swift in Sources */,
 				B1S00005 /* DailyOKAppShortcuts.swift in Sources */,
 				B1C00022 /* SharedCheckInPublisher.swift in Sources */,
 				B1C00023 /* PhoneWatchSync.swift in Sources */,
@@ -1183,6 +1191,7 @@
 				B3U00008 /* ScheduleResolverTests.swift in Sources */,
 				B3U00009 /* ReleaseReadinessTests.swift in Sources */,
 				B3U000A1 /* SupabaseSessionStorageTests.swift in Sources */,
+				B3U000A2 /* OfflineMarkerPolicyTests.swift in Sources */,
 				B3U00010 /* EscalationActivityManagerTests.swift in Sources */,
 				B3U00011 /* NotificationRoutingTests.swift in Sources */,
 				B3U00013 /* AuthViewModelSignOutTests.swift in Sources */,
@@ -1229,6 +1238,7 @@
 				B4S00003 /* SharedCheckInClient.swift in Sources */,
 				B4S00008 /* SharedKeychain.swift in Sources */,
 				B4S00009 /* CertificatePinning.swift in Sources */,
+				B4S0000A /* OfflineCheckInMarker.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

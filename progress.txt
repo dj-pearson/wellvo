@@ -3936,3 +3936,74 @@ This is the same class of problem as the two gates the repo already documents
 in its own workflow comments — ios-tests.yml ("a gate that first speaks after
 the merge is not a gate") and edge-functions-check.yml. A gate that runs, passes,
 and inspected nothing is the quieter version of it.
+
+================================================================================
+iOS improvement loop — iteration 6/15
+================================================================================
+
+FOUND: the watch threw away check-ins it had already told the receiver were sent.
+
+WatchOfflineQueue was a single slot holding one marker, valid only for "today".
+The reasoning behind one-per-day was right — the server dedupes per local day —
+but the edges lost real check-ins:
+
+  - A tap at 23:55 with no network queues a marker. If it has not flushed by
+    midnight, `hasPending` reads it as stale and CLEARS it. The watch had
+    already played the success haptic and shown "all set". The check-in is gone,
+    nobody is told, and the owner escalates on a day the receiver answered.
+  - One slot means a tap on a new day, while the previous day's is still
+    pending, has nowhere to go: `enqueue` sees `hasPending` and returns.
+
+Both are now fixable rather than merely detectable, because the server accepts
+`occurred_at` as of iteration 2. Before that there was nowhere to put "when".
+
+CHANGED:
+  new  ios/DailyOK/Shared/OfflineCheckInMarker.swift        (marker + pure policy)
+  new  ios/DailyOKTests/OfflineMarkerPolicyTests.swift      (13 tests)
+  mod  ios/DailyOKWatch/WatchOfflineQueue.swift             (rewritten)
+  mod  ios/DailyOKWatch/WatchCheckInModel.swift
+  mod  ios/DailyOK/Shared/SharedCheckInClient.swift
+  mod  ios/DailyOK.xcodeproj/project.pbxproj
+
+One marker per local day, each stamped with the moment it was made, flushed
+oldest-first with that moment as `occurred_at`. A repeat tap on a day already
+queued still collapses — and keeps the FIRST timestamp, which is when the
+receiver actually answered — while an urgent tap still upgrades the day's type
+and a plain OK never downgrades it (US-IOS119 preserved).
+
+Three consequences that had to be handled, each of which would otherwise have
+reintroduced the false "they're fine" from the other direction:
+
+  - SharedCheckInClient no longer flips `hasCheckedInToday` when it is flushing
+    an earlier day. That flag drives the watch face and the widget, so setting
+    it for a backfill would put "all set" on a glanceable surface for a day
+    nobody has answered.
+  - A successful live check-in now clears only TODAY's marker, not the queue. It
+    settles today; it says nothing about a previous day's tap still waiting.
+  - The "queued" indicator asks `hasPendingForToday`, not `hasPending` — a
+    marker from yesterday is real and will be sent, but it does not mean today
+    is done.
+
+The decisions live in a pure `OfflineMarkerPolicy` in Shared/ (app + watch
+targets) rather than inside the queue, because the storage is App Group
+UserDefaults and the watch target cannot be imported by DailyOKTests. That is
+what makes the 13 tests possible; they cover the 23:55 rollover, the new-day
+tap, per-day collapse, urgency upgrade and non-downgrade, the replay window in
+both directions, a future-dated marker from a wrong clock, ordering, the real
+bound (one/day × 7 days = 8, not the nominal cap), and what a glanceable surface
+should show.
+
+The replay window is asserted equal to OfflineCheckInService.maxReplayAge, so
+the phone, the watch, Android and the edge function now all agree by test rather
+than by comment.
+
+Migration: the old single-slot keys are read once on first access, folded into
+the new array, then removed — an upgrade must not drop a check-in already
+waiting on someone's wrist. Done on read rather than at launch because the
+notification controller queues from a background wake that runs no launch code.
+
+VERIFICATION LIMIT: no Xcode here, so none of this was compiled. New files are
+registered in project.pbxproj in all four places for each target they belong to
+(app + watch for the marker, tests for the test file); a file that is not
+registered simply does not compile, which is the failure mode to watch for on
+the PR. ios-tests.yml runs the tests.

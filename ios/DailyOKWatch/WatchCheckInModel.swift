@@ -21,7 +21,7 @@ final class WatchCheckInModel: ObservableObject {
 
     func reload() {
         state = SharedCheckInStore.load()
-        queued = WatchOfflineQueue.hasPending
+        queued = WatchOfflineQueue.hasPendingForToday
         // Derive doneness from the check-in's day, not the raw persisted flag,
         // so a new day (crossed without a phone sync) re-enables the tap.
         didCheckIn = (state?.isCheckedIn() ?? false) || queued
@@ -49,8 +49,10 @@ final class WatchCheckInModel: ObservableObject {
             let updated = try await SharedCheckInClient.checkIn(source: "watch", batteryLevel: batteryLevel)
             state = updated
             didCheckIn = true
-            queued = false
-            WatchOfflineQueue.clear()
+            // Today is settled by this call; anything queued for an EARLIER day
+            // is a separate check-in that still has to be sent.
+            WatchOfflineQueue.clearToday()
+            queued = WatchOfflineQueue.hasPendingForToday
             WKInterfaceDevice.current().play(.success)
             WidgetCenter.shared.reloadAllTimelines()
             WatchConnectivityProvider.shared.notifyPhoneOfCheckIn()
@@ -87,22 +89,40 @@ final class WatchCheckInModel: ObservableObject {
     private var isSyncing = false
 
     func syncPendingIfNeeded() async {
-        guard WatchOfflineQueue.hasPending, !isCheckingIn, !isSyncing else { return }
+        let markers = WatchOfflineQueue.pending
+        guard !markers.isEmpty, !isCheckingIn, !isSyncing else { return }
         isSyncing = true
         defer { isSyncing = false }
-        // Flush with the queued response type so a help/call request isn't
-        // downgraded to a plain "OK" on sync (US-IOS119).
-        let queuedType = WatchOfflineQueue.pendingType
-        do {
-            let updated = try await SharedCheckInClient.checkIn(responseType: queuedType, source: "watch", batteryLevel: batteryLevel)
-            state = updated
-            didCheckIn = true
-            queued = false
-            WatchOfflineQueue.clear()
-            WidgetCenter.shared.reloadAllTimelines()
-            WatchConnectivityProvider.shared.notifyPhoneOfCheckIn()
-        } catch {
-            // Still offline or the session needs the phone — keep it queued.
+
+        var sentAny = false
+        // Oldest first, each carrying the moment it was actually made
+        // (US-IOS147), so a tap from a previous day is filed under that day
+        // rather than counting as today's check-in. Flushing with the queued
+        // response type keeps a help/call request from being downgraded to a
+        // plain "OK" (US-IOS119).
+        for marker in markers {
+            do {
+                let updated = try await SharedCheckInClient.checkIn(
+                    responseType: marker.type,
+                    source: "watch",
+                    batteryLevel: batteryLevel,
+                    occurredAt: marker.at
+                )
+                state = updated
+                WatchOfflineQueue.remove(marker)
+                sentAny = true
+            } catch {
+                // Still offline or the session needs the phone — keep this one
+                // and everything after it queued, and stop: a later marker is
+                // no more likely to get through than this one.
+                break
+            }
         }
+
+        guard sentAny else { return }
+        didCheckIn = state?.isCheckedIn() == true
+        queued = WatchOfflineQueue.hasPendingForToday
+        WidgetCenter.shared.reloadAllTimelines()
+        WatchConnectivityProvider.shared.notifyPhoneOfCheckIn()
     }
 }

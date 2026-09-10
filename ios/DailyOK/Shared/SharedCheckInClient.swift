@@ -37,11 +37,15 @@ enum SharedCheckInClient {
     ///   - responseType: `ok` / `need_help` / `call_me`.
     ///   - source: how the check-in was initiated (e.g. `app`, `widget`, `watch`).
     ///   - batteryLevel: 0...1 if the calling surface can supply it.
+    ///   - occurredAt: the moment the receiver actually tapped, for a check-in
+    ///     being flushed from an offline queue. Omitted for a live check-in,
+    ///     where the server's `now()` is the same instant (US-IOS147).
     @discardableResult
     static func checkIn(
         responseType: String = "ok",
         source: String = "app",
-        batteryLevel: Double? = nil
+        batteryLevel: Double? = nil,
+        occurredAt: Date? = nil
     ) async throws -> SharedCheckInState {
         guard var state = SharedCheckInStore.load() else { throw SharedCheckInError.notSignedIn }
         // The session secrets live in the Keychain, not the snapshot plist. With
@@ -64,6 +68,13 @@ enum SharedCheckInClient {
         if let battery = batteryLevel, battery >= 0, battery <= 1 {
             body["battery_level"] = String(battery)
         }
+        // Without this the server stamps checked_in_at with now(), so a wrist
+        // tap made at 23:55 and flushed after midnight is recorded as the next
+        // day's check-in — leaving the day it was actually made looking missed,
+        // and today looking answered when it is not (US-IOS147).
+        if let occurredAt {
+            body["occurred_at"] = iso8601UTC.string(from: occurredAt)
+        }
 
         do {
             try await postCheckIn(state: state, accessToken: tokens.accessToken, body: body)
@@ -84,6 +95,17 @@ enum SharedCheckInClient {
         // SharedCheckInStore.update). The monotonic hasCheckedInToday flip is the
         // safety-relevant field and is resilient to a lost write (US-IOS129).
         let now = Date()
+
+        // A check-in flushed for an EARLIER day answers that day, not this one.
+        // Flipping `hasCheckedInToday` for it would put "all set" on the watch
+        // face and the widget for a day the receiver has not answered — the
+        // false reassurance US-IOS147 exists to remove, arriving through the
+        // glanceable surfaces instead of the dashboard.
+        let answersToday = occurredAt.map { Calendar.current.isDateInToday($0) } ?? true
+        guard answersToday else {
+            return SharedCheckInStore.load() ?? state
+        }
+
         SharedCheckInStore.update { snapshot in
             snapshot.hasCheckedInToday = true
             snapshot.lastCheckInAt = now
@@ -104,6 +126,15 @@ enum SharedCheckInClient {
         state.updatedAt = now
         return state
     }
+
+    /// RFC 3339 in UTC, which is what the edge function's `Date.parse` accepts
+    /// unambiguously.
+    private static let iso8601UTC: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        return formatter
+    }()
 
     // MARK: - Networking
 
