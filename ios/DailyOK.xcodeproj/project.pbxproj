@@ -32,6 +32,7 @@
 		B1C00007 /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00007; };
 		B1C00026 /* ForceUpdateState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00026; };
 		B1C00008 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C00008; };
+		B1C000A1 /* SupabaseSessionStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C000A1; };
 		/* Utilities */
 		B1D00001 /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00001; };
 		B1D00002 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D00002; };
@@ -137,6 +138,7 @@
 		B3U00007 /* StreaksTimezoneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00007; };
 		B3U00008 /* ScheduleResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00008; };
 		B3U00009 /* ReleaseReadinessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00009; };
+		B3U000A1 /* SupabaseSessionStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U000A1; };
 		B3U00010 /* EscalationActivityManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00010; };
 		B3U00011 /* NotificationRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00011; };
 		B3U00012 /* CheckInServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00012; };
@@ -221,6 +223,7 @@
 		F1C00007 /* SubscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionService.swift; sourceTree = "<group>"; };
 		F1C00026 /* ForceUpdateState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForceUpdateState.swift; sourceTree = "<group>"; };
 		F1C00008 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
+		F1C000A1 /* SupabaseSessionStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseSessionStorage.swift; sourceTree = "<group>"; };
 		F1C00009 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		F1C0000A /* HeartbeatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartbeatService.swift; sourceTree = "<group>"; };
 		F1C00020 /* EdgeFunctionsClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EdgeFunctionsClient.swift; sourceTree = "<group>"; };
@@ -320,6 +323,7 @@
 		F3U00007 /* StreaksTimezoneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreaksTimezoneTests.swift; sourceTree = "<group>"; };
 		F3U00008 /* ScheduleResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleResolverTests.swift; sourceTree = "<group>"; };
 		F3U00009 /* ReleaseReadinessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseReadinessTests.swift; sourceTree = "<group>"; };
+		F3U000A1 /* SupabaseSessionStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseSessionStorageTests.swift; sourceTree = "<group>"; };
 		F3U00010 /* EscalationActivityManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscalationActivityManagerTests.swift; sourceTree = "<group>"; };
 		F3U00011 /* NotificationRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationRoutingTests.swift; sourceTree = "<group>"; };
 		F3U00012 /* CheckInServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInServiceTests.swift; sourceTree = "<group>"; };
@@ -709,6 +713,7 @@
 				F1C00007 /* SubscriptionService.swift */,
 				F1C00026 /* ForceUpdateState.swift */,
 				F1C00008 /* SupabaseService.swift */,
+				F1C000A1 /* SupabaseSessionStorage.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -851,6 +856,7 @@
 				F3U00007 /* StreaksTimezoneTests.swift */,
 				F3U00008 /* ScheduleResolverTests.swift */,
 				F3U00009 /* ReleaseReadinessTests.swift */,
+				F3U000A1 /* SupabaseSessionStorageTests.swift */,
 				F3U00010 /* EscalationActivityManagerTests.swift */,
 				F3U00011 /* NotificationRoutingTests.swift */,
 				F3U00012 /* CheckInServiceTests.swift */,
@@ -1080,6 +1086,7 @@
 				B1C00007 /* SubscriptionService.swift in Sources */,
 				B1C00026 /* ForceUpdateState.swift in Sources */,
 				B1C00008 /* SupabaseService.swift in Sources */,
+				B1C000A1 /* SupabaseSessionStorage.swift in Sources */,
 				B1D00001 /* Configuration.swift in Sources */,
 				B1D00002 /* KeychainService.swift in Sources */,
 				B1D00003 /* NetworkRetry.swift in Sources */,
@@ -1175,6 +1182,7 @@
 				B3U00007 /* StreaksTimezoneTests.swift in Sources */,
 				B3U00008 /* ScheduleResolverTests.swift in Sources */,
 				B3U00009 /* ReleaseReadinessTests.swift in Sources */,
+				B3U000A1 /* SupabaseSessionStorageTests.swift in Sources */,
 				B3U00010 /* EscalationActivityManagerTests.swift in Sources */,
 				B3U00011 /* NotificationRoutingTests.swift in Sources */,
 				B3U00013 /* AuthViewModelSignOutTests.swift in Sources */,

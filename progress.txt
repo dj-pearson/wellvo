@@ -3826,3 +3826,67 @@ VERIFICATION LIMIT: no Android SDK in this container (`SDK location not found`),
 so the Kotlin was not compiled and the tests were not run. android-build.yml
 does both on the PR. The edge-function side of this story was verified locally
 in iteration 2 and is unchanged here.
+
+================================================================================
+iOS improvement loop — iteration 4/15
+================================================================================
+
+US-IOS144, the open story US-IOS143 was split from: a reinstall could sign the
+new owner in as the previous one.
+
+The story could not be finished before because it turned on an SDK behaviour
+nobody had verified. So I verified it — cloned supabase/supabase-swift and read
+v2.55.2, the latest 2.x and therefore what the project's `from: "2.0.0"`
+resolves to:
+
+  AuthClient.Configuration.defaultLocalStorage
+    = KeychainLocalStorage(service: "supabase.gotrue.swift")
+  session key "supabase.auth.token"   (Auth/Internal/Constants.swift)
+
+Keychain-backed. The premise was right: the session outlived an app delete and
+sat outside US-IOS143's purge, so a fresh install could restore the previous
+user's session — that family's check-in history and care notes, and the ability
+to act as them — after which the app re-mirrors those tokens to the widget, Siri
+and the watch, undoing most of US-IOS143. On a product whose whole shape is a
+phone handed between family members.
+
+CHANGED:
+  new  ios/DailyOK/Services/SupabaseSessionStorage.swift
+  new  ios/DailyOKTests/SupabaseSessionStorageTests.swift   (7 tests)
+  mod  ios/DailyOK/Services/SupabaseService.swift
+  mod  ios/DailyOK/Utilities/KeychainService.swift
+  mod  ios/DailyOK.xcodeproj/project.pbxproj
+  mod  prd.json  (US-IOS144 -> passes, +US-IOS148)
+
+Took the app-owned-storage route (the story's AC3) rather than deleting another
+library's Keychain items by guessed attributes. That would break silently the
+first time the library changed them — and it does change: v3 moves the default
+service to the host bundle identifier. Owning the storage makes the purge
+version-independent.
+
+SupabaseSessionStorage writes under KeychainService.serviceName, so the existing
+deleteAll() — which deletes by service rather than by an enumerated key list —
+already sweeps the session up, and a key added later needs no coordination.
+Accessibility AfterFirstUnlockThisDeviceOnly, matching SharedKeychain: out of
+encrypted backups, still readable during background work on a locked device.
+
+The migration is the part that matters for shipping. retrieve() falls back to
+the SDK's old service once per key and moves the item across, so this does NOT
+sign out every existing user on update — the read-old-write-new shim CLAUDE.md
+requires for on-device state. remove() clears both copies so a sign-out cannot
+be resurrected by the shim, and purgeIfFreshInstall now also calls
+purgeLegacySDKItems() so the shim cannot adopt the previous owner's session on a
+fresh install.
+
+The new files are registered in project.pbxproj in all four places (build file,
+file reference, group children, sources phase) — this project has no
+file-system-synchronized groups, so a file not registered simply does not
+compile.
+
+NOT DONE, and stated rather than glossed:
+  - AC4, verifying install → sign in → delete → reinstall on a real device or
+    simulator. No macOS/Xcode here. The change is reviewed by reading and by the
+    SDK source; it wants a real run before release.
+  - AC5, Package.resolved. Filed as US-IOS148 instead of attempted: a correct
+    one lists exact revisions for transitive dependencies too, and hand-writing
+    those risks a file that breaks resolution for everyone.
