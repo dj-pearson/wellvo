@@ -4326,3 +4326,66 @@ exists for), 12- vs 24-hour locales, and the midnight/noon boundaries the
 hand-rolled version special-cased.
 
 Not compiled — no Xcode here.
+
+================================================================================
+iOS improvement loop — iteration 13/15
+================================================================================
+
+FOUND: three surfaces disagree about the Health integration, and the public one
+denies it.
+
+HealthService (US-IOS017) reads today's step count from Apple Health on device,
+derives "active today", and uploads that boolean to `wellness_signals` with
+`source: "healthkit"`, keyed to receiver_id + family_id + date. It is off by
+default, permission-gated, and revocable — all of which is good design. What is
+not good is what the three declarations say about it:
+
+  website/src/pages/Privacy.tsx     listed "Health, fitness, biometric, or
+                                    genetic data" under **Information We Do Not
+                                    Collect**. A flat denial of a feature that
+                                    ships.
+
+  ios/DailyOK/PrivacyInfo.xcprivacy declared no Health or Fitness type at all,
+                                    while the manifest's own header says it must
+                                    match the App Store Connect answers and the
+                                    website exactly.
+
+  ios/DailyOK/Info.plist            carried NSHealthUpdateUsageDescription —
+                                    "Daily OK writes a 'Active today' note…" —
+                                    and the app never writes to HealthKit.
+                                    `requestAuthorization(toShare: [], read:
+                                    [stepType])`. The one `.delete()` in the file
+                                    is a Supabase row delete, not a HealthKit
+                                    one. The string claims an access the app
+                                    does not take.
+
+A privacy policy that denies collecting the thing the product collects is not a
+documentation nit. It is the one page a user reads before deciding, and it is
+wrong.
+
+CHANGED:
+  mod  website/src/pages/Privacy.tsx
+  mod  ios/DailyOK/PrivacyInfo.xcprivacy
+  mod  ios/DailyOK/Info.plist
+
+The policy now describes the feature under what IS collected — read on device
+only, one yes/no value plus the date and identifiers leaving, no step counts and
+no other Health data uploaded, not medical monitoring or fall detection, off by
+default, and revoking deletes everything already shared. The "do not collect"
+list keeps the part that is true and is now specific: no raw Apple Health data of
+any kind, and no biometric or genetic data.
+
+The manifest declares NSPrivacyCollectedDataTypeFitness — linked, not tracking,
+app functionality. Derived or not, the value is uploaded and tied to a user.
+
+NSHealthUpdateUsageDescription is removed. With `toShare: []` iOS never shows it,
+so nothing user-facing changes; what changes is that the shipped declaration no
+longer claims an access the app does not take.
+
+NOT DOABLE FROM HERE: the App Store Connect "App Privacy" answers need the same
+Health & Fitness entry. That is a console change, and the manifest's header
+already names it as one of the three places that must agree.
+
+VERIFIED: both plists parse (plistlib). Website builds — 35 documents
+pre-rendered, sitemap 33 URLs — and its route-integrity suite passes 38/38 after
+a clean npm ci.
