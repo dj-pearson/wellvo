@@ -14,6 +14,20 @@ final class AppState: ObservableObject {
     /// blocking overlay; transient "couldn't evaluate" states never set this.
     @Published var secureConnectionFailed: Bool = false
 
+    /// Covers the UI while the app is leaving the foreground, when the user
+    /// relies on biometric lock.
+    ///
+    /// iOS captures the App Switcher snapshot during the `.inactive` window and
+    /// keeps it on disk. Raising the biometric lock only on resume meant that
+    /// snapshot was taken of the live dashboard, so anyone holding the phone
+    /// could read a relative's status, location and care notes from the switcher
+    /// card without ever passing Face ID — the one thing the lock is for.
+    ///
+    /// Deliberately separate from `AuthViewModel.biometricLocked`: this only
+    /// obscures pixels. Raising the real lock here would re-enter the unlock
+    /// prompt on every transient interruption, including the Face ID sheet's own.
+    @Published var privacyCoverActive: Bool = false
+
     /// Result of a deep link that performed an ACTION rather than navigation —
     /// today, the escalation Live Activity's "Stand down" button.
     ///

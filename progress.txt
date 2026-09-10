@@ -4112,3 +4112,48 @@ can arrive over any screen and, on a cold start, over none of them yet.
 
 Malformed parameters now `return` early rather than falling through a nested
 `if let`, which is also why the branch can report at all.
+
+================================================================================
+iOS improvement loop — iteration 9/15
+================================================================================
+
+FOUND: biometric lock did not cover the App Switcher snapshot.
+
+`biometricLocked` was raised only in `checkBiometricOnResume()`, which runs on
+the transition to `.active`. iOS captures the App Switcher snapshot during
+`.inactive` — before that — and keeps it on disk. So with Face ID lock enabled,
+the switcher card showed the live dashboard: the relative's name, their check-in
+status, their location, their care notes. Anyone holding the phone could read all
+of it by double-tapping the home indicator, without ever passing Face ID. That is
+the one thing the lock exists to prevent.
+
+`case .inactive: break` was the whole handler.
+
+CHANGED:
+  mod  ios/DailyOK/App/AppState.swift            (+privacyCoverActive)
+  mod  ios/DailyOK/App/DailyOKApp.swift          (raise/drop it first)
+  mod  ios/DailyOK/App/ContentView.swift         (+PrivacyCoverView, topmost)
+  mod  ios/DailyOK/Services/BiometricService.swift (+isEnabledPreference)
+
+Deliberately a SEPARATE flag from `AuthViewModel.biometricLocked`, not a reuse
+of it. Raising the real lock at `.inactive` would re-enter the unlock prompt on
+every transient interruption — including the Face ID sheet's own, which itself
+makes the scene inactive. This one only obscures pixels; the existing `.active`
+path still owns the actual unlock.
+
+The cover is set in a switch that runs BEFORE any awaiting work in the scene
+handler, and `BiometricService.isEnabledPreference` reads the preference without
+an actor hop, because the snapshot will not wait for one. The view is rendered
+topmost with no transition, for the same reason: a fade would let the real UI be
+captured mid-animation.
+
+The cover carries no account data — the app mark, the name, a lock glyph —
+and reads as "Daily OK is locked" to VoiceOver.
+
+Only applies when the user has biometric lock on. Someone who has not enabled it
+has not asked for their switcher card to be hidden, and hiding it would be a
+change to their app, not a fix.
+
+NOT TESTED as a unit: this is a scene-phase side effect and a rendering order,
+neither of which a hosted XCTest can meaningfully assert. It wants a device
+check — enable Face ID lock, background the app, look at the App Switcher.

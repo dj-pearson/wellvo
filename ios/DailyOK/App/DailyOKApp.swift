@@ -153,6 +153,18 @@ struct DailyOKApp: App {
     }
 
     private func handleScenePhaseChange(_ phase: ScenePhase) {
+        // Drop / raise the snapshot cover first, before any awaiting work: the
+        // App Switcher snapshot is taken during `.inactive` and will not wait.
+        switch phase {
+        case .active:
+            appState.privacyCoverActive = false
+        case .inactive, .background:
+            appState.privacyCoverActive =
+                authViewModel.authState == .authenticated && BiometricService.isEnabledPreference
+        @unknown default:
+            break
+        }
+
         switch phase {
         case .active:
             // Run foreground work as a single ordered task instead of six
