@@ -73,6 +73,10 @@
 		/* Resources */
 		B1G00001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F1G00001; };
 		B1G00002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F1G00002; };
+		B1G00003 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F1G00003; };
+		B5R0000A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F5F0000A; };
+		B6R00006 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F6F00006; };
+		B4R00002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F4G00002; };
 		B4G00001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F4G00001; };
 		/* SPM Products */
 		B1H00001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = P1H00001; };
@@ -306,6 +310,10 @@
 		/* Resources */
 		F1G00001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F1G00002 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		F1G00003 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		F5F0000A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		F6F00006 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		F4G00002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		/* Config */
 		F1X00001 /* BuildConfig.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = BuildConfig.xcconfig; sourceTree = "<group>"; };
 		/* Product */
@@ -568,6 +576,7 @@
 				F4F00009 /* CheckInNotificationView.swift */,
 				F4F00005 /* Info.plist */,
 				F4F00006 /* DailyOKWatch.entitlements */,
+				F4G00002 /* PrivacyInfo.xcprivacy */,
 			);
 			path = DailyOKWatch;
 			sourceTree = "<group>";
@@ -580,6 +589,7 @@
 				F6F00003 /* ComplicationProvider.swift */,
 				F6F00004 /* Info.plist */,
 				F6F00005 /* DailyOKWatchWidgets.entitlements */,
+				F6F00006 /* PrivacyInfo.xcprivacy */,
 			);
 			path = DailyOKWatchWidgets;
 			sourceTree = "<group>";
@@ -607,6 +617,7 @@
 				F5F00009 /* EscalationLiveActivity.swift */,
 				F5F00005 /* Info.plist */,
 				F5F00006 /* DailyOKWidgets.entitlements */,
+				F5F0000A /* PrivacyInfo.xcprivacy */,
 			);
 			path = DailyOKWidgets;
 			sourceTree = "<group>";
@@ -623,6 +634,7 @@
 				G1S00001 /* Shared */,
 				F1G00001 /* Assets.xcassets */,
 				F1G00002 /* Localizable.xcstrings */,
+				F1G00003 /* PrivacyInfo.xcprivacy */,
 				F1X00001 /* BuildConfig.xcconfig */,
 			);
 			path = DailyOK;
@@ -941,6 +953,7 @@
 			buildPhases = (
 				S5000001 /* Sources */,
 				D5000001 /* Frameworks */,
+				R5000001 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -976,6 +989,7 @@
 			buildPhases = (
 				S6000001 /* Sources */,
 				D6000001 /* Frameworks */,
+				R6000001 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -1273,6 +1287,7 @@
 			files = (
 				B1G00001 /* Assets.xcassets in Resources */,
 				B1G00002 /* Localizable.xcstrings in Resources */,
+				B1G00003 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1281,6 +1296,23 @@
 			buildActionMask = 2147483647;
 			files = (
 				B4G00001 /* Assets.xcassets in Resources */,
+				B4R00002 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		R5000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B5R0000A /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		R6000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B6R00006 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

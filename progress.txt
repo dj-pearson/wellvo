@@ -4007,3 +4007,62 @@ registered in project.pbxproj in all four places for each target they belong to
 (app + watch for the marker, tests for the test file); a file that is not
 registered simply does not compile, which is the failure mode to watch for on
 the PR. ios-tests.yml runs the tests.
+
+================================================================================
+iOS improvement loop — iteration 7/15
+================================================================================
+
+FOUND: the app ships without its privacy manifest, and three of five bundles
+never had one.
+
+ios/DailyOK/PrivacyInfo.xcprivacy is a careful, well-commented file whose own
+header says it "must match exactly" the App Store Connect App Privacy answers
+and website/src/pages/Privacy.tsx. It has no PBXFileReference in
+project.xcodeproj at all — not in the group, not in the Resources build phase.
+It has never been copied into the app bundle. Someone wrote the declaration and
+Apple has never seen it.
+
+The per-bundle picture before this:
+
+  DailyOK (app)              manifest on disk, NOT in the build
+  DailyOKNotificationService manifest, correctly wired          ✓
+  DailyOKWidgets             none — and no Resources phase at all
+  DailyOKWatchWidgets        none — and no Resources phase at all
+  DailyOKWatch               none
+
+Apple's required-reason API check (ITMS-91053) runs per BUNDLE. The main app's
+manifest does not cover a separate .appex or the watch binary. Every one of
+those bundles reads the shared App Group UserDefaults, which is a required-reason
+API (CA92.1). This is a common upload rejection, and the widgets, the Control
+Center control and the Live Activity are exactly the surfaces most likely to
+trip it.
+
+CHANGED:
+  new  ios/DailyOKWidgets/PrivacyInfo.xcprivacy
+  new  ios/DailyOKWatchWidgets/PrivacyInfo.xcprivacy
+  new  ios/DailyOKWatch/PrivacyInfo.xcprivacy
+  mod  ios/DailyOK.xcodeproj/project.pbxproj
+  mod  ios/DailyOKTests/ReleaseReadinessTests.swift
+
+The app's existing manifest is now registered (file reference, group, Resources
+phase). The three new ones follow the notification service's precedent: empty
+collected-data-types with a pointer to the app manifest, which is where the
+product-level declarations belong, plus the accessed-API types. UserDefaults
+CA92.1 is the load-bearing one; the other three mirror the app manifest's own
+reasoning about transitive use through URLSession, SwiftUI and WidgetKit, with
+the same note that they should be trimmed once verified.
+
+The two widget targets had no PBXResourcesBuildPhase whatsoever, so one was
+created for each and wired into buildPhases — without that the manifest file
+reference would exist and still not ship, which is the same bug again.
+
+GUARD, because "the file exists" was never the question:
+  - testAppBundleContainsItsPrivacyManifest — asserts on Bundle.main, which for
+    a hosted test bundle is the app itself. This is the exact regression.
+  - testEveryEmbeddedExtensionContainsAPrivacyManifest — walks
+    builtInPlugInsURL and fails any .appex shipping without one. Skips rather
+    than fails when a configuration embeds no extensions.
+
+VERIFICATION: all five manifests parse as plists (checked with plistlib), and
+the pbxproj stays balanced with 5 build files, 5 file references and 5 Resources
+phases. Not compiled — no Xcode here.
