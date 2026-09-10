@@ -167,4 +167,42 @@ final class ReleaseReadinessTests: XCTestCase {
         let noDeadline = try makeFamily(tier: "free", freeTierExpiresAt: nil)
         XCTAssertFalse(noDeadline.isFreeTierExpired)
     }
+
+    // MARK: - Privacy manifests ship in every bundle
+
+    /// The manifest is a build artefact, not just a file on disk. This one was
+    /// written, documented as having to match the App Store Connect answers —
+    /// and never added to the app target's Resources phase, so it was not in
+    /// the bundle Apple receives. A file that exists in the repo and not in the
+    /// product is the failure mode this asserts against.
+    func testAppBundleContainsItsPrivacyManifest() {
+        // The unit-test bundle is hosted in the app, so Bundle.main is the app.
+        XCTAssertNotNil(
+            Bundle.main.url(forResource: "PrivacyInfo", withExtension: "xcprivacy"),
+            "PrivacyInfo.xcprivacy is missing from the app bundle. It is probably not in the target's Resources build phase."
+        )
+    }
+
+    /// Apple's required-reason API check (ITMS-91053) runs per bundle: the app's
+    /// manifest does not cover an embedded extension. Every .appex that ships
+    /// inside the app therefore needs its own.
+    func testEveryEmbeddedExtensionContainsAPrivacyManifest() throws {
+        guard let pluginsURL = Bundle.main.builtInPlugInsURL,
+              let contents = try? FileManager.default.contentsOfDirectory(
+                  at: pluginsURL, includingPropertiesForKeys: nil
+              ) else {
+            throw XCTSkip("No embedded extensions in this build configuration")
+        }
+
+        let extensions = contents.filter { $0.pathExtension == "appex" }
+        try XCTSkipIf(extensions.isEmpty, "No embedded extensions in this build configuration")
+
+        for url in extensions {
+            let manifest = url.appendingPathComponent("PrivacyInfo.xcprivacy")
+            XCTAssertTrue(
+                FileManager.default.fileExists(atPath: manifest.path),
+                "\(url.lastPathComponent) ships without a PrivacyInfo.xcprivacy. Apple's required-reason API check runs per bundle."
+            )
+        }
+    }
 }

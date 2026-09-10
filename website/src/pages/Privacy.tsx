@@ -69,6 +69,17 @@ export default function Privacy() {
                 requires the operating system permission prompt, and can be revoked at any time.
               </li>
               <li>
+                <strong>Optional Activity Signal (Apple Health):</strong> If a Receiver turns on
+                Health sharing, the app reads today's step count from Apple Health{' '}
+                <em>on the device only</em> and converts it into a single yes/no value —
+                whether they have been active today. Only that yes/no value, the date, and the
+                Receiver&rsquo;s account and family identifiers leave the device. No step
+                counts and no other Apple Health data are ever uploaded, and this is not
+                medical monitoring or fall detection. It is off by default, requires the
+                operating system permission prompt, and turning it off deletes every signal
+                already shared.
+              </li>
+              <li>
                 <strong>Communications:</strong> Messages you send to support, including the
                 contents of those messages and any attachments.
               </li>
@@ -100,7 +111,13 @@ export default function Privacy() {
 
             <h3>Information We Do Not Collect</h3>
             <ul>
-              <li>Health, fitness, biometric, or genetic data</li>
+              <li>
+                Raw Apple Health data of any kind &mdash; step counts, heart rate, sleep,
+                workouts or any other sample. Where a Receiver has turned on the optional
+                activity signal described above, only a derived yes/no value leaves their
+                device
+              </li>
+              <li>Biometric or genetic data</li>
               <li>Microphone, camera, or photo library content</li>
               <li>Browsing or search history outside the Service</li>
               <li>Contacts list, calendar, or email body content</li>

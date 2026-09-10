@@ -33,6 +33,19 @@ interface OfflineCheckInDao {
     @Query("UPDATE offline_checkins SET synced = 1 WHERE id = :id")
     suspend fun markSynced(id: String)
 
+    /**
+     * Remove a single row. Sync used to flag rows `synced = 1` and leave them,
+     * but nothing ever reads a synced row — every query filters `synced = 0` —
+     * so the table grew for the life of the install and kept a signed-out
+     * account's check-in history on the device indefinitely (US-IOS147).
+     * Adding a DAO method changes no schema, so no Room version bump.
+     */
+    @Query("DELETE FROM offline_checkins WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM offline_checkins WHERE created_at < :cutoffMillis")
+    suspend fun deleteOlderThan(cutoffMillis: Long)
+
     @Query("DELETE FROM offline_checkins")
     suspend fun deleteAll()
 }

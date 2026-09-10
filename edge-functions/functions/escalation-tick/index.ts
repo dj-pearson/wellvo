@@ -99,6 +99,9 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
             sound: "urgent.caf",
             "interruption-level": "critical" as const,
             "thread-id": `geofence-${family_id}`,
+            // LOCATION_ALERT has been registered by the app all along, with a
+            // "View Details" action, and nothing ever sent it.
+            category: "LOCATION_ALERT",
           },
           type: "geofence_alert",
           receiver_id,
@@ -140,6 +143,7 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
             sound: "default",
             "interruption-level": "time-sensitive" as const,
             "thread-id": `battery-${family_id}`,
+            category: "LOCATION_ALERT",
           },
           type: "low_battery_alert",
           receiver_id,
@@ -244,8 +248,18 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
           sound: "urgent.caf",
           "interruption-level": "time-sensitive" as const,
           "thread-id": `alert-${request_id}`,
+          // Without a category iOS renders this with NO action buttons, so the
+          // one notification the owner most needs to act on — their relative
+          // has missed a check-in — offered nothing but "open the app and go
+          // find them". URGENT_ALERT is registered by the app and carries
+          // "Call Now".
+          category: "URGENT_ALERT",
         },
         checkin_request_id: request_id,
+        // "Call Now" looks the number up by receiver_id. The FCM data below has
+        // always carried it; the APNs payload did not, so the action would have
+        // been dead on iOS even once the category was attached.
+        receiver_id,
         type: "owner_alert",
       };
 
@@ -343,8 +357,13 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
               alert: { title: alertTitle, body: alertBody },
               sound: "default",
               "interruption-level": "active" as const,
+              // A viewer cannot stand an escalation down, so this gets the
+              // read-only category rather than URGENT_ALERT's "Call Now".
+              category: "LOCATION_ALERT",
+              "thread-id": `alert-${request_id}`,
             },
             checkin_request_id: request_id,
+            receiver_id,
             type: "viewer_alert",
           };
 

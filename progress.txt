@@ -3645,3 +3645,906 @@ Still open, both needing input rather than effort:
   US-SEO013   CSP connect-src may not cover the Supabase host the blog fetches
   US-SEO018   the /blog/* fallback canonical — diagnosed, needs a staging run
               with real Supabase config before a routing change is safe
+
+================================================================================
+iOS improvement loop — iteration 1/15
+================================================================================
+
+FOUND: a late offline sync fabricates a check-in for TODAY.
+
+OfflineCheckInService.syncPendingCheckIns replays every queued row through
+`process-checkin-response`. That request carries no client timestamp, and the
+edge function stamps `checked_in_at` itself with now() (verified:
+edge-functions/functions/process-checkin-response/index.ts sets no timestamp on
+insert and dedups on `checked_in_at` between the receiver's local day bounds).
+
+So a row queued Monday in a dead-signal area and synced Thursday is not recorded
+as Monday's check-in. It is recorded as a Thursday one — and the owner's
+dashboard reads "checked in today" for a receiver who has not touched their
+phone in three days. Every other guard in that file exists to prevent a false
+escalation; this is the opposite failure, and it is the worse one.
+
+Two smaller things fell out of the same read:
+  - synced rows were flagged `synced = true` and never deleted. Nothing reads a
+    synced row (every query filters `!synced`), so the SwiftData store grew for
+    the life of the install.
+  - rows queued by a since-signed-out account are deliberately kept for that
+    user's return, and were therefore kept forever — another person's receiver
+    id, family id and mood sitting on the device indefinitely.
+
+CHANGED:
+  mod  ios/DailyOK/Services/OfflineCheckInService.swift
+  mod  ios/DailyOKTests/OfflineCheckInServiceTests.swift
+  mod  prd.json  (+US-IOS147)
+
+  - `isStale(queuedAt:now:calendar:)` — nonisolated, pure, unit-testable in the
+    same style as `isAlreadyQueued`. True when the row's local calendar day is
+    no longer today.
+  - sync drops stale rows instead of replaying them. Same-day rows (a tunnel, a
+    dead cell, an hour of airplane mode — the common case) sync exactly as
+    before.
+  - `pruneStaleQueuedCheckIns()` runs at init and before each enqueue, so a
+    device that stayed offline across midnight stops advertising yesterday's
+    row as pending.
+  - success and dead-letter paths now `context.delete(row)` rather than
+    flagging, which bounds the store and clears the signed-out account's rows.
+  - 5 new tests: same-day, across-midnight-by-ten-minutes, yesterday, days ago,
+    and a DST spring-forward day (2026-03-08 America/Chicago) that must still
+    count as one day.
+
+NOT DONE (US-IOS147, next iteration): the real fix is to carry the original
+timestamp end to end — an optional `occurred_at` on process-checkin-response,
+with the local-day and slot_key dedup, escalation and streaks all reading it
+instead of now(). That is edge function + iOS + Android, so it is a story. The
+drop shipped here removes the false "today" but discards a genuine check-in;
+once the server honours the timestamp the stale bound relaxes.
+
+VERIFICATION LIMIT, stated plainly: this container is Linux with no Xcode and no
+Swift toolchain, so nothing here was compiled or run. The change was reviewed by
+reading; ios-tests.yml compiles it and runs the new tests on the PR.
+
+================================================================================
+iOS improvement loop — iteration 2/15
+================================================================================
+
+US-IOS147 as promised: carry the moment a check-in was made, end to end.
+
+Iteration 1 stopped iOS replaying a stale queued check-in as today's, by
+dropping it. That removed the false "checked in today" but threw away a real
+check-in. This is the actual fix.
+
+CHANGED:
+  new  edge-functions/shared/checkin-time.ts
+  new  edge-functions/shared/checkin-time_test.ts   (17 tests)
+  mod  edge-functions/functions/process-checkin-response/index.ts
+  mod  .github/workflows/edge-functions-check.yml
+  mod  ios/DailyOK/Services/CheckInService.swift
+  mod  ios/DailyOK/Services/OfflineCheckInService.swift
+  mod  ios/DailyOKTests/CheckInServiceTests.swift
+  mod  ios/DailyOKTests/OfflineCheckInServiceTests.swift
+  mod  prd.json
+
+Server: `occurred_at` is an optional RFC 3339 request field. resolveOccurredAt
+validates it — 7-day max age, 5-minute future skew, clamps a small future value
+to now — and NEVER rejects the request: refusing a check-in is itself an
+escalation, so a malformed value from a future client degrades to now(), which
+is exactly today's behaviour. checked_in_at is written from it, and both the
+local-day and the slot_key dedup key off it.
+
+Backfill semantics, which is the part that matters. A check-in whose local day
+is already over repairs history; it must not speak for today. So it does NOT
+clear a pending checkin_request and does NOT end a running escalation Live
+Activity — otherwise a three-day-old queued tap would silently stand down a live
+escalation, which is the same false reassurance in a new place. Any push it
+sends carries the weekday and date ("Late check-in ✓ — Mon, Mar 9, 10:03 AM.
+Their phone was offline… this does not cover today"), because a bare time on a
+notification received Thursday reads as Thursday. A late-delivered help request
+keeps its urgency; it just says when.
+
+`backfilled` added to the response. Additive — Swift Decodable and the Android
+adapters ignore unknown keys — per the CLAUDE.md API rules.
+
+FOUND WHILE IN HERE — a live DST bug, not part of the story:
+
+localDayBoundsUTC computed local midnight using the UTC offset in effect at the
+instant passed in. On a DST transition day that is not the offset that was in
+effect at midnight, so the entire day window slid an hour: on the US
+spring-forward Sunday it ran 23:00 the previous local day → 23:00 that day. A
+check-in made at 23:30 local on that Sunday fell OUTSIDE its own day, so the
+server's dedup and the app's Calendar.current.startOfDay disagreed — the exact
+permanent-Pending failure the function's own comment says it exists to prevent.
+Twice a year, for everyone.
+
+Now resolved in two passes (offset at the candidate midnight, not at midday) and
+the end bound is the next local midnight rather than start + 86,400,000ms.
+Verified: spring-forward day 23h, fall-back day 25h, ordinary day 24h, and a
+timezone ahead of UTC.
+
+iOS: sends occurred_at from OfflineCheckIn.createdAt on the sync path only — a
+live check-in still omits it, so that request is byte-identical to what shipped
+builds send. The drop from iteration 1 is now bounded by maxReplayAge (7 days)
+instead of "not today", pinned equal to the server's OCCURRED_AT_MAX_AGE_MS by a
+test. The two bounds have to agree: past the server's bound it falls back to
+now(), which is the original bug.
+
+VERIFIED (this time actually run — Deno 2.1.4 installed locally, matching the
+Dockerfile and the CI pin):
+  deno check server.ts    50 files, clean
+  deno lint               clean
+  deno test               17 passed, 0 failed
+The repo had no Deno tests at all; edge-functions-check.yml now runs them.
+The Swift side is still read-only review — no Xcode on this Linux container.
+ios-tests.yml compiles it and runs the 12 new/rewritten Swift tests on the PR.
+
+NEXT: Android's offline queue replays without occurred_at, so Android users keep
+the false-"today" behaviour. Same three-line shape as iOS. Iteration 3.
+
+================================================================================
+iOS improvement loop — iteration 3/15
+================================================================================
+
+Android half of US-IOS147. The story is now closed.
+
+The queue had exactly the iOS bug, plus the same unbounded growth: rows were
+flagged `synced = 1` and never deleted, and nothing reads a synced row.
+
+CHANGED:
+  mod  android/.../network/ApiService.kt             occurredAt field + wire mapping
+  mod  android/.../services/CheckInService.kt        passthrough param
+  mod  android/.../data/OfflineCheckIn.kt            deleteById, deleteOlderThan
+  mod  android/.../services/OfflineCheckInService.kt sends occurredAt, prunes, deletes
+  mod  android/.../test/.../OfflineCheckInServiceTest.kt
+  mod  prd.json  (US-IOS147 -> passes, +US-A066)
+
+MAX_REPLAY_AGE_MS = 7 days, pinned by a test and equal to iOS's maxReplayAge and
+the server's OCCURRED_AT_MAX_AGE_MS. All three have to agree: past the server's
+bound it stops honouring the timestamp and falls back to now(), which is the
+original bug.
+
+Adding DAO methods changes no schema, so no Room version bump — a bump without a
+migration throws at runtime (CLAUDE.md, on-device state).
+
+The two sync tests needed their mockk stubs widened. `checkIn(any() x5)`
+resolved occurredAt to its null default, so once the sync path started passing a
+real timestamp the stub silently stopped matching — the relaxed mock would have
+returned "" and `coVerify(exactly = 2)` would have failed. Matched explicitly
+now.
+
+FOUND, filed as US-A066: Android never sends `slot_key` at all — not live, not
+from the queue. Every Android check-in therefore falls back to day-level dedup
+on the server, so a receiver on a multi-window schedule has their evening tap
+deduped against the morning one and the owner escalates on a window that was
+answered. That is the same failure US-IOS137 fixed for iOS. Needs a Room
+migration for the new column, so it is a story, not an inline fix.
+
+Also noted in the test file rather than fixed: OfflineCheckInServiceTest tests a
+private helper that re-implements syncPendingCheckIns, because the real service
+needs a Context and a live ConnectivityManager. A mirror test passes even when
+production diverges. Candidate for a later iteration.
+
+VERIFICATION LIMIT: no Android SDK in this container (`SDK location not found`),
+so the Kotlin was not compiled and the tests were not run. android-build.yml
+does both on the PR. The edge-function side of this story was verified locally
+in iteration 2 and is unchanged here.
+
+================================================================================
+iOS improvement loop — iteration 4/15
+================================================================================
+
+US-IOS144, the open story US-IOS143 was split from: a reinstall could sign the
+new owner in as the previous one.
+
+The story could not be finished before because it turned on an SDK behaviour
+nobody had verified. So I verified it — cloned supabase/supabase-swift and read
+v2.55.2, the latest 2.x and therefore what the project's `from: "2.0.0"`
+resolves to:
+
+  AuthClient.Configuration.defaultLocalStorage
+    = KeychainLocalStorage(service: "supabase.gotrue.swift")
+  session key "supabase.auth.token"   (Auth/Internal/Constants.swift)
+
+Keychain-backed. The premise was right: the session outlived an app delete and
+sat outside US-IOS143's purge, so a fresh install could restore the previous
+user's session — that family's check-in history and care notes, and the ability
+to act as them — after which the app re-mirrors those tokens to the widget, Siri
+and the watch, undoing most of US-IOS143. On a product whose whole shape is a
+phone handed between family members.
+
+CHANGED:
+  new  ios/DailyOK/Services/SupabaseSessionStorage.swift
+  new  ios/DailyOKTests/SupabaseSessionStorageTests.swift   (7 tests)
+  mod  ios/DailyOK/Services/SupabaseService.swift
+  mod  ios/DailyOK/Utilities/KeychainService.swift
+  mod  ios/DailyOK.xcodeproj/project.pbxproj
+  mod  prd.json  (US-IOS144 -> passes, +US-IOS148)
+
+Took the app-owned-storage route (the story's AC3) rather than deleting another
+library's Keychain items by guessed attributes. That would break silently the
+first time the library changed them — and it does change: v3 moves the default
+service to the host bundle identifier. Owning the storage makes the purge
+version-independent.
+
+SupabaseSessionStorage writes under KeychainService.serviceName, so the existing
+deleteAll() — which deletes by service rather than by an enumerated key list —
+already sweeps the session up, and a key added later needs no coordination.
+Accessibility AfterFirstUnlockThisDeviceOnly, matching SharedKeychain: out of
+encrypted backups, still readable during background work on a locked device.
+
+The migration is the part that matters for shipping. retrieve() falls back to
+the SDK's old service once per key and moves the item across, so this does NOT
+sign out every existing user on update — the read-old-write-new shim CLAUDE.md
+requires for on-device state. remove() clears both copies so a sign-out cannot
+be resurrected by the shim, and purgeIfFreshInstall now also calls
+purgeLegacySDKItems() so the shim cannot adopt the previous owner's session on a
+fresh install.
+
+The new files are registered in project.pbxproj in all four places (build file,
+file reference, group children, sources phase) — this project has no
+file-system-synchronized groups, so a file not registered simply does not
+compile.
+
+NOT DONE, and stated rather than glossed:
+  - AC4, verifying install → sign in → delete → reinstall on a real device or
+    simulator. No macOS/Xcode here. The change is reviewed by reading and by the
+    SDK source; it wants a real run before release.
+  - AC5, Package.resolved. Filed as US-IOS148 instead of attempted: a correct
+    one lists exact revisions for transitive dependencies too, and hand-writing
+    those risks a file that breaks resolution for everyone.
+
+================================================================================
+iOS improvement loop — iteration 5/15
+================================================================================
+
+FOUND: the SwiftLint gate may be inspecting zero files.
+
+.swiftlint.yml's `included:` entries are repo-root-relative:
+
+    included:
+      - ios/DailyOK
+      - ios/DailyOKWidgets
+      …
+
+but the step ran with `working-directory: ios` and `--config ../.swiftlint.yml`,
+so those resolve against `ios/` — i.e. `ios/ios/DailyOK`, which does not exist.
+A path that matches nothing is not an error to SwiftLint: it lints zero files,
+reports zero violations, and the step goes green. force_cast and force_try are
+configured as errors specifically to gate CI, and they cannot fire on a file
+that was never opened.
+
+CHANGED:
+  mod  .github/workflows/ios-e2e-tests.yml
+
+Two things, because I could not run SwiftLint here to settle which path
+semantics apply (Linux container, no SwiftLint binary):
+
+1. The lint now runs from the repository root with `--config .swiftlint.yml`.
+   That is correct under either interpretation — root-relative `included:`
+   entries resolve from the root by definition — so the fix does not depend on
+   my being right about the cause.
+
+2. A guard that proves it, which is the part that actually matters. SwiftLint's
+   summary line carries the number of files it linted; a run that linted 0 is
+   now red, with an error message naming the reason. Deliberately tolerant of a
+   wording change: if the count cannot be parsed at all it warns rather than
+   failing, because breaking every iOS PR on a SwiftLint release note would be
+   worse than the gap it guards. A count that IS found and is zero is
+   unambiguous.
+
+Workflow YAML parses; the swiftlint job now has four steps.
+
+This is the same class of problem as the two gates the repo already documents
+in its own workflow comments — ios-tests.yml ("a gate that first speaks after
+the merge is not a gate") and edge-functions-check.yml. A gate that runs, passes,
+and inspected nothing is the quieter version of it.
+
+================================================================================
+iOS improvement loop — iteration 6/15
+================================================================================
+
+FOUND: the watch threw away check-ins it had already told the receiver were sent.
+
+WatchOfflineQueue was a single slot holding one marker, valid only for "today".
+The reasoning behind one-per-day was right — the server dedupes per local day —
+but the edges lost real check-ins:
+
+  - A tap at 23:55 with no network queues a marker. If it has not flushed by
+    midnight, `hasPending` reads it as stale and CLEARS it. The watch had
+    already played the success haptic and shown "all set". The check-in is gone,
+    nobody is told, and the owner escalates on a day the receiver answered.
+  - One slot means a tap on a new day, while the previous day's is still
+    pending, has nowhere to go: `enqueue` sees `hasPending` and returns.
+
+Both are now fixable rather than merely detectable, because the server accepts
+`occurred_at` as of iteration 2. Before that there was nowhere to put "when".
+
+CHANGED:
+  new  ios/DailyOK/Shared/OfflineCheckInMarker.swift        (marker + pure policy)
+  new  ios/DailyOKTests/OfflineMarkerPolicyTests.swift      (13 tests)
+  mod  ios/DailyOKWatch/WatchOfflineQueue.swift             (rewritten)
+  mod  ios/DailyOKWatch/WatchCheckInModel.swift
+  mod  ios/DailyOK/Shared/SharedCheckInClient.swift
+  mod  ios/DailyOK.xcodeproj/project.pbxproj
+
+One marker per local day, each stamped with the moment it was made, flushed
+oldest-first with that moment as `occurred_at`. A repeat tap on a day already
+queued still collapses — and keeps the FIRST timestamp, which is when the
+receiver actually answered — while an urgent tap still upgrades the day's type
+and a plain OK never downgrades it (US-IOS119 preserved).
+
+Three consequences that had to be handled, each of which would otherwise have
+reintroduced the false "they're fine" from the other direction:
+
+  - SharedCheckInClient no longer flips `hasCheckedInToday` when it is flushing
+    an earlier day. That flag drives the watch face and the widget, so setting
+    it for a backfill would put "all set" on a glanceable surface for a day
+    nobody has answered.
+  - A successful live check-in now clears only TODAY's marker, not the queue. It
+    settles today; it says nothing about a previous day's tap still waiting.
+  - The "queued" indicator asks `hasPendingForToday`, not `hasPending` — a
+    marker from yesterday is real and will be sent, but it does not mean today
+    is done.
+
+The decisions live in a pure `OfflineMarkerPolicy` in Shared/ (app + watch
+targets) rather than inside the queue, because the storage is App Group
+UserDefaults and the watch target cannot be imported by DailyOKTests. That is
+what makes the 13 tests possible; they cover the 23:55 rollover, the new-day
+tap, per-day collapse, urgency upgrade and non-downgrade, the replay window in
+both directions, a future-dated marker from a wrong clock, ordering, the real
+bound (one/day × 7 days = 8, not the nominal cap), and what a glanceable surface
+should show.
+
+The replay window is asserted equal to OfflineCheckInService.maxReplayAge, so
+the phone, the watch, Android and the edge function now all agree by test rather
+than by comment.
+
+Migration: the old single-slot keys are read once on first access, folded into
+the new array, then removed — an upgrade must not drop a check-in already
+waiting on someone's wrist. Done on read rather than at launch because the
+notification controller queues from a background wake that runs no launch code.
+
+VERIFICATION LIMIT: no Xcode here, so none of this was compiled. New files are
+registered in project.pbxproj in all four places for each target they belong to
+(app + watch for the marker, tests for the test file); a file that is not
+registered simply does not compile, which is the failure mode to watch for on
+the PR. ios-tests.yml runs the tests.
+
+================================================================================
+iOS improvement loop — iteration 7/15
+================================================================================
+
+FOUND: the app ships without its privacy manifest, and three of five bundles
+never had one.
+
+ios/DailyOK/PrivacyInfo.xcprivacy is a careful, well-commented file whose own
+header says it "must match exactly" the App Store Connect App Privacy answers
+and website/src/pages/Privacy.tsx. It has no PBXFileReference in
+project.xcodeproj at all — not in the group, not in the Resources build phase.
+It has never been copied into the app bundle. Someone wrote the declaration and
+Apple has never seen it.
+
+The per-bundle picture before this:
+
+  DailyOK (app)              manifest on disk, NOT in the build
+  DailyOKNotificationService manifest, correctly wired          ✓
+  DailyOKWidgets             none — and no Resources phase at all
+  DailyOKWatchWidgets        none — and no Resources phase at all
+  DailyOKWatch               none
+
+Apple's required-reason API check (ITMS-91053) runs per BUNDLE. The main app's
+manifest does not cover a separate .appex or the watch binary. Every one of
+those bundles reads the shared App Group UserDefaults, which is a required-reason
+API (CA92.1). This is a common upload rejection, and the widgets, the Control
+Center control and the Live Activity are exactly the surfaces most likely to
+trip it.
+
+CHANGED:
+  new  ios/DailyOKWidgets/PrivacyInfo.xcprivacy
+  new  ios/DailyOKWatchWidgets/PrivacyInfo.xcprivacy
+  new  ios/DailyOKWatch/PrivacyInfo.xcprivacy
+  mod  ios/DailyOK.xcodeproj/project.pbxproj
+  mod  ios/DailyOKTests/ReleaseReadinessTests.swift
+
+The app's existing manifest is now registered (file reference, group, Resources
+phase). The three new ones follow the notification service's precedent: empty
+collected-data-types with a pointer to the app manifest, which is where the
+product-level declarations belong, plus the accessed-API types. UserDefaults
+CA92.1 is the load-bearing one; the other three mirror the app manifest's own
+reasoning about transitive use through URLSession, SwiftUI and WidgetKit, with
+the same note that they should be trimmed once verified.
+
+The two widget targets had no PBXResourcesBuildPhase whatsoever, so one was
+created for each and wired into buildPhases — without that the manifest file
+reference would exist and still not ship, which is the same bug again.
+
+GUARD, because "the file exists" was never the question:
+  - testAppBundleContainsItsPrivacyManifest — asserts on Bundle.main, which for
+    a hosted test bundle is the app itself. This is the exact regression.
+  - testEveryEmbeddedExtensionContainsAPrivacyManifest — walks
+    builtInPlugInsURL and fails any .appex shipping without one. Skips rather
+    than fails when a configuration embeds no extensions.
+
+VERIFICATION: all five manifests parse as plists (checked with plistlib), and
+the pbxproj stays balanced with 5 build files, 5 file references and 5 Resources
+phases. Not compiled — no Xcode here.
+
+================================================================================
+iOS improvement loop — iteration 8/15
+================================================================================
+
+FOUND: "Stand down" on an escalation Live Activity reports nothing.
+
+The owner sees an overdue alert for a relative on their Lock Screen and taps
+Stand down. That opens `dailyok://standdown?receiver=…&family=…`, the app
+handles it, and every outcome — success, no session, malformed parameters,
+network failure, a rejection from cancel-escalation — was a `Log.general.error`
+and nothing else. The app opens on whatever screen it was on and looks normal.
+
+If the call failed, the escalation is STILL RUNNING: the timer continues, the
+next contact in the chain will be called, and the owner has every reason to
+believe they cancelled it. Silence reads as success. This is the same failure
+shape as the offline check-ins in earlier iterations, on the owner's side
+instead of the receiver's.
+
+CHANGED:
+  mod  ios/DailyOK/App/AppState.swift      (+deepLinkOutcome)
+  mod  ios/DailyOK/App/DailyOKApp.swift    (report every branch)
+  mod  ios/DailyOK/App/ContentView.swift   (root alert)
+
+Every branch of the stand-down now says what happened:
+
+  success              "Stood down — this alert is cancelled. Nobody else will
+                        be contacted about it."
+  no session           "Sign in to stand down"
+  malformed link       "That link was incomplete. Open the alert in Daily OK
+                        and stand down from there."
+  call failed          "Still escalating — Daily OK couldn't cancel this alert,
+                        it is still running." Named that way deliberately: the
+                        owner has to know the alert is live, not merely that a
+                        tap didn't work.
+
+The outcome haptic fires with it. DailyOKHaptics.success/error deliberately
+ignore the user's haptics preference — that gate only covers the non-essential
+vocabulary, precisely so a failure is never silent — so this needed no special
+casing.
+
+The alert is presented at the root, in ContentView, because a Live Activity tap
+can arrive over any screen and, on a cold start, over none of them yet.
+
+Malformed parameters now `return` early rather than falling through a nested
+`if let`, which is also why the branch can report at all.
+
+================================================================================
+iOS improvement loop — iteration 9/15
+================================================================================
+
+FOUND: biometric lock did not cover the App Switcher snapshot.
+
+`biometricLocked` was raised only in `checkBiometricOnResume()`, which runs on
+the transition to `.active`. iOS captures the App Switcher snapshot during
+`.inactive` — before that — and keeps it on disk. So with Face ID lock enabled,
+the switcher card showed the live dashboard: the relative's name, their check-in
+status, their location, their care notes. Anyone holding the phone could read all
+of it by double-tapping the home indicator, without ever passing Face ID. That is
+the one thing the lock exists to prevent.
+
+`case .inactive: break` was the whole handler.
+
+CHANGED:
+  mod  ios/DailyOK/App/AppState.swift            (+privacyCoverActive)
+  mod  ios/DailyOK/App/DailyOKApp.swift          (raise/drop it first)
+  mod  ios/DailyOK/App/ContentView.swift         (+PrivacyCoverView, topmost)
+  mod  ios/DailyOK/Services/BiometricService.swift (+isEnabledPreference)
+
+Deliberately a SEPARATE flag from `AuthViewModel.biometricLocked`, not a reuse
+of it. Raising the real lock at `.inactive` would re-enter the unlock prompt on
+every transient interruption — including the Face ID sheet's own, which itself
+makes the scene inactive. This one only obscures pixels; the existing `.active`
+path still owns the actual unlock.
+
+The cover is set in a switch that runs BEFORE any awaiting work in the scene
+handler, and `BiometricService.isEnabledPreference` reads the preference without
+an actor hop, because the snapshot will not wait for one. The view is rendered
+topmost with no transition, for the same reason: a fade would let the real UI be
+captured mid-animation.
+
+The cover carries no account data — the app mark, the name, a lock glyph —
+and reads as "Daily OK is locked" to VoiceOver.
+
+Only applies when the user has biometric lock on. Someone who has not enabled it
+has not asked for their switcher card to be hidden, and hiding it would be a
+change to their app, not a fix.
+
+NOT TESTED as a unit: this is a scene-phase side effect and a rendering order,
+neither of which a hosted XCTest can meaningfully assert. It wants a device
+check — enable Face ID lock, background the app, look at the App Switcher.
+
+================================================================================
+iOS improvement loop — iteration 10/15
+================================================================================
+
+FOUND: the owner's missed-check-in alert has no action buttons, and never had.
+
+Three notification categories are registered by the app. Cross-checking them
+against what the backend actually sends:
+
+  registered, sent      CHECKIN_REQUEST    (the receiver's reminder)
+  registered, sent      URGENT_ALERT       (need help / call me)
+  registered, NEVER SENT LOCATION_ALERT    ("View Details" — dead since it was written)
+  sent, NEVER REGISTERED KID_RESPONSE      (pick me up / stay longer)
+  sent, NEVER REGISTERED CHECKIN_CONFIRMED (routine "checked in ✓")
+
+And the payload that matters most carried no category at all. escalation-tick's
+`owner_alert` — "Mum hasn't checked in yet. They've been reminded twice." — is
+the single most time-sensitive push this product sends, and iOS rendered it as a
+bare banner. No Call Now. The owner's only path was: open the app, find the
+family member, find their number, dial.
+
+Worse, it would not have worked even with a category: `handleCallReceiver`
+looks the number up from `userInfo["receiver_id"]`, and the APNs payload never
+included it. The FCM data block right underneath it always did, so Android had
+the id and iOS did not.
+
+Same for the geofence and low-battery alerts: LOCATION_ALERT was written,
+registered, given a "View Details" action — and nothing ever attached it.
+
+CHANGED:
+  mod  edge-functions/functions/escalation-tick/index.ts
+  mod  ios/DailyOK/App/AppDelegate.swift
+  mod  ios/DailyOK/App/ContentView.swift
+  mod  ios/DailyOKTests/NotificationRoutingTests.swift
+
+Server:
+  owner_alert     + category URGENT_ALERT, + receiver_id  (so Call Now works)
+  geofence_alert  + category LOCATION_ALERT
+  low_battery     + category LOCATION_ALERT
+  viewer_alert    + category LOCATION_ALERT, + receiver_id, + thread-id
+                    A viewer cannot stand an escalation down, so it gets the
+                    read-only category rather than URGENT_ALERT's Call Now.
+
+iOS:
+  KID_RESPONSE registered, with the existing Call Now action — the payload
+  already carries receiver_id, so a parent can now ring their child straight
+  from "pick me up" instead of reading a banner and hunting for the app.
+
+  VIEW_LOCATION_ACTION now routes to `.viewDetails` and lands on the dashboard.
+  It previously fell through to `.none`: the action is `.foreground`, so it
+  opened the app and then sat on whatever screen the owner had last left.
+  AppDelegate has no route into the SwiftUI environment, so it posts a
+  Notification that ContentView observes — the same bridge the app already uses
+  for offline-sync completion.
+
+CHECKIN_CONFIRMED is left unregistered on purpose. It is a courtesy "they
+checked in" notification with nothing to act on; a category with no actions
+would change nothing.
+
+VERIFIED: deno check (50 files), deno lint, deno test (17 passed) all clean on
+the edge-function change. The Swift is read-only review as usual — no Xcode —
+with one new routing test that ios-tests.yml will run.
+
+================================================================================
+iOS improvement loop — iteration 11/15
+================================================================================
+
+FOUND: the owner widget shows yesterday's green ticks indefinitely.
+
+The receiver's own check-in widget is carefully day-scoped — `CheckInEntry.from`
+calls `state.isCheckedIn(asOf: date)` with a comment saying it exists "so the
+widget flips back to 'tap I'm OK' at a new day even if the phone hasn't synced a
+fresh snapshot."
+
+The OWNER's widget has no equivalent. It renders `receiver.status` verbatim.
+
+Only the phone app writes that snapshot (SharedOwnerPublisher). If the owner
+does not open the app — overnight, over a weekend, or with background refresh
+switched off — the snapshot never changes, so the widget keeps showing
+"3 of 3 checked in", green ticks beside every name, and a bare "8:15 AM" that
+reads as this morning. On a day nobody has answered.
+
+Refreshing the timeline more often does not help: getTimeline re-reads the same
+stale snapshot. Every 5 minutes it faithfully re-renders yesterday.
+
+This is the same failure as the offline replays in iterations 1–2 and 6, on the
+glanceable surface the owner is most likely to actually look at. The owner
+glances, sees green, and stops wondering.
+
+CHANGED:
+  new  ios/DailyOKTests/SharedOwnerStateTests.swift   (11 tests)
+  mod  ios/DailyOK/Shared/SharedOwnerState.swift
+  mod  ios/DailyOKWidgets/OwnerStatusWidget.swift
+  mod  ios/DailyOKWidgets/OwnerStatusProvider.swift
+  mod  ios/DailyOK.xcodeproj/project.pbxproj
+
+`SharedOwnerReceiver.status(asOf:)` reverts a `checked_in` whose lastCheckInAt
+is not today — or is missing — to `pending`: "we don't know yet", which is the
+truth. Deliberately never to `missed`: whether a window has elapsed is the
+server's call, and a widget guessing would invent an escalation nobody raised.
+
+`lastCheckIn(asOf:)` withholds the timestamp on the same rule, because a bare
+"8:15 AM" in a row reads as today no matter what the icon says.
+
+`checkedInCount(asOf:)` and `mostRelevant(asOf:)` follow, so the summary line
+cannot carry yesterday forward and a stale tick cannot outrank someone who
+genuinely has not answered. A real "missed" still wins the ordering.
+
+The timeline now emits TWO entries — now, and next local midnight — so the day
+flip renders at midnight rather than whenever the next reload lands. The views
+read status as of the entry's date, so the midnight entry shows an unanswered
+new day from an unchanged snapshot. That is the whole point: the snapshot will
+not change until the owner opens the app.
+
+`needsAttention` (the 5-vs-15-minute refresh cadence) is now evaluated
+day-scoped too, so a stale "checked in" no longer reads as "nothing to watch".
+
+VERIFICATION: checked every other reader of these members — SharedOwnerPublisher
+writes, the widget reads, nothing else touches them, so no caller was left on
+the old un-scoped path. 11 tests. Not compiled; no Xcode here.
+
+================================================================================
+iOS improvement loop — iteration 12/15
+================================================================================
+
+FOUND: the exported PDF report disagrees with itself.
+
+CheckInReportGenerator builds a `reportCalendar` from the receiver's IANA
+timezone, with a comment citing US-IOS100: "Days, streak, and average time must
+be bucketed in the receiver's zone so the report matches the dashboard for an
+owner in a different region."
+
+The Daily Log table underneath does not use it. `dateFmt` and `timeFmt` were
+plain DateFormatters on the device zone. So an owner in London printing a report
+for a parent in Chicago gets a 9pm Chicago check-in listed as 3am THE NEXT DAY —
+a table that contradicts the streak and day counts printed six inches above it,
+in a document that goes to a clinician.
+
+Second, in the same file: `averageCheckInTime` built its string by hand —
+
+    let period = h >= 12 ? "PM" : "AM"
+
+— immediately below a comment noting the report's dates are locale-aware
+(US-IOS044). A reader on a 24-hour clock got a table reading "21:14" and a
+summary line three inches above reading "9:14 PM".
+
+CHANGED:
+  new  ios/DailyOKTests/CheckInReportGeneratorTests.swift   (6 tests)
+  mod  ios/DailyOK/Views/Owner/CheckInReportGenerator.swift
+  mod  ios/DailyOK.xcodeproj/project.pbxproj
+
+The table's formatters now carry `reportCalendar` and its timezone, so every
+row is in the receiver's day and clock.
+
+`averageCheckInTime` round-trips the averaged minutes through a real date in the
+report calendar and formats with `DateFormatter(timeStyle: .short)`, so it
+follows the reader's locale like everything else. Made internal rather than
+private so it can be tested without rendering a PDF — which is why there are
+tests at all.
+
+The footer now names the zone: "times shown in CST". A clinician reading "8:15
+AM" has no way to know whose clock it is, and the answer is not theirs.
+
+Tests cover the receiver-vs-device zone split (the case the timezone argument
+exists for), 12- vs 24-hour locales, and the midnight/noon boundaries the
+hand-rolled version special-cased.
+
+Not compiled — no Xcode here.
+
+================================================================================
+iOS improvement loop — iteration 13/15
+================================================================================
+
+FOUND: three surfaces disagree about the Health integration, and the public one
+denies it.
+
+HealthService (US-IOS017) reads today's step count from Apple Health on device,
+derives "active today", and uploads that boolean to `wellness_signals` with
+`source: "healthkit"`, keyed to receiver_id + family_id + date. It is off by
+default, permission-gated, and revocable — all of which is good design. What is
+not good is what the three declarations say about it:
+
+  website/src/pages/Privacy.tsx     listed "Health, fitness, biometric, or
+                                    genetic data" under **Information We Do Not
+                                    Collect**. A flat denial of a feature that
+                                    ships.
+
+  ios/DailyOK/PrivacyInfo.xcprivacy declared no Health or Fitness type at all,
+                                    while the manifest's own header says it must
+                                    match the App Store Connect answers and the
+                                    website exactly.
+
+  ios/DailyOK/Info.plist            carried NSHealthUpdateUsageDescription —
+                                    "Daily OK writes a 'Active today' note…" —
+                                    and the app never writes to HealthKit.
+                                    `requestAuthorization(toShare: [], read:
+                                    [stepType])`. The one `.delete()` in the file
+                                    is a Supabase row delete, not a HealthKit
+                                    one. The string claims an access the app
+                                    does not take.
+
+A privacy policy that denies collecting the thing the product collects is not a
+documentation nit. It is the one page a user reads before deciding, and it is
+wrong.
+
+CHANGED:
+  mod  website/src/pages/Privacy.tsx
+  mod  ios/DailyOK/PrivacyInfo.xcprivacy
+  mod  ios/DailyOK/Info.plist
+
+The policy now describes the feature under what IS collected — read on device
+only, one yes/no value plus the date and identifiers leaving, no step counts and
+no other Health data uploaded, not medical monitoring or fall detection, off by
+default, and revoking deletes everything already shared. The "do not collect"
+list keeps the part that is true and is now specific: no raw Apple Health data of
+any kind, and no biometric or genetic data.
+
+The manifest declares NSPrivacyCollectedDataTypeFitness — linked, not tracking,
+app functionality. Derived or not, the value is uploaded and tied to a user.
+
+NSHealthUpdateUsageDescription is removed. With `toShare: []` iOS never shows it,
+so nothing user-facing changes; what changes is that the shipped declaration no
+longer claims an access the app does not take.
+
+NOT DOABLE FROM HERE: the App Store Connect "App Privacy" answers need the same
+Health & Fitness entry. That is a console change, and the manifest's header
+already names it as one of the three places that must agree.
+
+VERIFIED: both plists parse (plistlib). Website builds — 35 documents
+pre-rendered, sitemap 33 URLs — and its route-integrity suite passes 38/38 after
+a clean npm ci.
+
+================================================================================
+iOS improvement loop — iteration 14/15
+================================================================================
+
+FOUND: primary buttons crop their labels at accessibility text sizes.
+
+Seven text-bearing buttons used `.frame(height:)` — a hard 44 or 52 — around a
+`.headline`/`.semibold` label. At the accessibility Dynamic Type sizes the label
+needs more than that, and a fixed frame crops rather than grows.
+
+Who runs those sizes is the point. This app's daily user is an older adult being
+prompted to answer, and the buttons affected are the ones they cannot route
+around: Sign In / Create Account, Verify Code, Set Password, the onboarding
+carousel's CTA, and Back plus the primary CTA on the first-receiver walkthrough
+— the flow that sets a receiver up in the first place.
+
+CHANGED:
+  mod  ios/DailyOK/Views/Auth/AuthView.swift
+  mod  ios/DailyOK/Views/Components/OnboardingCarousel.swift
+  mod  ios/DailyOK/Views/Onboarding/FirstReceiverWalkthroughView.swift
+
+`.frame(height:)` -> `.frame(minHeight:)` on each, so the capsule grows with its
+label instead of clipping it. The 44/52 floors are kept, which is what was doing
+the useful work (a comfortable tap target); only the ceiling goes.
+OnboardingView.swift already used `.frame(minHeight: 44)`, so this makes the
+codebase consistent with the one place that had it right.
+
+DELIBERATELY LEFT: three `.frame(height:)` calls on `SignInWithAppleButton`
+(AuthView 223/242, SettingsView 68). That is Apple's own control — it does not
+scale its label with Dynamic Type and has a documented height range. Changing it
+would be churn, not a fix.
+
+NOT UNIT-TESTABLE: SwiftUI layout at a given content-size category is not
+something a hosted XCTest asserts usefully. It wants a device or a preview at
+AX5. The change is small and mechanical, which is most of why it is safe.
+
+================================================================================
+iOS improvement loop — iteration 15/15
+================================================================================
+
+FOUND: every out-of-process check-in ships on the backward-compatibility path.
+
+`SharedCheckInClient` — the code behind the widget, the Control Center control,
+Siri and the watch — built its request body as `[String: String]` and sent
+battery as `String(battery)`:
+
+    "battery_level": "0.62"
+
+US-IOS078 established that numeric fields go on the wire as JSON numbers because
+the edge validators test `typeof === "number"`. This path never did. It works
+only because `process-checkin-response` calls `coerceNumericFields`, a shim whose
+own comment says it is there for "pre-US-IOS078 builds still in the wild".
+
+So every shipping wrist and widget check-in depends on a compatibility path meant
+for old builds — and the in-app path, which sends real numbers, would keep
+working and hide it the day that shim is retired. The failure would land on the
+glanceable surfaces, which are the ones nobody watches while testing.
+
+CHANGED:
+  mod  ios/DailyOK/Shared/SharedCheckInClient.swift
+
+`[String: Any]` and the battery value as a Double. `JSONSerialization` was
+already the encoder, so nothing else moves.
+
+ALSO FILED: US-IOS149 — ship the iOS app in more than one language.
+
+Localizable.xcstrings has zero entries, knownRegions is (en, Base), and ~203
+literal `Text(…)` strings sit beside ~65 `String(localized:)` calls with no
+consistent rule. For a product whose whole interaction is "understand this
+prompt and answer it, or your family is alerted", a language the receiver only
+half-reads is not a cosmetic gap — it is a false escalation.
+
+Worth recording what the scoping found, because it changes the shape of the
+work: SWIFT_EMIT_LOC_STRINGS is already YES for the app, both widget extensions,
+the watch app and the notification service, and the catalog is already in the
+app's Resources phase. The empty catalog is NOT a build misconfiguration. The
+plumbing is done; nobody has translated anything. The story is blocked on a
+product decision — which languages, and whether server-composed notification
+copy is localized too — and starting it inside a one-iteration slot would have
+produced a half-localized app, which is worse than an honestly English one.
+
+================================================================================
+CLOSING SUMMARY — 15 iterations, iOS platform
+================================================================================
+
+  1  Offline check-ins replayed as today's         OfflineCheckInService
+  2  occurred_at end to end (+ a live DST bug)     edge fn, iOS
+  3  Android's half of the same bug                Android queue
+  4  Reinstall restored the previous owner         SupabaseSessionStorage
+  5  SwiftLint gate linted zero files              CI
+  6  Watch discarded check-ins it confirmed        WatchOfflineQueue
+  7  Privacy manifests never shipped               pbxproj, 3 new manifests
+  8  "Stand down" reported nothing                 deep link
+  9  App Switcher snapshot leaked the dashboard    biometric lock
+ 10  Escalation alert had no Call Now              categories, both ends
+ 11  Owner widget showed yesterday's ticks         SharedOwnerState
+ 12  PDF report disagreed with itself              timezone + locale
+ 13  Privacy policy denied a shipping feature      Health integration
+ 14  Buttons cropped at accessibility sizes        Dynamic Type
+ 15  Widget/watch on the legacy wire format        SharedCheckInClient
+
+THE PATTERN, since it is the useful output rather than the list.
+
+Eleven of the fifteen are the same failure wearing different clothes: the system
+tells someone everything is fine when it does not know that. A queued check-in
+replayed as today's. A watch tap confirmed with a haptic and then deleted. A
+widget rendering yesterday. A stand-down that logged its own failure. A green
+tick on a lock screen. This product's entire value is the difference between
+"answered" and "we have not heard", and that boundary erodes in a dozen small
+places, each individually defensible.
+
+Three more are declarations that drifted from the code: a privacy manifest that
+was never in the build, a privacy policy denying a feature that ships, a
+notification category registered against nothing. Nobody is checking that what
+the app SAYS matches what it DOES, and both halves were written carefully.
+
+WHAT NOW HAS A TEST OR A GATE THAT DID NOT BEFORE
+
+  - The replay window is asserted equal across four surfaces (iOS phone, iOS
+    watch, Android, edge function) instead of kept in step by comment.
+  - The edge functions have unit tests at all — 17, and a `deno test` CI step.
+    They had none.
+  - The app bundle is asserted to contain its privacy manifest, and every
+    embedded .appex to contain one.
+  - SwiftLint fails the job if it inspected zero files.
+  - 40+ new Swift tests across offline policy, owner state, report generation,
+    session storage and notification routing.
+
+VERIFICATION, STATED PLAINLY AND UNCHANGED THROUGHOUT
+
+This container is Linux. There is no Xcode and no Android SDK, so no Swift and
+no Kotlin in these 15 iterations was compiled or run. Every Swift change was
+reviewed by reading, and new files were registered in project.pbxproj in all
+four required places — a file that is not registered simply does not compile,
+which is the failure mode to watch for on the PR. What WAS run: Deno 2.1.4
+(matching the CI pin) for `deno check`, `deno lint` and `deno test` on every
+edge-function change, and a clean `npm ci` + build + route suite (38/38) for the
+website change in iteration 13.
+
+Two things need a real device before release: the App Switcher cover (iteration
+9) and the install/sign-in/delete/reinstall check for the session storage
+(iteration 4, its AC4).
+
+STORIES FILED, none started and left half-done
+
+  US-A066     Android never sends slot_key, so every Android check-in falls back
+              to day-level dedup — a multi-window receiver's evening tap is
+              deduped against their morning one. Needs a Room migration.
+  US-IOS148   Commit a resolver-generated Package.resolved. supabase-swift is
+              pinned only to "from 2.0.0", and US-IOS144 turns on behaviour that
+              differs between 2.x and 3.x.
+  US-IOS149   Localization. Blocked on a product decision, not on effort.
+
+STORIES CLOSED
+
+  US-IOS144   Supabase session cleared on a fresh install — the SDK behaviour it
+              was blocked on is now established from the pinned source.
+  US-IOS147   occurred_at end to end, across server, iOS and Android.

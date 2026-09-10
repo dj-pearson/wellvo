@@ -50,9 +50,37 @@ struct ContentView: View {
                 ForceUpdateView(updateURL: forceUpdate.updateURL)
                     .transition(.opacity)
             }
+            // Topmost, and deliberately not animated: this exists to be in place
+            // when iOS takes the App Switcher snapshot, which happens during the
+            // `.inactive` window. A transition would let the real UI be captured
+            // mid-fade, which is the leak it is here to prevent.
+            if appState.privacyCoverActive {
+                PrivacyCoverView()
+            }
+        }
+        // The result of an action taken from a deep link (today: the escalation
+        // Live Activity's "Stand down"). Presented at the root because the link
+        // can arrive over any screen, and on a cold start over none of them yet.
+        .alert(
+            appState.deepLinkOutcome?.title ?? "",
+            isPresented: Binding(
+                get: { appState.deepLinkOutcome != nil },
+                set: { if !$0 { appState.deepLinkOutcome = nil } }
+            ),
+            presenting: appState.deepLinkOutcome
+        ) { _ in
+            Button("OK", role: .cancel) { appState.deepLinkOutcome = nil }
+        } message: { outcome in
+            Text(outcome.message)
         }
         .animation(reduceMotion ? nil : .easeInOut, value: authViewModel.authState)
         .animation(reduceMotion ? nil : .easeInOut, value: authViewModel.biometricLocked)
+        .onReceive(NotificationCenter.default.publisher(for: AppDelegate.showDashboardRequested)) { _ in
+            // "View Details" on a location / low-battery / missed-check-in
+            // notification. The action already brings the app forward; this
+            // decides where it lands.
+            appState.selectedTab = .dashboard
+        }
         .onChange(of: authViewModel.authState) { newState in
             if newState == .unauthenticated {
                 appState.currentUserRole = nil
@@ -217,6 +245,34 @@ struct ForceUpdateView: View {
             .padding()
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Update required. This version of Daily OK is no longer supported. Update now.")
+        }
+    }
+}
+
+/// What the App Switcher shows instead of a family's data when the user relies
+/// on biometric lock. Opaque, static, and carrying no account information.
+struct PrivacyCoverView: View {
+    @ScaledMetric(relativeTo: .largeTitle) private var heartSize: CGFloat = 80
+
+    var body: some View {
+        ZStack {
+            Color(.systemBackground)
+                .ignoresSafeArea()
+            VStack(spacing: 16) {
+                Image(systemName: "heart.circle.fill")
+                    .font(.system(size: heartSize))
+                    .foregroundStyle(.green)
+                    .accessibilityHidden(true)
+                Text("Daily OK")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                Image(systemName: "lock.fill")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Daily OK is locked")
         }
     }
 }

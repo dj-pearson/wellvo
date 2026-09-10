@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 import net.dailyok.android.data.OfflineCheckIn
 import net.dailyok.android.data.OfflineCheckInDao
 import net.dailyok.android.network.DailyOKError
+import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -116,6 +117,10 @@ class OfflineCheckInService @Inject constructor(
     }
 
     suspend fun syncPendingCheckIns() {
+        // Anything past the replay window will never be sent, so stop carrying
+        // it — and stop counting it as pending.
+        offlineCheckInDao.deleteOlderThan(System.currentTimeMillis() - MAX_REPLAY_AGE_MS)
+
         val unsynced = offlineCheckInDao.getUnsynced()
         for (checkIn in unsynced) {
             try {
@@ -128,15 +133,37 @@ class OfflineCheckInService @Inject constructor(
                     receiverId = checkIn.receiverId,
                     requestId = null,
                     mood = checkIn.mood,
-                    source = checkIn.source
+                    source = checkIn.source,
+                    // The moment the receiver actually tapped (US-IOS147).
+                    // Without it the server stamps now(), so a check-in queued
+                    // on Monday and synced on Thursday becomes a Thursday
+                    // check-in nobody made — and the owner's dashboard reads
+                    // "checked in today" for someone who has not touched their
+                    // phone in three days. A check-in whose local day is over
+                    // is recorded as a backfill: it repairs history without
+                    // clearing today's pending request or standing down today's
+                    // escalation.
+                    occurredAt = Instant.ofEpochMilli(checkIn.createdAt).toString()
                 )
-                offlineCheckInDao.markSynced(checkIn.id)
+                // Delete rather than flag: nothing reads a synced row.
+                offlineCheckInDao.deleteById(checkIn.id)
             } catch (_: Exception) {
                 // Will retry on next sync
                 break
             }
         }
         refreshPendingCount()
+    }
+
+    companion object {
+        /**
+         * How far back a queued check-in may be replayed. Must equal
+         * OCCURRED_AT_MAX_AGE_MS in edge-functions/shared/checkin-time.ts and
+         * OfflineCheckInService.maxReplayAge on iOS: past this bound the server
+         * stops honouring the client timestamp and falls back to now(), which
+         * is precisely the false-"today" this field exists to prevent.
+         */
+        const val MAX_REPLAY_AGE_MS: Long = 7L * 24 * 60 * 60 * 1000
     }
 
     private suspend fun refreshPendingCount() {

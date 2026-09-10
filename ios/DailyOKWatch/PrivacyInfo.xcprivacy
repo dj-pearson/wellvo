@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Daily OK Watch App — Apple Privacy Manifest
+
+  The watchOS app. It performs check-ins through the same edge function the phone uses, reading the session from its own device-local Keychain and the shared snapshot. It collects nothing beyond what the main app declares.
+
+  Apple's required-reason API check (ITMS-91053) runs per BUNDLE, not per app
+  record: the main app's manifest does not cover a separate extension or watch
+  binary. Data-collection declarations for the product as a whole live in
+  ios/DailyOK/PrivacyInfo.xcprivacy and must stay in step with the App Store
+  Connect "App Privacy" answers and website/src/pages/Privacy.tsx.
+
+  UserDefaults (CA92.1) is the load-bearing one here: this bundle reads the
+  shared App Group container. The other three mirror the main app's manifest —
+  they are commonly reached transitively through URLSession, SwiftUI and
+  WidgetKit. Remove any that a build-time API inspection shows is genuinely
+  unused.
+-->
+<plist version="1.0">
+<dict>
+    <key>NSPrivacyTracking</key>
+    <false/>
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>CA92.1</string>
+            </array>
+        </dict>
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>C617.1</string>
+            </array>
+        </dict>
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>35F9.1</string>
+            </array>
+        </dict>
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>E174.1</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

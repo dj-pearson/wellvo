@@ -41,6 +41,45 @@ final class CheckInServiceTests: XCTestCase {
         XCTAssertTrue(json.contains("\"happy\""))
     }
 
+    // MARK: - occurred_at (US-IOS147)
+
+    /// A live check-in must not send `occurred_at`: the server's now() is the
+    /// same instant, and omitting it keeps the request byte-identical to what
+    /// shipped builds send.
+    func testCheckInBodyOmitsOccurredAtForALiveCheckIn() throws {
+        let body = CheckInService.makeCheckInBody(
+            receiverId: UUID(), familyId: UUID(), mood: nil, source: .app,
+            responseType: .ok, location: nil, batteryLevel: nil,
+            locationLabel: nil, kidResponseType: nil, slotKey: nil
+        )
+        XCTAssertFalse(body.keys.contains("occurred_at"))
+    }
+
+    /// A check-in replayed from the offline queue carries the moment it was
+    /// actually made, so the server records it against that day rather than the
+    /// day it arrived — otherwise the owner sees "checked in today" for a tap
+    /// made three days ago.
+    func testCheckInBodyCarriesOccurredAtForAReplayedCheckIn() throws {
+        let made = Date(timeIntervalSince1970: 1_773_426_600) // 2026-03-13T18:30:00Z
+        let body = CheckInService.makeCheckInBody(
+            receiverId: UUID(), familyId: UUID(), mood: nil, source: .app,
+            responseType: .ok, location: nil, batteryLevel: nil,
+            locationLabel: nil, kidResponseType: nil, slotKey: nil,
+            occurredAt: made
+        )
+        let json = String(data: try JSONEncoder().encode(body), encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"2026-03-13T18:30:00Z\""))
+    }
+
+    /// RFC 3339 in UTC, which is what `Date.parse` accepts on the Deno side.
+    /// A local-offset or fractional-second rendering would still parse, but the
+    /// wire format is worth pinning: this string is what decides which calendar
+    /// day the check-in is filed under.
+    func testWireTimestampIsRFC3339InUTC() {
+        let made = Date(timeIntervalSince1970: 0)
+        XCTAssertEqual(CheckInService.wireTimestamp(made), "1970-01-01T00:00:00Z")
+    }
+
     func testCheckInBodyDropsOutOfRangeLocationAndBattery() throws {
         let body = CheckInService.makeCheckInBody(
             receiverId: UUID(),

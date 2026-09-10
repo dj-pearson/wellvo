@@ -328,15 +328,19 @@ struct AuthView: View {
                     }
                 }
             } label: {
+                // minHeight, not a fixed height: at an accessibility text size a
+                // `.semibold` label needs more than 44pt and a fixed frame clips
+                // it. The people this app is built for are the ones most likely
+                // to be running one.
                 if authViewModel.isLoading {
                     ProgressView()
                         .frame(maxWidth: .infinity)
-                        .frame(height: 44)
+                        .frame(minHeight: 44)
                 } else {
                     Text(isSignUp ? "Create Account" : "Sign In")
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 44)
+                        .frame(minHeight: 44)
                 }
             }
             .buttonStyle(.borderedProminent)
@@ -439,12 +443,12 @@ struct PasswordResetSheet: View {
                 Task { await authViewModel.verifyRecoveryCode() }
             } label: {
                 if authViewModel.isResettingPassword {
-                    ProgressView().frame(maxWidth: .infinity).frame(height: 44)
+                    ProgressView().frame(maxWidth: .infinity).frame(minHeight: 44)
                 } else {
                     Text("Verify Code")
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 44)
+                        .frame(minHeight: 44)
                 }
             }
             .buttonStyle(.borderedProminent)
@@ -483,12 +487,12 @@ struct PasswordResetSheet: View {
                 Task { await authViewModel.submitNewPassword() }
             } label: {
                 if authViewModel.isResettingPassword {
-                    ProgressView().frame(maxWidth: .infinity).frame(height: 44)
+                    ProgressView().frame(maxWidth: .infinity).frame(minHeight: 44)
                 } else {
                     Text("Set Password")
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 44)
+                        .frame(minHeight: 44)
                 }
             }
             .buttonStyle(.borderedProminent)

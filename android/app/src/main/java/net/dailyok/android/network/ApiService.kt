@@ -23,7 +23,13 @@ data class CheckInResponseRequest(
     val latitude: Double? = null,
     val longitude: Double? = null,
     val locationAccuracyMeters: Double? = null,
-    val kidResponseType: String? = null
+    val kidResponseType: String? = null,
+    /**
+     * RFC 3339 instant the check-in was actually made, for a check-in replayed
+     * from the offline queue (US-IOS147). Null for a live check-in, where the
+     * server's now() is the same instant.
+     */
+    val occurredAt: String? = null
 )
 
 @Serializable
@@ -143,6 +149,12 @@ class ApiService @Inject constructor(
             request.longitude?.let { put("longitude", it) }
             request.locationAccuracyMeters?.let { put("location_accuracy_meters", it) }
             request.kidResponseType?.let { put("kid_response_type", it) }
+            // US-IOS147. Without this the server stamps checked_in_at with
+            // now(), so a check-in queued Monday and synced Thursday is
+            // recorded as a Thursday check-in nobody made and the owner's
+            // dashboard reads "checked in today" for someone who has not
+            // touched their phone in three days.
+            request.occurredAt?.let { put("occurred_at", it) }
         })
     }
 

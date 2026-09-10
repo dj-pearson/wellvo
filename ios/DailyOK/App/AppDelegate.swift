@@ -13,6 +13,9 @@ enum NotificationRoute: Equatable {
     case snooze
     /// Owner taps "Call Now" on an urgent alert.
     case callReceiver
+    /// Owner/viewer taps "View Details" on a location, battery or missed
+    /// check-in alert — open the app on the dashboard.
+    case viewDetails
     /// Body tap / default action — open the app (and confirm delivery).
     case openApp
     /// An action this build doesn't handle.
@@ -27,6 +30,7 @@ enum NotificationRoute: Equatable {
         case "CHECKIN_CALL_ME_ACTION": return .checkIn(.callMe)
         case "CHECKIN_SNOOZE_ACTION": return .snooze
         case "CALL_RECEIVER_ACTION": return .callReceiver
+        case "VIEW_LOCATION_ACTION": return .viewDetails
         case UNNotificationDefaultActionIdentifier: return .openApp
         default: return .none
         }
@@ -34,6 +38,12 @@ enum NotificationRoute: Equatable {
 }
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+
+    /// Posted when a notification action asks for the dashboard. The delegate
+    /// has no route to the SwiftUI environment, so ContentView observes this and
+    /// moves the tab — the same bridge the app already uses for offline-sync
+    /// completion.
+    static let showDashboardRequested = Notification.Name("DailyOK.showDashboardRequested")
 
     func application(
         _ application: UIApplication,
@@ -138,6 +148,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             handleSnoozeFromNotification(userInfo: userInfo)
         case .callReceiver:
             handleCallReceiver(userInfo: userInfo)
+        case .viewDetails:
+            // The action carries `.foreground`, so iOS is already opening the
+            // app; make sure it lands on the dashboard rather than wherever the
+            // owner last was. Previously this fell through to `.none` and the
+            // button opened the app to a stale screen.
+            NotificationCenter.default.post(name: AppDelegate.showDashboardRequested, object: nil)
         case .openApp:
             // User tapped notification body — open app and confirm delivery.
             if let requestId = userInfo["checkin_request_id"] as? String {
@@ -199,6 +215,19 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             options: []
         )
 
+        // Kid-mode responses to a parent: "pick me up", "can I stay longer".
+        // The server has always sent `category: "KID_RESPONSE"` and the app has
+        // never registered it, so the parent got a bare banner with no way to
+        // act — on a message whose whole point is that their child wants
+        // something now. The payload carries `receiver_id`, which is what
+        // CALL_RECEIVER_ACTION needs.
+        let kidResponseCategory = UNNotificationCategory(
+            identifier: "KID_RESPONSE",
+            actions: [callNowAction],
+            intentIdentifiers: [],
+            options: []
+        )
+
         // Location/battery alert category for owners
         let viewLocationAction = UNNotificationAction(
             identifier: "VIEW_LOCATION_ACTION",
@@ -216,6 +245,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         UNUserNotificationCenter.current().setNotificationCategories([
             checkinCategory,
             urgentAlertCategory,
+            kidResponseCategory,
             locationAlertCategory,
         ])
     }

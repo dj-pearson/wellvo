@@ -22,9 +22,20 @@ final class SupabaseService {
             )
         }
 
+        // App-owned session storage rather than the SDK default (US-IOS144).
+        // The default is `KeychainLocalStorage(service: "supabase.gotrue.swift")`,
+        // whose items survive an app delete and sat outside the fresh-install
+        // purge — so a reinstall could restore the previous owner's session.
+        // See SupabaseSessionStorage for the migration that carries existing
+        // users across without signing them out.
         client = SupabaseClient(
             supabaseURL: supabaseURL,
-            supabaseKey: anonKey
+            supabaseKey: anonKey,
+            options: SupabaseClientOptions(
+                auth: SupabaseClientOptions.AuthOptions(
+                    storage: SupabaseSessionStorage()
+                )
+            )
         )
 
         // Share URLs with Notification Service Extension via App Group

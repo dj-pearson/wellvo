@@ -3,7 +3,10 @@ import Security
 
 /// Secure Keychain wrapper for storing sensitive values like the Apple User ID.
 enum KeychainService {
-    private static let serviceName = "com.wellvo.ios"
+    /// Internal rather than private: `SupabaseSessionStorage` stores the auth
+    /// session under this same service so that `deleteAll()` — which deletes by
+    /// service, not by an enumerated key list — sweeps it up too (US-IOS144).
+    static let serviceName = "com.wellvo.ios"
 
     /// UserDefaults is erased when an app is deleted. The Keychain is not — that
     /// is the whole point of it, and it is also a trap. Everything this app
@@ -21,12 +24,11 @@ enum KeychainService {
     /// install (US-IOS143). Cheap, synchronous, and safe to call on every launch:
     /// after the first it is a single UserDefaults read.
     ///
-    /// PARTIAL by design — see US-IOS144. This clears what this app writes. The
-    /// Supabase SDK keeps its own session in its own storage, and clearing that
-    /// safely means first confirming what supabase-swift 2.x actually uses, which
-    /// could not be verified from this environment. Until that lands, a fresh
-    /// install can still restore the previous user's session, and this only
-    /// closes the out-of-process surfaces.
+    /// Complete as of US-IOS144. The Supabase session is no longer an exception:
+    /// `SupabaseSessionStorage` writes it under this app's own Keychain service,
+    /// so `deleteAll()` below removes it along with everything else, and
+    /// `purgeLegacySDKItems()` removes any copy left under the service the SDK
+    /// used before that.
     static func purgeIfFreshInstall() {
         let defaults = UserDefaults.standard
         guard !defaults.bool(forKey: freshInstallSentinel) else { return }
@@ -39,6 +41,11 @@ enum KeychainService {
         // user without either of them seeing anything.
         SharedKeychain.clearTokens()
         SharedCheckInStore.clear()
+        // The SDK's own item, from before the app owned this storage. Left
+        // behind, the migration in SupabaseSessionStorage.retrieve would adopt
+        // the previous owner's session on first read and sign the new owner in
+        // as them.
+        SupabaseSessionStorage.purgeLegacySDKItems()
     }
 
     /// Remove every generic-password item this app stored under its service.

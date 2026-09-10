@@ -129,6 +129,35 @@
             </array>
         </dict>
 
+        <!--
+          Health & Fitness
+
+          The optional Apple Health integration (US-IOS017) reads today's step
+          count ON DEVICE and uploads a single derived boolean — "active today" —
+          to wellness_signals, keyed to the receiver and family. No raw sample
+          ever leaves the device, but the derived value IS collected and IS
+          linked to the user, so it belongs here. It was previously undeclared
+          while the website's privacy policy separately listed "Health, fitness,
+          biometric, or genetic data" under what the product does NOT collect.
+          Both are corrected together; the App Store Connect answers need the
+          same entry.
+
+          Off by default, gated behind the HealthKit permission prompt, and
+          revocable — turning it off deletes every signal already shared.
+        -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeFitness</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+
         <!-- Identifiers -->
         <dict>
             <key>NSPrivacyCollectedDataType</key>

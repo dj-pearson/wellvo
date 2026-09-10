@@ -3,8 +3,20 @@ import LocalAuthentication
 actor BiometricService {
     static let shared = BiometricService()
 
-    private let biometricEnabledKey = "biometric_auth_enabled"
+    fileprivate static let biometricEnabledKey = "biometric_auth_enabled"
+    private let biometricEnabledKey = BiometricService.biometricEnabledKey
     private let biometricSkippedKey = "biometric_auth_skipped"
+
+    /// The same preference as `isEnabled`, readable without awaiting the actor.
+    ///
+    /// Needed at the scene-phase transition to `.inactive`: iOS captures the
+    /// App Switcher snapshot in that window, and an actor hop is not guaranteed
+    /// to complete before it does. The value is a plain UserDefaults bool, so
+    /// reading it synchronously costs nothing and cannot race meaningfully — the
+    /// only writer is the user toggling the setting.
+    nonisolated static var isEnabledPreference: Bool {
+        UserDefaults.standard.bool(forKey: biometricEnabledKey)
+    }
 
     // MARK: - Availability
 

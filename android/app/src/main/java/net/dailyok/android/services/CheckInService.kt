@@ -34,7 +34,8 @@ class CheckInService @Inject constructor(
         latitude: Double? = null,
         longitude: Double? = null,
         locationAccuracy: Double? = null,
-        kidResponseType: String? = null
+        kidResponseType: String? = null,
+        occurredAt: String? = null
     ): String {
         try {
             // Pass both the request id (if responding to a scheduled/on-demand
@@ -51,7 +52,8 @@ class CheckInService @Inject constructor(
                     latitude = latitude,
                     longitude = longitude,
                     locationAccuracyMeters = locationAccuracy,
-                    kidResponseType = kidResponseType
+                    kidResponseType = kidResponseType,
+                    occurredAt = occurredAt
                 )
             )
         } catch (e: DailyOKError) {

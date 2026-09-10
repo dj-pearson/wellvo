@@ -141,4 +141,69 @@ final class OfflineCheckInServiceTests: XCTestCase {
             OfflineCheckInService.isAlreadyQueued(slotKey: "09:00", amongQueuedSlots: [])
         )
     }
+
+    // MARK: - Queued rows expire with the server's replay window (US-IOS147)
+
+    /// The sync path sends `occurred_at`, so the server records a replayed
+    /// check-in against the moment it was made. Past `maxReplayAge` the server
+    /// stops honouring that timestamp and falls back to now() — which would
+    /// record a days-old tap as TODAY's check-in, telling the owner the receiver
+    /// is fine when they may not be. So the client refuses to replay anything
+    /// the server would not honour. The two bounds must stay equal:
+    /// `OCCURRED_AT_MAX_AGE_MS` in edge-functions/shared/checkin-time.ts.
+
+    func testReplayWindowMatchesTheServerBound() {
+        XCTAssertEqual(OfflineCheckInService.maxReplayAge, 7 * 24 * 60 * 60)
+    }
+
+    func testRowQueuedMomentsAgoIsNotStale() {
+        let now = Date()
+        XCTAssertFalse(
+            OfflineCheckInService.isStale(queuedAt: now.addingTimeInterval(-30), now: now)
+        )
+    }
+
+    /// The case the old day-boundary rule got wrong in the other direction: a
+    /// row queued at 23:55 and synced at 00:05 is ten minutes old and perfectly
+    /// replayable, because the server is told which day it belongs to.
+    func testRowQueuedTenMinutesAgoAcrossMidnightIsNotStale() {
+        let now = Date()
+        XCTAssertFalse(
+            OfflineCheckInService.isStale(queuedAt: now.addingTimeInterval(-600), now: now)
+        )
+    }
+
+    func testRowQueuedThreeDaysAgoIsStillReplayable() {
+        let now = Date()
+        XCTAssertFalse(
+            OfflineCheckInService.isStale(queuedAt: now.addingTimeInterval(-3 * 24 * 3600), now: now)
+        )
+    }
+
+    func testRowAtTheReplayBoundIsStillReplayable() {
+        let now = Date()
+        XCTAssertFalse(
+            OfflineCheckInService.isStale(
+                queuedAt: now.addingTimeInterval(-OfflineCheckInService.maxReplayAge),
+                now: now
+            )
+        )
+    }
+
+    func testRowPastTheReplayBoundIsStale() {
+        let now = Date()
+        XCTAssertTrue(
+            OfflineCheckInService.isStale(
+                queuedAt: now.addingTimeInterval(-OfflineCheckInService.maxReplayAge - 1),
+                now: now
+            )
+        )
+    }
+
+    func testRowQueuedAMonthAgoIsStale() {
+        let now = Date()
+        XCTAssertTrue(
+            OfflineCheckInService.isStale(queuedAt: now.addingTimeInterval(-30 * 24 * 3600), now: now)
+        )
+    }
 }

@@ -1,54 +1,126 @@
 import Foundation
 
-/// A one-slot offline queue for a wrist check-in made while the watch had no
-/// network and the phone was unreachable. We only need a single pending marker
-/// per day: the server dedupes check-ins per local day, so flushing a stale
-/// marker after the phone already checked in simply returns the existing row —
-/// never a duplicate.
+/// Offline queue for wrist check-ins made while the watch had no network and the
+/// phone was unreachable.
+///
+/// It used to be a single slot holding one marker for "today", on the reasoning
+/// that the server dedupes per local day so one marker per day is all that is
+/// needed. The reasoning was right; the implementation lost check-ins at the
+/// edges:
+///
+///  - A marker stamped at 23:55 that had not flushed by midnight was read as
+///    stale and cleared. The receiver had already been shown the success haptic
+///    and the "all set" screen, so a check-in they genuinely made was discarded
+///    silently — and the owner then escalated on it.
+///  - With one slot, a tap on a new day while yesterday's was still pending had
+///    nowhere to go.
+///
+/// Both are fixed by keeping one marker per day, each stamped with the moment it
+/// was made, and sending that moment as `occurred_at` (US-IOS147) so the server
+/// files it under the day it belongs to rather than the day it arrives.
 enum WatchOfflineQueue {
-    private static let key = "watch_pending_checkin"
-    private static let typeKey = "watch_pending_checkin_type"
+    private static let markersKey = "watch_pending_checkins"
+    /// The single-slot keys this replaces. Read once, migrated, then removed —
+    /// an upgrade must not drop a check-in that is already waiting.
+    private static let legacyKey = "watch_pending_checkin"
+    private static let legacyTypeKey = "watch_pending_checkin_type"
 
-    /// A pending marker only counts if it was stamped *today* (local day). A
-    /// marker left over from a previous day is stale — the day already rolled
-    /// over, so it would make today falsely look already-checked-in. Reading it
-    /// here clears the stale marker (US-IOS090).
-    static var hasPending: Bool {
-        guard let stamped = SharedAppGroup.defaults?.object(forKey: key) as? Date else { return false }
-        if Calendar.current.isDateInToday(stamped) { return true }
-        clear()
-        return false
+    // MARK: - Reading
+
+    /// Every pending check-in, oldest first, with anything past the replay window
+    /// already dropped. Reading prunes, so a stale marker never lingers.
+    static var pending: [OfflineCheckInMarker] {
+        let raw = loadRaw()
+        let pruned = OfflineMarkerPolicy.prune(raw)
+        if pruned != raw { save(pruned) }
+        return pruned
     }
 
-    /// When the pending check-in was first attempted (for display/debugging).
-    static var pendingSince: Date? {
-        SharedAppGroup.defaults?.object(forKey: key) as? Date
+    /// Whether anything is waiting to send.
+    static var hasPending: Bool { !pending.isEmpty }
+
+    /// Whether *today* is already answered by something in the queue. This is
+    /// the one a glanceable surface wants: a marker from yesterday is real and
+    /// will be sent, but it does not mean today is done.
+    static var hasPendingForToday: Bool {
+        OfflineMarkerPolicy.hasMarker(pending, onSameDayAs: Date())
     }
 
-    /// The queued response type ("ok" / "need_help" / "call_me"). Defaults to
-    /// "ok" for a legacy marker written before the type was stored, so an
-    /// upgrade-in-place still flushes correctly (US-IOS119).
+    /// When the oldest pending check-in was made.
+    static var pendingSince: Date? { pending.first?.at }
+
+    /// The queued response type for today, defaulting to "ok".
     static var pendingType: String {
-        SharedAppGroup.defaults?.string(forKey: typeKey) ?? "ok"
+        pending.last(where: { Calendar.current.isDateInToday($0.at) })?.type ?? "ok"
     }
 
-    /// Queue a pending response. If an "ok" is already queued and a more urgent
-    /// help/call response arrives offline, upgrade the stored type in place (the
-    /// single slot must never downgrade an urgent request to a plain OK, nor
-    /// drop it entirely as the old code did).
+    // MARK: - Writing
+
+    /// Queue a pending response for now.
     static func enqueue(type: String = "ok") {
-        if hasPending {
-            if pendingType == "ok", type != "ok" {
-                SharedAppGroup.defaults?.set(type, forKey: typeKey)
-            }
-            return
-        }
-        SharedAppGroup.defaults?.set(Date(), forKey: key)
-        SharedAppGroup.defaults?.set(type, forKey: typeKey)
+        let marker = OfflineCheckInMarker(at: Date(), type: type)
+        save(OfflineMarkerPolicy.enqueue(loadRaw(), adding: marker))
+    }
+
+    /// Remove a marker that has been sent.
+    static func remove(_ marker: OfflineCheckInMarker) {
+        save(loadRaw().filter { $0 != marker })
+    }
+
+    /// Remove only the marker answering today, leaving earlier days queued.
+    ///
+    /// A live check-in that succeeds settles TODAY. It says nothing about a tap
+    /// from a previous day that never reached the server — clearing the whole
+    /// queue there would throw that one away, which is the loss this queue was
+    /// rewritten to stop.
+    static func clearToday(calendar: Calendar = .current) {
+        save(loadRaw().filter { !calendar.isDateInToday($0.at) })
     }
 
     static func clear() {
-        SharedAppGroup.defaults?.removeObject(forKey: key)
-        SharedAppGroup.defaults?.removeObject(forKey: typeKey)
+        SharedAppGroup.defaults?.removeObject(forKey: markersKey)
+        SharedAppGroup.defaults?.removeObject(forKey: legacyKey)
+        SharedAppGroup.defaults?.removeObject(forKey: legacyTypeKey)
+    }
+
+    // MARK: - Storage
+
+    private static let encoder = JSONEncoder()
+    private static let decoder = JSONDecoder()
+
+    private static func loadRaw() -> [OfflineCheckInMarker] {
+        guard let defaults = SharedAppGroup.defaults else { return [] }
+
+        var markers: [OfflineCheckInMarker] = []
+        if let data = defaults.data(forKey: markersKey),
+           let decoded = try? decoder.decode([OfflineCheckInMarker].self, from: data) {
+            markers = decoded
+        }
+
+        // One-time migration from the single slot. Done on read rather than at
+        // launch so it cannot be missed by a surface that never runs launch code
+        // (the notification controller queues from a background wake).
+        if let stamped = defaults.object(forKey: legacyKey) as? Date {
+            let type = defaults.string(forKey: legacyTypeKey) ?? "ok"
+            markers = OfflineMarkerPolicy.enqueue(
+                markers,
+                adding: OfflineCheckInMarker(at: stamped, type: type)
+            )
+            defaults.removeObject(forKey: legacyKey)
+            defaults.removeObject(forKey: legacyTypeKey)
+            save(markers)
+        }
+
+        return markers
+    }
+
+    private static func save(_ markers: [OfflineCheckInMarker]) {
+        guard let defaults = SharedAppGroup.defaults else { return }
+        guard !markers.isEmpty else {
+            defaults.removeObject(forKey: markersKey)
+            return
+        }
+        guard let data = try? encoder.encode(markers) else { return }
+        defaults.set(data, forKey: markersKey)
     }
 }
