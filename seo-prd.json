@@ -175,6 +175,19 @@
       "priority": 13,
       "passes": false,
       "notes": "BLOCKED ON INPUT, not effort. connect-src currently lists 'self', cloudflareinsights.com, api.dailyok.net, functions.dailyok.net and the Google Analytics hosts. src/lib/supabase.ts connects to VITE_SUPABASE_URL, whose production value is not in this repo. If Supabase is served from api.dailyok.net this is already fine and the story closes as a no-op; if it is a separate host (self-hosted Supabase usually is) then every client-side blog fetch and the admin login are CSP-blocked in production. Deliberately not guessed: adding a hostname that turns out to be wrong widens the policy for nothing and hides the real problem. Owner: confirm the value of VITE_SUPABASE_URL in the Cloudflare Pages build environment."
+    },
+    {
+      "id": "US-SEO014",
+      "title": "Repair the heading outline on every page",
+      "description": "As a screen-reader user or a passage extractor, I want the document outline to descend one level at a time so that the page structure is navigable and its sections are attributable.",
+      "acceptanceCriteria": [
+        "Exactly one h1 per indexable page, and it comes first",
+        "No heading level is skipped on any indexable page",
+        "The check runs over the prerendered output in CI"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": "All 33 pages skipped h2 -> h4 because the footer's four column headings were h4; five landing pages skipped again mid-content where card headings inside an h2 section were also h4. Footer headings became h2 rather than h3 — they are landmark-level groupings alongside the page's own sections, not subsections of whichever section happens to come last, and h2 also keeps /blog/ valid on a build where no posts were fetched and the h1 is the only content heading. Card headings became h3. CSS selectors renamed in lockstep; the global reset zeroes heading margins, so nothing moved visually. Verified 0 issues across 33 pages, and the CI check exits 1 on a planted h1 -> h5."
     }
   ]
 }

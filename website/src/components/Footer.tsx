@@ -22,7 +22,7 @@ export default function Footer() {
           </div>
 
           <div className="footer-col">
-            <h4>Product</h4>
+            <h2>Product</h2>
             <Link to="/pricing/">Pricing</Link>
             <Link to="/#features">Features</Link>
             <Link to="/#how-it-works">How It Works</Link>
@@ -31,7 +31,7 @@ export default function Footer() {
           </div>
 
           <div className="footer-col">
-            <h4>Senior Check-In</h4>
+            <h2>Senior Check-In</h2>
             <Link to="/check-in-app-for-elderly/">Check-In App for Elderly</Link>
             <Link to="/daily-check-in-app-for-seniors/">Daily Check-In for Seniors</Link>
             <Link to="/peace-of-mind-app-for-elderly-parents/">Peace of Mind for Parents</Link>
@@ -40,14 +40,14 @@ export default function Footer() {
           </div>
 
           <div className="footer-col">
-            <h4>Support</h4>
+            <h2>Support</h2>
             <Link to="/blog/">Blog</Link>
             <Link to="/support/">Help Center</Link>
             <a href="mailto:support@dailyok.net">Contact Us</a>
           </div>
 
           <div className="footer-col">
-            <h4>Legal</h4>
+            <h2>Legal</h2>
             <Link to="/privacy/">Privacy Policy</Link>
             <Link to="/terms/">Terms of Use</Link>
             <Link to="/cookies/">Cookie Notice</Link>

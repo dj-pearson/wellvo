@@ -218,28 +218,28 @@ export default function PeaceOfMindAppForElderlyParents() {
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>No tracking</h4>
+                <h3>No tracking</h3>
                 <p>No location, camera, or microphone. It's reassurance, not surveillance.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>Your parent controls it</h4>
+                <h3>Your parent controls it</h3>
                 <p>They send the signal. It affirms independence rather than questioning it.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>Fewer "just checking" calls</h4>
+                <h3>Fewer "just checking" calls</h3>
                 <p>The check-in already happened, so contact can be about connection.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>Quiet by design</h4>
+                <h3>Quiet by design</h3>
                 <p>One prompt a day. It runs in the background of both your lives.</p>
               </div>
             </div>

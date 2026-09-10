@@ -3381,3 +3381,49 @@ served from api.dailyok.net it is already fine; if it is a separate host — whi
 self-hosted Supabase usually is — then every client-side blog fetch and the
 admin login are CSP-blocked in production. Guessing a hostname would widen the
 policy for nothing and hide the real problem, so it is written down instead.
+
+================================================================================
+US-SEO014 — every page skipped a heading level                          2026-09-10
+================================================================================
+Iteration 11. Walked the document outline of all 33 prerendered pages.
+
+Every single one skipped h2 -> h4. The cause was the footer: its four column
+headings ("Product", "Senior Check-In", "Support", "Legal") were <h4>, and the
+footer renders after content that ends at h2. Five landing pages skipped a
+second time mid-content, where card headings sitting inside an <h2> section were
+also h4 — "One screen, one button", "Playing outside", "No location, ever".
+
+Invisible by construction: the styling comes from the container class
+(.footer-col h4, .cs-scenario-card h4), not from the tag, so the page looks
+identical whichever level is used. What breaks is what nobody looks at — screen
+reader heading navigation, and the outline an extractor uses to decide which
+passage answers a query. These pages are competing for AI Overview and People
+Also Ask placement, which is passage-level attribution.
+
+  mod  website/src/components/Footer.tsx + .css      (4 h4 -> h2)
+  mod  website/src/pages/{CheckInAppForElderly,ChildSafety}.tsx
+  mod  website/src/pages/{DailyCheckInAppForSeniors,ElderlyCare}.tsx
+  mod  website/src/pages/PeaceOfMindAppForElderlyParents.tsx   (31 h4 -> h3)
+  mod  website/src/pages/{ChildSafety,ElderlyCare}.css
+  add  website/scripts/check-heading-outline.mjs
+  mod  .github/workflows/website-check.yml
+
+The footer went to h2, not h3. Its columns are landmark-level groupings that sit
+alongside the page's own sections, not subsections of whichever section happened
+to come last — and h2 is also the only choice that keeps /blog/ valid on a build
+where no posts were fetched, because then the h1 is the only content heading and
+an h3 footer would still be a skip. Card headings went to h3, which is what they
+always were semantically.
+
+CSS selectors were renamed in lockstep, and index.css zeroes heading margins
+globally, so nothing moved on screen. No h4 remains anywhere in src/.
+
+VERIFIED: 0 heading issues across 33 pages, down from 33 pages with at least one
+each. The CI check exits 1 on a planted h1 -> h5 in dist and names the route and
+the offending heading text; 0 on the clean tree. tsc -b 0, build 0, snippet
+check 33/33, vitest 119/119.
+
+Note on the checker: it matches <hN>...</hN> pairs, so a heading with a
+mismatched closing tag is skipped rather than reported. That is acceptable here
+because React cannot emit one — but it is why the first planted probe passed,
+and worth knowing before trusting the script against hand-written HTML.

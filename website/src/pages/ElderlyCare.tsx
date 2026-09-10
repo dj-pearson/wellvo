@@ -109,21 +109,21 @@ export default function ElderlyCare() {
 
           <div className="ec-problem-grid">
             <div className="ec-problem-card">
-              <h4>Daily phone calls feel like a chore</h4>
+              <h3>Daily phone calls feel like a chore</h3>
               <p>
                 For both of you. Your parent may not always want to talk, and you can't
                 always call at the right time. A check-in shouldn't require a 20-minute conversation.
               </p>
             </div>
             <div className="ec-problem-card">
-              <h4>GPS trackers feel like surveillance</h4>
+              <h3>GPS trackers feel like surveillance</h3>
               <p>
                 Your parent is an adult who deserves dignity. Location tracking, cameras,
                 and wearable monitors can feel controlling — and many seniors refuse them.
               </p>
             </div>
             <div className="ec-problem-card">
-              <h4>Dementia makes technology harder</h4>
+              <h3>Dementia makes technology harder</h3>
               <p>
                 Complex apps with menus, settings, and multiple screens are impossible for
                 someone experiencing cognitive decline. They need something incredibly simple.
@@ -207,42 +207,42 @@ export default function ElderlyCare() {
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>VoiceOver & Dynamic Type support</h4>
+                <h3>VoiceOver & Dynamic Type support</h3>
                 <p>Full accessibility for vision-impaired seniors. Text scales up to 200%+.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>No menus or navigation</h4>
+                <h3>No menus or navigation</h3>
                 <p>The receiver interface is a single screen with a single button. Nothing to get lost in.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>Notification-based response</h4>
+                <h3>Notification-based response</h3>
                 <p>Your parent can respond without even opening the app — reducing cognitive load.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>Consistent daily routine</h4>
+                <h3>Consistent daily routine</h3>
                 <p>Same time, same prompt, same button. Routine is important for people with dementia.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>Critical Alerts bypass DND</h4>
+                <h3>Critical Alerts bypass DND</h3>
                 <p>On Family+, missed check-in alerts can bypass Do Not Disturb — because some alerts can't wait.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>PDF reports for care providers</h4>
+                <h3>PDF reports for care providers</h3>
                 <p>Export check-in history and trends to share during doctor visits or care team meetings.</p>
               </div>
             </div>

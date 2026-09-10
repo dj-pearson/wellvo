@@ -186,28 +186,28 @@ export default function DailyCheckInAppForSeniors() {
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>No location, ever</h4>
+                <h3>No location, ever</h3>
                 <p>The app cannot see where the senior is. It only knows "tapped" or "didn't".</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>The senior controls the signal</h4>
+                <h3>The senior controls the signal</h3>
                 <p>They prove they're fine — it's the opposite of being checked up on.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>No new device to learn</h4>
+                <h3>No new device to learn</h3>
                 <p>Runs on the phone they already use. Nothing to wear or charge.</p>
               </div>
             </div>
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h4>Quiet by default</h4>
+                <h3>Quiet by default</h3>
                 <p>One prompt a day. No constant notifications or family hovering.</p>
               </div>
             </div>

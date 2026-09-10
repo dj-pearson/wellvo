@@ -47,7 +47,7 @@
   margin-bottom: 16px;
 }
 
-.cs-scenario-card h4 {
+.cs-scenario-card h3 {
   font-size: 17px;
   font-weight: 600;
   color: var(--gray-900);
@@ -90,7 +90,7 @@
   border: 1px solid var(--green-200);
 }
 
-.cs-compare-card h4 {
+.cs-compare-card h3 {
   font-size: 18px;
   font-weight: 700;
   margin-bottom: 16px;
@@ -152,7 +152,7 @@
   margin: 0 auto 16px;
 }
 
-.cs-privacy-item h4 {
+.cs-privacy-item h3 {
   font-size: 16px;
   font-weight: 600;
   color: var(--gray-900);
