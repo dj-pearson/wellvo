@@ -4278,3 +4278,51 @@ day-scoped too, so a stale "checked in" no longer reads as "nothing to watch".
 VERIFICATION: checked every other reader of these members — SharedOwnerPublisher
 writes, the widget reads, nothing else touches them, so no caller was left on
 the old un-scoped path. 11 tests. Not compiled; no Xcode here.
+
+================================================================================
+iOS improvement loop — iteration 12/15
+================================================================================
+
+FOUND: the exported PDF report disagrees with itself.
+
+CheckInReportGenerator builds a `reportCalendar` from the receiver's IANA
+timezone, with a comment citing US-IOS100: "Days, streak, and average time must
+be bucketed in the receiver's zone so the report matches the dashboard for an
+owner in a different region."
+
+The Daily Log table underneath does not use it. `dateFmt` and `timeFmt` were
+plain DateFormatters on the device zone. So an owner in London printing a report
+for a parent in Chicago gets a 9pm Chicago check-in listed as 3am THE NEXT DAY —
+a table that contradicts the streak and day counts printed six inches above it,
+in a document that goes to a clinician.
+
+Second, in the same file: `averageCheckInTime` built its string by hand —
+
+    let period = h >= 12 ? "PM" : "AM"
+
+— immediately below a comment noting the report's dates are locale-aware
+(US-IOS044). A reader on a 24-hour clock got a table reading "21:14" and a
+summary line three inches above reading "9:14 PM".
+
+CHANGED:
+  new  ios/DailyOKTests/CheckInReportGeneratorTests.swift   (6 tests)
+  mod  ios/DailyOK/Views/Owner/CheckInReportGenerator.swift
+  mod  ios/DailyOK.xcodeproj/project.pbxproj
+
+The table's formatters now carry `reportCalendar` and its timezone, so every
+row is in the receiver's day and clock.
+
+`averageCheckInTime` round-trips the averaged minutes through a real date in the
+report calendar and formats with `DateFormatter(timeStyle: .short)`, so it
+follows the reader's locale like everything else. Made internal rather than
+private so it can be tested without rendering a PDF — which is why there are
+tests at all.
+
+The footer now names the zone: "times shown in CST". A clinician reading "8:15
+AM" has no way to know whose clock it is, and the answer is not theirs.
+
+Tests cover the receiver-vs-device zone split (the case the timezone argument
+exists for), 12- vs 24-hour locales, and the midnight/noon boundaries the
+hand-rolled version special-cased.
+
+Not compiled — no Xcode here.

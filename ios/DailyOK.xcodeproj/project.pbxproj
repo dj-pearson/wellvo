@@ -146,6 +146,7 @@
 		B3U000A1 /* SupabaseSessionStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U000A1; };
 		B3U000A2 /* OfflineMarkerPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U000A2; };
 		B3U000A3 /* SharedOwnerStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U000A3; };
+		B3U000A4 /* CheckInReportGeneratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U000A4; };
 		B3U00010 /* EscalationActivityManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00010; };
 		B3U00011 /* NotificationRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00011; };
 		B3U00012 /* CheckInServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00012; };
@@ -339,6 +340,7 @@
 		F3U000A1 /* SupabaseSessionStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseSessionStorageTests.swift; sourceTree = "<group>"; };
 		F3U000A2 /* OfflineMarkerPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineMarkerPolicyTests.swift; sourceTree = "<group>"; };
 		F3U000A3 /* SharedOwnerStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedOwnerStateTests.swift; sourceTree = "<group>"; };
+		F3U000A4 /* CheckInReportGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInReportGeneratorTests.swift; sourceTree = "<group>"; };
 		F3U00010 /* EscalationActivityManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscalationActivityManagerTests.swift; sourceTree = "<group>"; };
 		F3U00011 /* NotificationRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationRoutingTests.swift; sourceTree = "<group>"; };
 		F3U00012 /* CheckInServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInServiceTests.swift; sourceTree = "<group>"; };
@@ -879,6 +881,7 @@
 				F3U000A1 /* SupabaseSessionStorageTests.swift */,
 				F3U000A2 /* OfflineMarkerPolicyTests.swift */,
 				F3U000A3 /* SharedOwnerStateTests.swift */,
+				F3U000A4 /* CheckInReportGeneratorTests.swift */,
 				F3U00010 /* EscalationActivityManagerTests.swift */,
 				F3U00011 /* NotificationRoutingTests.swift */,
 				F3U00012 /* CheckInServiceTests.swift */,
@@ -1210,6 +1213,7 @@
 				B3U000A1 /* SupabaseSessionStorageTests.swift in Sources */,
 				B3U000A2 /* OfflineMarkerPolicyTests.swift in Sources */,
 				B3U000A3 /* SharedOwnerStateTests.swift in Sources */,
+				B3U000A4 /* CheckInReportGeneratorTests.swift in Sources */,
 				B3U00010 /* EscalationActivityManagerTests.swift in Sources */,
 				B3U00011 /* NotificationRoutingTests.swift in Sources */,
 				B3U00013 /* AuthViewModelSignOutTests.swift in Sources */,
