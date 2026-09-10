@@ -59,14 +59,23 @@ enum SharedCheckInClient {
             tokens = try await refreshSession(state, tokens: tokens)
         }
 
-        var body: [String: String] = [
+        // `[String: Any]`, not `[String: String]`, so numeric fields go on the
+        // wire as JSON NUMBERS (US-IOS078). This path sent `String(battery)` —
+        // `"battery_level": "0.62"` — and only worked because the edge function
+        // still runs `coerceNumericFields`, a shim whose own comment says it is
+        // there for "pre-US-IOS078 builds still in the wild". Every shipping
+        // widget, Control Center, Siri and watch check-in was relying on the
+        // backward-compatibility path rather than the current contract, so the
+        // day that shim is retired the wrist tap breaks — and the in-app path,
+        // which sends numbers, would keep working and hide it.
+        var body: [String: Any] = [
             "receiver_id": state.receiverId,
             "family_id": state.familyId,
             "source": source,
             "response_type": responseType,
         ]
         if let battery = batteryLevel, battery >= 0, battery <= 1 {
-            body["battery_level"] = String(battery)
+            body["battery_level"] = battery
         }
         // Without this the server stamps checked_in_at with now(), so a wrist
         // tap made at 23:55 and flushed after midnight is recorded as the next
@@ -138,7 +147,7 @@ enum SharedCheckInClient {
 
     // MARK: - Networking
 
-    private static func postCheckIn(state: SharedCheckInState, accessToken: String, body: [String: String]) async throws {
+    private static func postCheckIn(state: SharedCheckInState, accessToken: String, body: [String: Any]) async throws {
         guard let url = URL(string: "\(state.edgeFunctionsURL)/process-checkin-response") else {
             throw SharedCheckInError.badConfiguration
         }

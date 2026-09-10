@@ -285,7 +285,7 @@ struct FirstReceiverWalkthroughView: View {
                     Text("Back")
                         .font(.headline.weight(.semibold))
                         .frame(maxWidth: .infinity)
-                        .frame(height: 52)
+                        .frame(minHeight: 52)
                 }
                 .buttonStyle(.bordered)
                 .tint(DailyOKColor.brand)
@@ -305,7 +305,9 @@ struct FirstReceiverWalkthroughView: View {
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
-                .frame(height: 52)
+                // minHeight: at an accessibility text size a fixed 52 crops the
+                // label of the button that finishes setting a receiver up.
+                .frame(minHeight: 52)
                 .background(Capsule().fill(primaryButtonDisabled
                                            ? Color(.systemGray3)
                                            : DailyOKColor.brand))

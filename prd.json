@@ -5124,6 +5124,23 @@
       "priority": 265,
       "passes": false,
       "notes": "OPEN. Split from US-IOS144 AC5. Deliberately not attempted in the loop: a correct Package.resolved lists exact revisions for transitive dependencies too, and writing those by hand risks a file that breaks resolution for everyone. Needs a machine that can run the resolver."
+    },
+    {
+      "id": "US-IOS149",
+      "title": "Ship the iOS app in more than one language",
+      "description": "As a family where the person being checked on does not read English, I want the app in a language they can act on. Daily OK is English-only: Localizable.xcstrings contains zero entries, knownRegions is (en, Base), and the ~203 literal Text(…) strings sit alongside ~65 String(localized:) calls with no consistent choice between them. The product is a daily prompt an older adult has to understand and answer under time pressure, and a missed answer escalates to their family — so a language they half-read is not a cosmetic problem, it is a false escalation. SWIFT_EMIT_LOC_STRINGS is already YES on the app and every extension, and the catalog is already in the app's Resources phase, so the build-side plumbing exists; what does not exist is a single extracted string, a second region, or a decision about which languages.",
+      "acceptanceCriteria": [
+        "Every user-facing string is extracted into Localizable.xcstrings — including the ones inside the widget, Control Center control, notification service and watch targets, which are separate bundles",
+        "Notification titles and bodies composed server-side are covered too, or a decision is recorded that they stay English; a localized app that sends English pushes is half a feature, and escalation copy is the half that matters",
+        "String(localized:) vs literal Text(…) is made consistent, with a lint or review rule so new strings do not drift back",
+        "At least one non-English language ships end to end, chosen from actual install data rather than assumed",
+        "Plurals and dates/times use the catalog's plural variants and locale-aware formatters — the report generator's hand-built AM/PM string (fixed in the 15-iteration loop) is the pattern to look for elsewhere",
+        "Right-to-left is either supported or explicitly deferred, with the layout audit that decision needs",
+        "The App Store listing and the website carry the same languages, so a user is not sold a localized app in a language the binary does not have"
+      ],
+      "priority": 266,
+      "passes": false,
+      "notes": "OPEN. Filed from the iOS improvement loop (iteration 15) as a genuinely multi-iteration piece rather than something to start and leave half-done. Scoping notes gathered: catalog is wired into Resources and SWIFT_EMIT_LOC_STRINGS is YES for the app, both widget extensions, the watch app and the notification service, so extraction will populate on the next Xcode build — the empty catalog in the repo is not a build misconfiguration, it is simply that no one has translated anything. knownRegions must gain the new region. Blocked on a product decision (which languages) before any engineering is worth doing."
     }
   ]
 }

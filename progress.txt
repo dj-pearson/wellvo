@@ -4389,3 +4389,162 @@ already names it as one of the three places that must agree.
 VERIFIED: both plists parse (plistlib). Website builds — 35 documents
 pre-rendered, sitemap 33 URLs — and its route-integrity suite passes 38/38 after
 a clean npm ci.
+
+================================================================================
+iOS improvement loop — iteration 14/15
+================================================================================
+
+FOUND: primary buttons crop their labels at accessibility text sizes.
+
+Seven text-bearing buttons used `.frame(height:)` — a hard 44 or 52 — around a
+`.headline`/`.semibold` label. At the accessibility Dynamic Type sizes the label
+needs more than that, and a fixed frame crops rather than grows.
+
+Who runs those sizes is the point. This app's daily user is an older adult being
+prompted to answer, and the buttons affected are the ones they cannot route
+around: Sign In / Create Account, Verify Code, Set Password, the onboarding
+carousel's CTA, and Back plus the primary CTA on the first-receiver walkthrough
+— the flow that sets a receiver up in the first place.
+
+CHANGED:
+  mod  ios/DailyOK/Views/Auth/AuthView.swift
+  mod  ios/DailyOK/Views/Components/OnboardingCarousel.swift
+  mod  ios/DailyOK/Views/Onboarding/FirstReceiverWalkthroughView.swift
+
+`.frame(height:)` -> `.frame(minHeight:)` on each, so the capsule grows with its
+label instead of clipping it. The 44/52 floors are kept, which is what was doing
+the useful work (a comfortable tap target); only the ceiling goes.
+OnboardingView.swift already used `.frame(minHeight: 44)`, so this makes the
+codebase consistent with the one place that had it right.
+
+DELIBERATELY LEFT: three `.frame(height:)` calls on `SignInWithAppleButton`
+(AuthView 223/242, SettingsView 68). That is Apple's own control — it does not
+scale its label with Dynamic Type and has a documented height range. Changing it
+would be churn, not a fix.
+
+NOT UNIT-TESTABLE: SwiftUI layout at a given content-size category is not
+something a hosted XCTest asserts usefully. It wants a device or a preview at
+AX5. The change is small and mechanical, which is most of why it is safe.
+
+================================================================================
+iOS improvement loop — iteration 15/15
+================================================================================
+
+FOUND: every out-of-process check-in ships on the backward-compatibility path.
+
+`SharedCheckInClient` — the code behind the widget, the Control Center control,
+Siri and the watch — built its request body as `[String: String]` and sent
+battery as `String(battery)`:
+
+    "battery_level": "0.62"
+
+US-IOS078 established that numeric fields go on the wire as JSON numbers because
+the edge validators test `typeof === "number"`. This path never did. It works
+only because `process-checkin-response` calls `coerceNumericFields`, a shim whose
+own comment says it is there for "pre-US-IOS078 builds still in the wild".
+
+So every shipping wrist and widget check-in depends on a compatibility path meant
+for old builds — and the in-app path, which sends real numbers, would keep
+working and hide it the day that shim is retired. The failure would land on the
+glanceable surfaces, which are the ones nobody watches while testing.
+
+CHANGED:
+  mod  ios/DailyOK/Shared/SharedCheckInClient.swift
+
+`[String: Any]` and the battery value as a Double. `JSONSerialization` was
+already the encoder, so nothing else moves.
+
+ALSO FILED: US-IOS149 — ship the iOS app in more than one language.
+
+Localizable.xcstrings has zero entries, knownRegions is (en, Base), and ~203
+literal `Text(…)` strings sit beside ~65 `String(localized:)` calls with no
+consistent rule. For a product whose whole interaction is "understand this
+prompt and answer it, or your family is alerted", a language the receiver only
+half-reads is not a cosmetic gap — it is a false escalation.
+
+Worth recording what the scoping found, because it changes the shape of the
+work: SWIFT_EMIT_LOC_STRINGS is already YES for the app, both widget extensions,
+the watch app and the notification service, and the catalog is already in the
+app's Resources phase. The empty catalog is NOT a build misconfiguration. The
+plumbing is done; nobody has translated anything. The story is blocked on a
+product decision — which languages, and whether server-composed notification
+copy is localized too — and starting it inside a one-iteration slot would have
+produced a half-localized app, which is worse than an honestly English one.
+
+================================================================================
+CLOSING SUMMARY — 15 iterations, iOS platform
+================================================================================
+
+  1  Offline check-ins replayed as today's         OfflineCheckInService
+  2  occurred_at end to end (+ a live DST bug)     edge fn, iOS
+  3  Android's half of the same bug                Android queue
+  4  Reinstall restored the previous owner         SupabaseSessionStorage
+  5  SwiftLint gate linted zero files              CI
+  6  Watch discarded check-ins it confirmed        WatchOfflineQueue
+  7  Privacy manifests never shipped               pbxproj, 3 new manifests
+  8  "Stand down" reported nothing                 deep link
+  9  App Switcher snapshot leaked the dashboard    biometric lock
+ 10  Escalation alert had no Call Now              categories, both ends
+ 11  Owner widget showed yesterday's ticks         SharedOwnerState
+ 12  PDF report disagreed with itself              timezone + locale
+ 13  Privacy policy denied a shipping feature      Health integration
+ 14  Buttons cropped at accessibility sizes        Dynamic Type
+ 15  Widget/watch on the legacy wire format        SharedCheckInClient
+
+THE PATTERN, since it is the useful output rather than the list.
+
+Eleven of the fifteen are the same failure wearing different clothes: the system
+tells someone everything is fine when it does not know that. A queued check-in
+replayed as today's. A watch tap confirmed with a haptic and then deleted. A
+widget rendering yesterday. A stand-down that logged its own failure. A green
+tick on a lock screen. This product's entire value is the difference between
+"answered" and "we have not heard", and that boundary erodes in a dozen small
+places, each individually defensible.
+
+Three more are declarations that drifted from the code: a privacy manifest that
+was never in the build, a privacy policy denying a feature that ships, a
+notification category registered against nothing. Nobody is checking that what
+the app SAYS matches what it DOES, and both halves were written carefully.
+
+WHAT NOW HAS A TEST OR A GATE THAT DID NOT BEFORE
+
+  - The replay window is asserted equal across four surfaces (iOS phone, iOS
+    watch, Android, edge function) instead of kept in step by comment.
+  - The edge functions have unit tests at all — 17, and a `deno test` CI step.
+    They had none.
+  - The app bundle is asserted to contain its privacy manifest, and every
+    embedded .appex to contain one.
+  - SwiftLint fails the job if it inspected zero files.
+  - 40+ new Swift tests across offline policy, owner state, report generation,
+    session storage and notification routing.
+
+VERIFICATION, STATED PLAINLY AND UNCHANGED THROUGHOUT
+
+This container is Linux. There is no Xcode and no Android SDK, so no Swift and
+no Kotlin in these 15 iterations was compiled or run. Every Swift change was
+reviewed by reading, and new files were registered in project.pbxproj in all
+four required places — a file that is not registered simply does not compile,
+which is the failure mode to watch for on the PR. What WAS run: Deno 2.1.4
+(matching the CI pin) for `deno check`, `deno lint` and `deno test` on every
+edge-function change, and a clean `npm ci` + build + route suite (38/38) for the
+website change in iteration 13.
+
+Two things need a real device before release: the App Switcher cover (iteration
+9) and the install/sign-in/delete/reinstall check for the session storage
+(iteration 4, its AC4).
+
+STORIES FILED, none started and left half-done
+
+  US-A066     Android never sends slot_key, so every Android check-in falls back
+              to day-level dedup — a multi-window receiver's evening tap is
+              deduped against their morning one. Needs a Room migration.
+  US-IOS148   Commit a resolver-generated Package.resolved. supabase-swift is
+              pinned only to "from 2.0.0", and US-IOS144 turns on behaviour that
+              differs between 2.x and 3.x.
+  US-IOS149   Localization. Blocked on a product decision, not on effort.
+
+STORIES CLOSED
+
+  US-IOS144   Supabase session cleared on a fresh install — the SDK behaviour it
+              was blocked on is now established from the pinned source.
+  US-IOS147   occurred_at end to end, across server, iOS and Android.

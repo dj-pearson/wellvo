@@ -42,7 +42,8 @@ struct OnboardingCarousel: View {
             }
             .padding(.horizontal, 20)
             .padding(.top, 16)
-            .frame(height: 44)
+            // minHeight so a large "Skip" doesn't get clipped by the header row.
+            .frame(minHeight: 44)
 
             TabView(selection: $currentIndex) {
                 ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
@@ -80,7 +81,8 @@ struct OnboardingCarousel: View {
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 52)
+                    // The capsule grows with the label rather than cropping it.
+                    .frame(minHeight: 52)
                     .background(
                         Capsule().fill(DailyOKColor.brand)
                     )
