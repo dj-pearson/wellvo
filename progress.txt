@@ -3329,3 +3329,55 @@ assertion than either file checking itself.
 VERIFIED: llms.txt covers 33 of 33 routes with 0 URLs in the redirecting form,
 up from 18 of 33 with 17 redirecting. The two manifests agree on all 33 URLs.
 tsc -b 0, build 0, snippet check 33/33, vitest 114/114.
+
+================================================================================
+US-SEO012 — 1.4 MB of hashed assets revalidated on every navigation     2026-09-10
+================================================================================
+Iteration 10.
+
+public/_headers had exactly one Cache-Control rule, for /fonts/*. Cloudflare
+Pages sends `public, max-age=0, must-revalidate` for every path it is not told
+about, so the absence of a rule is not a neutral default — it is a revalidation
+round-trip per navigation. That applied to all 1.4 MB of JS and CSS under
+/assets, every file of which is content-hashed and could safely have been cached
+for a year.
+
+Core Web Vitals is a ranking signal and this is the cheapest possible move on
+it: no code changes, no bundle work, just telling the CDN what the filenames
+already guarantee.
+
+  mod  website/public/_headers
+  add  website/src/test/headers.test.ts
+
+/assets/* now gets the immutable year. It is deliberately NOT extended further:
+index.html and the index.pageContext.json beside it keep stable names across
+deploys, so an immutable year there would pin visitors to a stale build with no
+way to recover, and sitemap.xml / robots.txt / llms.txt must stay revalidated
+because a crawler has to see them fresh. That mirror-image mistake is the one
+worth guarding against, so the test pins both directions rather than only
+asserting the good case.
+
+The eleven unhashed brand assets (og-image, favicons, logos) get a week with
+stale-while-revalidate instead — replacing one is then picked up in the
+background rather than costing the next visitor a blocking fetch. They are
+listed one path at a time rather than by extension, because an extension glob
+would silently catch a future hashed or user-uploaded image; a test asserts the
+list still matches what public/ actually contains.
+
+Also added X-Robots-Tag: noindex to /admin. _redirects rewrites /admin/* to the
+homepage shell, so a crawler reaching it is served the homepage's HTML under an
+/admin URL. That is now handled three ways — robots.txt Disallow, the nofollow
+added in US-SEO010, and this header, which is the only one that still applies if
+the Disallow is ever relaxed.
+
+VERIFIED: _headers ships verbatim into dist/client; tsc -b 0, build 0, snippet
+check 33/33, vitest 119/119 (was 114).
+
+NOT fixed, filed as US-SEO013 and blocked on input rather than effort: the CSP
+connect-src lists api.dailyok.net and functions.dailyok.net but nothing that is
+obviously the Supabase host, and src/lib/supabase.ts connects to
+VITE_SUPABASE_URL, whose production value is not in this repo. If Supabase is
+served from api.dailyok.net it is already fine; if it is a separate host — which
+self-hosted Supabase usually is — then every client-side blog fetch and the
+admin login are CSP-blocked in production. Guessing a hostname would widen the
+policy for nothing and hide the real problem, so it is written down instead.

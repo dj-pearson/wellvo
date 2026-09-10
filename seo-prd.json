@@ -149,6 +149,32 @@
       "priority": 11,
       "passes": true,
       "notes": "The hand-maintained file listed 18 of 33 routes. The 15 missing were the pSEO plan itself: seven of ten comparison pages, the whole /what-to-do cluster and /welfare-check-on-elderly-parent — and it carried a comment calling those guides 'not yet built' long after US-WEB005 built them. Every URL was in the no-slash form that production 308s (US-WEB010), so an agent that does not follow redirects got nothing. scripts/generate-llms-txt.mjs now walks the same prerendered output the sitemap walks and reads each page's own title and meta description, so blurbs cannot drift from the page. Blog posts are excluded on purpose: they publish between builds via the webhook, so a build-time list of them is wrong on arrival. Verified 33/33 routes, 0 redirecting URLs, and CI diffs llms.txt against sitemap.xml."
+    },
+    {
+      "id": "US-SEO012",
+      "title": "Give the content-hashed build output a real cache policy",
+      "description": "As a returning visitor, I want the JS and CSS to come from my own cache so that the second page view is not gated on 1.4 MB of revalidation round-trips.",
+      "acceptanceCriteria": [
+        "/assets/* is served with a one-year immutable Cache-Control",
+        "No stable-named path (HTML, sitemap.xml, robots.txt, llms.txt) is cached immutably",
+        "Unhashed brand assets get a bounded lifetime with stale-while-revalidate",
+        "A test asserts both directions, and that every unhashed public asset has a rule"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "Cloudflare Pages sends `public, max-age=0, must-revalidate` for anything _headers does not mention, so the absence of a rule was a revalidation round-trip per navigation for every one of the content-hashed files under /assets. Only /fonts/* had a policy. The mirror-image mistake is worse and silent — an immutable year on a stable-named path pins visitors to a stale build — so the test pins both directions. Also added X-Robots-Tag: noindex to /admin, which _redirects rewrites to the homepage shell."
+    },
+    {
+      "id": "US-SEO013",
+      "title": "Confirm the CSP connect-src covers the Supabase host the blog fetches from",
+      "description": "As a visitor reading a post published since the last deploy, I want the client-side fetch to succeed so that the post renders instead of an empty shell.",
+      "acceptanceCriteria": [
+        "VITE_SUPABASE_URL's origin is present in the Content-Security-Policy connect-src",
+        "A post published via the generation webhook (no redeploy) renders in a browser with the production CSP applied"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "BLOCKED ON INPUT, not effort. connect-src currently lists 'self', cloudflareinsights.com, api.dailyok.net, functions.dailyok.net and the Google Analytics hosts. src/lib/supabase.ts connects to VITE_SUPABASE_URL, whose production value is not in this repo. If Supabase is served from api.dailyok.net this is already fine and the story closes as a no-op; if it is a separate host (self-hosted Supabase usually is) then every client-side blog fetch and the admin login are CSP-blocked in production. Deliberately not guessed: adding a hostname that turns out to be wrong widens the policy for nothing and hides the real problem. Owner: confirm the value of VITE_SUPABASE_URL in the Cloudflare Pages build environment."
     }
   ]
 }
