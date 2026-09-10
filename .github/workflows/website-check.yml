@@ -103,6 +103,20 @@ jobs:
         working-directory: website
         run: node scripts/check-heading-outline.mjs
 
+      # US-SEO016. Cloudflare Pages serves /404.html for any unmatched path.
+      # Without the file it answers with its own generic page, and the site's
+      # own 404 component is unreachable in production.
+      - name: Assert a 404 page was emitted and is noindex
+        working-directory: website
+        run: |
+          test -s dist/client/404.html
+          grep -q 'name="robots" content="noindex' dist/client/404.html
+          if grep -q 'rel="canonical"' dist/client/404.html; then
+            echo "::error::The 404 page carries a canonical, which contradicts its robots tag."
+            exit 1
+          fi
+          test ! -d dist/client/404
+
       # US-SEO015. "It parses" is not validation: the defects this caught were
       # Article nodes with no image, pages carrying two Organization nodes for
       # the same company, and one @id asserting two different names.

@@ -203,6 +203,21 @@
       "priority": 15,
       "passes": true,
       "notes": "Seven pages — the six /what-to-do guides and /welfare-check-on-elderly-parent — declared og:type=article and rendered a visible 'Last updated' byline but emitted no Article node at all, so their dating and authorship existed only as text. These are YMYL health-adjacent pages where that is the E-E-A-T signal. Article nodes went 10 to 17. The comparison pages' Article had no image and redeclared its own partial Organization; it now references the sitewide one by @id. Author is an Organization node of its own (#editorial-team, parentOrganization the company) — the first attempt reused ORGANIZATION_ID with the name 'Daily OK Editorial Team', which asserts one @id has two names; the audit caught it, which is why the CI check now tests for exactly that."
+    },
+    {
+      "id": "US-SEO016",
+      "title": "Actually serve the site's own 404 page",
+      "description": "As someone following a stale link, I want a 404 that offers a way back into the site rather than a generic hosting error page.",
+      "acceptanceCriteria": [
+        "dist/client/404.html exists, so Cloudflare Pages serves it for unmatched paths",
+        "It carries noindex, follow and no canonical",
+        "It links to the site's hubs, not only the homepage",
+        "It is excluded from sitemap.xml and llms.txt",
+        "CI asserts all of the above"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": "src/pages/NotFound.tsx existed and was routed at path='*', but nothing prerendered it and Cloudflare Pages has no 404.html to serve — so it could only render during a client-side navigation inside an already-loaded SPA, the one case where nobody is lost. Every direct hit, stale backlink and crawler fetch got Pages' generic page. /404 is now prerendered, lifted to dist/client/404.html by scripts/emit-404.mjs, and the /404/ directory removed so the site does not also answer 200 there. <SEO> gained a noindex prop that emits 'noindex, follow' — the links are worth crawling even though the page must not rank — and suppresses the canonical, which would otherwise point at a URL that no longer exists and contradict the robots tag. Both generators already skip noindex pages, so it stays out of the sitemap and llms.txt with no special-casing."
     }
   ]
 }

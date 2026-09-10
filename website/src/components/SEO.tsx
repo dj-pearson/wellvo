@@ -50,6 +50,14 @@ interface SEOProps {
   publishedTime?: string
   modifiedTime?: string
   /**
+   * Emits `robots: noindex, follow`. "follow" rather than "none" on purpose:
+   * a page can be unfit to rank while its outbound links are still worth
+   * crawling — the 404 page is exactly that case (US-SEO016). The sitemap and
+   * llms.txt generators both skip any page carrying this tag, so setting it is
+   * the whole opt-out.
+   */
+  noindex?: boolean
+  /**
    * Appends " | Daily OK" to the title. Default true. Set false when the
    * title already names the brand — "Daily OK vs. Life Alert: Honest
    * Comparison (2026) | Daily OK" says it twice and spends 11 of the ~60
@@ -82,6 +90,7 @@ export default function SEO({
   publishedTime,
   modifiedTime,
   appendBrand = true,
+  noindex = false,
 }: SEOProps) {
   // Trailing-slash form — that is what production serves (US-WEB010).
   const fullUrl = canonical ?? canonicalUrl(path)
@@ -95,8 +104,16 @@ export default function SEO({
     <Helmet>
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
+      {noindex && <meta name="robots" content="noindex, follow" />}
       {keywords && <meta name="keywords" content={keywords} />}
-      <link rel="canonical" href={fullUrl} />
+      {/*
+        No canonical on a noindex page (US-SEO016). The 404 is served from
+        /404.html at whatever URL the visitor actually asked for, so a
+        self-canonical would point at a URL that does not exist — and a
+        canonical is a request to index THIS one, which contradicts the robots
+        tag directly above it.
+      */}
+      {!noindex && <link rel="canonical" href={fullUrl} />}
 
       {/* Open Graph */}
       <meta property="og:title" content={fullTitle} />

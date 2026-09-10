@@ -129,6 +129,26 @@ describe('<SEO> with a per-page image', () => {
   })
 })
 
+describe('<SEO noindex>', () => {
+  it('emits noindex, follow — not none', async () => {
+    // A 404's links are still worth crawling even though the page must never
+    // rank. "none" would throw that away with nothing gained.
+    await renderSEO({ ...BASE, path: '/404', noindex: true })
+    expect(meta('meta[name="robots"]')).toBe('noindex, follow')
+  })
+
+  it('omits the canonical, which would contradict the robots tag', async () => {
+    await renderSEO({ ...BASE, path: '/404', noindex: true })
+    expect(document.head.querySelector('link[rel="canonical"]')).toBeNull()
+  })
+
+  it('still emits a canonical on a normal page', async () => {
+    await renderSEO(BASE)
+    expect(document.head.querySelector('link[rel="canonical"]')).not.toBeNull()
+    expect(meta('meta[name="robots"]')).toBeNull()
+  })
+})
+
 describe('JSON-LD serialization', () => {
   it('escapes < so operator-authored text cannot close the script tag', async () => {
     await renderSEO({

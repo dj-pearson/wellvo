@@ -3480,3 +3480,55 @@ VERIFIED: Article nodes 10 -> 17. Across 33 routes: 0 dangling @id references,
 carrying all six required fields. The CI check exits 1 on a planted dangling
 reference and names the route and the id. tsc -b 0, build 0, headings 33/33,
 snippets 33/33, vitest 128/128 (was 119).
+
+================================================================================
+US-SEO016 — the 404 page was never actually served                      2026-09-10
+================================================================================
+Iteration 13.
+
+src/pages/NotFound.tsx exists, is routed at path="*", and has a stylesheet. It
+had never been served to anybody. Nothing prerendered it, so there was no
+dist/client/404.html, and Cloudflare Pages answers an unmatched path with its
+own generic page when that file is absent. The component could only render
+during a client-side navigation inside an already-loaded SPA — which is the one
+situation where the visitor is not lost. Every direct hit, every stale backlink,
+every crawler fetch got the generic page.
+
+The status code was always correct, so this never showed up as an indexing
+error. It showed up as nothing at all.
+
+  mod  website/src/pages/NotFound.tsx  + .css
+  mod  website/src/components/SEO.tsx        (noindex prop)
+  mod  website/pages/+onBeforePrerenderStart.ts
+  add  website/scripts/emit-404.mjs
+  mod  website/package.json
+  mod  website/src/test/seo.test.tsx
+  mod  .github/workflows/website-check.yml
+
+/404 is prerendered, lifted to dist/client/404.html, and the /404/ directory is
+then removed so the site does not also answer 200 at a URL duplicating the error
+page.
+
+Two details that are easy to get wrong and were:
+
+  * robots is "noindex, follow", not "none". The page must never rank, but the
+    recovery links on it are worth crawling; "none" throws that away for nothing.
+  * the canonical is suppressed entirely when noindex is set. The first build
+    emitted <link rel="canonical" href="https://dailyok.net/404/"> — pointing at
+    a URL that had just been deleted, and asking Google to index the very page
+    the robots tag on the line above forbids. CI now fails if a canonical
+    reappears there.
+
+The page itself gained the reason to exist: five hub links with a sentence each,
+instead of a single "Back to Home". Someone who followed a dead link to a
+specific guide is one click from the guide index rather than back at the top of
+the funnel.
+
+Both generators already skip pages carrying a noindex robots tag, so it stays
+out of sitemap.xml and llms.txt with no special-casing — verified, 0 mentions in
+either.
+
+VERIFIED: dist/client/404.html exists, robots "noindex, follow", no canonical,
+17 internal links including all five hubs, /404/ directory gone, 0 references in
+sitemap or llms.txt. tsc -b 0, build 0, headings 33/33, schema 33/33 with 17
+Articles, snippets 33/33, vitest 131/131 (was 128).

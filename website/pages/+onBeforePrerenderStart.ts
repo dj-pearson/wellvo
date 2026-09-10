@@ -32,6 +32,11 @@ export default async function onBeforePrerenderStart() {
     '/dmca',
     '/compare',
     '/admin/login',
+    // Prerendered so scripts/emit-404.mjs can lift it to dist/client/404.html,
+    // which Cloudflare Pages serves for any unmatched path (US-SEO016). It
+    // carries a noindex robots tag, so the sitemap and llms.txt generators both
+    // skip it and the /404/ directory is removed after the copy.
+    '/404',
   ]
 
   const comparePaths = competitors.map((c) => `/compare/daily-ok-vs-${c.slug}`)
