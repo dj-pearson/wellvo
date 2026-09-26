@@ -4,7 +4,7 @@ import { endEscalationLiveActivities } from "../../shared/live-activity.ts";
 import { sendFCMNotification, buildFCMAlertPayload } from "../../shared/fcm.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID, validateLocationFields, sanitizeDisplayName, truncateString, coerceNumericFields } from "../../shared/validation.ts";
-import { localDayBoundsUTC, resolveOccurredAt, formatOccurredAt } from "../../shared/checkin-time.ts";
+import { localDateString, localDayBoundsUTC, resolveOccurredAt, formatOccurredAt } from "../../shared/checkin-time.ts";
 
 function haversineDistance(
   lat1: number, lon1: number,
@@ -175,7 +175,12 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
   // pending request, does not end a running escalation Live Activity, and any
   // push it sends says which day it is about. Otherwise a three-day-old queued
   // tap would silently stand down today's live escalation.
-  const isBackfill = localDayBoundsUTC(receiverTz).startUTC !== startUTC;
+  //
+  // Compared as local dates, not as computed timestamps: comparing two
+  // separately derived instants is what let a sub-second difference flag nearly
+  // every live check-in as a backfill, so it never closed the pending request
+  // and the owner was escalated for a check-in that had happened.
+  const isBackfill = localDateString(receiverTz) !== localDateString(receiverTz, occurredAt);
   // Dedup within the receiver's local day. When a slot_key is supplied, dedup
   // per slot so multiple windows/day stay distinct; otherwise fall back to the
   // legacy day-level dedup. `order + limit(1)` (instead of maybeSingle over the

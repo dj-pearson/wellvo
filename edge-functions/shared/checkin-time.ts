@@ -20,11 +20,19 @@ const hmsFormatter = (tz: string) =>
     hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
   });
 
-/** The UTC offset, in ms, in effect in `tz` at the instant `at`. */
+/**
+ * The UTC offset, in ms, in effect in `tz` at the instant `at`.
+ *
+ * The wall clock is formatted to whole seconds, so the instant is floored to
+ * whole seconds before subtracting. Without that the call's sub-second part
+ * leaked into the "offset" and every local midnight derived from it
+ * (07:00:00.241Z), so two calls a few ms apart disagreed about when the day
+ * began.
+ */
 function tzOffsetMs(tz: string, at: Date): number {
   const ymd = ymdFormatter(tz).format(at);
   const hms = hmsFormatter(tz).format(at);
-  return at.getTime() - Date.parse(`${ymd}T${hms}Z`);
+  return Math.floor(at.getTime() / 1000) * 1000 - Date.parse(`${ymd}T${hms}Z`);
 }
 
 /**
@@ -45,6 +53,15 @@ function localMidnightUTC(tz: string, ymd: string, near: Date): number {
   const naive = Date.parse(`${ymd}T00:00:00Z`);
   const firstPass = naive + tzOffsetMs(tz, near);
   return naive + tzOffsetMs(tz, new Date(firstPass));
+}
+
+/**
+ * The local calendar date ("YYYY-MM-DD") of `at` in `tz`. Stored on each
+ * check-in as `local_date` (00053) so the unique index dedups by the
+ * receiver's day, not the UTC day.
+ */
+export function localDateString(tz: string, at: Date = new Date()): string {
+  return ymdFormatter(tz).format(at);
 }
 
 /**

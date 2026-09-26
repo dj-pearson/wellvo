@@ -1,6 +1,7 @@
 import { assertEquals } from "std/assert/mod.ts";
 import {
   formatOccurredAt,
+  localDateString,
   localDayBoundsUTC,
   OCCURRED_AT_MAX_AGE_MS,
   OCCURRED_AT_MAX_SKEW_MS,
@@ -133,4 +134,32 @@ Deno.test("a same-day check-in is described with a bare time", () => {
 
 Deno.test("a backfilled check-in is described with its weekday and date", () => {
   assertEquals(spaces(formatOccurredAt("America/Chicago", "2026-03-09T15:03:00Z", true)), "Mon, Mar 9, 10:03 AM");
+});
+
+// 00053. An 8pm Eastern check-in and the next 8am one share a UTC day; they
+// must land on different local dates or the unique index rejects the morning.
+Deno.test("localDateString separates a US evening from the next morning", () => {
+  const evening = new Date("2026-03-10T00:00:00Z"); // Mon 20:00 EDT
+  const morning = new Date("2026-03-10T12:00:00Z"); // Tue 08:00 EDT
+  assertEquals(localDateString("America/New_York", evening), "2026-03-09");
+  assertEquals(localDateString("America/New_York", morning), "2026-03-10");
+  assertEquals(localDateString("UTC", evening), localDateString("UTC", morning));
+});
+
+// tzOffsetMs subtracted a seconds-resolution wall clock from a millisecond
+// instant, so the call's sub-second part leaked into "local midnight"
+// (07:00:00.241Z). Two calls a few ms apart then disagreed about when the day
+// started, and process-checkin-response — which compares exactly that —
+// flagged almost every live check-in as a backfill: pending requests were never
+// closed and the owner was escalated for a check-in that had happened.
+Deno.test("local midnight has no sub-second part", () => {
+  const { startUTC, endUTC } = localDayBoundsUTC("America/Los_Angeles", new Date("2026-09-26T16:01:17.906Z"));
+  assertEquals(startUTC, "2026-09-26T07:00:00.000Z");
+  assertEquals(endUTC, "2026-09-27T07:00:00.000Z");
+});
+
+Deno.test("two instants in one local day share the same bounds", () => {
+  const a = localDayBoundsUTC("America/New_York", new Date("2026-03-12T15:00:00.001Z"));
+  const b = localDayBoundsUTC("America/New_York", new Date("2026-03-12T15:00:00.999Z"));
+  assertEquals(a, b);
 });
