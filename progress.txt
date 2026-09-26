@@ -4675,3 +4675,28 @@ MANUAL STEPS STILL NEEDED
 
 NEXT: Phase 3 — receiver one-tap reliability (notification "I'm OK" in the
 background, offline queue without network lookups, stale reminders).
+
+================================================================================
+2026-09-26 — Owner/receiver deep dive, PHASE 3: receiver one-tap reliability
+================================================================================
+
+  - Notification "I'm OK" runs in the background (was .foreground and opened
+    the app on a screen still offering "I'm OK"); completion handlers wait
+    for the work; background task time requested; no location fix in the
+    background. Offline queueing uses the shared snapshot (it needed the
+    network before). The local fallback reminder's actions now work.
+  - After any check-in: snapshot marked, fallback reminder cancelled,
+    delivered check-in banners removed, open home screen refreshed.
+  - Home: offline cold launch keeps the button working; failed status query
+    keeps last known state; queued check-in shown as "saved, will send"; the
+    offline state is recomputed across midnight; snooze/undo errors never
+    offer "Try Again" (which checks in); undo keeps widget/watch signed in;
+    Today/Tomorrow/weekday label; no review prompt for receivers.
+  - A dead session online is "not signed in", never "saved offline".
+
+  Not compiled (no Xcode). Syntax-checked; two independent review passes, all
+  findings fixed.
+
+  Known gap: a check-in from the widget / Control Center runs in the widget
+  extension, which cannot cancel the app's pending fallback reminder; it is
+  cancelled the next time the app loads status.

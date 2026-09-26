@@ -147,8 +147,13 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             // until completionHandler is called, so call it when the check-in
             // has actually been sent (or queued) — not before.
             Task { @MainActor in
+                // A background action gets roughly 30 seconds. Ask for the
+                // standard extra time so a slow network can still finish or
+                // fall back to the offline queue instead of being cut off.
+                let taskId = UIApplication.shared.beginBackgroundTask(withName: "notification-check-in")
                 await handleCheckInFromNotification(userInfo: userInfo, responseType: responseType)
                 completionHandler()
+                if taskId != .invalid { UIApplication.shared.endBackgroundTask(taskId) }
             }
             return
         case .snooze:
@@ -350,8 +355,13 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         }
 
         do {
-            // Get current location and battery for the check-in response
-            let location = await LocationService.shared.getCurrentLocation()
+            // Location only when the app is on screen. From a Lock Screen tap
+            // the app runs in the background, where a location fix can take up
+            // to its 15s timeout (or never come with While-Using permission) —
+            // time the check-in itself needs.
+            let location = UIApplication.shared.applicationState == .active
+                ? await LocationService.shared.getCurrentLocation()
+                : nil
 
             UIDevice.current.isBatteryMonitoringEnabled = true
             let batteryLevel = UIDevice.current.batteryLevel

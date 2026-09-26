@@ -113,12 +113,15 @@ final class OfflineCheckInService: ObservableObject {
     /// Whether an unsynced check-in made today (device-local day) is waiting in
     /// the queue, so the home screen can say "saved, will send" rather than ask
     /// for another check-in.
-    func hasUnsyncedCheckInToday() -> Bool {
+    func hasUnsyncedCheckInToday(familyId: UUID, receiverId: UUID) -> Bool {
         guard let context = try? ensureContext() else { return false }
         let startOfDay = Calendar.current.startOfDay(for: Date())
         let descriptor = FetchDescriptor<OfflineCheckIn>(
             predicate: #Predicate { row in
-                !row.synced && row.createdAt >= startOfDay
+                row.familyId == familyId &&
+                row.receiverId == receiverId &&
+                !row.synced &&
+                row.createdAt >= startOfDay
             }
         )
         return ((try? context.fetchCount(descriptor)) ?? 0) > 0
@@ -136,18 +139,23 @@ final class OfflineCheckInService: ObservableObject {
     /// migrates lightly, and old rows keep nil — day-level, exactly as before.
     func performCheckIn(familyId: UUID, mood: Mood? = nil, source: CheckInSource = .app, slotKey: String? = nil) async throws -> CheckIn? {
         let receiverId: UUID
-        if let session = try? await SupabaseService.shared.client.auth.session {
-            receiverId = session.user.id
-        } else if let cached = SharedCheckInStore.load(),
-                  cached.familyId == familyId.uuidString.lowercased(),
-                  let cachedReceiver = UUID(uuidString: cached.receiverId) {
+        do {
+            receiverId = try await SupabaseService.shared.client.auth.session.user.id
+        } catch where Self.isConnectivityError(error) || !isOnline {
             // Offline with an expired access token: the session can't refresh,
             // but this device's signed-in receiver is known from the snapshot
             // (cleared on sign-out). Queue rather than lose the check-in — the
             // sync path sends it with a real session once back online.
+            guard let cached = SharedCheckInStore.load(),
+                  cached.familyId == familyId.uuidString.lowercased(),
+                  let cachedReceiver = UUID(uuidString: cached.receiverId) else {
+                throw CheckInError.notAuthenticated
+            }
             try queueCheckIn(familyId: familyId, receiverId: cachedReceiver, mood: mood, source: source, slotKey: slotKey)
             throw NetworkError.offline
-        } else {
+        } catch {
+            // Online and the session is gone (revoked, signed out elsewhere): a
+            // queued row could never sync, so saying "saved" would be false.
             throw CheckInError.notAuthenticated
         }
 

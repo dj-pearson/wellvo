@@ -148,9 +148,11 @@ final class ReceiverViewModel: ObservableObject {
         lastCheckIn = todayCheckIn
         // A queued offline check-in that hasn't synced yet still counts on this
         // phone — the receiver did tap, and the queue will deliver it.
-        checkInSavedOffline = todayCheckIn == nil && hasQueuedCheckInToday()
+        checkInSavedOffline = todayCheckIn == nil
+            && hasQueuedCheckInToday(familyId: family.id, receiverId: session.user.id)
         hasCheckedInToday = (todayCheckIn != nil) || checkInSavedOffline
         if hasCheckedInToday {
+            clearStaleMessages()
             // Answered here, on the widget, the watch or Siri: clear the
             // "please check in" banners still sitting on the Lock Screen.
             await ReceiverCheckInAftermath.removeDeliveredCheckInRequests()
@@ -236,20 +238,33 @@ final class ReceiverViewModel: ObservableObject {
         isOffline = !offlineService.isOnline
         pendingOfflineCount = offlineService.pendingCount
         guard let snapshot = SharedCheckInStore.load(),
-              let cachedFamily = UUID(uuidString: snapshot.familyId) else { return }
+              let cachedFamily = UUID(uuidString: snapshot.familyId),
+              let cachedReceiver = UUID(uuidString: snapshot.receiverId) else { return }
         familyId = cachedFamily
-        if !hasCheckedInToday {
-            hasCheckedInToday = snapshot.isCheckedIn() || hasQueuedCheckInToday()
-            checkInSavedOffline = hasQueuedCheckInToday()
-        }
-        if nextCheckInTime == nil {
+        // Recomputed every time, never only set: this object outlives scene
+        // phases, so an offline receiver who checked in yesterday must be
+        // offered the button again after midnight.
+        let queued = hasQueuedCheckInToday(familyId: cachedFamily, receiverId: cachedReceiver)
+        let lastIsToday = lastCheckIn.map { Calendar.current.isDateInToday($0.checkedInAt) } ?? false
+        hasCheckedInToday = snapshot.isCheckedIn() || queued || lastIsToday
+        checkInSavedOffline = queued && !lastIsToday
+        if hasCheckedInToday { clearStaleMessages() }
+        if nextCheckInTime == nil || (nextCheckInTime ?? .distantPast) < Date() {
             nextCheckInTime = snapshot.nextCheckInAt
         }
     }
 
-    /// Whether an unsynced check-in from today is waiting in the offline queue.
-    private func hasQueuedCheckInToday() -> Bool {
-        offlineService.hasUnsyncedCheckInToday()
+    /// Whether an unsynced check-in from today, for this receiver and family,
+    /// is waiting in the offline queue.
+    private func hasQueuedCheckInToday(familyId: UUID, receiverId: UUID) -> Bool {
+        offlineService.hasUnsyncedCheckInToday(familyId: familyId, receiverId: receiverId)
+    }
+
+    /// A check-in has landed (here or elsewhere): an earlier failed tap's error
+    /// and "Try Again", or a failed snooze's message, no longer apply.
+    private func clearStaleMessages() {
+        errorMessage = nil
+        actionMessage = nil
     }
 
     private func loadPendingRequest(receiverId: UUID, familyId: UUID) async {
