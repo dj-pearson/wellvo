@@ -32,6 +32,10 @@ export default async function onBeforePrerenderStart() {
     '/dmca',
     '/compare',
     '/admin/login',
+    // The receiver invite page. Tokens are per-invite, so every
+    // /invite/<token> is served this shell by public/_redirects. noindex keeps
+    // it out of the sitemap and llms.txt.
+    '/invite',
     // Prerendered so scripts/emit-404.mjs can lift it to dist/client/404.html,
     // which Cloudflare Pages serves for any unmatched path (US-SEO016). It
     // carries a noindex robots tag, so the sitemap and llms.txt generators both

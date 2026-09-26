@@ -35,3 +35,26 @@ app instead of Safari. It must be served from
 `DailyOK.entitlements`, requested in `PushNotificationService`) requires a
 **special Apple grant**. Confirm it is approved for `com.wellvo.ios` and that the
 provisioning profile carries it, or installs/review will fail.
+
+## Android App Links — `assetlinks.json`
+
+The Android app declares `https://dailyok.net/invite…` with `autoVerify`, so
+Android checks `/.well-known/assetlinks.json` before opening invite links in
+the app. Until the fingerprint is real, verification fails and the link opens
+the website's invite page instead (which still works — it offers the Play
+Store and an "Open Daily OK" button).
+
+1. In Play Console → your app → **Test and release → App integrity → App
+   signing**, copy the **App signing key certificate SHA-256 fingerprint**
+   (not the upload key's, unless Play App Signing is off).
+2. Replace `REPLACE_WITH_PLAY_APP_SIGNING_SHA256` in `assetlinks.json` with it
+   (colon-separated uppercase hex, exactly as Play Console shows it). To also
+   verify debug/internal builds, add their fingerprints to the same array.
+3. After deploy, check with
+   `https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://dailyok.net&relation=delegate_permission/common.handle_all_urls`.
+
+## Invite links
+
+Invites are sent as `https://dailyok.net/invite/<token>?code=<setup code>`.
+`public/_redirects` serves every `/invite/<token>` the prerendered `/invite`
+page; the AASA lists `/invite` and `/invite/*`.

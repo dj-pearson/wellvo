@@ -5,6 +5,7 @@
       {
         "appID": "TEAMID.com.wellvo.ios",
         "paths": [
+          "/invite",
           "/invite/*",
           "/join/*",
           "NOT /privacy",
