@@ -2,6 +2,7 @@ import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID, isValidTime24H, isValidTimezone, sanitizeDisplayName } from "../../shared/validation.ts";
 import { LIMIT_REACHED_MESSAGE, redeemInvite } from "../../shared/join-family.ts";
+import { buildInviteLink, buildInviteMessage } from "../../shared/invite-message.ts";
 
 interface InviteRequest {
   action?: "create" | "accept";
@@ -150,26 +151,21 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   // so a failed re-send never leaves the receiver with no working invite.
   await supersedeOpenInvites(family_id, phone, inviteToken);
 
-  // Generate deep link (kept as fallback for QR/link sharing)
-  const inviteLink = `https://dailyok.net/invite?token=${inviteToken}`;
+  // One link for everyone. dailyok.net/invite/<token> opens the app directly
+  // where Universal Links / App Links are set up, and otherwise lands on the
+  // website's invite page, which offers the right store and an "Open in
+  // Daily OK" button. The code rides along so that page can show it.
+  // (The old `/invite?token=` form never matched the AASA `/invite/*` path and
+  // the site had no page for it; apps still accept both forms.)
+  const inviteLink = buildInviteLink(inviteToken, pairingCode);
 
-  // Invitation delivery is now a *native* send from the Owner's own device
-  // (iOS Messages composer). We deliberately DO NOT send this invite through
+  // Invitation delivery is a *native* send from the Owner's own device (the
+  // Messages composer). We deliberately DO NOT send this invite through
   // Twilio: an invite goes to a person who has not opted into our A2P 10DLC
   // campaign, so it can't ride the approved sender. The Twilio campaign is
-  // reserved for escalation alerts (a clean, single-purpose use case).
-  //
-  // The app auto-joins the receiver by matching the phone number they sign in
-  // with, so the record above is all the backend needs. Here we return a
-  // pre-composed message body (P2P — no STOP/HELP footer, since it comes from
-  // the Owner's personal number) that the app drops into the native composer.
-  // The pairing code is included so they can set up on an iPad or other device.
-  const safeName = sanitizeDisplayName(name);
-  const inviteMessage =
-    `Hi ${safeName}! I'd like to check in with you every day using Daily OK. ` +
-    `Download the app and sign in with this phone number and we'll be ` +
-    `connected automatically: https://apps.apple.com/app/daily-ok/id6742044109\n\n` +
-    `Setting up on an iPad? Use this code: ${pairingCode}`;
+  // reserved for escalation alerts. P2P body — no STOP/HELP footer, since it
+  // comes from the Owner's personal number.
+  const inviteMessage = buildInviteMessage(sanitizeDisplayName(name), inviteLink, pairingCode);
 
   return new Response(
     JSON.stringify({
