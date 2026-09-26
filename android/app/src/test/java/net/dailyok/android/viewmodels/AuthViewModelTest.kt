@@ -203,7 +203,7 @@ class AuthViewModelTest {
         )
         coEvery { authService.getCurrentUser() } returns testUser
         val vm = createViewModel()
-        sessionStatusFlow.value = SessionStatus.Authenticated
+        sessionStatusFlow.value = SessionStatus.Authenticated(mockk(relaxed = true))
         advanceUntilIdle()
         val state = vm.authState.value
         assertTrue(state is AuthState.Authenticated)

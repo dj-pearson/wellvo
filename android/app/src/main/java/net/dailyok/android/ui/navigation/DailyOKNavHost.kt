@@ -40,6 +40,9 @@ fun DailyOKNavHost(
     /** The membership lookup failed and no role is cached. */
     membershipFailed: Boolean = false,
     onJoined: (UserRole) -> Unit = {},
+    /** A receiver-side join finished; the server says which role it made. */
+    onJoinedResolveRole: () -> Unit = {},
+    onLeaveOwnerSetup: () -> Unit = {},
     onJoinCancelled: () -> Unit = {},
     onChooseCodeEntry: () -> Unit = {},
     onChooseOwnerSetup: () -> Unit = {},
@@ -87,7 +90,7 @@ fun DailyOKNavHost(
         composable(Route.Onboarding.route) {
             // System back on the first step returns to the start choice (the
             // screen's own handlers take precedence on later steps).
-            BackHandler { onBackToChoice() }
+            BackHandler { onLeaveOwnerSetup() }
             OnboardingScreen(
                 // Routing follows the role: the family exists now, so this user
                 // owns it. Navigating directly raced the route recomputation.
@@ -102,7 +105,7 @@ fun DailyOKNavHost(
             )
         }
         composable(Route.MembershipFailed.route) {
-            MembershipLoadFailedScreen(onRetry = onRetryMembership)
+            MembershipLoadFailedScreen(onRetry = onRetryMembership, onSignOut = onSignOut)
         }
         composable(Route.OwnerTabs.route) {
             val userId = (authState as? AuthState.Authenticated)?.user?.id ?: ""
@@ -118,13 +121,13 @@ fun DailyOKNavHost(
         composable(Route.PairingCode.route) {
             BackHandler { onBackToChoice() }
             PairingCodeScreen(
-                onComplete = { onJoined(UserRole.Receiver) }
+                onComplete = onJoinedResolveRole
             )
         }
         composable(Route.ReceiverOnboarding.route) {
             ReceiverOnboardingScreen(
                 inviteToken = pendingInviteToken,
-                onComplete = { onJoined(UserRole.Receiver) },
+                onComplete = onJoinedResolveRole,
                 onCancel = onJoinCancelled
             )
         }
@@ -157,24 +160,11 @@ fun DailyOKNavHost(
         }
     }
 
-    // Handle notification deep routing after auth is resolved
-    LaunchedEffect(notificationContext, authState) {
-        if (notificationContext == null || authState !is AuthState.Authenticated) return@LaunchedEffect
-
-        val deepRoute = when (notificationContext.type) {
-            "CHECKIN_REQUEST" -> Route.ReceiverHome.route
-            "URGENT_ALERT" -> Route.OwnerTabs.route
-            "LOCATION_ALERT" -> Route.OwnerTabs.route
-            else -> null
-        }
-
-        if (deepRoute != null && navController.currentBackStackEntry?.destination?.route != deepRoute) {
-            navController.navigate(deepRoute) {
-                popUpTo(0) { inclusive = true }
-                launchSingleTop = true
-            }
-        }
-
-        onNotificationHandled()
+    // A tapped notification needs no navigation of its own: targetRoute
+    // already sends each role to its home. Navigating here fought that
+    // recomputation — and on a cold start, before membership resolved, could
+    // flash owner or receiver screens at the wrong person.
+    LaunchedEffect(notificationContext) {
+        if (notificationContext != null) onNotificationHandled()
     }
 }

@@ -91,7 +91,7 @@ fun GetStartedScreen(
 
 /** Shown when the membership lookup fails and no role is cached. */
 @Composable
-fun MembershipLoadFailedScreen(onRetry: () -> Unit) {
+fun MembershipLoadFailedScreen(onRetry: () -> Unit, onSignOut: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -113,5 +113,7 @@ fun MembershipLoadFailedScreen(onRetry: () -> Unit) {
         )
         Spacer(Modifier.height(24.dp))
         Button(onClick = onRetry) { Text("Try Again") }
+        Spacer(Modifier.height(8.dp))
+        TextButton(onClick = onSignOut) { Text("Sign out") }
     }
 }

@@ -115,6 +115,7 @@ class AuthViewModel @Inject constructor(
                         if (isRefreshFailure && _authState.value is AuthState.Authenticated) {
                             _uiState.value = _uiState.value.copy(showReauthPrompt = true)
                         }
+                        resetSessionState()
                         _authState.value = AuthState.Unauthenticated
                     }
                     is SessionStatus.Initializing -> {
@@ -122,6 +123,7 @@ class AuthViewModel @Inject constructor(
                     }
                     is SessionStatus.RefreshFailure -> {
                         _uiState.value = _uiState.value.copy(showReauthPrompt = true)
+                        resetSessionState()
                         _authState.value = AuthState.Unauthenticated
                     }
                 }
@@ -163,7 +165,25 @@ class AuthViewModel @Inject constructor(
                 return
             }
         }
-        resolveMembership()
+        // Once per signed-in user. SessionStatus.Authenticated re-emits on every
+        // token refresh; re-resolving then could yank a receiver out of their
+        // onboarding (permission step) the moment the join landed.
+        if (authService.currentUserId() != resolvedForUserId) {
+            resolveMembership()
+        }
+    }
+
+    /** The user whose membership has been resolved this session. */
+    private var resolvedForUserId: String? = null
+
+    /** Nothing about the previous account may route the next one. */
+    private fun resetSessionState() {
+        _membership.value = Membership.Resolving
+        _setupChoice.value = SetupChoice.None
+        _pendingAutoJoin.value = null
+        resolvedForUserId = null
+        // onNewToken must not register a rotated token for a signed-out user.
+        secureStorage.delete(SecureStorage.USER_ID)
     }
 
     /**
@@ -189,12 +209,35 @@ class AuthViewModel @Inject constructor(
         if (role != null) {
             setMember(userId, role)
             _pendingAutoJoin.value = null
+            resolvedForUserId = userId
             return
         }
 
         cacheRole(userId, null)
         checkAutoJoin()
         _membership.value = Membership.None
+        resolvedForUserId = userId
+    }
+
+    /**
+     * A join finished (link, code or phone match): ask the server what it made
+     * this user rather than assuming receiver — a code can make someone a viewer.
+     */
+    fun onJoinedResolveRole() {
+        _setupChoice.value = SetupChoice.None
+        _pendingAutoJoin.value = null
+        _membership.value = Membership.Resolving
+        viewModelScope.launch { resolveMembership() }
+    }
+
+    /**
+     * Leaving owner setup. If the family was already created they are its owner
+     * now, so re-resolve instead of dropping them back at the start choice.
+     */
+    fun leaveOwnerSetup() {
+        _setupChoice.value = SetupChoice.None
+        _membership.value = Membership.Resolving
+        viewModelScope.launch { resolveMembership() }
     }
 
     fun retryMembership() {
@@ -429,9 +472,7 @@ class AuthViewModel @Inject constructor(
             // Before the session goes: deactivating the token needs it.
             pushNotificationService.onSignedOut()
             authService.signOut()
-            _membership.value = Membership.Resolving
-            _setupChoice.value = SetupChoice.None
-            _pendingAutoJoin.value = null
+            resetSessionState()
             _uiState.value = AuthUiState()
         }
     }

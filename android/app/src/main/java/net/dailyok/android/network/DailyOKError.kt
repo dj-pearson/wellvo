@@ -15,6 +15,7 @@ sealed class DailyOKError : Exception() {
      */
     data class Rejected(val status: Int, override val message: String) : DailyOKError()
 
-    val localizedMessage: String
-        get() = message ?: "An unexpected error occurred."
+    // Throwable.getLocalizedMessage() already returns `message`, which every
+    // subclass sets. A `val localizedMessage` here compiled to the same JVM
+    // signature — an accidental override Kotlin rejects.
 }

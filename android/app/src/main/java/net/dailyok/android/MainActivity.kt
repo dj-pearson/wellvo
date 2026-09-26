@@ -208,6 +208,22 @@ fun DailyOKApp(
     val membershipResolved = membership is net.dailyok.android.viewmodels.Membership.None
     val membershipFailed = membership is net.dailyok.android.viewmodels.Membership.Failed
 
+    // An invite link is for someone with no family. Drop it once we know this
+    // user already has one, and on sign-out, so it can't be redeemed later for
+    // whoever signs in next. (A cold start from a link goes Loading ->
+    // Unauthenticated and keeps its token for the sign-in that follows.)
+    var wasAuthenticated by androidx.compose.runtime.remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(authState, membership) {
+        if (authState is AuthState.Authenticated) wasAuthenticated = true
+        if (authState is AuthState.Unauthenticated && wasAuthenticated) {
+            wasAuthenticated = false
+            onDeepLinkHandled()
+        }
+        if (membership is net.dailyok.android.viewmodels.Membership.Member && deepLinkInviteToken != null) {
+            onDeepLinkHandled()
+        }
+    }
+
     val hasAutoJoin = pendingAutoJoin != null
     // A link's token is redeemed by ReceiverOnboarding. After a phone-number
     // auto-join there is no token — the join already happened server-side.
@@ -257,6 +273,11 @@ fun DailyOKApp(
                 onChooseCodeEntry = authViewModel::chooseCodeEntry,
                 onChooseOwnerSetup = authViewModel::chooseOwnerSetup,
                 onBackToChoice = authViewModel::clearSetupChoice,
+                onJoinedResolveRole = {
+                    authViewModel.onJoinedResolveRole()
+                    onDeepLinkHandled()
+                },
+                onLeaveOwnerSetup = authViewModel::leaveOwnerSetup,
                 onRetryMembership = authViewModel::retryMembership,
                 onSignOut = authViewModel::signOut,
                 modifier = Modifier.padding(innerPadding)

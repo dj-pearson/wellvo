@@ -88,6 +88,10 @@ class FamilyViewModel @Inject constructor(
 
     fun resendInvite(member: FamilyMember) {
         val familyId = _family.value?.id ?: return
+        if (member.user?.phone.isNullOrBlank()) {
+            _errorMessage.value = "No phone number on file for ${member.user?.displayName ?: "this member"}. Remove them and invite again with their number."
+            return
+        }
         viewModelScope.launch {
             try {
                 _inviteToSend.value = familyService.inviteReceiver(
