@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID, isValidTime24H, isValidTimezone, sanitizeDisplayName } from "../../shared/validation.ts";
+import { LIMIT_REACHED_MESSAGE, redeemInvite } from "../../shared/join-family.ts";
 
 interface InviteRequest {
   action?: "create" | "accept";
@@ -117,19 +118,29 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   crypto.getRandomValues(tokenBytes);
   const inviteToken = Array.from(tokenBytes, (b) => b.toString(16).padStart(2, "0")).join("");
 
-  // Generate a short 6-digit pairing code for iPad / alternate-device setup
-  const pairingCode = generatePairingCode();
+  // A re-send replaces the earlier invite to this number rather than stacking
+  // another live one beside it (which also kept a removed receiver able to
+  // re-join through the stale invite).
+  await supersedeOpenInvites(family_id, phone);
 
-  // Store invite
-  const { error: inviteError } = await supabaseAdmin.from("invite_tokens").insert({
-    family_id,
-    role: "receiver",
-    phone,
-    name,
-    checkin_time: checkin_time || "08:00",
-    token: inviteToken,
-    pairing_code: pairingCode,
-  });
+  // Store invite. The 6-digit pairing code (for iPad / alternate-device setup)
+  // is unique among unused invites, so retry the rare collision instead of
+  // failing the owner's invite.
+  let pairingCode = "";
+  let inviteError: { code?: string } | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    pairingCode = generatePairingCode();
+    ({ error: inviteError } = await supabaseAdmin.from("invite_tokens").insert({
+      family_id,
+      role: "receiver",
+      phone,
+      name,
+      checkin_time: checkin_time || "08:00",
+      token: inviteToken,
+      pairing_code: pairingCode,
+    }));
+    if (inviteError?.code !== "23505") break;
+  }
 
   if (inviteError) {
     return new Response(
@@ -220,84 +231,63 @@ async function acceptInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
     );
   }
 
-  // Check the user isn't already a member of this family
-  const { data: existingMember } = await supabaseAdmin
-    .from("family_members")
-    .select("id, status")
-    .eq("family_id", invite.family_id)
-    .eq("user_id", acceptingUserId)
-    .single();
+  const result = await redeemInvite(invite.id, acceptingUserId, body.timezone);
 
-  if (existingMember && existingMember.status === "active") {
-    return new Response(
-      JSON.stringify({ error: "You are already a member of this family" }),
-      { status: 409, headers: { "Content-Type": "application/json" } }
-    );
+  switch (result.status) {
+    case "joined":
+      return json({
+        success: true,
+        family_id: result.family_id,
+        role: result.role,
+        checkin_time: result.checkin_time,
+        name: result.name,
+        owner_name: result.owner_name,
+      });
+    case "already_member":
+      return json({ error: "You are already a member of this family" }, 409);
+    case "limit_reached":
+      return json({ error: LIMIT_REACHED_MESSAGE, reason: "limit_reached" }, 403);
+    case "invalid":
+      return json({ error: "This invite link is invalid or has expired" }, 400);
+    default:
+      return json({ error: "Failed to join family" }, 500);
   }
+}
 
-  // Create or reactivate family member
-  let memberId: string;
+/**
+ * Expire this family's other unused invites to the same number. Phones are
+ * stored as typed, so compare digits (with or without the NANP leading 1).
+ */
+async function supersedeOpenInvites(familyId: string, phone: string): Promise<void> {
+  const { data: open } = await supabaseAdmin
+    .from("invite_tokens")
+    .select("id, phone")
+    .eq("family_id", familyId)
+    .is("used_by", null)
+    .gt("expires_at", new Date().toISOString());
 
-  if (existingMember) {
-    // Reactivate deactivated member
-    const { data: updated } = await supabaseAdmin
-      .from("family_members")
-      .update({
-        role: invite.role,
-        status: "active",
-        joined_at: new Date().toISOString(),
-      })
-      .eq("id", existingMember.id)
-      .select()
-      .single();
-    memberId = updated?.id;
-  } else {
-    const { data: member, error: memberError } = await supabaseAdmin
-      .from("family_members")
-      .insert({
-        family_id: invite.family_id,
-        user_id: acceptingUserId,
-        role: invite.role,
-        status: "active",
-        joined_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+  const target = phoneDigits(phone);
+  const ids = (open ?? [])
+    .filter((inv: { phone: string | null }) => phoneDigits(inv.phone ?? "") === target)
+    .map((inv: { id: string }) => inv.id);
+  if (ids.length === 0) return;
 
-    if (memberError) {
-      return new Response(
-        JSON.stringify({ error: "Failed to join family" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
-    memberId = member.id;
-  }
-
-  // Create receiver settings if receiver role
-  if (invite.role === "receiver" && memberId) {
-    await supabaseAdmin.from("receiver_settings").upsert({
-      family_member_id: memberId,
-      checkin_time: invite.checkin_time || "08:00",
-      timezone: body.timezone || "America/New_York",
-    });
-  }
-
-  // Update user role
-  await supabaseAdmin
-    .from("users")
-    .update({ role: invite.role })
-    .eq("id", acceptingUserId);
-
-  // Mark invite as used
   await supabaseAdmin
     .from("invite_tokens")
-    .update({ used_by: acceptingUserId })
-    .eq("id", invite.id);
+    .update({ expires_at: new Date().toISOString() })
+    .in("id", ids);
+}
 
-  return new Response(
-    JSON.stringify({ success: true, family_id: invite.family_id, role: invite.role }),
-    { headers: { "Content-Type": "application/json" } }
-  );
+function phoneDigits(phone: string): string {
+  const d = phone.replace(/\D/g, "");
+  return d.length === 11 && d.startsWith("1") ? d.slice(1) : d;
+}
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 /**

@@ -1,15 +1,19 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
+import { isValidTimezone } from "../../shared/validation.ts";
+import { LIMIT_REACHED_MESSAGE, redeemInvite } from "../../shared/join-family.ts";
 
 /**
  * Auto-join: matches an authenticated user's phone number to a pending invite.
  *
- * When a receiver signs in (via phone OTP or any method), the iOS app calls
- * this endpoint. We look up the user's phone from Supabase Auth, check for
- * a matching unused invite_token, and auto-accept it — no token/link needed.
+ * When a receiver signs in, the app calls this endpoint. We take the phone
+ * number Supabase Auth verified by SMS code, find a matching unused
+ * invite_token, and join the family through redeem_invite — no link or code
+ * needed. Accounts without a verified phone (Apple / email sign-in) get
+ * `no_phone` and join with the invite link or pairing code instead.
  */
 export async function handleAutoJoin(
-  _req: Request,
+  req: Request,
   auth: AuthResult,
 ): Promise<Response> {
   if (!auth.userId) {
@@ -17,6 +21,17 @@ export async function handleAutoJoin(
       JSON.stringify({ error: "Authentication required" }),
       { status: 401, headers: { "Content-Type": "application/json" } },
     );
+  }
+
+  // Optional device timezone (additive field; shipped builds send no body).
+  let timezone: string | null = null;
+  try {
+    const body = await req.json();
+    if (typeof body?.timezone === "string" && isValidTimezone(body.timezone)) {
+      timezone = body.timezone;
+    }
+  } catch {
+    // No or non-JSON body — fine.
   }
 
   // Get the user's phone from Supabase Auth
@@ -30,31 +45,24 @@ export async function handleAutoJoin(
     );
   }
 
-  const userPhone = authUser.user.phone;
+  // Only a number Supabase Auth has verified by SMS code may claim an invite.
+  // The users.phone column is NOT a fallback: it was client-writable, so
+  // trusting it let anyone type a victim's number and take their invite.
+  const userPhone = authUser.user.phone_confirmed_at ? authUser.user.phone : null;
   if (!userPhone) {
-    // No phone on the auth record — also check the users table
-    const { data: profile } = await supabaseAdmin
-      .from("users")
-      .select("phone")
-      .eq("id", auth.userId)
-      .single();
-
-    if (!profile?.phone) {
-      return new Response(
-        JSON.stringify({ matched: false, reason: "no_phone" }),
-        { headers: { "Content-Type": "application/json" } },
-      );
-    }
-
-    return tryMatchPhone(profile.phone, auth.userId);
+    return new Response(
+      JSON.stringify({ matched: false, reason: "no_phone" }),
+      { headers: { "Content-Type": "application/json" } },
+    );
   }
 
-  return tryMatchPhone(userPhone, auth.userId);
+  return tryMatchPhone(userPhone, auth.userId, timezone);
 }
 
 async function tryMatchPhone(
   phone: string,
   userId: string,
+  timezone: string | null,
 ): Promise<Response> {
   // Normalize to digits-only for comparison
   const normalized = phone.replace(/[^\d]/g, "");
@@ -83,8 +91,9 @@ async function tryMatchPhone(
   }
 
   // Match by normalized phone
-  const invite = invites.find((inv) => {
-    const invPhone = inv.phone.replace(/[^\d]/g, "");
+  const invite = invites.find((inv: { phone: string | null }) => {
+    const invPhone = (inv.phone ?? "").replace(/[^\d]/g, "");
+    if (!invPhone) return false;
     return variants.some(
       (v) => v === invPhone || v === invPhone.replace(/^1/, ""),
     );
@@ -97,93 +106,37 @@ async function tryMatchPhone(
     );
   }
 
-  // Check if user is already a member
-  const { data: existingMember } = await supabaseAdmin
-    .from("family_members")
-    .select("id, status")
-    .eq("family_id", invite.family_id)
-    .eq("user_id", userId)
-    .single();
+  const result = await redeemInvite(invite.id, userId, timezone);
 
-  if (existingMember && existingMember.status === "active") {
-    return new Response(
-      JSON.stringify({
+  switch (result.status) {
+    case "joined":
+      return json({
+        matched: true,
+        family_id: result.family_id,
+        role: result.role,
+        checkin_time: result.checkin_time,
+        owner_name: result.owner_name,
+      });
+    case "already_member":
+      return json({
         matched: true,
         already_member: true,
-        family_id: invite.family_id,
-        role: invite.role,
-      }),
-      { headers: { "Content-Type": "application/json" } },
-    );
+        family_id: result.family_id,
+        role: result.role,
+      });
+    case "limit_reached":
+      return json({ matched: false, reason: "limit_reached", message: LIMIT_REACHED_MESSAGE });
+    case "invalid":
+      // Redeemed or expired between the lookup and the join.
+      return json({ matched: false, reason: "no_matching_invite" });
+    default:
+      return json({ error: "Failed to join family" }, 500);
   }
+}
 
-  // Create or reactivate family member
-  let memberId: string;
-
-  if (existingMember) {
-    const { data: updated } = await supabaseAdmin
-      .from("family_members")
-      .update({
-        role: invite.role,
-        status: "active",
-        joined_at: new Date().toISOString(),
-      })
-      .eq("id", existingMember.id)
-      .select()
-      .single();
-    memberId = updated?.id;
-  } else {
-    const { data: member, error: memberError } = await supabaseAdmin
-      .from("family_members")
-      .insert({
-        family_id: invite.family_id,
-        user_id: userId,
-        role: invite.role,
-        status: "active",
-        joined_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (memberError) {
-      return new Response(
-        JSON.stringify({ error: "Failed to join family" }),
-        { status: 500, headers: { "Content-Type": "application/json" } },
-      );
-    }
-    memberId = member.id;
-  }
-
-  // Create receiver settings
-  if (invite.role === "receiver" && memberId) {
-    await supabaseAdmin.from("receiver_settings").upsert({
-      family_member_id: memberId,
-      checkin_time: invite.checkin_time || "08:00",
-      timezone: "America/New_York", // Default; updated by the app after joining
-    });
-  }
-
-  // Update user role and display name from invite
-  const updates: Record<string, string> = { role: invite.role };
-  if (invite.name) {
-    updates.display_name = invite.name;
-  }
-  await supabaseAdmin.from("users").update(updates).eq("id", userId);
-
-  // Mark invite as used
-  await supabaseAdmin
-    .from("invite_tokens")
-    .update({ used_by: userId })
-    .eq("id", invite.id);
-
-  return new Response(
-    JSON.stringify({
-      matched: true,
-      family_id: invite.family_id,
-      role: invite.role,
-      checkin_time: invite.checkin_time,
-      owner_name: null, // Could be fetched if needed
-    }),
-    { headers: { "Content-Type": "application/json" } },
-  );
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 }
