@@ -22,8 +22,8 @@
 -- ─── WHAT CHANGES ────────────────────────────────────────────────────────────
 --   * redeem_invite(): one SECURITY DEFINER function, service_role only, that
 --     locks the invite row and does the whole join atomically.
---   * pairing_code_attempts + pairing_code_retry_after(): durable per-user,
---     per-IP and global failure limits for redeem-code.
+--   * pairing_code_attempts + pairing_code_retry_after(): durable per-user
+--     and per-IP failure limits for redeem-code.
 --   * A nightly pg_cron job trims old attempts.
 --
 -- BACKWARD-COMPATIBLE (CLAUDE.md §A): a new table, two new functions and a new
@@ -194,8 +194,8 @@ CREATE INDEX IF NOT EXISTS idx_pairing_code_attempts_created
 -- Seconds until this caller may try another code; 0 = allowed now.
 --   * 10 failures per user in 15 minutes
 --   * 30 failures per IP in 60 minutes
---   * 500 failures platform-wide in 60 minutes (caps what a fleet of fresh
---     accounts can sweep of the 900,000-code space)
+-- No platform-wide block: anyone could trip it with throwaway accounts and
+-- lock every real receiver out of pairing.
 CREATE OR REPLACE FUNCTION pairing_code_retry_after(p_user_id UUID, p_ip TEXT)
 RETURNS INT
 LANGUAGE plpgsql STABLE SECURITY DEFINER
@@ -224,11 +224,6 @@ BEGIN
         IF v_oldest IS NOT NULL THEN
             v_wait := GREATEST(v_wait, CEIL(EXTRACT(EPOCH FROM (v_oldest + INTERVAL '60 minutes' - NOW())))::INT);
         END IF;
-    END IF;
-
-    IF (SELECT count(*) FROM pairing_code_attempts
-        WHERE NOT succeeded AND created_at > NOW() - INTERVAL '60 minutes') >= 500 THEN
-        v_wait := GREATEST(v_wait, 300);
     END IF;
 
     RETURN GREATEST(v_wait, 0);

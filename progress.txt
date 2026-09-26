@@ -4568,9 +4568,9 @@ FIXED
 
   00051  Client roles can no longer write is_system_admin, users.role, another
          person's phone, subscription tier/limits, owner_id, check-in time or
-         the escalation clock; increment_max_* is service-role only (the
-         webhook's own call had been failing, so paid add-on slots never
-         applied). Silent keep-old-value for columns shipped apps still send.
+         the escalation clock; clients can no longer call increment_max_*
+         (bodies unchanged, so add-on purchases still grant nothing — see
+         below). Silent keep-old-value for columns shipped apps still send.
   00052  receiver_settings.timezone follows the receiver's device (was New York
          for everyone). Dispatch: real local midnight (US evening check-ins
          suppressed the next morning), 10-minute catch-up for missed cron
@@ -4581,7 +4581,8 @@ FIXED
          00049's backfill now skips rows carrying local_date (replay safety).
   00054  redeem_invite(): atomic join, plan limit enforced at redemption,
          owners keep their role, superseded invites expire. Durable
-         pairing-code lockout (user / IP / global).
+         pairing-code lockout (per user / per IP; no global block, which would
+         be a platform-wide DoS), with an in-memory fallback pre-migration.
   Edge   auto-join trusts only the Auth-verified phone; all join paths use
          redeem_invite (with a pre-migration fallback); local_date written with
          a pre-migration fallback; concurrent same-day check-ins return the
@@ -4602,6 +4603,19 @@ VERIFICATION
   deno.land are blocked in this container).
 
 KNOWN / NOT DONE IN PHASE 1
+
+  - SECURITY, pre-existing, needs its own change: /subscription-webhook is
+    callable by any signed-in owner and trusts the client's product_id with no
+    StoreKit / Play receipt verification, so an owner can POST a family_plus
+    product and get that tier. It is also re-sent on every launch and not
+    idempotent, which is why the add-on RPCs were left inert. Fix: verify the
+    signed transaction (App Store Server API / Play Developer API) and record
+    processed transaction ids.
+  - redeem-code trusts CF-Connecting-IP / X-Real-IP / X-Forwarded-For as sent.
+    If functions.dailyok.net is reachable without the proxy, the per-IP limit
+    can be evaded or pinned on someone else; the per-user limit still holds.
+  - Dispatch catch-up does not reach across local midnight (a 23:55 window
+    whose ticks slip past 00:00) or a spring-forward gap. Also lost before.
 
   - The CI migration job replays every file and fails at 00001 on any DB that
     already has the schema; production is applied by a tracker. Two files are

@@ -118,11 +118,6 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   crypto.getRandomValues(tokenBytes);
   const inviteToken = Array.from(tokenBytes, (b) => b.toString(16).padStart(2, "0")).join("");
 
-  // A re-send replaces the earlier invite to this number rather than stacking
-  // another live one beside it (which also kept a removed receiver able to
-  // re-join through the stale invite).
-  await supersedeOpenInvites(family_id, phone);
-
   // Store invite. The 6-digit pairing code (for iPad / alternate-device setup)
   // is unique among unused invites, so retry the rare collision instead of
   // failing the owner's invite.
@@ -148,6 +143,12 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
+
+  // A re-send replaces the earlier invite to this number rather than stacking
+  // another live one beside it (which also kept a removed receiver able to
+  // re-join through the stale invite). Done only once the new invite exists,
+  // so a failed re-send never leaves the receiver with no working invite.
+  await supersedeOpenInvites(family_id, phone, inviteToken);
 
   // Generate deep link (kept as fallback for QR/link sharing)
   const inviteLink = `https://dailyok.net/invite?token=${inviteToken}`;
@@ -258,11 +259,12 @@ async function acceptInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
  * Expire this family's other unused invites to the same number. Phones are
  * stored as typed, so compare digits (with or without the NANP leading 1).
  */
-async function supersedeOpenInvites(familyId: string, phone: string): Promise<void> {
+async function supersedeOpenInvites(familyId: string, phone: string, keepToken: string): Promise<void> {
   const { data: open } = await supabaseAdmin
     .from("invite_tokens")
     .select("id, phone")
     .eq("family_id", familyId)
+    .neq("token", keepToken)
     .is("used_by", null)
     .gt("expires_at", new Date().toISOString());
 

@@ -10,9 +10,29 @@ interface RedeemRequest {
 }
 
 // Failed attempts allowed per user in the lockout window. Mirrors
-// pairing_code_retry_after() (00054); only used to tell the user how many
-// tries they have left.
+// pairing_code_retry_after() (00054).
 const MAX_FAILED_ATTEMPTS = 10;
+const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
+
+// Used only while the durable lockout is unavailable (this build deployed
+// before 00054 ran, or the table is unreachable), so guessing is never
+// unlimited. Per process and reset on restart — the pre-00054 behaviour.
+const memoryFailures = new Map<string, number[]>();
+
+function memoryRetryAfter(userId: string): number {
+  const now = Date.now();
+  const recent = (memoryFailures.get(userId) ?? []).filter((t) => now - t < LOCKOUT_WINDOW_MS);
+  memoryFailures.set(userId, recent);
+  if (recent.length < MAX_FAILED_ATTEMPTS) return 0;
+  return Math.ceil((recent[0] + LOCKOUT_WINDOW_MS - now) / 1000);
+}
+
+function memoryRecordFailure(userId: string): number {
+  const recent = memoryFailures.get(userId) ?? [];
+  recent.push(Date.now());
+  memoryFailures.set(userId, recent);
+  return recent.length;
+}
 
 /**
  * Redeem a 6-digit pairing code to join a family.
@@ -21,9 +41,10 @@ const MAX_FAILED_ATTEMPTS = 10;
  * then opens the app on their iPad, signs in (Apple / email), and enters the
  * pairing code to bind their account to the family.
  *
- * Brute-force protection is durable (pairing_code_attempts, 00054): limits per
- * user, per IP and platform-wide survive restarts and a second account. It
- * used to be an in-memory map keyed per user, reset by every deploy.
+ * Brute-force protection is durable (pairing_code_attempts, 00054): per-user
+ * and per-IP limits survive restarts, and the IP limit also covers a second
+ * account. It used to be only an in-memory map keyed per user, reset by every
+ * deploy; that map remains as the fallback when the table is unavailable.
  */
 export async function handleRedeemCode(
   req: Request,
@@ -110,16 +131,22 @@ export async function handleRedeemCode(
   }
 }
 
-/** Seconds until this caller may try again; 0 when allowed. Fails open. */
+/**
+ * Seconds until this caller may try again; 0 when allowed. If the durable
+ * lockout is unavailable, falls back to the in-memory one rather than to no
+ * limit at all.
+ */
 async function retryAfter(userId: string, ip: string | null): Promise<number> {
   const { data, error } = await supabaseAdmin.rpc("pairing_code_retry_after", {
     p_user_id: userId,
     p_ip: ip,
   });
   if (error) {
-    // A lockout outage must not block every legitimate receiver from joining.
-    logError("pairing_code_retry_after failed", error, { userId, path: "/redeem-code" });
-    return 0;
+    logError("pairing_code_retry_after failed; using in-memory lockout", error, {
+      userId,
+      path: "/redeem-code",
+    });
+    return memoryRetryAfter(userId);
   }
   return typeof data === "number" ? data : 0;
 }
@@ -132,12 +159,16 @@ async function recordAttempt(userId: string, ip: string | null, succeeded: boole
   const { error } = await supabaseAdmin
     .from("pairing_code_attempts")
     .insert({ user_id: userId, ip, succeeded });
+  if (succeeded) {
+    memoryFailures.delete(userId);
+    return 0;
+  }
   if (error) {
     logError("Failed to record pairing-code attempt", error, { userId, path: "/redeem-code" });
+    return memoryRecordFailure(userId);
   }
-  if (succeeded) return 0;
 
-  const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const since = new Date(Date.now() - LOCKOUT_WINDOW_MS).toISOString();
   const { count } = await supabaseAdmin
     .from("pairing_code_attempts")
     .select("id", { count: "exact", head: true })

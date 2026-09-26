@@ -12,7 +12,7 @@
 --   * families:  set subscription_tier / subscription_status / max_receivers /
 --                max_viewers themselves (a free paywall bypass), and call
 --                increment_max_receivers / increment_max_viewers directly for
---                free add-on slots.
+--                free add-on slots (EXECUTE now revoked from clients).
 --   * family_members: insert a row for ANY user_id (attach a stranger to a
 --                family) or reactivate/promote receivers past the plan limit.
 --   * checkins:  rewrite checked_in_at / response_type / family after the fact.
@@ -165,40 +165,14 @@ CREATE TRIGGER families_guard_client_write
     BEFORE INSERT OR UPDATE ON families
     FOR EACH ROW EXECUTE FUNCTION guard_families_client_write();
 
--- Add-on slots are granted only by the subscription webhook (service_role).
--- The old body demanded auth.uid() = p_owner_id, which a service-role call
--- never satisfies (auth.uid() is NULL there) — so purchased add-on slots were
--- never actually granted, while the owner could grant themselves free ones.
-CREATE OR REPLACE FUNCTION increment_max_receivers(p_owner_id UUID)
-RETURNS void AS $$
-BEGIN
-    IF auth.uid() IS NOT NULL THEN
-        RAISE EXCEPTION 'Unauthorized: add-on slots are granted by the server'
-            USING ERRCODE = 'insufficient_privilege';
-    END IF;
-
-    UPDATE families
-    SET max_receivers = max_receivers + 1
-    WHERE owner_id = p_owner_id
-      AND subscription_tier IN ('family', 'family_plus');
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE OR REPLACE FUNCTION increment_max_viewers(p_owner_id UUID)
-RETURNS void AS $$
-BEGIN
-    IF auth.uid() IS NOT NULL THEN
-        RAISE EXCEPTION 'Unauthorized: add-on slots are granted by the server'
-            USING ERRCODE = 'insufficient_privilege';
-    END IF;
-
-    UPDATE families
-    SET max_viewers = max_viewers + 1
-    WHERE owner_id = p_owner_id
-      AND subscription_tier IN ('family', 'family_plus');
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
+-- Add-on slots: take the RPCs away from clients (an owner could call them
+-- directly for free seats). The bodies are deliberately left as they were
+-- (auth.uid() must equal p_owner_id), which the service-role webhook call can
+-- never satisfy — so add-on purchases still grant nothing, exactly as before
+-- this migration. Making them work needs an idempotent, receipt-verified
+-- webhook first: /subscription-webhook trusts the client's product_id and is
+-- replayed on every launch, so a working increment would hand out unlimited
+-- seats. Tracked as a follow-up.
 REVOKE EXECUTE ON FUNCTION increment_max_receivers(UUID) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION increment_max_viewers(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION increment_max_receivers(UUID) TO service_role;
