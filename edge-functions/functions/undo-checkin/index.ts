@@ -3,6 +3,11 @@ import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID } from "../../shared/validation.ts";
 import { UNDO_GRACE_SECONDS } from "../../shared/config.ts";
 
+// How long a request reopened by Undo waits before escalation resumes: long
+// enough to check in again properly, short enough that a real miss still
+// reaches the owner promptly.
+const UNDO_ESCALATION_RESUME_MS = 15 * 60 * 1000;
+
 interface UndoCheckinRequest {
   family_id?: string;
   receiver_id?: string;
@@ -97,10 +102,15 @@ export async function handleUndoCheckin(req: Request, auth: AuthResult): Promise
   //    track the exact request id, so reopen any this receiver+family closed
   //    around the check-in time. A short lookback covers the case where the
   //    request's responded_at was stamped just before the check-in row.
+  //    The escalation clock restarts from now: the reopened request's
+  //    next_escalation_at is usually already in the past, so leaving it would
+  //    fire the next reminder — or the owner alert — within a minute of the
+  //    receiver pressing Undo.
   const reopenThreshold = new Date(checkedInAt - 60_000).toISOString();
+  const resumeEscalationAt = new Date(Date.now() + UNDO_ESCALATION_RESUME_MS).toISOString();
   await supabaseAdmin
     .from("checkin_requests")
-    .update({ status: "pending", responded_at: null })
+    .update({ status: "pending", responded_at: null, next_escalation_at: resumeEscalationAt })
     .eq("receiver_id", receiverId)
     .eq("family_id", familyId)
     .eq("status", "checked_in")

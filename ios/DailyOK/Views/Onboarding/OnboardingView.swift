@@ -45,7 +45,13 @@ struct OnboardingView: View {
                     HStack(spacing: 8) {
                         if canGoBack {
                             Button {
-                                viewModel.goBack()
+                                if viewModel.currentStep == .welcome {
+                                    // Back out to "How will you use Daily OK?" —
+                                    // e.g. they were invited and tapped the wrong one.
+                                    appState.isOnboarding = false
+                                } else {
+                                    viewModel.goBack()
+                                }
                             } label: {
                                 Image(systemName: "chevron.left")
                                     .font(.subheadline.weight(.semibold))
@@ -100,11 +106,13 @@ struct OnboardingView: View {
         }
     }
 
-    /// Back is offered on intermediate steps — not the first (welcome carousel
-    /// has its own paging) or the final success screen.
+    /// Back is offered on every step but the final success screen. On the first
+    /// step it leaves onboarding for the "How will you use Daily OK?" choice.
     private var canGoBack: Bool {
         switch viewModel.currentStep {
-        case .welcome, .complete: return false
+        // Before the family exists, back leaves onboarding altogether.
+        case .welcome: return viewModel.createdFamily == nil
+        case .complete: return false
         default: return true
         }
     }
@@ -500,6 +508,10 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
 
             Button("Go to Dashboard") {
+                // The family exists now, so this user is its owner. Setting the
+                // role is what routes to the owner tabs; without it ContentView
+                // would still see "no family" and show the start screen again.
+                appState.currentUserRole = .owner
                 appState.isOnboarding = false
             }
             .buttonStyle(.borderedProminent)

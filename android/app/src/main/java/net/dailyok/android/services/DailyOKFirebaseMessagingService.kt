@@ -78,11 +78,15 @@ class DailyOKFirebaseMessagingService : FirebaseMessagingService() {
         val data = message.data
         val type = data["type"] ?: return
 
+        // The server's `type` values (edge-functions): check-in prompts are
+        // CHECKIN_REQUEST; owner-facing alerts use lowercase names. Only the
+        // three uppercase names used to be handled, so a missed check-in
+        // (owner_alert) never showed on Android.
         when (type) {
             "CHECKIN_REQUEST" -> handleCheckInRequest(data)
-            "URGENT_ALERT" -> handleUrgentAlert(data)
-            "LOCATION_ALERT" -> handleLocationAlert(data)
-            else -> Log.w(TAG, "Unknown notification type: $type")
+            "URGENT_ALERT", "urgent_alert", "owner_alert", "kid_response" -> handleUrgentAlert(data)
+            "LOCATION_ALERT", "geofence_alert", "low_battery_alert", "viewer_alert" -> handleLocationAlert(data)
+            else -> handleFamilyUpdate(data, type)
         }
 
         // Confirm delivery
@@ -182,12 +186,16 @@ class DailyOKFirebaseMessagingService : FirebaseMessagingService() {
             .setContentIntent(contentIntent)
 
         if (receiverId != null) {
-            val callIntent = Intent(this, CheckInNotificationReceiver::class.java).apply {
-                action = ACTION_CALL_NOW
-                putExtra(EXTRA_RECEIVER_ID, receiverId)
+            // Opens the app, which looks up the number and opens the dialer.
+            // A BroadcastReceiver starting the dialer (the old route) is a
+            // notification trampoline, which Android 12+ blocks — so the
+            // button did nothing on most phones.
+            val callIntent = Intent(this, net.dailyok.android.MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(net.dailyok.android.MainActivity.EXTRA_CALL_RECEIVER_ID, receiverId)
                 putExtra(EXTRA_NOTIFICATION_ID, notificationId)
             }
-            val callPendingIntent = PendingIntent.getBroadcast(
+            val callPendingIntent = PendingIntent.getActivity(
                 this, notificationId + 3, callIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
@@ -224,6 +232,34 @@ class DailyOKFirebaseMessagingService : FirebaseMessagingService() {
 
         try {
             NotificationManagerCompat.from(this).notify(notificationId, builder.build())
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Notification permission not granted", e)
+        }
+    }
+
+    private fun handleFamilyUpdate(data: Map<String, String>, type: String) {
+        val title = data["title"] ?: return
+        val body = data["body"] ?: ""
+        val notificationId = (data["checkin_request_id"] ?: data["checkin_id"] ?: "$type:$title:$body").hashCode()
+
+        val contentIntent = createContentIntent(
+            notificationType = type,
+            requestId = data["checkin_request_id"],
+            receiverId = data["receiver_id"],
+            notificationId = notificationId
+        )
+
+        val notification = NotificationCompat.Builder(this, DailyOKApplication.CHANNEL_FAMILY_UPDATES)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(this).notify(notificationId, notification)
         } catch (e: SecurityException) {
             Log.e(TAG, "Notification permission not granted", e)
         }

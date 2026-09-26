@@ -111,15 +111,23 @@ class FamilyService @Inject constructor(
         phone: String,
         checkinTime: String,
         receiverMode: String = "standard"
-    ) {
+    ): net.dailyok.android.util.InviteToSend {
         try {
-            apiService.inviteReceiver(
+            val response = apiService.inviteReceiver(
                 InviteReceiverRequest(
                     familyId = familyId,
                     phone = phone,
                     displayName = name,
-                    receiverMode = receiverMode
+                    receiverMode = receiverMode,
+                    checkinTime = checkinTime
                 )
+            )
+            return net.dailyok.android.util.InviteToSend(
+                phone = phone,
+                message = net.dailyok.android.util.InviteShare.message(
+                    name, response.inviteLink, response.pairingCode, response.inviteMessage
+                ),
+                pairingCode = response.pairingCode
             )
         } catch (e: DailyOKError) {
             throw e
@@ -141,16 +149,13 @@ class FamilyService @Inject constructor(
         }
     }
 
-    suspend fun acceptInvite(token: String) {
+    /**
+     * Redeem an invite link. It used to send receiver_mode "accept:<token>"
+     * to the create path, which the server rejected, so links never joined.
+     */
+    suspend fun acceptInvite(token: String): net.dailyok.android.network.JoinResponse {
         try {
-            apiService.inviteReceiver(
-                InviteReceiverRequest(
-                    familyId = "",
-                    phone = "",
-                    displayName = "",
-                    receiverMode = "accept:$token"
-                )
-            )
+            return apiService.acceptInvite(token)
         } catch (e: DailyOKError) {
             throw e
         } catch (e: Exception) {

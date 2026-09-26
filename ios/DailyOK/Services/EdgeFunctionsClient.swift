@@ -234,3 +234,22 @@ enum EdgeFunctionsClient {
         return seconds >= 0 ? seconds : nil
     }
 }
+
+extension EdgeFunctionsClient.HTTPError {
+    /// The human-readable `error` string an edge function put in its JSON body
+    /// (e.g. "Invalid or expired code…", "This family has no free receiver
+    /// slots…"), for showing to the user instead of a generic network message.
+    var serverMessage: String? {
+        guard let data = body.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let message = object["error"] as? String,
+              !message.isEmpty else { return nil }
+        return message
+    }
+}
+
+/// The message to show for a failed edge call: the server's own explanation
+/// when it gave one, otherwise `fallback`.
+func edgeErrorMessage(_ error: Error, fallback: String) -> String {
+    (error as? EdgeFunctionsClient.HTTPError)?.serverMessage ?? fallback
+}

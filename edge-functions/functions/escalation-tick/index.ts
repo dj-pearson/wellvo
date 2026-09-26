@@ -164,6 +164,23 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
     );
   }
 
+  // pg_cron advanced this step and POSTed here; the receiver may have checked
+  // in during that gap. Alerting now would tell the owner someone missed a
+  // check-in they had just made.
+  if (request_id && escalation_step != null) {
+    const { data: current } = await supabaseAdmin
+      .from("checkin_requests")
+      .select("status")
+      .eq("id", request_id)
+      .maybeSingle();
+    if (current && current.status !== "pending") {
+      return new Response(
+        JSON.stringify({ success: true, skipped: "request_not_pending", escalation_step }),
+        { headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
   if (escalation_step != null && escalation_step <= 1) {
     // Step 1: Second reminder to receiver
     const { data: receiverTokens } = await supabaseAdmin
@@ -239,6 +256,9 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
     // the moment an owner had SMS enabled and a phone on file (US-EDGE001).
     const safeReceiverName = sanitizeDisplayName(receiver?.display_name || "Your family member");
 
+    let delivered = false;
+    const failures: string[] = [];
+
     if (ownerTokens?.length) {
       const alertTitle = "Missed Check-In";
       const alertBody = `${safeReceiverName} hasn't checked in yet. They've been reminded twice.`;
@@ -269,6 +289,13 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
         { priority: 10 },
       );
       await deactivateInvalidTokens(ownerTokens, results, owner_id!);
+      if (results.some((r) => r.success)) {
+        delivered = true;
+      } else {
+        failures.push(`push failed on ${results.length} device(s)`);
+      }
+    } else {
+      failures.push("no active push tokens");
     }
 
     // SMS fallback for owner — send if push tokens are missing or as supplement
@@ -303,23 +330,29 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       );
       logInfo("Sending owner escalation SMS", { path: "/escalation-tick", userId: owner_id });
       const smsResult = await sendSMS(ownerUser.phone, smsBody);
-      if (!smsResult.success) {
+      if (smsResult.success) {
+        delivered = true;
+      } else {
         logError("Owner escalation SMS failed", smsResult.error, { path: "/escalation-tick", userId: owner_id });
-        await supabaseAdmin.from("notification_log").insert({
-          user_id: owner_id,
-          checkin_request_id: request_id,
-          type: "owner_alert",
-          status: "failed",
-          error_message: smsResult.error || "SMS send failed",
-        });
+        failures.push(`SMS failed: ${smsResult.error || "unknown error"}`);
       }
     }
 
+    // One row with the real outcome. It used to log "sent" unconditionally, so
+    // an owner with no push token and SMS off — who was told nothing — looked
+    // alerted in every report.
+    if (!delivered) {
+      logError("Owner missed-check-in alert reached no device", null, {
+        path: "/escalation-tick",
+        userId: owner_id,
+      });
+    }
     await supabaseAdmin.from("notification_log").insert({
       user_id: owner_id,
       checkin_request_id: request_id,
       type: "owner_alert",
-      status: "sent",
+      status: delivered ? "sent" : "failed",
+      error_message: delivered ? null : failures.join("; ") || "no delivery channel",
     });
   } else if (escalation_step != null && escalation_step >= 3) {
     // Step 3: Alert to all Viewers
@@ -336,10 +369,28 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       .eq("id", receiver_id)
       .single();
 
-    // Same scoping bug as the owner path above, and worse: the viewer SMS branch
-    // has no sms_escalation_enabled gate, so it fired for ANY viewer with a phone
-    // number on file (US-EDGE001).
+    // Same scoping bug as the owner path above (US-EDGE001).
     const safeViewerReceiverName = sanitizeDisplayName(receiver?.display_name || "A family member");
+
+    // Viewer SMS follows the same per-receiver opt-in as the owner's. It used to
+    // text every viewer with a number on file, whatever the owner had chosen.
+    let viewerSmsEnabled = false;
+    if (viewers?.length) {
+      const { data: receiverMember } = await supabaseAdmin
+        .from("family_members")
+        .select("id")
+        .eq("user_id", receiver_id)
+        .eq("family_id", family_id)
+        .maybeSingle();
+      if (receiverMember) {
+        const { data: settings } = await supabaseAdmin
+          .from("receiver_settings")
+          .select("sms_escalation_enabled")
+          .eq("family_member_id", receiverMember.id)
+          .maybeSingle();
+        viewerSmsEnabled = settings?.sms_escalation_enabled ?? false;
+      }
+    }
 
     if (viewers?.length) {
       for (const viewer of viewers) {
@@ -381,7 +432,7 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
           .eq("id", viewer.user_id)
           .single();
 
-        if (viewerUser?.phone) {
+        if (viewerSmsEnabled && viewerUser?.phone) {
           const smsBody = buildEscalationSMS(
             safeViewerReceiverName,
             "viewer_alert"

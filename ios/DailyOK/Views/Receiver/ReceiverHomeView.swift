@@ -5,7 +5,6 @@ struct ReceiverHomeView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.requestReview) private var requestReview
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @AppStorage("receiver.simpleModeOffered") private var simpleModeOffered = false
     @State private var showSimpleModeOffer = false
@@ -97,6 +96,15 @@ struct ReceiverHomeView: View {
                             .announce(viewModel.errorMessage) { $0 }
                         if viewModel.hasPendingRequest && viewModel.canSnooze {
                             snoozeButton.padding(.horizontal)
+                        }
+                        if let actionMessage = viewModel.actionMessage {
+                            // A failed snooze: say so, but no "Try Again" — that
+                            // button checks in, which is not what they asked.
+                            Text(actionMessage)
+                                .font(.subheadline)
+                                .foregroundStyle(DailyOKColor.warning)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
                         }
                         if let snoozeConfirmation = viewModel.snoozeConfirmation {
                             Text(snoozeConfirmation)
@@ -235,6 +243,11 @@ struct ReceiverHomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: OfflineCheckInService.didSyncCheckIns)) { _ in
             Task { await viewModel.loadStatus() }
         }
+        // Checked in from a notification while this screen was up: show
+        // "all set" now instead of an "I'm OK" button for a done check-in.
+        .onReceive(NotificationCenter.default.publisher(for: ReceiverCheckInAftermath.didCheckIn)) { _ in
+            Task { await viewModel.loadStatus() }
+        }
         // A check-in tapped on the Apple Watch should immediately flip the phone
         // to "all set" rather than keep prompting (US-IOS082).
         .onReceive(NotificationCenter.default.publisher(for: PhoneWatchSync.didReceiveWatchCheckIn)) { _ in
@@ -314,22 +327,17 @@ struct ReceiverHomeView: View {
                     if viewModel.hasCheckedInToday {
                         DailyOKHaptics.success()
                         animateCheckmark()
-                        if viewModel.errorMessage == nil && !viewModel.isOffline {
+                        if !viewModel.checkInSavedOffline {
                             // Simple Mode keeps the screen calm — skip confetti.
                             if !isSimpleMode { showCelebration = true }
                             // Spoken/audible confirmation for low-vision receivers
                             // (only on a confirmed online check-in).
                             if viewModel.audioConfirmationEnabled { CheckInAudio.confirm() }
-                            // A confirmed, online check-in is a genuine positive
-                            // moment. Ask for an App Store rating only if the user
-                            // has earned it — the service handles the threshold and
-                            // throttling, and lets the celebration play first.
-                            if ReviewPromptService.shared.registerSuccessfulCheckIn() {
-                                try? await Task.sleep(for: .seconds(2))
-                                requestReview()
-                                ReviewPromptService.shared.markPrompted()
-                            }
-                        } else if viewModel.isOffline {
+                            // No App Store rating prompt here. This screen exists
+                            // to be one tap and done; a system dialog two seconds
+                            // after "I'm OK" is the opposite. Owners, who use the
+                            // app more deeply, are the ones to ask.
+                        } else {
                             // Offline-queued: still give low-vision receivers a
                             // distinct spoken cue so a saved-but-not-yet-sent
                             // check-in isn't indistinguishable from silence.
@@ -473,16 +481,26 @@ struct ReceiverHomeView: View {
             }
 
             if let nextTime = viewModel.nextCheckInTime {
-                Text("Next check-in: Tomorrow at \(nextTime.formatted(date: .omitted, time: .shortened))")
+                Text("Next check-in: \(Self.nextCheckInLabel(nextTime))")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .dynamicTypeSize(...DynamicTypeSize.accessibility2)
             }
 
-            Text("Your family has been notified")
+            Text(viewModel.checkInSavedOffline
+                 ? "Saved on this phone. It will be sent as soon as you're back online."
+                 : "Your family has been notified")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+
+            if let actionMessage = viewModel.actionMessage {
+                Text(actionMessage)
+                    .font(.footnote)
+                    .foregroundStyle(DailyOKColor.warning)
+                    .multilineTextAlignment(.center)
+            }
 
             // Undo grace window for an accidental tap (US-IOS048). Visible only
             // while the server-side window is open; clears itself when it lapses.
@@ -534,7 +552,9 @@ struct ReceiverHomeView: View {
                 .strokeBorder(DailyOKColor.green300.opacity(0.4), lineWidth: 1)
         )
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Checked in successfully. Your family has been notified.")
+        .accessibilityLabel(viewModel.checkInSavedOffline
+            ? "Check-in saved. It will be sent when you're back online."
+            : "Checked in successfully. Your family has been notified.")
     }
 
     private var moodPicker: some View {
@@ -569,6 +589,21 @@ struct ReceiverHomeView: View {
                 }
             }
         }
+    }
+
+    /// "Today at 6:00 PM", "Tomorrow at 8:00 AM" or "Monday at 8:00 AM". It
+    /// said "Tomorrow" whatever the date — wrong for a second window later
+    /// today, or after a weekend with no check-ins.
+    static func nextCheckInLabel(_ date: Date, calendar: Calendar = .current) -> String {
+        let time = date.formatted(date: .omitted, time: .shortened)
+        if calendar.isDateInToday(date) {
+            return String(localized: "Today at \(time)")
+        }
+        if calendar.isDateInTomorrow(date) {
+            return String(localized: "Tomorrow at \(time)")
+        }
+        let day = date.formatted(.dateTime.weekday(.wide))
+        return String(localized: "\(day) at \(time)")
     }
 
     private func animateCheckmark() {

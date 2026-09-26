@@ -1,5 +1,7 @@
 package net.dailyok.android.viewmodels
 
+import net.dailyok.android.services.PushNotificationService
+
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -45,13 +47,28 @@ data class AuthUiState(
     val authLockoutSecondsRemaining: Int = 0
 )
 
+/**
+ * Where a signed-in user belongs, from their actual family membership.
+ * Only [None] — a confirmed "no family" — means "ask how they'll use the app".
+ */
+sealed interface Membership {
+    data object Resolving : Membership
+    data object Failed : Membership
+    data object None : Membership
+    data class Member(val role: net.dailyok.android.data.models.UserRole) : Membership
+}
+
+/** What a user with no family chose on the start screen. */
+enum class SetupChoice { None, OwnerSetup, CodeEntry }
+
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val authService: AuthService,
     private val apiService: ApiService,
     private val analyticsService: AnalyticsService,
     val biometricService: BiometricService,
-    private val secureStorage: SecureStorage
+    private val secureStorage: SecureStorage,
+    private val pushNotificationService: PushNotificationService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -76,6 +93,12 @@ class AuthViewModel @Inject constructor(
     private val _pendingAutoJoin = MutableStateFlow<AutoJoinResult?>(null)
     val pendingAutoJoin: StateFlow<AutoJoinResult?> = _pendingAutoJoin.asStateFlow()
 
+    private val _membership = MutableStateFlow<Membership>(Membership.Resolving)
+    val membership: StateFlow<Membership> = _membership.asStateFlow()
+
+    private val _setupChoice = MutableStateFlow(SetupChoice.None)
+    val setupChoice: StateFlow<SetupChoice> = _setupChoice.asStateFlow()
+
     init {
         observeSessionStatus()
     }
@@ -92,6 +115,7 @@ class AuthViewModel @Inject constructor(
                         if (isRefreshFailure && _authState.value is AuthState.Authenticated) {
                             _uiState.value = _uiState.value.copy(showReauthPrompt = true)
                         }
+                        resetSessionState()
                         _authState.value = AuthState.Unauthenticated
                     }
                     is SessionStatus.Initializing -> {
@@ -99,6 +123,7 @@ class AuthViewModel @Inject constructor(
                     }
                     is SessionStatus.RefreshFailure -> {
                         _uiState.value = _uiState.value.copy(showReauthPrompt = true)
+                        resetSessionState()
                         _authState.value = AuthState.Unauthenticated
                     }
                 }
@@ -107,19 +132,25 @@ class AuthViewModel @Inject constructor(
     }
 
     private suspend fun fetchUserAndAuthenticate() {
+        // Register this device for push as soon as someone is signed in. Off
+        // the critical path: routing must not wait on Firebase.
+        authService.currentUserId()?.let { userId ->
+            viewModelScope.launch { pushNotificationService.onSignedIn(userId) }
+        }
         val user = authService.getCurrentUser()
         if (user != null) {
             // Keep users.timezone aligned with device zone so the edge
-            // function dedup and the owner dashboard's "today" window never
-            // drift when the user travels or reinstalls.
+            // function dedup, the owner dashboard's "today" window and the
+            // receiver's scheduled prompts never drift.
             authService.syncTimezoneIfChanged()
-            checkAutoJoin()
             _authState.value = AuthState.Authenticated(user = user)
             checkBiometricSetupPrompt()
         } else {
             val userId = authService.currentUserId()
             if (userId != null) {
-                checkAutoJoin()
+                // The profile row couldn't be read (offline). Routing no longer
+                // reads a role from here, so this placeholder can't send anyone
+                // to the owner screens; membership decides.
                 val fallbackUser = AppUser(
                     id = userId,
                     displayName = "",
@@ -131,8 +162,120 @@ class AuthViewModel @Inject constructor(
                 _authState.value = AuthState.Authenticated(user = fallbackUser)
             } else {
                 _authState.value = AuthState.Unauthenticated
+                return
             }
         }
+        // Once per signed-in user. SessionStatus.Authenticated re-emits on every
+        // token refresh; re-resolving then could yank a receiver out of their
+        // onboarding (permission step) the moment the join landed.
+        if (authService.currentUserId() != resolvedForUserId) {
+            resolveMembership()
+        }
+    }
+
+    /** The user whose membership has been resolved this session. */
+    private var resolvedForUserId: String? = null
+
+    /** Nothing about the previous account may route the next one. */
+    private fun resetSessionState() {
+        _membership.value = Membership.Resolving
+        _setupChoice.value = SetupChoice.None
+        _pendingAutoJoin.value = null
+        resolvedForUserId = null
+        // onNewToken must not register a rotated token for a signed-out user.
+        secureStorage.delete(SecureStorage.USER_ID)
+    }
+
+    /**
+     * Work out where this user belongs: the cached role at once (so an offline
+     * launch opens the right app), then the server's answer. A failed lookup
+     * never falls back to owner. With no membership, try a phone-number invite
+     * match before asking the user.
+     */
+    suspend fun resolveMembership() {
+        val userId = authService.currentUserId() ?: return
+        val current = _membership.value
+        if (current !is Membership.Member) {
+            cachedRole(userId)?.let { _membership.value = Membership.Member(it) }
+        }
+
+        val role = try {
+            authService.currentMembershipRole()
+        } catch (_: Exception) {
+            if (_membership.value !is Membership.Member) _membership.value = Membership.Failed
+            return
+        }
+
+        if (role != null) {
+            setMember(userId, role)
+            _pendingAutoJoin.value = null
+            resolvedForUserId = userId
+            return
+        }
+
+        cacheRole(userId, null)
+        checkAutoJoin()
+        _membership.value = Membership.None
+        resolvedForUserId = userId
+    }
+
+    /**
+     * A join finished (link, code or phone match): ask the server what it made
+     * this user rather than assuming receiver — a code can make someone a viewer.
+     */
+    fun onJoinedResolveRole() {
+        _setupChoice.value = SetupChoice.None
+        _pendingAutoJoin.value = null
+        _membership.value = Membership.Resolving
+        viewModelScope.launch { resolveMembership() }
+    }
+
+    /**
+     * Leaving owner setup. If the family was already created they are its owner
+     * now, so re-resolve instead of dropping them back at the start choice.
+     */
+    fun leaveOwnerSetup() {
+        _setupChoice.value = SetupChoice.None
+        _membership.value = Membership.Resolving
+        viewModelScope.launch { resolveMembership() }
+    }
+
+    fun retryMembership() {
+        viewModelScope.launch { resolveMembership() }
+    }
+
+    /** A join or owner setup finished: route by the new role immediately. */
+    fun onJoined(role: net.dailyok.android.data.models.UserRole) {
+        val userId = authService.currentUserId() ?: return
+        setMember(userId, role)
+        _pendingAutoJoin.value = null
+        _setupChoice.value = SetupChoice.None
+    }
+
+    /** Invite / auto-join abandoned: back to the start choice. */
+    fun onJoinCancelled() {
+        _pendingAutoJoin.value = null
+        _setupChoice.value = SetupChoice.None
+        if (_membership.value !is Membership.Member) _membership.value = Membership.None
+    }
+
+    fun chooseOwnerSetup() { _setupChoice.value = SetupChoice.OwnerSetup }
+    fun chooseCodeEntry() { _setupChoice.value = SetupChoice.CodeEntry }
+    fun clearSetupChoice() { _setupChoice.value = SetupChoice.None }
+
+    private fun setMember(userId: String, role: net.dailyok.android.data.models.UserRole) {
+        _membership.value = Membership.Member(role)
+        cacheRole(userId, role)
+    }
+
+    private fun cachedRole(userId: String): net.dailyok.android.data.models.UserRole? =
+        secureStorage.load("cached_role_$userId")?.let {
+            runCatching { net.dailyok.android.data.models.UserRole.valueOf(it) }.getOrNull()
+        }
+
+    private fun cacheRole(userId: String, role: net.dailyok.android.data.models.UserRole?) {
+        if (role == null) secureStorage.delete("cached_role_$userId")
+        else secureStorage.save("cached_role_$userId", role.name)
     }
 
     private suspend fun checkAutoJoin() {
@@ -326,7 +469,10 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             analyticsService.track(AnalyticsService.SIGN_OUT)
             biometricService.reset()
+            // Before the session goes: deactivating the token needs it.
+            pushNotificationService.onSignedOut()
             authService.signOut()
+            resetSessionState()
             _uiState.value = AuthUiState()
         }
     }

@@ -1,6 +1,8 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID, isValidTime24H, isValidTimezone, sanitizeDisplayName } from "../../shared/validation.ts";
+import { LIMIT_REACHED_MESSAGE, redeemInvite } from "../../shared/join-family.ts";
+import { buildInviteLink, buildInviteMessage } from "../../shared/invite-message.ts";
 
 interface InviteRequest {
   action?: "create" | "accept";
@@ -117,19 +119,24 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   crypto.getRandomValues(tokenBytes);
   const inviteToken = Array.from(tokenBytes, (b) => b.toString(16).padStart(2, "0")).join("");
 
-  // Generate a short 6-digit pairing code for iPad / alternate-device setup
-  const pairingCode = generatePairingCode();
-
-  // Store invite
-  const { error: inviteError } = await supabaseAdmin.from("invite_tokens").insert({
-    family_id,
-    role: "receiver",
-    phone,
-    name,
-    checkin_time: checkin_time || "08:00",
-    token: inviteToken,
-    pairing_code: pairingCode,
-  });
+  // Store invite. The 6-digit pairing code (for iPad / alternate-device setup)
+  // is unique among unused invites, so retry the rare collision instead of
+  // failing the owner's invite.
+  let pairingCode = "";
+  let inviteError: { code?: string } | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    pairingCode = generatePairingCode();
+    ({ error: inviteError } = await supabaseAdmin.from("invite_tokens").insert({
+      family_id,
+      role: "receiver",
+      phone,
+      name,
+      checkin_time: checkin_time || "08:00",
+      token: inviteToken,
+      pairing_code: pairingCode,
+    }));
+    if (inviteError?.code !== "23505") break;
+  }
 
   if (inviteError) {
     return new Response(
@@ -138,26 +145,27 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
     );
   }
 
-  // Generate deep link (kept as fallback for QR/link sharing)
-  const inviteLink = `https://dailyok.net/invite?token=${inviteToken}`;
+  // A re-send replaces the earlier invite to this number rather than stacking
+  // another live one beside it (which also kept a removed receiver able to
+  // re-join through the stale invite). Done only once the new invite exists,
+  // so a failed re-send never leaves the receiver with no working invite.
+  await supersedeOpenInvites(family_id, phone, inviteToken);
 
-  // Invitation delivery is now a *native* send from the Owner's own device
-  // (iOS Messages composer). We deliberately DO NOT send this invite through
+  // One link for everyone. dailyok.net/invite/<token> opens the app directly
+  // where Universal Links / App Links are set up, and otherwise lands on the
+  // website's invite page, which offers the right store and an "Open in
+  // Daily OK" button. The code rides along so that page can show it.
+  // (The old `/invite?token=` form never matched the AASA `/invite/*` path and
+  // the site had no page for it; apps still accept both forms.)
+  const inviteLink = buildInviteLink(inviteToken, pairingCode);
+
+  // Invitation delivery is a *native* send from the Owner's own device (the
+  // Messages composer). We deliberately DO NOT send this invite through
   // Twilio: an invite goes to a person who has not opted into our A2P 10DLC
   // campaign, so it can't ride the approved sender. The Twilio campaign is
-  // reserved for escalation alerts (a clean, single-purpose use case).
-  //
-  // The app auto-joins the receiver by matching the phone number they sign in
-  // with, so the record above is all the backend needs. Here we return a
-  // pre-composed message body (P2P — no STOP/HELP footer, since it comes from
-  // the Owner's personal number) that the app drops into the native composer.
-  // The pairing code is included so they can set up on an iPad or other device.
-  const safeName = sanitizeDisplayName(name);
-  const inviteMessage =
-    `Hi ${safeName}! I'd like to check in with you every day using Daily OK. ` +
-    `Download the app and sign in with this phone number and we'll be ` +
-    `connected automatically: https://apps.apple.com/app/daily-ok/id6742044109\n\n` +
-    `Setting up on an iPad? Use this code: ${pairingCode}`;
+  // reserved for escalation alerts. P2P body — no STOP/HELP footer, since it
+  // comes from the Owner's personal number.
+  const inviteMessage = buildInviteMessage(sanitizeDisplayName(name), inviteLink, pairingCode);
 
   return new Response(
     JSON.stringify({
@@ -220,84 +228,64 @@ async function acceptInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
     );
   }
 
-  // Check the user isn't already a member of this family
-  const { data: existingMember } = await supabaseAdmin
-    .from("family_members")
-    .select("id, status")
-    .eq("family_id", invite.family_id)
-    .eq("user_id", acceptingUserId)
-    .single();
+  const result = await redeemInvite(invite.id, acceptingUserId, body.timezone);
 
-  if (existingMember && existingMember.status === "active") {
-    return new Response(
-      JSON.stringify({ error: "You are already a member of this family" }),
-      { status: 409, headers: { "Content-Type": "application/json" } }
-    );
+  switch (result.status) {
+    case "joined":
+      return json({
+        success: true,
+        family_id: result.family_id,
+        role: result.role,
+        checkin_time: result.checkin_time,
+        name: result.name,
+        owner_name: result.owner_name,
+      });
+    case "already_member":
+      return json({ error: "You are already a member of this family" }, 409);
+    case "limit_reached":
+      return json({ error: LIMIT_REACHED_MESSAGE, reason: "limit_reached" }, 403);
+    case "invalid":
+      return json({ error: "This invite link is invalid or has expired" }, 400);
+    default:
+      return json({ error: "Failed to join family" }, 500);
   }
+}
 
-  // Create or reactivate family member
-  let memberId: string;
+/**
+ * Expire this family's other unused invites to the same number. Phones are
+ * stored as typed, so compare digits (with or without the NANP leading 1).
+ */
+async function supersedeOpenInvites(familyId: string, phone: string, keepToken: string): Promise<void> {
+  const { data: open } = await supabaseAdmin
+    .from("invite_tokens")
+    .select("id, phone")
+    .eq("family_id", familyId)
+    .neq("token", keepToken)
+    .is("used_by", null)
+    .gt("expires_at", new Date().toISOString());
 
-  if (existingMember) {
-    // Reactivate deactivated member
-    const { data: updated } = await supabaseAdmin
-      .from("family_members")
-      .update({
-        role: invite.role,
-        status: "active",
-        joined_at: new Date().toISOString(),
-      })
-      .eq("id", existingMember.id)
-      .select()
-      .single();
-    memberId = updated?.id;
-  } else {
-    const { data: member, error: memberError } = await supabaseAdmin
-      .from("family_members")
-      .insert({
-        family_id: invite.family_id,
-        user_id: acceptingUserId,
-        role: invite.role,
-        status: "active",
-        joined_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+  const target = phoneDigits(phone);
+  const ids = (open ?? [])
+    .filter((inv: { phone: string | null }) => phoneDigits(inv.phone ?? "") === target)
+    .map((inv: { id: string }) => inv.id);
+  if (ids.length === 0) return;
 
-    if (memberError) {
-      return new Response(
-        JSON.stringify({ error: "Failed to join family" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
-    memberId = member.id;
-  }
-
-  // Create receiver settings if receiver role
-  if (invite.role === "receiver" && memberId) {
-    await supabaseAdmin.from("receiver_settings").upsert({
-      family_member_id: memberId,
-      checkin_time: invite.checkin_time || "08:00",
-      timezone: body.timezone || "America/New_York",
-    });
-  }
-
-  // Update user role
-  await supabaseAdmin
-    .from("users")
-    .update({ role: invite.role })
-    .eq("id", acceptingUserId);
-
-  // Mark invite as used
   await supabaseAdmin
     .from("invite_tokens")
-    .update({ used_by: acceptingUserId })
-    .eq("id", invite.id);
+    .update({ expires_at: new Date().toISOString() })
+    .in("id", ids);
+}
 
-  return new Response(
-    JSON.stringify({ success: true, family_id: invite.family_id, role: invite.role }),
-    { headers: { "Content-Type": "application/json" } }
-  );
+function phoneDigits(phone: string): string {
+  const d = phone.replace(/\D/g, "");
+  return d.length === 11 && d.startsWith("1") ? d.slice(1) : d;
+}
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 /**

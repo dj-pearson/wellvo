@@ -18,6 +18,8 @@ suspend fun <T> withRetry(
             throw e
         } catch (e: DailyOKError.Auth) {
             throw e
+        } catch (e: DailyOKError.Rejected) {
+            throw e
         } catch (e: Exception) {
             lastException = e
             if (attempt < maxAttempts - 1) {

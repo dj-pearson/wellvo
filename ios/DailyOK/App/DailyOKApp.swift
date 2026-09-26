@@ -44,6 +44,25 @@ struct DailyOKApp: App {
         }
     }
 
+    /// The invite token from a link — the last path segment of
+    /// `/invite/<token>`, else the `token` query item — if it is a plausible
+    /// hex token. Anything else is ignored.
+    nonisolated static func inviteToken(from components: URLComponents) -> String? {
+        let segments = components.path.split(separator: "/").map(String.init)
+        let candidate: String?
+        if segments.count == 2, segments[0] == "invite" {
+            candidate = segments[1]
+        } else {
+            candidate = components.queryItems?.first(where: { $0.name == "token" })?.value
+        }
+        guard let token = candidate,
+              (16...500).contains(token.count),
+              token.range(of: "^[0-9a-fA-F]+$", options: .regularExpression) != nil else {
+            return nil
+        }
+        return token
+    }
+
     private func handleDeepLink(_ url: URL) {
         // Verify URL scheme is one we expect
         guard url.scheme == "dailyok" || url.scheme == "https" else { return }
@@ -52,20 +71,22 @@ struct DailyOKApp: App {
               let host = components.host else { return }
 
         switch host {
-        case "invite", "dailyok.net":
-            if let token = components.queryItems?.first(where: { $0.name == "token" })?.value {
-                // Validate token: must be hex string, bounded length
-                guard token.count <= 500,
-                      token.range(of: "^[0-9a-fA-F]+$", options: .regularExpression) != nil else {
-                    return // Silently reject invalid tokens
-                }
-                // Don't let an invite link hijack an already-onboarded member and
-                // demote them into the receiver onboarding flow. If we already know
-                // their role, ignore the token. (ContentView also re-resolves role
-                // and clears a stale token on cold-start from a link.)
-                guard appState.currentUserRole == nil else { return }
-                appState.pendingInviteToken = token
+        case "invite", "dailyok.net", "www.dailyok.net":
+            // dailyok://invite?token=…                    (website "Open Daily OK")
+            // https://dailyok.net/invite/<token>?code=…   (the invite text)
+            // https://dailyok.net/invite?token=…          (older invite texts)
+            // Other dailyok.net paths are not ours to handle.
+            if host != "invite" {
+                let path = components.path
+                guard path == "/invite" || path == "/invite/" || path.hasPrefix("/invite/") else { return }
             }
+            guard let token = Self.inviteToken(from: components) else { return }
+            // Don't let an invite link hijack an already-onboarded member and
+            // demote them into the receiver onboarding flow. If we already know
+            // their role, ignore the token. (ContentView also re-resolves role
+            // and clears a stale token on cold-start from a link.)
+            guard appState.currentUserRole == nil else { return }
+            appState.pendingInviteToken = token
         case "dashboard":
             // Owner status widget tap (dailyok://dashboard) — jump to the
             // dashboard tab (US-IOS091).

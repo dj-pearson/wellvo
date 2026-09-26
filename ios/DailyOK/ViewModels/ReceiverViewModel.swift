@@ -7,7 +7,15 @@ final class ReceiverViewModel: ObservableObject {
     @Published var hasCheckedInToday = false
     @Published var isCheckingIn = false
     @Published var lastCheckIn: CheckIn?
+    /// A failed CHECK-IN. The home screen pairs it with "Try Again", which
+    /// checks in — so only check-in failures may set it.
     @Published var errorMessage: String?
+    /// A failed snooze or undo. Shown without a retry button: "Try Again" on a
+    /// failed snooze used to check the receiver in.
+    @Published var actionMessage: String?
+    /// Today's check-in is saved on this phone but not yet sent (offline). The
+    /// home screen says so instead of "Your family has been notified".
+    @Published var checkInSavedOffline = false
     @Published var familyId: UUID?
     @Published var isOffline = false
     @Published var pendingOfflineCount = 0
@@ -90,7 +98,13 @@ final class ReceiverViewModel: ObservableObject {
     }
 
     private func performLoadStatus() async {
-        guard let family = try? await FamilyService.shared.getFamily() else { return }
+        guard let family = try? await FamilyService.shared.getFamily() else {
+            // Offline (or the lookup failed): keep the check-in button working.
+            // Without a familyId, performCheckIn returned silently — the button
+            // did nothing on every offline cold launch, defeating the queue.
+            loadCachedStatus()
+            return
+        }
         familyId = family.id
 
         guard let session = try? await SupabaseService.shared.client.auth.session else { return }
@@ -114,14 +128,35 @@ final class ReceiverViewModel: ObservableObject {
         // doesn't bleed into today if the query returns nil. The `@StateObject`
         // persists across scene phases, so without this reset the receiver
         // sees "you're all set" indefinitely once they check in once.
-        let todayCheckIn = try? await CheckInService.shared.todayCheckInStatus(
-            receiverId: session.user.id,
-            familyId: family.id,
-            timezone: tzRow?.timezone
-        )
+        let todayCheckIn: CheckIn?
+        do {
+            todayCheckIn = try await CheckInService.shared.todayCheckInStatus(
+                receiverId: session.user.id,
+                familyId: family.id,
+                timezone: tzRow?.timezone
+            )
+        } catch {
+            // A failed query is not "not checked in". Treating it that way
+            // flipped a receiver who had checked in back to "please check in".
+            // Keep what we know and let the next load try again.
+            Log.receiver.error("todayCheckInStatus failed: \(error.localizedDescription, privacy: .public)")
+            isOffline = !offlineService.isOnline
+            pendingOfflineCount = offlineService.pendingCount
+            return
+        }
         Log.receiver.debug("loadStatus tz=\(tzRow?.timezone ?? "nil", privacy: .public) hasCheckedInToday=\(todayCheckIn != nil, privacy: .public)")
         lastCheckIn = todayCheckIn
-        hasCheckedInToday = (todayCheckIn != nil)
+        // A queued offline check-in that hasn't synced yet still counts on this
+        // phone — the receiver did tap, and the queue will deliver it.
+        checkInSavedOffline = todayCheckIn == nil
+            && hasQueuedCheckInToday(familyId: family.id, receiverId: session.user.id)
+        hasCheckedInToday = (todayCheckIn != nil) || checkInSavedOffline
+        if hasCheckedInToday {
+            clearStaleMessages()
+            // Answered here, on the widget, the watch or Siri: clear the
+            // "please check in" banners still sitting on the Lock Screen.
+            await ReceiverCheckInAftermath.removeDeliveredCheckInRequests()
+        }
         // Keep the Undo affordance alive across reloads/foregrounds within the
         // grace window, derived from the server check-in time (offline-queued
         // rows are synced just above, so todayCheckIn reflects a real server row).
@@ -197,6 +232,41 @@ final class ReceiverViewModel: ObservableObject {
         )
     }
 
+    /// Offline fallback for `performLoadStatus`: the family and today's status
+    /// from the snapshot this phone published on its last successful load.
+    private func loadCachedStatus() {
+        isOffline = !offlineService.isOnline
+        pendingOfflineCount = offlineService.pendingCount
+        guard let snapshot = SharedCheckInStore.load(),
+              let cachedFamily = UUID(uuidString: snapshot.familyId),
+              let cachedReceiver = UUID(uuidString: snapshot.receiverId) else { return }
+        familyId = cachedFamily
+        // Recomputed every time, never only set: this object outlives scene
+        // phases, so an offline receiver who checked in yesterday must be
+        // offered the button again after midnight.
+        let queued = hasQueuedCheckInToday(familyId: cachedFamily, receiverId: cachedReceiver)
+        let lastIsToday = lastCheckIn.map { Calendar.current.isDateInToday($0.checkedInAt) } ?? false
+        hasCheckedInToday = snapshot.isCheckedIn() || queued || lastIsToday
+        checkInSavedOffline = queued && !lastIsToday
+        if hasCheckedInToday { clearStaleMessages() }
+        if nextCheckInTime == nil || (nextCheckInTime ?? .distantPast) < Date() {
+            nextCheckInTime = snapshot.nextCheckInAt
+        }
+    }
+
+    /// Whether an unsynced check-in from today, for this receiver and family,
+    /// is waiting in the offline queue.
+    private func hasQueuedCheckInToday(familyId: UUID, receiverId: UUID) -> Bool {
+        offlineService.hasUnsyncedCheckInToday(familyId: familyId, receiverId: receiverId)
+    }
+
+    /// A check-in has landed (here or elsewhere): an earlier failed tap's error
+    /// and "Try Again", or a failed snooze's message, no longer apply.
+    private func clearStaleMessages() {
+        errorMessage = nil
+        actionMessage = nil
+    }
+
     private func loadPendingRequest(receiverId: UUID, familyId: UUID) async {
         let requests: [CheckInRequest]? = try? await SupabaseService.shared.client
             .from("checkin_requests")
@@ -237,6 +307,7 @@ final class ReceiverViewModel: ObservableObject {
         guard let requestId = pendingRequestId, !isSnoozing else { return }
         isSnoozing = true
         snoozeConfirmation = nil
+        actionMessage = nil
         defer { isSnoozing = false }
 
         do {
@@ -253,7 +324,7 @@ final class ReceiverViewModel: ObservableObject {
         } catch {
             // Surface the most useful message (e.g. snooze limit reached) but
             // still defer the local reminder so the receiver isn't nagged early.
-            errorMessage = (error as NSError).localizedDescription
+            actionMessage = (error as NSError).localizedDescription
             await PushNotificationService.shared.scheduleLocalCheckinFallback(
                 at: Date().addingTimeInterval(TimeInterval(Self.snoozeMinutes * 60)),
                 isKidMode: receiverMode == .kid
@@ -520,29 +591,29 @@ final class ReceiverViewModel: ObservableObject {
                 slotKey: slotKey
             )
 
-            if let checkIn {
-                lastCheckIn = checkIn
-            }
             hasCheckedInToday = true
             hasPendingRequest = false
             selectedMood = nil
-            // Open the undo grace window for an accidental tap. Only for an
-            // online check-in — an offline-queued one has no server row to undo.
-            startUndoWindow()
-            // Keep the shared snapshot (widget/Siri/watch) in sync immediately.
-            SharedCheckInPublisher.markCheckedIn(at: checkIn?.checkedInAt ?? Date())
-            // The server push did its job (or wasn't needed) — drop the local
-            // safety-net reminder so it can't fire after a successful check-in.
-            await PushNotificationService.shared.cancelLocalCheckinFallback()
-            Task { await AnalyticsService.shared.track(.checkIn) }
-        } catch let error as NetworkError {
-            // Offline path: the check-in is queued locally and will sync when
-            // connectivity returns. Show the success state optimistically.
+            actionMessage = nil
+            if let checkIn {
+                lastCheckIn = checkIn
+                checkInSavedOffline = false
+                // Open the undo grace window for an accidental tap — only for a
+                // check-in the server has; a queued one has no row to undo.
+                startUndoWindow()
+                Task { await AnalyticsService.shared.track(.checkIn) }
+            } else {
+                // Offline: saved on the phone, sent when back online. Not an
+                // error, not "family notified", and nothing to undo yet.
+                markSavedOffline()
+            }
+            await ReceiverCheckInAftermath.record(at: checkIn?.checkedInAt ?? Date())
+        } catch is NetworkError {
+            // The request failed for lack of connectivity and was queued.
             hasCheckedInToday = true
-            isOffline = true
-            Task { await AnalyticsService.shared.track(.checkInOffline) }
-            pendingOfflineCount = offlineService.pendingCount
-            errorMessage = error.localizedDescription
+            hasPendingRequest = false
+            markSavedOffline()
+            await ReceiverCheckInAftermath.record(at: Date())
         } catch {
             // Real failure (auth, server 5xx, etc): do NOT flip the UI to
             // "checked in" — otherwise the receiver sees "you're all set"
@@ -551,6 +622,14 @@ final class ReceiverViewModel: ObservableObject {
         }
 
         isCheckingIn = false
+    }
+
+    private func markSavedOffline() {
+        checkInSavedOffline = true
+        isOffline = true
+        undoableUntil = nil
+        pendingOfflineCount = offlineService.pendingCount
+        Task { await AnalyticsService.shared.track(.checkInOffline) }
     }
 
     /// Open the post-check-in undo window and auto-close it when the grace
@@ -588,14 +667,16 @@ final class ReceiverViewModel: ObservableObject {
             lastCheckIn = nil
             selectedMood = nil
             undoableUntil = nil
-            SharedCheckInPublisher.clear()
+            // Not `clear()`: that also wiped the shared session tokens and
+            // signed the widget, Siri and the watch out.
+            SharedCheckInPublisher.markNotCheckedIn()
             // Re-evaluate the pending request and fallback reminder, since the
             // server may have re-opened a request the undo restored.
             await loadStatus()
             DailyOKHaptics.warning()
             Task { await AnalyticsService.shared.track(.checkInUndone) }
         } catch {
-            errorMessage = DailyOKError.network(error).localizedDescription
+            actionMessage = DailyOKError.network(error).localizedDescription
         }
     }
 

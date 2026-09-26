@@ -82,6 +82,13 @@ fun OnboardingScreen(
     viewModel: OnboardingViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val inviteContext = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(state.inviteToSend) {
+        state.inviteToSend?.let {
+            net.dailyok.android.util.InviteShare.open(inviteContext, it)
+            viewModel.onInviteHandedOff()
+        }
+    }
 
     if (state.isComplete) {
         onComplete()

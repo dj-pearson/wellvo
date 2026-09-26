@@ -64,7 +64,14 @@ class AuthViewModelTest {
     }
 
     private fun createViewModel(): AuthViewModel {
-        return AuthViewModel(authService, apiService, analyticsService)
+        return AuthViewModel(
+            authService,
+            apiService,
+            analyticsService,
+            biometricService = mockk(relaxed = true),
+            secureStorage = mockk(relaxed = true),
+            pushNotificationService = mockk(relaxed = true)
+        )
     }
 
     @Test
@@ -196,7 +203,7 @@ class AuthViewModelTest {
         )
         coEvery { authService.getCurrentUser() } returns testUser
         val vm = createViewModel()
-        sessionStatusFlow.value = SessionStatus.Authenticated
+        sessionStatusFlow.value = SessionStatus.Authenticated(mockk(relaxed = true))
         advanceUntilIdle()
         val state = vm.authState.value
         assertTrue(state is AuthState.Authenticated)

@@ -52,8 +52,19 @@ class DailyOKApplication : Application() {
             enableVibration(true)
         }
 
+        // Everything informational: "Mom checked in", digests, reminders to an
+        // owner. Before this, every message type the app didn't list by name
+        // (owner_alert included) was logged and dropped.
+        val updatesChannel = NotificationChannel(
+            CHANNEL_FAMILY_UPDATES,
+            "Family Updates",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Check-in confirmations and summaries"
+        }
+
         notificationManager.createNotificationChannels(
-            listOf(checkinChannel, urgentChannel, locationChannel)
+            listOf(checkinChannel, urgentChannel, locationChannel, updatesChannel)
         )
     }
 
@@ -61,5 +72,6 @@ class DailyOKApplication : Application() {
         const val CHANNEL_CHECKIN_REQUESTS = "checkin_requests"
         const val CHANNEL_URGENT_ALERTS = "urgent_alerts"
         const val CHANNEL_LOCATION_ALERTS = "location_alerts"
+        const val CHANNEL_FAMILY_UPDATES = "family_updates"
     }
 }

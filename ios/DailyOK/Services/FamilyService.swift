@@ -88,34 +88,41 @@ actor FamilyService {
         return family
     }
 
-    /// Returns the current user's role in their family, or nil if they have no membership.
-    /// Used on login to route receivers/viewers to the correct UI without requiring re-onboarding.
-    func getCurrentUserRole() async -> UserRole? {
-        guard let session = try? await supabase.auth.session else { return nil }
+    /// Returns the current user's role in their family, or nil if they have no
+    /// membership. Used on every launch to route owners, receivers and viewers.
+    ///
+    /// THROWS when the lookup fails. It used to swallow errors with `try?` and
+    /// return nil, and ContentView treats nil as "no family yet" — so a receiver
+    /// who opened the app offline was shown the owner's screens. Only a
+    /// successful, empty answer means nil now.
+    func getCurrentUserRole() async throws -> UserRole? {
+        // A session that can't be loaded (offline with an expired access token)
+        // is a failed lookup, not "no family".
+        let session = try await supabase.auth.session
 
         // If the user owns any family, they are an owner. This takes precedence
         // over any receiver/viewer memberships they may also hold (e.g. if the
         // same account was invited into another family for testing).
-        let ownedFamilies: [Family] = (try? await supabase
+        let ownedFamilies: [Family] = try await supabase
             .from("families")
             .select("id")
             .eq("owner_id", value: session.user.id.uuidString)
             .limit(1)
             .execute()
-            .value) ?? []
+            .value
 
         if !ownedFamilies.isEmpty {
             return .owner
         }
 
-        let members: [FamilyMember] = (try? await supabase
+        let members: [FamilyMember] = try await supabase
             .from("family_members")
             .select()
             .eq("user_id", value: session.user.id.uuidString)
             .eq("status", value: MemberStatus.active.rawValue)
             .limit(1)
             .execute()
-            .value) ?? []
+            .value
 
         return members.first?.role
     }
@@ -169,6 +176,36 @@ actor FamilyService {
         )
     }
 
+    /// Invites this family has sent that nobody has used yet and that haven't
+    /// expired — "waiting to join". Read straight from invite_tokens (owners
+    /// have RLS read on their own family's invites). A re-send expires the
+    /// earlier invite server-side, so each person appears once.
+    func pendingInvites(familyId: UUID) async throws -> [PendingInvite] {
+        // Filtered here rather than with IS NULL / > filters so this only uses
+        // query builders already exercised elsewhere in the app. Expired rows
+        // are purged nightly (00005), so the recent window is small.
+        let recent: [PendingInvite] = try await supabase
+            .from("invite_tokens")
+            .select("id, name, phone, checkin_time, pairing_code, created_at, expires_at, used_by")
+            .eq("family_id", value: familyId.uuidString)
+            .order("created_at", ascending: false)
+            .limit(50)
+            .execute()
+            .value
+        let now = Date()
+        return recent.filter { $0.usedBy == nil && $0.expiresAt > now }
+    }
+
+    /// Cancel an invite: its link and setup code stop working at once. Expires
+    /// it rather than deleting it, so the record of what was sent remains.
+    func cancelInvite(id: UUID) async throws {
+        try await supabase
+            .from("invite_tokens")
+            .update(["expires_at": ISO8601DateFormatter().string(from: Date())])
+            .eq("id", value: id.uuidString)
+            .execute()
+    }
+
     func removeMember(memberId: UUID) async throws {
         try await supabase
             .from("family_members")
@@ -177,14 +214,19 @@ actor FamilyService {
             .execute()
     }
 
-    func acceptInvite(token: String) async throws {
-        try await EdgeFunctionsClient.invoke(
+    /// Accept an invite link. Returns what the server says about the family
+    /// joined (both fields are nil against an older backend).
+    @discardableResult
+    func acceptInvite(token: String) async throws -> JoinDetails {
+        let response: JoinDetailsResponse = try await EdgeFunctionsClient.invoke(
             "invite-receiver",
             body: [
                 "action": "accept",
                 "token": token,
+                "timezone": TimeZone.current.identifier,
             ]
         )
+        return JoinDetails(checkinTime: response.checkinTime, ownerName: response.ownerName)
     }
 
     /// Redeem a 6-digit pairing code (iPad / alternate-device setup).
@@ -192,14 +234,19 @@ actor FamilyService {
     func redeemPairingCode(_ code: String) async throws -> RedeemCodeResponse {
         try await EdgeFunctionsClient.invoke(
             "redeem-code",
-            body: ["code": code]
+            body: ["code": code, "timezone": TimeZone.current.identifier]
         )
     }
 
     /// Check if the authenticated user's phone matches a pending invite and auto-join.
     /// Returns the auto-join result, or nil if no match found.
     func checkAutoJoin() async throws -> AutoJoinResult? {
-        let data: AutoJoinResponse = try await EdgeFunctionsClient.invoke("auto-join", body: [:])
+        // The device zone lets the server schedule check-ins at the receiver's
+        // local time from the first day (optional field; older servers ignore it).
+        let data: AutoJoinResponse = try await EdgeFunctionsClient.invoke(
+            "auto-join",
+            body: ["timezone": TimeZone.current.identifier]
+        )
 
         // A match with no family_id is not actionable — emitting an empty string
         // would just make a downstream UUID(uuidString:) fail. Treat it as "no
@@ -209,7 +256,8 @@ actor FamilyService {
         return AutoJoinResult(
             familyId: familyId,
             role: data.role ?? "receiver",
-            checkinTime: data.checkinTime
+            checkinTime: data.checkinTime,
+            ownerName: data.ownerName
         )
     }
 }
@@ -243,6 +291,28 @@ struct InviteDetails: Identifiable {
     }
 }
 
+/// An invite that has been sent but not yet used.
+struct PendingInvite: Decodable, Identifiable, Equatable {
+    let id: UUID
+    let name: String?
+    let phone: String?
+    /// Postgres TIME, e.g. "08:30:00".
+    let checkinTime: String?
+    let pairingCode: String?
+    let createdAt: Date
+    let expiresAt: Date
+    let usedBy: UUID?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, phone
+        case checkinTime = "checkin_time"
+        case pairingCode = "pairing_code"
+        case createdAt = "created_at"
+        case expiresAt = "expires_at"
+        case usedBy = "used_by"
+    }
+}
+
 /// Raw decode of the `invite-receiver` response.
 struct InviteResponse: Decodable {
     let success: Bool?
@@ -267,6 +337,7 @@ struct RedeemCodeResponse: Decodable {
     let role: String?
     let checkinTime: String?
     let name: String?
+    let ownerName: String?
     let error: String?
 
     enum CodingKeys: String, CodingKey {
@@ -276,6 +347,7 @@ struct RedeemCodeResponse: Decodable {
         case role
         case checkinTime = "checkin_time"
         case name
+        case ownerName = "owner_name"
         case error
     }
 }
@@ -286,6 +358,7 @@ struct AutoJoinResponse: Decodable {
     let familyId: String?
     let role: String?
     let checkinTime: String?
+    let ownerName: String?
 
     enum CodingKeys: String, CodingKey {
         case matched
@@ -293,6 +366,7 @@ struct AutoJoinResponse: Decodable {
         case familyId = "family_id"
         case role
         case checkinTime = "checkin_time"
+        case ownerName = "owner_name"
     }
 }
 
@@ -300,6 +374,37 @@ struct AutoJoinResult {
     let familyId: String
     let role: String
     let checkinTime: String?
+    var ownerName: String? = nil
+}
+
+/// What a successful join tells the receiver's onboarding screen.
+struct JoinDetails {
+    let checkinTime: String?
+    let ownerName: String?
+}
+
+/// Raw decode of a successful invite-receiver accept.
+struct JoinDetailsResponse: Decodable {
+    let checkinTime: String?
+    let ownerName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case checkinTime = "checkin_time"
+        case ownerName = "owner_name"
+    }
+}
+
+/// "08:30" or "08:30:00" (the server sends Postgres TIME) → locale-aware short
+/// time ("8:30 AM"). Falls back to the input if it can't be parsed.
+func formatCheckinTimeForDisplay(_ time: String) -> String {
+    let parser = DateFormatter()
+    parser.locale = Locale(identifier: "en_US_POSIX")
+    parser.dateFormat = "HH:mm"
+    guard let date = parser.date(from: String(time.prefix(5))) else { return time }
+    let display = DateFormatter()
+    display.timeStyle = .short
+    display.dateStyle = .none
+    return display.string(from: date)
 }
 
 enum FamilyError: LocalizedError {

@@ -24,13 +24,20 @@ data class ReceiverOnboardingUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val notificationDenied: Boolean = false,
-    val isComplete: Boolean = false
+    val isComplete: Boolean = false,
+    /** The invite couldn't be redeemed; offer Try Again / Back, never "all set". */
+    val joinFailed: Boolean = false,
+    /** Who they joined, from the server ("Mom", "The Smiths"). */
+    val ownerName: String? = null
 )
 
 @HiltViewModel
 class ReceiverOnboardingViewModel @Inject constructor(
-    private val supabase: SupabaseClient
+    private val supabase: SupabaseClient,
+    private val familyService: net.dailyok.android.services.FamilyService
 ) : ViewModel() {
+
+    private var lastToken: String? = null
 
     private val _uiState = MutableStateFlow(ReceiverOnboardingUiState())
     val uiState: StateFlow<ReceiverOnboardingUiState> = _uiState.asStateFlow()
@@ -41,12 +48,17 @@ class ReceiverOnboardingViewModel @Inject constructor(
             try {
                 val userId = supabase.auth.currentUserOrNull()?.id ?: return@launch
 
+                // Active only, first row: a receiver who was removed and
+                // re-invited has two rows, and decodeSingleOrNull threw on them.
                 val member = supabase.postgrest.from("family_members")
                     .select {
                         filter { eq("user_id", userId) }
                         filter { eq("role", "receiver") }
+                        filter { eq("status", "active") }
+                        limit(1)
                     }
-                    .decodeSingleOrNull<FamilyMember>()
+                    .decodeList<FamilyMember>()
+                    .firstOrNull()
 
                 if (member != null) {
                     val settings = supabase.postgrest.from("receiver_settings")
@@ -64,7 +76,8 @@ class ReceiverOnboardingViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         receiverName = user?.displayName ?: "",
-                        checkinTime = settings?.checkinTime?.let { formatTime(it) }
+                        checkinTime = _uiState.value.checkinTime
+                            ?: settings?.checkinTime?.let { formatTime(it) }
                     )
                 } else {
                     _uiState.value = _uiState.value.copy(isLoading = false)
@@ -78,20 +91,41 @@ class ReceiverOnboardingViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Redeem the invite link's token. This used to only reload settings — it
+     * never called the server — so a receiver who arrived by link was shown
+     * "all set" for a family they had not joined.
+     */
     fun acceptInvite(token: String) {
+        lastToken = token
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null, joinFailed = false)
             try {
-                // The invite acceptance is handled server-side during auth/auto-join.
-                // Load the receiver settings after accepting.
+                val joined = familyService.acceptInvite(token)
+                _uiState.value = _uiState.value.copy(
+                    checkinTime = joined.checkinTime?.let { formatTime(it) },
+                    ownerName = joined.ownerName?.takeIf { it.isNotBlank() && it != "User" }
+                )
                 loadReceiverSettings()
+            } catch (e: net.dailyok.android.network.DailyOKError.Rejected) {
+                if (e.status == 409) {
+                    // "Already a member of this family" — the link tapped twice.
+                    loadReceiverSettings()
+                } else {
+                    _uiState.value = _uiState.value.copy(isLoading = false, joinFailed = true, errorMessage = e.message)
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = e.message
+                    joinFailed = true,
+                    errorMessage = e.message ?: "Couldn't join. Check your connection and try again."
                 )
             }
         }
+    }
+
+    fun retryJoin() {
+        lastToken?.let { acceptInvite(it) }
     }
 
     fun advance() {
@@ -109,9 +143,10 @@ class ReceiverOnboardingViewModel @Inject constructor(
     }
 
     private fun formatTime(time: String): String {
-        // time is "HH:mm" format, convert to 12-hour display
+        // "HH:mm" or the server's "HH:mm:ss" (Postgres TIME) → 12-hour display.
+        // Only "HH:mm" used to parse, so the raw "08:30:00" was shown.
         val parts = time.split(":")
-        if (parts.size != 2) return time
+        if (parts.size < 2) return time
         val hour = parts[0].toIntOrNull() ?: return time
         val minute = parts[1].toIntOrNull() ?: return time
         val amPm = if (hour < 12) "AM" else "PM"

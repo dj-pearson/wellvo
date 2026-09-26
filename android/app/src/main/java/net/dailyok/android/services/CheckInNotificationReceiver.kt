@@ -1,5 +1,9 @@
 package net.dailyok.android.services
 
+import net.dailyok.android.R
+import net.dailyok.android.DailyOKApplication
+import androidx.core.app.NotificationCompat
+import android.app.PendingIntent
 import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -64,15 +68,18 @@ class CheckInNotificationReceiver : BroadcastReceiver() {
             return
         }
 
-        val source = when (intent.action) {
-            DailyOKFirebaseMessagingService.ACTION_CHECKIN_OK -> "notification"
+        // The tap came from a notification whatever the button; WHICH button
+        // is the response type. It used to go in `source` ("need_help") with
+        // no response_type, so the server recorded every button as "ok".
+        val source = "notification"
+        val responseType = when (intent.action) {
             DailyOKFirebaseMessagingService.ACTION_CHECKIN_NEED_HELP -> "need_help"
             DailyOKFirebaseMessagingService.ACTION_CHECKIN_CALL_ME -> "call_me"
-            else -> "notification"
+            else -> "ok"
         }
 
         if (net.dailyok.android.BuildConfig.DEBUG) {
-            Log.d(TAG, "Processing check-in response: source=$source")
+            Log.d(TAG, "Processing check-in response: type=$responseType")
         }
 
         val batteryLevel = CheckInService.getBatteryLevel(context)
@@ -84,6 +91,7 @@ class CheckInNotificationReceiver : BroadcastReceiver() {
                 checkInService.respondToCheckIn(
                     requestId = requestId,
                     source = source,
+                    responseType = responseType,
                     latitude = location?.first,
                     longitude = location?.second,
                     locationAccuracy = location?.third,
@@ -92,9 +100,38 @@ class CheckInNotificationReceiver : BroadcastReceiver() {
                 Log.d(TAG, "Check-in response sent successfully")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send check-in response", e)
+                // The prompt was already dismissed. Say it didn't send, or the
+                // receiver believes their family was told.
+                showSendFailed(context, urgent = responseType != "ok")
             } finally {
                 pendingResult.finish()
             }
+        }
+    }
+
+    private fun showSendFailed(context: Context, urgent: Boolean) {
+        val openApp = PendingIntent.getActivity(
+            context, 0,
+            Intent(context, net.dailyok.android.MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, DailyOKApplication.CHANNEL_CHECKIN_REQUESTS)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(if (urgent) "Your message didn't send" else "Your check-in didn't send")
+            .setContentText(
+                if (urgent) "Call your family directly, or open Daily OK to try again."
+                else "Open Daily OK and tap I'm OK to try again."
+            )
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(openApp)
+            .build()
+        try {
+            NotificationManagerCompat.from(context).notify("checkin_send_failed".hashCode(), notification)
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Notification permission not granted", e)
         }
     }
 

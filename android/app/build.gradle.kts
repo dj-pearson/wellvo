@@ -50,6 +50,8 @@ android {
             buildConfigField("String", "SUPABASE_ANON_KEY", "\"${project.findProperty("SUPABASE_ANON_KEY_DEBUG") ?: project.findProperty("SUPABASE_ANON_KEY") ?: System.getenv("SUPABASE_ANON_KEY") ?: "your-anon-key"}\"")
             buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${project.findProperty("GOOGLE_WEB_CLIENT_ID_DEBUG") ?: project.findProperty("GOOGLE_WEB_CLIENT_ID") ?: System.getenv("GOOGLE_WEB_CLIENT_ID") ?: ""}\"")
             buildConfigField("String", "TELEMETRY_DECK_APP_ID", "\"${project.findProperty("TELEMETRY_DECK_APP_ID") ?: System.getenv("TELEMETRY_DECK_APP_ID") ?: ""}\"")
+            // The Deno edge-functions server (not Supabase's /functions/v1).
+            buildConfigField("String", "EDGE_FUNCTIONS_URL", "\"${project.findProperty("EDGE_FUNCTIONS_URL_DEBUG") ?: project.findProperty("EDGE_FUNCTIONS_URL") ?: System.getenv("EDGE_FUNCTIONS_URL") ?: "https://functions.dailyok.net"}\"")
         }
         release {
             isMinifyEnabled = true
@@ -63,6 +65,7 @@ android {
             buildConfigField("String", "SUPABASE_ANON_KEY", "\"${project.findProperty("SUPABASE_ANON_KEY") ?: System.getenv("SUPABASE_ANON_KEY") ?: "your-anon-key"}\"")
             buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${project.findProperty("GOOGLE_WEB_CLIENT_ID") ?: System.getenv("GOOGLE_WEB_CLIENT_ID") ?: ""}\"")
             buildConfigField("String", "TELEMETRY_DECK_APP_ID", "\"${project.findProperty("TELEMETRY_DECK_APP_ID") ?: System.getenv("TELEMETRY_DECK_APP_ID") ?: ""}\"")
+            buildConfigField("String", "EDGE_FUNCTIONS_URL", "\"${project.findProperty("EDGE_FUNCTIONS_URL") ?: System.getenv("EDGE_FUNCTIONS_URL") ?: "https://functions.dailyok.net"}\"")
         }
     }
 

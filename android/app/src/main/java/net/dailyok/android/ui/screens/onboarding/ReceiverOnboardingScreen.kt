@@ -53,6 +53,7 @@ import net.dailyok.android.viewmodels.ReceiverOnboardingViewModel
 fun ReceiverOnboardingScreen(
     inviteToken: String?,
     onComplete: () -> Unit = {},
+    onCancel: () -> Unit = {},
     viewModel: ReceiverOnboardingViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -90,13 +91,23 @@ fun ReceiverOnboardingScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     when (state.currentStep) {
-                        0 -> WelcomeStep(
-                            receiverName = state.receiverName,
-                            checkinTime = state.checkinTime,
-                            isLoading = state.isLoading,
-                            errorMessage = state.errorMessage,
-                            onContinue = viewModel::advance
-                        )
+                        0 -> if (state.joinFailed) {
+                            JoinFailedStep(
+                                message = state.errorMessage,
+                                isLoading = state.isLoading,
+                                onRetry = viewModel::retryJoin,
+                                onBack = onCancel
+                            )
+                        } else {
+                            WelcomeStep(
+                                receiverName = state.receiverName,
+                                ownerName = state.ownerName,
+                                checkinTime = state.checkinTime,
+                                isLoading = state.isLoading,
+                                errorMessage = state.errorMessage,
+                                onContinue = viewModel::advance
+                            )
+                        }
                         1 -> NotificationsStep(
                             onPermissionResult = viewModel::onNotificationPermissionResult
                         )
@@ -157,9 +168,47 @@ private fun ProgressDots(currentStep: Int, totalSteps: Int) {
     }
 }
 
+/**
+ * The invite couldn't be redeemed. Continuing from here used to reach "all
+ * set" with no family, and the receiver's check-ins went nowhere.
+ */
+@Composable
+private fun JoinFailedStep(
+    message: String?,
+    isLoading: Boolean,
+    onRetry: () -> Unit,
+    onBack: () -> Unit
+) {
+    Text(
+        text = "Couldn't connect you",
+        style = MaterialTheme.typography.headlineMedium,
+        textAlign = TextAlign.Center
+    )
+    Spacer(modifier = Modifier.height(12.dp))
+    Text(
+        text = message ?: "The invite may have expired. Ask the person who invited you to send it again.",
+        style = MaterialTheme.typography.bodyLarge,
+        textAlign = TextAlign.Center,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(32.dp))
+    Button(
+        onClick = onRetry,
+        enabled = !isLoading,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text("Try Again")
+    }
+    Spacer(modifier = Modifier.height(8.dp))
+    androidx.compose.material3.TextButton(onClick = onBack) {
+        Text("Back")
+    }
+}
+
 @Composable
 private fun WelcomeStep(
     receiverName: String,
+    ownerName: String?,
     checkinTime: String?,
     isLoading: Boolean,
     errorMessage: String?,
@@ -192,6 +241,15 @@ private fun WelcomeStep(
     )
 
     Spacer(modifier = Modifier.height(16.dp))
+
+    if (ownerName != null) {
+        Text(
+            text = "You're connected with $ownerName.",
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+    }
 
     Text(
         text = stringResource(R.string.receiver_onboarding_body),

@@ -1,26 +1,38 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidTimezone } from "../../shared/validation.ts";
+import { logError } from "../../shared/logger.ts";
+import { LIMIT_REACHED_MESSAGE, redeemInvite } from "../../shared/join-family.ts";
 
 interface RedeemRequest {
   code: string;
   timezone?: string;
 }
 
-// Brute-force protection: track failed attempts per user
-const failedAttempts = new Map<string, { count: number; lockedUntil: number }>();
+// Failed attempts allowed per user in the lockout window. Mirrors
+// pairing_code_retry_after() (00054).
 const MAX_FAILED_ATTEMPTS = 10;
-const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
 
-// Clean up expired lockouts every 10 minutes
-setInterval(() => {
+// Used only while the durable lockout is unavailable (this build deployed
+// before 00054 ran, or the table is unreachable), so guessing is never
+// unlimited. Per process and reset on restart — the pre-00054 behaviour.
+const memoryFailures = new Map<string, number[]>();
+
+function memoryRetryAfter(userId: string): number {
   const now = Date.now();
-  for (const [key, entry] of failedAttempts) {
-    if (entry.lockedUntil < now) {
-      failedAttempts.delete(key);
-    }
-  }
-}, 600_000);
+  const recent = (memoryFailures.get(userId) ?? []).filter((t) => now - t < LOCKOUT_WINDOW_MS);
+  memoryFailures.set(userId, recent);
+  if (recent.length < MAX_FAILED_ATTEMPTS) return 0;
+  return Math.ceil((recent[0] + LOCKOUT_WINDOW_MS - now) / 1000);
+}
+
+function memoryRecordFailure(userId: string): number {
+  const recent = memoryFailures.get(userId) ?? [];
+  recent.push(Date.now());
+  memoryFailures.set(userId, recent);
+  return recent.length;
+}
 
 /**
  * Redeem a 6-digit pairing code to join a family.
@@ -28,29 +40,34 @@ setInterval(() => {
  * This enables the "iPad setup" flow: a receiver gets an SMS on their phone,
  * then opens the app on their iPad, signs in (Apple / email), and enters the
  * pairing code to bind their account to the family.
+ *
+ * Brute-force protection is durable (pairing_code_attempts, 00054): per-user
+ * and per-IP limits survive restarts, and the IP limit also covers a second
+ * account. It used to be only an in-memory map keyed per user, reset by every
+ * deploy; that map remains as the fallback when the table is unavailable.
  */
 export async function handleRedeemCode(
   req: Request,
   auth: AuthResult,
 ): Promise<Response> {
   if (!auth.userId) {
-    return new Response(
-      JSON.stringify({ error: "Authentication required" }),
-      { status: 401, headers: { "Content-Type": "application/json" } },
-    );
+    return json({ error: "Authentication required" }, 401);
   }
+  const userId = auth.userId;
+  const ip = clientIp(req);
 
-  // Check lockout status
-  const attempts = failedAttempts.get(auth.userId);
-  if (attempts && attempts.count >= MAX_FAILED_ATTEMPTS && Date.now() < attempts.lockedUntil) {
-    const retryAfterSeconds = Math.ceil((attempts.lockedUntil - Date.now()) / 1000);
+  const retryAfterSeconds = await retryAfter(userId, ip);
+  if (retryAfterSeconds > 0) {
     return new Response(
       JSON.stringify({
         error: "Too many failed attempts. Please try again later.",
         locked: true,
         retryAfterSeconds,
       }),
-      { status: 429, headers: { "Content-Type": "application/json", "Retry-After": String(retryAfterSeconds) } },
+      {
+        status: 429,
+        headers: { "Content-Type": "application/json", "Retry-After": String(retryAfterSeconds) },
+      },
     );
   }
 
@@ -58,138 +75,123 @@ export async function handleRedeemCode(
   const code = (body.code || "").trim();
 
   if (!/^\d{6}$/.test(code)) {
-    return new Response(
-      JSON.stringify({ error: "Please enter a valid 6-digit code" }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
+    return json({ error: "Please enter a valid 6-digit code" }, 400);
   }
 
   // Validate timezone if provided
   if (body.timezone && !isValidTimezone(body.timezone)) {
-    return new Response(
-      JSON.stringify({ error: "Invalid timezone. Must be a valid IANA timezone" }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
+    return json({ error: "Invalid timezone. Must be a valid IANA timezone" }, 400);
   }
 
   // Look up a matching, unused, non-expired invite by pairing code
   const { data: invite, error: inviteError } = await supabaseAdmin
     .from("invite_tokens")
-    .select("*")
+    .select("id")
     .eq("pairing_code", code)
     .is("used_by", null)
     .gt("expires_at", new Date().toISOString())
-    .single();
+    .maybeSingle();
 
   if (inviteError || !invite) {
-    // Track failed attempt for brute-force protection
-    const current = failedAttempts.get(auth.userId!) || { count: 0, lockedUntil: 0 };
-    current.count++;
-    if (current.count >= MAX_FAILED_ATTEMPTS) {
-      current.lockedUntil = Date.now() + LOCKOUT_DURATION_MS;
-    }
-    failedAttempts.set(auth.userId!, current);
-
-    const remaining = MAX_FAILED_ATTEMPTS - current.count;
-    return new Response(
-      JSON.stringify({
-        error: "Invalid or expired code. Please check and try again.",
-        attemptsRemaining: Math.max(0, remaining),
-      }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
+    const failures = await recordAttempt(userId, ip, false);
+    return json({
+      error: "Invalid or expired code. Please check and try again.",
+      attemptsRemaining: Math.max(0, MAX_FAILED_ATTEMPTS - failures),
+    }, 400);
   }
 
-  // Reset failed attempts on successful code lookup
-  failedAttempts.delete(auth.userId!);
+  await recordAttempt(userId, ip, true);
 
-  // Check if user is already a member of this family
-  const { data: existingMember } = await supabaseAdmin
-    .from("family_members")
-    .select("id, status")
-    .eq("family_id", invite.family_id)
-    .eq("user_id", auth.userId)
-    .single();
+  const result = await redeemInvite(invite.id, userId, body.timezone);
 
-  if (existingMember && existingMember.status === "active") {
-    return new Response(
-      JSON.stringify({
+  switch (result.status) {
+    case "joined":
+      return json({
+        success: true,
+        family_id: result.family_id,
+        role: result.role,
+        checkin_time: result.checkin_time,
+        name: result.name,
+        owner_name: result.owner_name,
+      });
+    case "already_member":
+      return json({
         success: true,
         already_member: true,
-        family_id: invite.family_id,
-        role: invite.role,
-      }),
-      { headers: { "Content-Type": "application/json" } },
-    );
+        family_id: result.family_id,
+        role: result.role,
+      });
+    case "limit_reached":
+      return json({ error: LIMIT_REACHED_MESSAGE, reason: "limit_reached" }, 403);
+    case "invalid":
+      // Redeemed or expired between the lookup and the join.
+      return json({ error: "Invalid or expired code. Please check and try again." }, 400);
+    default:
+      return json({ error: "Failed to join family" }, 500);
   }
+}
 
-  // Create or reactivate family member
-  let memberId: string;
-
-  if (existingMember) {
-    const { data: updated } = await supabaseAdmin
-      .from("family_members")
-      .update({
-        role: invite.role,
-        status: "active",
-        joined_at: new Date().toISOString(),
-      })
-      .eq("id", existingMember.id)
-      .select()
-      .single();
-    memberId = updated?.id;
-  } else {
-    const { data: member, error: memberError } = await supabaseAdmin
-      .from("family_members")
-      .insert({
-        family_id: invite.family_id,
-        user_id: auth.userId,
-        role: invite.role,
-        status: "active",
-        joined_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (memberError) {
-      return new Response(
-        JSON.stringify({ error: "Failed to join family" }),
-        { status: 500, headers: { "Content-Type": "application/json" } },
-      );
-    }
-    memberId = member.id;
-  }
-
-  // Create receiver settings if receiver role
-  if (invite.role === "receiver" && memberId) {
-    await supabaseAdmin.from("receiver_settings").upsert({
-      family_member_id: memberId,
-      checkin_time: invite.checkin_time || "08:00",
-      timezone: body.timezone || "America/New_York",
+/**
+ * Seconds until this caller may try again; 0 when allowed. If the durable
+ * lockout is unavailable, falls back to the in-memory one rather than to no
+ * limit at all.
+ */
+async function retryAfter(userId: string, ip: string | null): Promise<number> {
+  const { data, error } = await supabaseAdmin.rpc("pairing_code_retry_after", {
+    p_user_id: userId,
+    p_ip: ip,
+  });
+  if (error) {
+    logError("pairing_code_retry_after failed; using in-memory lockout", error, {
+      userId,
+      path: "/redeem-code",
     });
+    return memoryRetryAfter(userId);
+  }
+  return typeof data === "number" ? data : 0;
+}
+
+/**
+ * Record an attempt. Returns this user's failures in the lockout window
+ * (including this one) so the response can say how many tries are left.
+ */
+async function recordAttempt(userId: string, ip: string | null, succeeded: boolean): Promise<number> {
+  const { error } = await supabaseAdmin
+    .from("pairing_code_attempts")
+    .insert({ user_id: userId, ip, succeeded });
+  if (succeeded) {
+    memoryFailures.delete(userId);
+    return 0;
+  }
+  if (error) {
+    logError("Failed to record pairing-code attempt", error, { userId, path: "/redeem-code" });
+    return memoryRecordFailure(userId);
   }
 
-  // Update user role and display name
-  const updates: Record<string, string> = { role: invite.role };
-  if (invite.name) {
-    updates.display_name = invite.name;
-  }
-  await supabaseAdmin.from("users").update(updates).eq("id", auth.userId);
+  const since = new Date(Date.now() - LOCKOUT_WINDOW_MS).toISOString();
+  const { count } = await supabaseAdmin
+    .from("pairing_code_attempts")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("succeeded", false)
+    .gte("created_at", since);
+  return count ?? 1;
+}
 
-  // Mark invite as used
-  await supabaseAdmin
-    .from("invite_tokens")
-    .update({ used_by: auth.userId })
-    .eq("id", invite.id);
+/** The caller's IP as reported by the edge proxy (Cloudflare, then Traefik). */
+function clientIp(req: Request): string | null {
+  const cf = req.headers.get("CF-Connecting-IP");
+  if (cf) return cf.trim();
+  const real = req.headers.get("X-Real-IP");
+  if (real) return real.trim();
+  const fwd = req.headers.get("X-Forwarded-For");
+  if (fwd) return fwd.split(",")[0].trim();
+  return null;
+}
 
-  return new Response(
-    JSON.stringify({
-      success: true,
-      family_id: invite.family_id,
-      role: invite.role,
-      checkin_time: invite.checkin_time,
-      name: invite.name,
-    }),
-    { headers: { "Content-Type": "application/json" } },
-  );
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 }

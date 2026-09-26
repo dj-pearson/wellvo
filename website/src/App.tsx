@@ -43,6 +43,7 @@ const WhatToDoIndex = lazy(() => import('./pages/WhatToDoIndex'))
 const Cookies = lazy(() => import('./pages/Cookies'))
 const DMCA = lazy(() => import('./pages/DMCA'))
 const NotFound = lazy(() => import('./pages/NotFound'))
+const Invite = lazy(() => import('./pages/Invite'))
 const Blog = lazy(() => import('./pages/Blog'))
 const BlogPost = lazy(() => import('./pages/BlogPost'))
 const Compare = lazy(() => import('./pages/Compare'))
@@ -100,6 +101,8 @@ function App() {
             <Route path="/what-to-do/:slug" element={<WhatToDo />} />
             <Route path="/cookies" element={<Cookies />} />
             <Route path="/dmca" element={<DMCA />} />
+            <Route path="/invite" element={<Invite />} />
+            <Route path="/invite/:token" element={<Invite />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/blog/:slug" element={<BlogPost />} />
             <Route path="/compare" element={<Compare />} />

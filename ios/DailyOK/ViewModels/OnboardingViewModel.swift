@@ -116,7 +116,7 @@ final class OnboardingViewModel: ObservableObject {
                 checkinTime: timeString
             )
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = edgeErrorMessage(error, fallback: error.localizedDescription)
         }
 
         isLoading = false

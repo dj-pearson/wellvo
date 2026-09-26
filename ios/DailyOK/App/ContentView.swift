@@ -5,6 +5,7 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var forceUpdate = ForceUpdateState.shared
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
@@ -17,9 +18,14 @@ struct ContentView: View {
                 case .authenticated:
                     // Only honor an invite/auto-join deep link when the user isn't
                     // already a member, so a stray link can't demote an owner/viewer.
-                    if let inviteToken = appState.pendingInviteToken, appState.currentUserRole == nil {
+                    // Only once the server has confirmed there is no membership:
+                    // a persisted invite token must not be redeemed over a role
+                    // that simply hasn't loaded yet.
+                    if let inviteToken = appState.pendingInviteToken, appState.currentUserRole == nil,
+                       appState.roleResolution == .resolved {
                         ReceiverOnboardingView(inviteToken: inviteToken)
-                    } else if appState.pendingAutoJoin != nil, appState.currentUserRole == nil {
+                    } else if appState.pendingAutoJoin != nil, appState.currentUserRole == nil,
+                              appState.roleResolution == .resolved {
                         ReceiverOnboardingView(inviteToken: nil)
                     } else if appState.showPairingCodeEntry {
                         PairingCodeEntryView()
@@ -29,8 +35,18 @@ struct ContentView: View {
                         ReceiverHomeView()
                     } else if appState.currentUserRole == .viewer {
                         ViewerTabView()
-                    } else {
+                    } else if appState.currentUserRole == .owner {
                         OwnerTabView()
+                    } else if appState.roleResolution == .failed {
+                        // No role, and we could not find out. Never guess — an
+                        // owner dashboard shown to a receiver is the failure
+                        // this replaces.
+                        RoleLoadFailedView { Task { await resolveRole() } }
+                    } else if appState.roleResolution == .resolved {
+                        // Signed in, genuinely no family: ask, don't assume owner.
+                        GetStartedChoiceView()
+                    } else {
+                        LaunchScreenView()
                     }
                 }
             }
@@ -81,46 +97,127 @@ struct ContentView: View {
             // decides where it lands.
             appState.selectedTab = .dashboard
         }
-        .onChange(of: authViewModel.authState) { newState in
+        .onChange(of: authViewModel.authState) { oldState, newState in
             if newState == .unauthenticated {
                 appState.currentUserRole = nil
+                appState.roleResolution = .resolving
+                // Signing out ends any invite in progress, so it can't be
+                // redeemed for whoever signs in next on this device. (A cold
+                // start from a link goes .loading → .unauthenticated and keeps
+                // its token for the sign-in that follows.)
+                if oldState == .authenticated {
+                    appState.pendingInviteToken = nil
+                    appState.pendingAutoJoin = nil
+                }
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // A lookup that failed (offline launch) is retried when the app
+            // comes back, instead of only on the next cold start.
+            if phase == .active, authViewModel.authState == .authenticated,
+               appState.roleResolution == .failed {
+                Task { await resolveRole() }
+            }
+        }
+        .onChange(of: appState.currentUserRole) { _, role in
+            // Keep the offline cache in step with every role change (joining,
+            // finishing owner setup, transferring ownership).
+            Task {
+                guard let userId = try? await SupabaseService.shared.client.auth.session.user.id else { return }
+                appState.cacheRole(role, for: userId)
             }
         }
         .task(id: authViewModel.authState) {
-            // Resolve the role even when an invite/auto-join token is pending, so an
-            // existing member who taps a link gets routed by role (not hijacked into
-            // receiver onboarding). The auto-join probe still only runs for genuinely
-            // new users with no pending token.
             guard authViewModel.authState == .authenticated,
                   appState.currentUserRole == nil else { return }
 
             // Keep `users.timezone` aligned with the device zone so the edge
-            // function dedup and the owner dashboard's "today" window never
-            // drift when the user travels or reinstalls.
+            // function dedup, the owner dashboard's "today" window and (since
+            // 00052) the receiver's scheduled prompts never drift.
             Task { await AuthService.shared.syncTimezoneIfChanged() }
 
-            // Load the user's existing role from the DB first.
-            // This ensures receivers/viewers are routed correctly on every login,
-            // not just after the initial onboarding flow.
-            if let role = await FamilyService.shared.getCurrentUserRole() {
-                appState.currentUserRole = role
-                // Already a member: drop any stale invite/auto-join deep link so it
-                // can't surface the receiver onboarding flow over their real home.
-                appState.pendingInviteToken = nil
-                appState.pendingAutoJoin = nil
-                return
-            }
+            await resolveRole()
+        }
+    }
 
-            // No existing membership — check for phone-based auto-join (new user),
-            // unless we're already handling a token-based invite.
-            guard appState.pendingInviteToken == nil, appState.pendingAutoJoin == nil else { return }
-            do {
-                if let result = try await FamilyService.shared.checkAutoJoin() {
-                    appState.pendingAutoJoin = result
-                }
-            } catch {
-                // Auto-join is best-effort; don't block the user
+    /// Work out where this signed-in user belongs.
+    ///
+    /// 1. Show the last known role at once (offline launches open the right app).
+    /// 2. Ask the server. A failure keeps the cached role, or — with none —
+    ///    shows a retry screen; it never falls through to owner screens.
+    /// 3. With no membership, try a phone-number invite match before asking the
+    ///    user what they're here to do.
+    private func resolveRole() async {
+        guard let userId = try? await SupabaseService.shared.client.auth.session.user.id else {
+            // Signed in but the session can't be loaded right now (offline with
+            // an expired token). Retry on foreground rather than hang on the
+            // launch screen.
+            appState.roleResolution = .failed
+            return
+        }
+
+        if appState.currentUserRole == nil, let cached = appState.cachedRole(for: userId) {
+            appState.currentUserRole = cached
+        }
+        appState.roleResolution = .resolving
+
+        let role: UserRole?
+        do {
+            role = try await FamilyService.shared.getCurrentUserRole()
+        } catch {
+            appState.roleResolution = .failed
+            return
+        }
+
+        if let role {
+            appState.currentUserRole = role
+            // Already a member: drop any stale invite/auto-join deep link so it
+            // can't surface the receiver onboarding flow over their real home.
+            appState.pendingInviteToken = nil
+            appState.pendingAutoJoin = nil
+            appState.roleResolution = .resolved
+            return
+        }
+
+        // The server says: no family. A cached role from a removed membership
+        // must not keep them in an app they no longer belong to.
+        appState.currentUserRole = nil
+
+        // No membership — check for a phone-number invite match (new user),
+        // unless an invite link is already being handled.
+        if appState.pendingInviteToken == nil, appState.pendingAutoJoin == nil {
+            if let result = try? await FamilyService.shared.checkAutoJoin() {
+                appState.pendingAutoJoin = result
             }
+        }
+        appState.roleResolution = .resolved
+    }
+}
+
+/// Shown when a signed-in user's role can't be loaded and none is cached.
+private struct RoleLoadFailedView: View {
+    let retry: () -> Void
+
+    var body: some View {
+        ZStack {
+            AmbientBackground(tone: .neutral)
+            VStack(spacing: 16) {
+                Image(systemName: "wifi.exclamationmark")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                Text("Can't reach Daily OK")
+                    .font(.title2.weight(.bold))
+                Text("Check your internet connection. We'll try again when you come back to the app.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                Button("Try Again", action: retry)
+                    .buttonStyle(.borderedProminent)
+                    .tint(DailyOKColor.green500)
+                    .controlSize(.large)
+            }
+            .padding(32)
         }
     }
 }

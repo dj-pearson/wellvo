@@ -4548,3 +4548,183 @@ STORIES CLOSED
   US-IOS144   Supabase session cleared on a fresh install — the SDK behaviour it
               was blocked on is now established from the pinned source.
   US-IOS147   occurred_at end to end, across server, iOS and Android.
+
+================================================================================
+2026-09-26 — Owner/receiver deep dive, PHASE 1: backend safety & scheduling
+Branch: claude/app-receiver-owner-architecture-mbu4n9 (no `develop` exists yet)
+================================================================================
+
+Audit of all four surfaces (iOS receiver, iOS owner + invite flow, Android,
+backend) produced a four-phase plan. Phase 1 is the backend, because the apps
+cannot be simple or reliable on top of it as it stood.
+
+FIXED
+
+  Production bug (on main since 9eef7fb, 2026-09-10): nearly every live
+  check-in was classified as a backfill, so it never closed the pending request
+  and escalation alerted the owner about a check-in that had happened. Root
+  cause: tzOffsetMs leaked sub-second time into local midnight. Commit
+  1e812f8 is edge-only and safe to cherry-pick onto a hotfix branch.
+
+  00051  Client roles can no longer write is_system_admin, users.role, another
+         person's phone, subscription tier/limits, owner_id, check-in time or
+         the escalation clock; clients can no longer call increment_max_*
+         (bodies unchanged, so add-on purchases still grant nothing — see
+         below). Silent keep-old-value for columns shipped apps still send.
+  00052  receiver_settings.timezone follows the receiver's device (was New York
+         for everyone). Dispatch: real local midnight (US evening check-ins
+         suppressed the next morning), 10-minute catch-up for missed cron
+         ticks, wrap-around quiet hours, per-row error isolation.
+         escalation_tick never overwrites a request answered mid-tick.
+  00053  Check-in dedup on the receiver's local day (local_date), replacing the
+         UTC-day index that 500'd US morning check-ins after an evening one.
+         00049's backfill now skips rows carrying local_date (replay safety).
+  00054  redeem_invite(): atomic join, plan limit enforced at redemption,
+         owners keep their role, superseded invites expire. Durable
+         pairing-code lockout (per user / per IP; no global block, which would
+         be a platform-wide DoS), with an in-memory fallback pre-migration.
+  Edge   auto-join trusts only the Auth-verified phone; all join paths use
+         redeem_invite (with a pre-migration fallback); local_date written with
+         a pre-migration fallback; concurrent same-day check-ins return the
+         winner instead of 500; escalation re-checks pending; honest owner-alert
+         logging; viewer SMS gated on opt-in; Undo restarts the escalation clock;
+         500s no longer echo exception text.
+
+VERIFICATION
+
+  Local Postgres 16 with pg_cron/pg_net stubs: all migrations apply on a fresh
+  DB; 00049 and 00051–00054 replay cleanly. SQL tests for every guard,
+  dispatch (catch-up, evening/morning, quiet-hours wrap, bad row), escalation
+  race, redeem_invite (reuse, supersede, limit, owner role, timezone) and the
+  lockout. End-to-end: the real edge server against PostgREST 12 + an Auth
+  stub, 12 scenarios green, plus both pre-migration fallbacks. Deno 2.1.4 (CI
+  pin): lint clean, 20/20 tests; `deno check` shows only the 10 pre-existing
+  errors that come from substituting npm: for esm.sh imports (esm.sh and
+  deno.land are blocked in this container).
+
+KNOWN / NOT DONE IN PHASE 1
+
+  - SECURITY, pre-existing, needs its own change: /subscription-webhook is
+    callable by any signed-in owner and trusts the client's product_id with no
+    StoreKit / Play receipt verification, so an owner can POST a family_plus
+    product and get that tier. It is also re-sent on every launch and not
+    idempotent, which is why the add-on RPCs were left inert. Fix: verify the
+    signed transaction (App Store Server API / Play Developer API) and record
+    processed transaction ids.
+  - redeem-code trusts CF-Connecting-IP / X-Real-IP / X-Forwarded-For as sent.
+    If functions.dailyok.net is reachable without the proxy, the per-IP limit
+    can be evaded or pinned on someone else; the per-user limit still holds.
+  - Dispatch catch-up does not reach across local midnight (a 23:55 window
+    whose ticks slip past 00:00) or a spring-forward gap. Also lost before.
+
+  - The CI migration job replays every file and fails at 00001 on any DB that
+    already has the schema; production is applied by a tracker. Two files are
+    numbered 00049. Neither changed here.
+  - iOS maps every non-2xx edge response to "Could not connect", so a wrong
+    pairing code or the new limit_reached reads as a network error (Phase 2).
+  - Owner-typed receiver timezone is never stored on the invite; the device
+    zone is used at join time and kept in sync afterwards.
+
+NEXT: Phase 2 — owner-led receiver setup (invite link that works, website
+invite page, AASA/assetlinks, pending-invite list, owner onboarding that can
+actually create a family).
+
+================================================================================
+2026-09-26 — Owner/receiver deep dive, PHASE 2: owner-led receiver setup
+================================================================================
+
+FIXED
+
+  Invite text sent receivers to App Store id6742044109; the app is
+  id6760836697. The server's invite_link (/invite?token=) matched neither the
+  AASA nor any website route. Now one link, dailyok.net/invite/<token>?code=,
+  plus the setup code, in shared/invite-message.ts (tested).
+  Website: prerendered noindex /invite page (store for the visitor's phone,
+  Open Daily OK via dailyok://, the code); _redirects serves every token;
+  AASA adds /invite; assetlinks.json added with a placeholder fingerprint.
+  iOS:
+  - A signed-in user with no family no longer falls into the owner tabs
+    (where owner setup was unreachable — isOnboarding was never set true).
+    New GetStartedChoiceView: "I was invited" / "Set up check-ins".
+  - Role lookup throws on failure; last role cached per user; retry screen
+    when offline with no cache; invite links wait for a confirmed "no
+    membership" and are cleared on sign-out; token persisted across sign-in.
+  - Deep links: /invite/<token>, www host, old ?token= form (unit tested).
+  - Joins send the device timezone, show owner_name and the real time
+    (server HH:mm:ss was shown raw); server errors shown instead of
+    "Could not connect"; 409 on accept proceeds.
+  - Family tab "Waiting to Join" (re-send / cancel); invite sheet shows the
+    code, a QR of the link and a share option.
+
+VERIFICATION
+
+  Edge: deno lint clean, 22/22 tests. Website: eslint clean, 139/139 vitest,
+  production build prerenders /invite (noindex, not in sitemap), checked in
+  Chromium at 390px. iOS: NOT compiled (no Xcode; download.swift.org blocked).
+  Syntax-checked with the tree-sitter Swift grammar (only flags the same
+  `try? await` constructs it flags in the committed files) and reviewed by an
+  independent pass acting as the compiler; its findings are fixed.
+
+MANUAL STEPS STILL NEEDED
+
+  - AASA: replace TEAMID with the Apple Team ID; enable Associated Domains
+    for com.wellvo.ios, regenerate profiles, then add applinks:dailyok.net to
+    DailyOK.entitlements (website/public/.well-known/README.md).
+  - assetlinks.json: Play App Signing SHA-256.
+  Until then the website invite page is the path, and it works.
+
+NEXT: Phase 3 — receiver one-tap reliability (notification "I'm OK" in the
+background, offline queue without network lookups, stale reminders).
+
+================================================================================
+2026-09-26 — Owner/receiver deep dive, PHASE 3: receiver one-tap reliability
+================================================================================
+
+  - Notification "I'm OK" runs in the background (was .foreground and opened
+    the app on a screen still offering "I'm OK"); completion handlers wait
+    for the work; background task time requested; no location fix in the
+    background. Offline queueing uses the shared snapshot (it needed the
+    network before). The local fallback reminder's actions now work.
+  - After any check-in: snapshot marked, fallback reminder cancelled,
+    delivered check-in banners removed, open home screen refreshed.
+  - Home: offline cold launch keeps the button working; failed status query
+    keeps last known state; queued check-in shown as "saved, will send"; the
+    offline state is recomputed across midnight; snooze/undo errors never
+    offer "Try Again" (which checks in); undo keeps widget/watch signed in;
+    Today/Tomorrow/weekday label; no review prompt for receivers.
+  - A dead session online is "not signed in", never "saved offline".
+
+  Not compiled (no Xcode). Syntax-checked; two independent review passes, all
+  findings fixed.
+
+  Known gap: a check-in from the widget / Control Center runs in the widget
+  extension, which cannot cancel the app's pending fallback reminder; it is
+  cancelled the next time the app loads status.
+
+================================================================================
+2026-09-26 — Owner/receiver deep dive, PHASE 4: Android catch-up
+================================================================================
+
+  Android had not compiled in CI since at least April: `telemetryDeck = 2.3.0`
+  was never published, so every run failed at dependency resolution and no
+  compile error was ever reported. Pinned 3.0.0 (API checked against its
+  sources). `ui.navigation.UserRole` was referenced but never declared; added.
+  AuthViewModelTest passed 3 of 5 constructor args; fixed.
+
+  Behaviour fixed (none of these could have worked in a shipped build):
+  - Edge calls went to <SUPABASE_URL>/functions/v1 instead of the Deno
+    server; Functions customUrl = EDGE_FUNCTIONS_URL.
+  - Push tokens never registered (no caller, USER_ID never saved, bare-token
+    cache, Map<String, Any> body, no onConflict). FCM now data-only, every
+    server type handled, Family Updates channel.
+  - Need Help / Call Me recorded as "ok"; Call Now blocked by Android 12+.
+  - Invites 400'd (missing `name`); owner told "text sent" when nothing was;
+    now opens SMS with the server's text.
+  - Links never redeemed; auto-join passed family id as the token; failed
+    joins continued to "all set"; /invite/<token> ignored.
+  - Routing by users.role / blank name sent receivers to owner tabs; now by
+    membership with cache, retry and a start choice.
+
+  NOT compiled here (Google Maven blocked). The next CI run is the first real
+  compile in months; expect a round of fixes. Two independent compile-review
+  passes were run instead.

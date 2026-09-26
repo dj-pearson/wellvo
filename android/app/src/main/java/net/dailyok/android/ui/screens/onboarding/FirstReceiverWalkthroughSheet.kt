@@ -96,6 +96,14 @@ fun FirstReceiverWalkthroughSheet(
     val isInviting by viewModel.isInviting.collectAsState()
     val inviteSuccess by viewModel.inviteSuccess.collectAsState()
     val inviteError by viewModel.inviteError.collectAsState()
+    val inviteToSend by viewModel.inviteToSend.collectAsState()
+    val inviteContext = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(inviteToSend) {
+        inviteToSend?.let {
+            net.dailyok.android.util.InviteShare.open(inviteContext, it)
+            viewModel.onInviteHandedOff()
+        }
+    }
 
     LaunchedEffect(inviteSuccess) {
         if (inviteSuccess) {

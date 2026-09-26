@@ -266,8 +266,14 @@ async function handler(req: Request): Promise<Response> {
         return await withCors(response, req);
       } catch (error) {
         logError(`Unhandled error in ${path}`, error, { path, userId: auth.userId });
-        const message = error instanceof Error ? error.message : String(error);
-        return jsonWithCors({ error: "Internal server error", details: message }, 500, req);
+        // `details` stays for response-shape compatibility, but no longer echoes
+        // the raw exception (SQL fragments, table and column names) to callers.
+        // The full error is in the log line above.
+        return jsonWithCors(
+          { error: "Internal server error", details: "An unexpected error occurred." },
+          500,
+          req,
+        );
       }
     });
   }

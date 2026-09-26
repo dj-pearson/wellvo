@@ -1,6 +1,7 @@
 import Foundation
 import Supabase
 import WidgetKit
+import UserNotifications
 
 /// Bridges the live app session into the shared App Group snapshot consumed by
 /// Siri, the Shortcuts app, the widget, the Control Center control, and the
@@ -81,10 +82,57 @@ enum SharedCheckInPublisher {
         PhoneWatchSync.shared.sync()
     }
 
+    /// Undo of today's check-in: flip the snapshot back to "not done" without
+    /// touching the session tokens. Undo used to call `clear()`, which also
+    /// wiped the tokens and signed the widget, Siri and the watch out until the
+    /// next status load.
+    static func markNotCheckedIn() {
+        SharedCheckInStore.update {
+            $0.hasCheckedInToday = false
+            $0.lastCheckInAt = nil
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+        PhoneWatchSync.shared.sync()
+    }
+
     static func clear() {
         SharedCheckInStore.clear()
         SharedKeychain.clearTokens()
         WidgetCenter.shared.reloadAllTimelines()
         PhoneWatchSync.shared.sync()
+    }
+}
+
+/// Everything that must happen after a receiver checks in, whichever surface
+/// they used (the app, a notification action, a synced offline tap).
+///
+/// Before this, only the in-app button cancelled the local fallback reminder,
+/// and nothing removed the delivered "please check in" banners — so a receiver
+/// who answered from the notification was nagged again later, and an open home
+/// screen kept showing the "I'm OK" button for a check-in that had landed.
+enum ReceiverCheckInAftermath {
+    /// Posted after a check-in from outside the home screen (e.g. a notification
+    /// action), so an open ReceiverHomeView reloads.
+    static let didCheckIn = Notification.Name("ReceiverCheckInAftermath.didCheckIn")
+
+    @MainActor
+    static func record(at date: Date) async {
+        SharedCheckInPublisher.markCheckedIn(at: date)
+        await PushNotificationService.shared.cancelLocalCheckinFallback()
+        await removeDeliveredCheckInRequests()
+        NotificationCenter.default.post(name: didCheckIn, object: nil)
+    }
+
+    /// Clear delivered check-in prompts from Notification Center / the Lock
+    /// Screen — they are answered.
+    static func removeDeliveredCheckInRequests() async {
+        let center = UNUserNotificationCenter.current()
+        let delivered = await center.deliveredNotifications()
+        let ids = delivered
+            .filter { $0.request.content.categoryIdentifier == "CHECKIN_REQUEST" }
+            .map(\.request.identifier)
+        if !ids.isEmpty {
+            center.removeDeliveredNotifications(withIdentifiers: ids)
+        }
     }
 }

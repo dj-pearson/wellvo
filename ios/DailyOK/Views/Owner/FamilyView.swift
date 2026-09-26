@@ -21,6 +21,9 @@ struct FamilyView: View {
     @State private var pendingResendInvite: InviteDetails?
     /// Display name of the member being re-invited, for the post-send toast.
     @State private var resendTargetName: String?
+    /// Invites sent but not yet used ("Waiting to join").
+    @State private var pendingInvites: [PendingInvite] = []
+    @State private var inviteToCancel: PendingInvite?
 
     /// Receivers currently occupying a slot (active or pending invite). Excludes
     /// deactivated receivers so a removed member doesn't silently push the owner
@@ -149,6 +152,43 @@ struct FamilyView: View {
                     }
                 }
 
+                if isOwner && !pendingInvites.isEmpty {
+                    Section {
+                        ForEach(pendingInvites) { invite in
+                            PendingInviteRow(invite: invite)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button("Cancel Invite", role: .destructive) {
+                                        inviteToCancel = invite
+                                    }
+                                }
+                                .swipeActions(edge: .leading) {
+                                    Button("Re-send") {
+                                        Task { await resendPendingInvite(invite) }
+                                    }
+                                    .tint(.blue)
+                                    .disabled(resendingMemberId != nil)
+                                }
+                                .contextMenu {
+                                    Button {
+                                        Task { await resendPendingInvite(invite) }
+                                    } label: {
+                                        Label("Re-send Invite", systemImage: "arrow.clockwise")
+                                    }
+                                    .disabled(resendingMemberId != nil)
+                                    Button(role: .destructive) {
+                                        inviteToCancel = invite
+                                    } label: {
+                                        Label("Cancel Invite", systemImage: "xmark.circle")
+                                    }
+                                }
+                        }
+                    } header: {
+                        Text("Waiting to Join")
+                    } footer: {
+                        Text("Swipe right to re-send, left to cancel. A re-sent invite replaces the old link and code.")
+                    }
+                }
+
                 if isOwner {
                     Section {
                         Button {
@@ -218,6 +258,21 @@ struct FamilyView: View {
             } message: {
                 Text("Are you sure you want to transfer ownership to \(transferTarget?.user?.displayName ?? "this member")? You will become a Viewer and lose control of settings and billing.")
             }
+            .alert(
+                "Cancel Invite",
+                isPresented: Binding(
+                    get: { inviteToCancel != nil },
+                    set: { if !$0 { inviteToCancel = nil } }
+                ),
+                presenting: inviteToCancel
+            ) { invite in
+                Button("Cancel Invite", role: .destructive) {
+                    Task { await cancelInvite(invite) }
+                }
+                Button("Keep", role: .cancel) {}
+            } message: { invite in
+                Text("The link and setup code sent to \(invite.name ?? "this person") will stop working.")
+            }
             .alert("Remove Member", isPresented: $showRemoveConfirmation) {
                 Button("Remove", role: .destructive) {
                     DailyOKHaptics.warning()
@@ -240,6 +295,10 @@ struct FamilyView: View {
             family = fam
             if let fam {
                 members = try await FamilyService.shared.getFamilyMembers(familyId: fam.id)
+                if isOwner {
+                    // Non-fatal: the member list is what matters if this fails.
+                    pendingInvites = (try? await FamilyService.shared.pendingInvites(familyId: fam.id)) ?? pendingInvites
+                }
             }
         } catch {
             // Surface the failure instead of silently showing an empty list.
@@ -300,6 +359,44 @@ struct FamilyView: View {
         } catch {
             DailyOKHaptics.error()
             errorMessage = DailyOKError.network(error).localizedDescription
+        }
+    }
+
+    /// Re-send an invite that hasn't been used: the server creates a fresh link
+    /// and code and expires the old ones, then the owner sends the new text.
+    private func resendPendingInvite(_ invite: PendingInvite) async {
+        guard let family, let phone = invite.phone, resendingMemberId == nil else { return }
+        resendingMemberId = invite.id
+        errorMessage = nil
+        defer { resendingMemberId = nil }
+        do {
+            let details = try await FamilyService.shared.inviteReceiver(
+                familyId: family.id,
+                name: invite.name ?? "Family Member",
+                phone: phone,
+                checkinTime: String((invite.checkinTime ?? "08:00").prefix(5))
+            )
+            resendTargetName = invite.name ?? "them"
+            pendingResendInvite = details
+            await loadData()
+        } catch {
+            DailyOKHaptics.error()
+            errorMessage = edgeErrorMessage(error, fallback: DailyOKError.network(error).localizedDescription)
+        }
+    }
+
+    private func cancelInvite(_ invite: PendingInvite) async {
+        var failure: Error?
+        do {
+            try await FamilyService.shared.cancelInvite(id: invite.id)
+            DailyOKHaptics.success()
+        } catch {
+            failure = error
+        }
+        await loadData()
+        // After the reload, which clears errorMessage on entry.
+        if let failure {
+            errorMessage = DailyOKError.network(failure).localizedDescription
         }
     }
 
@@ -465,6 +562,49 @@ struct MemberRow: View {
     }
 }
 
+/// A sent invite nobody has used yet.
+private struct PendingInviteRow: View {
+    let invite: PendingInvite
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "envelope.badge")
+                .foregroundStyle(.orange)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(invite.name ?? "Invited")
+                    .font(.body)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            if let code = invite.pairingCode {
+                Text(code)
+                    .font(.callout.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Setup code \(code.map(String.init).joined(separator: " "))")
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var detail: String {
+        let days = Calendar.current.dateComponents([.day], from: Date(), to: invite.expiresAt).day ?? 0
+        let expiry = days >= 1
+            ? String(localized: "expires in \(days) day\(days == 1 ? "" : "s")")
+            : String(localized: "expires today")
+        if let phone = invite.phone, !phone.isEmpty {
+            return "\(phone) · \(expiry)"
+        }
+        return expiry
+    }
+}
+
 // MARK: - Invite Sheet with Setup Guide
 
 struct InviteReceiverSheet: View {
@@ -478,6 +618,8 @@ struct InviteReceiverSheet: View {
     @State private var showSetupGuide = false
     /// Drives the native Messages composer once the invite record exists.
     @State private var pendingInvite: InviteDetails?
+    /// The invite that was sent, kept for the code / QR / share shown after.
+    @State private var sentInvite: InviteDetails?
     @FocusState private var focusedField: Field?
 
     private enum Field { case name, phone }
@@ -507,8 +649,8 @@ struct InviteReceiverSheet: View {
 
                             InstructionRow(number: 1, text: "Enter their name and phone number below")
                             InstructionRow(number: 2, text: "Your Messages app opens with a ready-to-send text — you tap send")
-                            InstructionRow(number: 3, text: "They download the app and sign in with that same phone number")
-                            InstructionRow(number: 4, text: "The app automatically connects them — no codes needed")
+                            InstructionRow(number: 3, text: "They tap the link, get the app, and sign in with that same phone number")
+                            InstructionRow(number: 4, text: "They're connected automatically. On an iPad or another number, they enter the setup code from the text instead")
                         }
                         .padding(.vertical, 4)
                     }
@@ -569,6 +711,10 @@ struct InviteReceiverSheet: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
+                    }
+
+                    if let sentInvite {
+                        InviteHandoffSection(invite: sentInvite)
                     }
 
                     Section {
@@ -655,11 +801,70 @@ struct InviteReceiverSheet: View {
                 checkinTime: formatter.string(from: checkinTime)
             )
             await onComplete()
+            sentInvite = invite
             pendingInvite = invite
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = edgeErrorMessage(error, fallback: error.localizedDescription)
         }
         isLoading = false
+    }
+}
+
+/// After an invite is sent: the setup code, a QR code of the link (for when
+/// the owner is with them in person), and a way to send it by other means.
+private struct InviteHandoffSection: View {
+    let invite: InviteDetails
+
+    var body: some View {
+        Section {
+            if let code = invite.pairingCode {
+                HStack {
+                    Text("Setup code")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(code)
+                        .font(.title3.monospacedDigit().weight(.bold))
+                        .textSelection(.enabled)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Setup code \(code.map(String.init).joined(separator: " "))")
+            }
+
+            if let link = invite.inviteLink, let qr = QRCode.image(for: link) {
+                VStack(spacing: 8) {
+                    Image(uiImage: qr)
+                        .interpolation(.none)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 200, maxHeight: 200)
+                        .accessibilityLabel("QR code for the invite link")
+                    Text("With them now? They can scan this with their phone's camera.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+            }
+
+            ShareLink(item: invite.message) {
+                Label("Send the invite another way", systemImage: "square.and.arrow.up")
+            }
+        } header: {
+            Text("Other ways to connect")
+        }
+    }
+}
+
+enum QRCode {
+    /// A crisp QR code for `string`, or nil if it can't be generated.
+    static func image(for string: String) -> UIImage? {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(string.utf8)
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 10, y: 10)),
+              let cgImage = CIContext().createCGImage(output, from: output.extent) else { return nil }
+        return UIImage(cgImage: cgImage)
     }
 }
 

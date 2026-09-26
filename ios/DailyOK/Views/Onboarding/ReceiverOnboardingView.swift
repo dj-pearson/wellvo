@@ -284,7 +284,10 @@ struct ReceiverOnboardingView: View {
         } else if let autoJoin = appState.pendingAutoJoin {
             // Auto-join flow — invite already accepted server-side
             if let time = autoJoin.checkinTime {
-                checkinTimeDisplay = formatCheckinTime(time)
+                checkinTimeDisplay = formatCheckinTimeForDisplay(time)
+            }
+            if let owner = autoJoin.ownerName, !owner.isEmpty, owner != "User" {
+                ownerName = owner
             }
         }
     }
@@ -292,11 +295,27 @@ struct ReceiverOnboardingView: View {
     private func acceptInviteByToken(_ token: String) async {
         isProcessing = true
         do {
-            try await FamilyService.shared.acceptInvite(token: token)
+            let joined = try await FamilyService.shared.acceptInvite(token: token)
+            if let time = joined.checkinTime {
+                checkinTimeDisplay = formatCheckinTimeForDisplay(time)
+            }
+            if let owner = joined.ownerName, !owner.isEmpty, owner != "User" {
+                ownerName = owner
+            }
+            errorMessage = nil
+            joinFailed = false
+        } catch let error as EdgeFunctionsClient.HTTPError where error.status == 409 {
+            // "Already a member of this family" — e.g. the link tapped twice.
+            // They are linked; carry on rather than show a failure.
             errorMessage = nil
             joinFailed = false
         } catch {
-            errorMessage = String(localized: "Could not join family. The invite may have expired.")
+            // The server says why (expired, already used, family full); a
+            // network failure falls back to the generic message.
+            errorMessage = edgeErrorMessage(
+                error,
+                fallback: String(localized: "Could not join family. The invite may have expired.")
+            )
             joinFailed = true
         }
         isProcessing = false
@@ -316,16 +335,4 @@ struct ReceiverOnboardingView: View {
         appState.isOnboarding = false
     }
 
-    private func formatCheckinTime(_ time: String) -> String {
-        // `time` is the wire format "HH:mm" — parse with a fixed POSIX formatter,
-        // then render locale-aware short time for display (US-IOS044).
-        let parser = DateFormatter()
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        parser.dateFormat = "HH:mm"
-        guard let date = parser.date(from: time) else { return time }
-        let display = DateFormatter()
-        display.timeStyle = .short
-        display.dateStyle = .none
-        return display.string(from: date)
-    }
 }

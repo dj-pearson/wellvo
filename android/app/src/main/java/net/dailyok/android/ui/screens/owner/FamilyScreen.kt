@@ -505,6 +505,14 @@ private fun InviteReceiverSheet(
     val isInviting by viewModel.isInviting.collectAsState()
     val inviteSuccess by viewModel.inviteSuccess.collectAsState()
     val inviteError by viewModel.inviteError.collectAsState()
+    val inviteToSend by viewModel.inviteToSend.collectAsState()
+    val inviteContext = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(inviteToSend) {
+        inviteToSend?.let {
+            net.dailyok.android.util.InviteShare.open(inviteContext, it)
+            viewModel.onInviteHandedOff()
+        }
+    }
 
     val phoneValid = isValidPhone(phone)
     val canSend = name.isNotBlank() && phoneValid && !isInviting
@@ -660,7 +668,7 @@ private fun InviteReceiverSheet(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "A text message has been sent to $phone with instructions to download and set up the app.",
+                        text = "Your messages app opened with the invite for $phone. Once you send it, they tap the link, get the app, and are connected. The text also has a setup code for an iPad or another number.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center

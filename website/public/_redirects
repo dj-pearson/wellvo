@@ -2,6 +2,12 @@
 /admin      /   200
 /admin/*    /   200
 
+# Receiver invites (dailyok.net/invite/<token>?code=…). The token differs per
+# invite, so every one is served the prerendered /invite page, which reads the
+# token client-side. When the app is installed and Universal Links / App Links
+# are configured, the OS opens the app and this is never reached.
+/invite/*   /invite/index.html   200
+
 # Blog posts are prerendered to their own HTML (US-WEB008), and Cloudflare
 # Pages serves a matching static file before consulting this file. This rule
 # is only reached by a post published since the last build — the generation
