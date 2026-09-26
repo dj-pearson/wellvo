@@ -4700,3 +4700,31 @@ background, offline queue without network lookups, stale reminders).
   Known gap: a check-in from the widget / Control Center runs in the widget
   extension, which cannot cancel the app's pending fallback reminder; it is
   cancelled the next time the app loads status.
+
+================================================================================
+2026-09-26 — Owner/receiver deep dive, PHASE 4: Android catch-up
+================================================================================
+
+  Android had not compiled in CI since at least April: `telemetryDeck = 2.3.0`
+  was never published, so every run failed at dependency resolution and no
+  compile error was ever reported. Pinned 3.0.0 (API checked against its
+  sources). `ui.navigation.UserRole` was referenced but never declared; added.
+  AuthViewModelTest passed 3 of 5 constructor args; fixed.
+
+  Behaviour fixed (none of these could have worked in a shipped build):
+  - Edge calls went to <SUPABASE_URL>/functions/v1 instead of the Deno
+    server; Functions customUrl = EDGE_FUNCTIONS_URL.
+  - Push tokens never registered (no caller, USER_ID never saved, bare-token
+    cache, Map<String, Any> body, no onConflict). FCM now data-only, every
+    server type handled, Family Updates channel.
+  - Need Help / Call Me recorded as "ok"; Call Now blocked by Android 12+.
+  - Invites 400'd (missing `name`); owner told "text sent" when nothing was;
+    now opens SMS with the server's text.
+  - Links never redeemed; auto-join passed family id as the token; failed
+    joins continued to "all set"; /invite/<token> ignored.
+  - Routing by users.role / blank name sent receivers to owner tabs; now by
+    membership with cache, retry and a start choice.
+
+  NOT compiled here (Google Maven blocked). The next CI run is the first real
+  compile in months; expect a round of fixes. Two independent compile-review
+  passes were run instead.
