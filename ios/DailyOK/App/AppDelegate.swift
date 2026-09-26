@@ -143,9 +143,22 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
         switch NotificationRoute.route(for: response.actionIdentifier) {
         case .checkIn(let responseType):
-            handleCheckInFromNotification(userInfo: userInfo, responseType: responseType)
+            // "I'm OK" runs in the background now. iOS keeps the app alive only
+            // until completionHandler is called, so call it when the check-in
+            // has actually been sent (or queued) — not before.
+            Task { @MainActor in
+                await handleCheckInFromNotification(userInfo: userInfo, responseType: responseType)
+                completionHandler()
+            }
+            return
         case .snooze:
-            handleSnoozeFromNotification(userInfo: userInfo)
+            // Same for the background snooze: calling completionHandler first
+            // let iOS suspend the app before the snooze reached the server.
+            Task { @MainActor in
+                await handleSnoozeFromNotification(userInfo: userInfo)
+                completionHandler()
+            }
+            return
         case .callReceiver:
             handleCallReceiver(userInfo: userInfo)
         case .viewDetails:
@@ -169,10 +182,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     // MARK: - Private
 
     private func registerNotificationCategories() {
+        // Background: one tap on the Lock Screen checks in without opening the
+        // app. It used to be `.foreground`, which opened the app on a home screen
+        // still showing "I'm OK" while the check-in was in flight, so receivers
+        // tapped twice. The session is readable while locked
+        // (AfterFirstUnlock), so no unlock is needed either.
         let okAction = UNNotificationAction(
             identifier: "CHECKIN_OK_ACTION",
             title: "I'm OK ✓",
-            options: [.foreground]
+            options: []
         )
 
         let needHelpAction = UNNotificationAction(
@@ -287,96 +305,157 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         }
     }
 
-    private func handleSnoozeFromNotification(userInfo: [AnyHashable: Any]) {
-        guard let requestIdString = userInfo["checkin_request_id"] as? String,
-              let requestId = UUID(uuidString: requestIdString) else { return }
-        Task {
+    @MainActor
+    private func handleSnoozeFromNotification(userInfo: [AnyHashable: Any]) async {
+        if let requestIdString = userInfo["checkin_request_id"] as? String,
+           let requestId = UUID(uuidString: requestIdString) {
             // Defer escalation server-side (best-effort; bounded server-side).
             do {
                 try await CheckInService.shared.snoozeCheckIn(requestId: requestId)
             } catch {
                 Log.checkIn.error("Notification snooze failed: \(error.localizedDescription, privacy: .public)")
             }
-            // Re-arm the local fallback reminder regardless, so the receiver is
-            // nudged again in 15 minutes even if the snooze POST didn't land.
-            await PushNotificationService.shared.scheduleLocalCheckinFallback(
-                at: Date().addingTimeInterval(15 * 60),
-                isKidMode: false
+        }
+        // Re-arm the local fallback reminder regardless, so the receiver is
+        // nudged again in 15 minutes even if the snooze POST didn't land.
+        await PushNotificationService.shared.scheduleLocalCheckinFallback(
+            at: Date().addingTimeInterval(15 * 60),
+            isKidMode: false
+        )
+    }
+
+    /// The family this device's receiver checks in to, without a network call:
+    /// from the shared snapshot the app publishes on every status load. The
+    /// offline path used to call FamilyService.getFamily(), which needs the
+    /// network — so exactly the check-ins that needed queueing were dropped.
+    @MainActor
+    private func cachedReceiverFamilyId() -> UUID? {
+        SharedCheckInStore.load().flatMap { UUID(uuidString: $0.familyId) }
+    }
+
+    @MainActor
+    private func handleCheckInFromNotification(userInfo: [AnyHashable: Any], responseType: CheckInResponseType) async {
+        // Which scheduled window this notification is chasing (US-IOS138). Used
+        // ONLY where the server can't read it off the request: online,
+        // respondToCheckIn identifies the check-in by request id and the server
+        // reads the slot from the request itself, which is authoritative.
+        let slotKey = userInfo["slot_key"] as? String
+
+        guard let requestId = userInfo["checkin_request_id"] as? String else {
+            // The app's own local fallback reminder carries no request id. Its
+            // "I'm OK" used to do nothing at all (masked while the action opened
+            // the app); check in directly instead.
+            await checkInWithoutRequest(responseType: responseType, slotKey: slotKey)
+            return
+        }
+
+        do {
+            // Get current location and battery for the check-in response
+            let location = await LocationService.shared.getCurrentLocation()
+
+            UIDevice.current.isBatteryMonitoringEnabled = true
+            let batteryLevel = UIDevice.current.batteryLevel
+            let battery: Double? = batteryLevel >= 0 ? Double(batteryLevel) : nil
+
+            try await CheckInService.shared.respondToCheckIn(
+                requestId: requestId,
+                source: .notification,
+                responseType: responseType,
+                location: location,
+                batteryLevel: battery
             )
+            await ReceiverCheckInAftermath.record(at: Date())
+        } catch {
+            Log.checkIn.error("Notification check-in response failed: \(error.localizedDescription, privacy: .public)")
+            // Decide offline-vs-hard-error from the ERROR itself, not the
+            // asynchronously-updated `isOnline` flag — NWPathMonitor often
+            // hasn't flipped to offline yet when the radio drops mid-request.
+            // Mirrors `OfflineCheckInService.performCheckIn`.
+            let connectivity = OfflineCheckInService.isConnectivityError(error)
+            if responseType == .ok, connectivity {
+                // Offline plain "I'm OK": persist so it syncs later. The
+                // per-slot, per-day dedup on both the queue (US-IOS137) and the
+                // edge function keeps this from duplicating a phone check-in.
+                if await queueOfflineCheckIn(slotKey: slotKey) {
+                    await ReceiverCheckInAftermath.record(at: Date())
+                } else {
+                    // Couldn't even persist it — don't let the receiver believe
+                    // their check-in landed.
+                    await PushNotificationService.shared.presentCheckInResponseFailed(urgent: false)
+                }
+            } else if connectivity {
+                // Offline urgent response (need help / call me). We deliberately
+                // do NOT queue an urgent signal for silent later delivery — it
+                // must reach the owner live — but the receiver must know it
+                // didn't send so they can retry or reach out another way.
+                await PushNotificationService.shared.presentCheckInResponseFailed(urgent: true)
+            }
+            // A non-connectivity error means the server received and rejected
+            // the request (e.g. already resolved) — no phantom-success risk,
+            // so no extra alert.
         }
     }
 
-    private func handleCheckInFromNotification(userInfo: [AnyHashable: Any], responseType: CheckInResponseType) {
-        guard let requestId = userInfo["checkin_request_id"] as? String else { return }
-        // Which scheduled window this notification is chasing (US-IOS138). Used
-        // ONLY on the offline branch below: online, respondToCheckIn identifies
-        // the check-in by request id and the server reads the slot off the
-        // request itself, which is authoritative and must not be overridden by
-        // anything the payload claims. Absent for on-demand requests, for
-        // single-window schedules, and for notifications sent by a backend that
-        // predates this field — all of which mean day-level.
-        let slotKey = userInfo["slot_key"] as? String
-        Task {
+    /// Queue an offline "I'm OK" for later sync. Needs no network: the family
+    /// and receiver come from the shared snapshot. Returns whether it was saved.
+    @MainActor
+    private func queueOfflineCheckIn(slotKey: String?) async -> Bool {
+        guard let snapshot = SharedCheckInStore.load(),
+              let familyId = UUID(uuidString: snapshot.familyId),
+              let receiverId = UUID(uuidString: snapshot.receiverId) else { return false }
+        do {
+            try OfflineCheckInService.shared.queueCheckIn(
+                familyId: familyId,
+                receiverId: receiverId,
+                mood: nil,
+                source: .notification,
+                slotKey: slotKey
+            )
+            return true
+        } catch {
+            Log.checkIn.error("Failed to queue offline notification check-in: \(error.localizedDescription, privacy: .public)")
+            return false
+        }
+    }
+
+    /// Check in from a notification that isn't tied to a server request (the
+    /// local fallback reminder).
+    @MainActor
+    private func checkInWithoutRequest(responseType: CheckInResponseType, slotKey: String?) async {
+        guard let familyId = cachedReceiverFamilyId() else {
+            // Nothing to check in to on this device (not a receiver, or the app
+            // has never loaded). The receiver must hear that it didn't send.
+            await PushNotificationService.shared.presentCheckInResponseFailed(urgent: responseType != .ok)
+            return
+        }
+        if responseType == .ok {
             do {
-                // Get current location and battery for the check-in response
-                let location = await LocationService.shared.getCurrentLocation()
-
-                UIDevice.current.isBatteryMonitoringEnabled = true
-                let batteryLevel = UIDevice.current.batteryLevel
-                let battery: Double? = batteryLevel >= 0 ? Double(batteryLevel) : nil
-
-                try await CheckInService.shared.respondToCheckIn(
-                    requestId: requestId,
+                _ = try await OfflineCheckInService.shared.performCheckIn(
+                    familyId: familyId,
+                    source: .notification,
+                    slotKey: slotKey
+                )
+                await ReceiverCheckInAftermath.record(at: Date())
+            } catch is NetworkError {
+                // Queued for sync by performCheckIn.
+                await ReceiverCheckInAftermath.record(at: Date())
+            } catch {
+                Log.checkIn.error("Fallback-reminder check-in failed: \(error.localizedDescription, privacy: .public)")
+                await PushNotificationService.shared.presentCheckInResponseFailed(urgent: false)
+            }
+        } else {
+            // Need help / call me: must reach the owner live, never queued.
+            do {
+                _ = try await CheckInService.shared.checkIn(
+                    familyId: familyId,
                     source: .notification,
                     responseType: responseType,
-                    location: location,
-                    batteryLevel: battery
+                    slotKey: slotKey
                 )
+                await ReceiverCheckInAftermath.record(at: Date())
             } catch {
-                Log.checkIn.error("Notification check-in response failed: \(error.localizedDescription, privacy: .public)")
-                // Decide offline-vs-hard-error from the ERROR itself, not the
-                // asynchronously-updated `isOnline` flag — NWPathMonitor often
-                // hasn't flipped to offline yet when the radio drops mid-request,
-                // which previously left a genuine-offline check-in un-queued (the
-                // exact false-escalation risk we want to avoid). Mirrors
-                // `OfflineCheckInService.performCheckIn`.
-                let connectivity = OfflineCheckInService.isConnectivityError(error)
-                if responseType == .ok, connectivity {
-                    // Offline plain "I'm OK": persist so it syncs later. The
-                    // per-slot, per-day dedup on both the queue (US-IOS137) and
-                    // the edge function keeps this from creating a duplicate if
-                    // the phone also checks in for the same window.
-                    var queued = false
-                    if let family = try? await FamilyService.shared.getFamily(),
-                       let session = try? await SupabaseService.shared.client.auth.session {
-                        do {
-                            try await OfflineCheckInService.shared.queueCheckIn(
-                                familyId: family.id,
-                                receiverId: session.user.id,
-                                mood: nil,
-                                source: .notification,
-                                slotKey: slotKey
-                            )
-                            queued = true
-                        } catch {
-                            Log.checkIn.error("Failed to queue offline notification check-in: \(error.localizedDescription, privacy: .public)")
-                        }
-                    }
-                    if !queued {
-                        // Couldn't even persist it — don't let the receiver believe
-                        // their check-in landed.
-                        await PushNotificationService.shared.presentCheckInResponseFailed(urgent: false)
-                    }
-                } else if connectivity {
-                    // Offline urgent response (need help / call me). We deliberately
-                    // do NOT queue an urgent signal for silent later delivery — it
-                    // must reach the owner live — but the receiver must know it
-                    // didn't send so they can retry or reach out another way.
-                    await PushNotificationService.shared.presentCheckInResponseFailed(urgent: true)
-                }
-                // A non-connectivity error means the server received and rejected
-                // the request (e.g. already resolved) — no phantom-success risk,
-                // so no extra alert.
+                Log.checkIn.error("Fallback-reminder urgent response failed: \(error.localizedDescription, privacy: .public)")
+                await PushNotificationService.shared.presentCheckInResponseFailed(urgent: true)
             }
         }
     }
