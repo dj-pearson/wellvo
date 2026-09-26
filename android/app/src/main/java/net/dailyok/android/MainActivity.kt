@@ -31,6 +31,8 @@ import kotlinx.serialization.Serializable
 import net.dailyok.android.ui.navigation.AuthState
 import net.dailyok.android.ui.navigation.NotificationContext
 import net.dailyok.android.ui.navigation.UserRole
+import net.dailyok.android.ui.navigation.toModelRole
+import net.dailyok.android.ui.navigation.toNavRole
 import net.dailyok.android.ui.navigation.DailyOKNavHost
 import net.dailyok.android.ui.theme.DailyOKTheme
 import net.dailyok.android.viewmodels.AuthViewModel
@@ -144,9 +146,15 @@ class MainActivity : ComponentActivity() {
     private fun handleDeepLinkIntent(intent: Intent?) {
         val data = intent?.data ?: return
 
-        // Handle https://dailyok.net/invite?token=<token>
-        if (data.host == "dailyok.net" && data.path?.startsWith("/invite") == true) {
-            val token = data.getQueryParameter("token")
+        // https://dailyok.net/invite/<token>?code=… (the invite text) and the
+        // older https://dailyok.net/invite?token=… form. Only the query form
+        // was read, so the links the server now sends were ignored.
+        if ((data.host == "dailyok.net" || data.host == "www.dailyok.net") &&
+            data.path?.startsWith("/invite") == true
+        ) {
+            val segments = data.pathSegments
+            val token = if (segments.size == 2 && segments[0] == "invite") segments[1]
+            else data.getQueryParameter("token")
             if (token != null && isValidInviteToken(token)) {
                 pendingInviteToken = token
                 intent?.data = null
@@ -190,24 +198,21 @@ fun DailyOKApp(
     }
 
     val pendingAutoJoin by authViewModel.pendingAutoJoin.collectAsState()
+    val membership by authViewModel.membership.collectAsState()
+    val setupChoice by authViewModel.setupChoice.collectAsState()
 
-    val userRole: UserRole? = when (val state = authState) {
-        is AuthState.Authenticated -> when (state.user.role) {
-            net.dailyok.android.data.models.UserRole.Owner -> UserRole.Owner
-            net.dailyok.android.data.models.UserRole.Receiver -> UserRole.Receiver
-            net.dailyok.android.data.models.UserRole.Viewer -> UserRole.Viewer
-        }
-        else -> null
-    }
-
-    val isNewUser = authState is AuthState.Authenticated &&
-        (authState as AuthState.Authenticated).user.displayName.isBlank()
+    // Route by actual family membership (AuthViewModel.resolveMembership), not
+    // users.role, which is "owner" for every account until a join rewrites it.
+    val userRole: UserRole? = (membership as? net.dailyok.android.viewmodels.Membership.Member)
+        ?.role?.toNavRole()
+    val membershipResolved = membership is net.dailyok.android.viewmodels.Membership.None
+    val membershipFailed = membership is net.dailyok.android.viewmodels.Membership.Failed
 
     val hasAutoJoin = pendingAutoJoin != null
-
-    // Deep link invite token takes priority over auto-join
-    val effectiveInviteToken = deepLinkInviteToken
-        ?: if (hasAutoJoin) pendingAutoJoin?.familyId else null
+    // A link's token is redeemed by ReceiverOnboarding. After a phone-number
+    // auto-join there is no token — the join already happened server-side.
+    // (It used to pass the family id as the token, which then failed to redeem.)
+    val showReceiverOnboarding = deepLinkInviteToken != null || hasAutoJoin
 
     if (uiState.showReauthPrompt) {
         AlertDialog(
@@ -233,14 +238,27 @@ fun DailyOKApp(
                 navController = navController,
                 authState = authState,
                 userRole = userRole,
-                isOnboarding = isNewUser && !hasAutoJoin && deepLinkInviteToken == null,
-                pendingInviteToken = effectiveInviteToken,
-                showPairingCode = false,
+                isOnboarding = setupChoice == net.dailyok.android.viewmodels.SetupChoice.OwnerSetup,
+                pendingInviteToken = deepLinkInviteToken,
+                showPairingCode = setupChoice == net.dailyok.android.viewmodels.SetupChoice.CodeEntry,
                 notificationContext = notificationContext,
-                onNotificationHandled = {
-                    onNotificationHandled()
+                onNotificationHandled = onNotificationHandled,
+                showReceiverOnboarding = showReceiverOnboarding,
+                membershipResolved = membershipResolved,
+                membershipFailed = membershipFailed,
+                onJoined = { role ->
+                    authViewModel.onJoined(role.toModelRole())
                     onDeepLinkHandled()
                 },
+                onJoinCancelled = {
+                    authViewModel.onJoinCancelled()
+                    onDeepLinkHandled()
+                },
+                onChooseCodeEntry = authViewModel::chooseCodeEntry,
+                onChooseOwnerSetup = authViewModel::chooseOwnerSetup,
+                onBackToChoice = authViewModel::clearSetupChoice,
+                onRetryMembership = authViewModel::retryMembership,
+                onSignOut = authViewModel::signOut,
                 modifier = Modifier.padding(innerPadding)
             )
         }

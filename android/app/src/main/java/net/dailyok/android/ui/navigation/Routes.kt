@@ -9,6 +9,8 @@ sealed class Route(val route: String) {
     data object ViewerTabs : Route("viewer_tabs")
     data object PairingCode : Route("pairing_code")
     data object ReceiverOnboarding : Route("receiver_onboarding")
+    data object GetStarted : Route("get_started")
+    data object MembershipFailed : Route("membership_failed")
 }
 
 sealed class OwnerTab(val route: String, val label: String, val icon: String) {

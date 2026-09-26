@@ -77,17 +77,26 @@ class FamilyViewModel @Inject constructor(
         }
     }
 
+    /** An invite waiting for the owner to send it from their messaging app. */
+    private val _inviteToSend = MutableStateFlow<net.dailyok.android.util.InviteToSend?>(null)
+    val inviteToSend: StateFlow<net.dailyok.android.util.InviteToSend?> = _inviteToSend.asStateFlow()
+
+    /** The screen opened the messaging app for [inviteToSend]. */
+    fun onInviteHandedOff() {
+        _inviteToSend.value = null
+    }
+
     fun resendInvite(member: FamilyMember) {
         val familyId = _family.value?.id ?: return
         viewModelScope.launch {
             try {
-                familyService.inviteReceiver(
+                _inviteToSend.value = familyService.inviteReceiver(
                     familyId = familyId,
                     name = member.user?.displayName ?: "Family Member",
                     phone = member.user?.phone ?: "",
                     checkinTime = "08:00"
                 )
-                _successMessage.value = "Invite re-sent to ${member.user?.displayName ?: "member"}."
+                _successMessage.value = "New invite ready for ${member.user?.displayName ?: "member"}."
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Failed to re-send invite."
             }
@@ -116,7 +125,7 @@ class FamilyViewModel @Inject constructor(
             _isInviting.value = true
             _inviteError.value = null
             try {
-                familyService.inviteReceiver(
+                _inviteToSend.value = familyService.inviteReceiver(
                     familyId = familyId,
                     name = name,
                     phone = phone,
@@ -125,7 +134,7 @@ class FamilyViewModel @Inject constructor(
                 )
                 analyticsService.track(AnalyticsService.RECEIVER_INVITED)
                 _inviteSuccess.value = true
-                _successMessage.value = "Invitation sent to $name."
+                _successMessage.value = "Invite ready for $name — send it from your messages."
                 _family.value?.let { loadFamily(it.ownerId) }
             } catch (e: DailyOKError.Network) {
                 _inviteError.value = "Network error. Please check your connection and try again."

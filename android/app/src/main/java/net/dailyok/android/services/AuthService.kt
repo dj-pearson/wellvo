@@ -206,6 +206,41 @@ class AuthService @Inject constructor(
         return supabase.auth.currentUserOrNull()?.id
     }
 
+    @kotlinx.serialization.Serializable
+    private data class IdOnly(val id: String)
+
+    @kotlinx.serialization.Serializable
+    private data class RoleOnly(val role: net.dailyok.android.data.models.UserRole)
+
+    /**
+     * The signed-in user's role from their actual family membership: owner of
+     * a family, else their active member role, else null (no family yet).
+     * THROWS if the lookup fails — a failure is not "no family".
+     *
+     * Routing used users.role, which defaults to "owner" for every account,
+     * so a receiver whose join hadn't completed landed in the owner tabs.
+     */
+    suspend fun currentMembershipRole(): net.dailyok.android.data.models.UserRole? {
+        val userId = currentUserId() ?: return null
+        val owned = supabase.postgrest.from("families")
+            .select(Columns.list("id")) {
+                filter { eq("owner_id", userId) }
+                limit(1)
+            }
+            .decodeList<IdOnly>()
+        if (owned.isNotEmpty()) return net.dailyok.android.data.models.UserRole.Owner
+
+        return supabase.postgrest.from("family_members")
+            .select(Columns.list("role")) {
+                filter { eq("user_id", userId) }
+                filter { eq("status", "active") }
+                limit(1)
+            }
+            .decodeList<RoleOnly>()
+            .firstOrNull()
+            ?.role
+    }
+
     suspend fun refreshSession() {
         try {
             supabase.auth.refreshCurrentSession()

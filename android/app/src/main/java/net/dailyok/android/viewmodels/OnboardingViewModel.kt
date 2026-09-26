@@ -56,7 +56,9 @@ data class OnboardingUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val notificationPermissionGranted: Boolean = false,
-    val isComplete: Boolean = false
+    val isComplete: Boolean = false,
+    /** Created invite waiting for the owner to send from their messages app. */
+    val inviteToSend: net.dailyok.android.util.InviteToSend? = null
 )
 
 @HiltViewModel
@@ -191,15 +193,28 @@ class OnboardingViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             try {
-                apiService.inviteReceiver(
+                val checkinTime = "%02d:%02d".format(state.checkinHour, state.checkinMinute)
+                val response = apiService.inviteReceiver(
                     net.dailyok.android.network.InviteReceiverRequest(
                         familyId = family.id,
                         phone = state.receiverPhone,
                         displayName = state.receiverName,
-                        receiverMode = state.selectedUserType?.serialName ?: "standard"
+                        // receiver_mode is 'standard' | 'kid'; the user-type
+                        // name ("aging_parent") was never a valid value.
+                        receiverMode = "standard",
+                        checkinTime = checkinTime
                     )
                 )
-                _uiState.value = _uiState.value.copy(isLoading = false)
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    inviteToSend = net.dailyok.android.util.InviteToSend(
+                        phone = state.receiverPhone,
+                        message = net.dailyok.android.util.InviteShare.message(
+                            state.receiverName, response.inviteLink, response.pairingCode, response.inviteMessage
+                        ),
+                        pairingCode = response.pairingCode
+                    )
+                )
                 advance()
             } catch (e: DailyOKError) {
                 _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = e.localizedMessage)
@@ -207,6 +222,10 @@ class OnboardingViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = e.message ?: "Failed to invite receiver.")
             }
         }
+    }
+
+    fun onInviteHandedOff() {
+        _uiState.value = _uiState.value.copy(inviteToSend = null)
     }
 
     fun skipAddReceiver() {

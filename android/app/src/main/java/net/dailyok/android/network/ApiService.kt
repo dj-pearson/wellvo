@@ -1,6 +1,7 @@
 package net.dailyok.android.network
 
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.exceptions.RestException
 import io.github.jan.supabase.functions.functions
 import io.ktor.client.call.body
 import io.ktor.http.Headers
@@ -9,6 +10,9 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -66,7 +70,34 @@ data class InviteReceiverRequest(
     val familyId: String,
     val phone: String,
     val displayName: String,
-    val receiverMode: String = "standard"
+    val receiverMode: String = "standard",
+    /** "HH:mm", 24-hour. */
+    val checkinTime: String? = null
+)
+
+/** What invite-receiver returns on create: everything the owner sends. */
+@Serializable
+data class InviteResponse(
+    val success: Boolean? = null,
+    @kotlinx.serialization.SerialName("invite_link")
+    val inviteLink: String? = null,
+    @kotlinx.serialization.SerialName("pairing_code")
+    val pairingCode: String? = null,
+    @kotlinx.serialization.SerialName("invite_message")
+    val inviteMessage: String? = null
+)
+
+/** A successful join (accept / redeem-code). */
+@Serializable
+data class JoinResponse(
+    val success: Boolean? = null,
+    @kotlinx.serialization.SerialName("family_id")
+    val familyId: String? = null,
+    val role: String? = null,
+    @kotlinx.serialization.SerialName("checkin_time")
+    val checkinTime: String? = null,
+    @kotlinx.serialization.SerialName("owner_name")
+    val ownerName: String? = null
 )
 
 @Serializable
@@ -129,6 +160,12 @@ class ApiService @Inject constructor(
                 }
             } catch (e: DailyOKError) {
                 throw e
+            } catch (e: RestException) {
+                // supabase-kt throws for any non-2xx before the status checks
+                // above run, and its message carries the request URL and
+                // headers — which the old catch-all showed to users as a
+                // "network error". Use the function's own "error" text.
+                throw rejection(e.statusCode, e.error)
             } catch (e: java.net.UnknownHostException) {
                 throw DailyOKError.Offline()
             } catch (e: java.net.SocketTimeoutException) {
@@ -136,6 +173,18 @@ class ApiService @Inject constructor(
             } catch (e: Exception) {
                 throw DailyOKError.Network(e.message ?: "Network error")
             }
+        }
+    }
+
+    private fun rejection(status: Int, body: String): DailyOKError {
+        val serverMessage = runCatching {
+            json.parseToJsonElement(body).jsonObject["error"]?.jsonPrimitive?.contentOrNull
+        }.getOrNull()
+        return when (status) {
+            401 -> DailyOKError.Auth()
+            in 500..599 -> DailyOKError.ServerError()
+            429 -> DailyOKError.Rejected(status, serverMessage ?: "Too many attempts. Please wait and try again.")
+            else -> DailyOKError.Rejected(status, serverMessage ?: "Something went wrong. Please try again.")
         }
     }
 
@@ -196,24 +245,43 @@ class ApiService @Inject constructor(
         })
     }
 
-    suspend fun inviteReceiver(request: InviteReceiverRequest): String {
-        return invokeFunction("invite-receiver", buildJsonObject {
+    suspend fun inviteReceiver(request: InviteReceiverRequest): InviteResponse {
+        // The server requires `name` (it never read display_name, so every
+        // Android invite was a 400) and uses checkin_time / timezone.
+        val responseBody = invokeFunction("invite-receiver", buildJsonObject {
             put("family_id", request.familyId)
             put("phone", request.phone)
+            put("name", request.displayName)
             put("display_name", request.displayName)
             put("receiver_mode", request.receiverMode)
+            request.checkinTime?.let { put("checkin_time", it) }
+            put("timezone", java.time.ZoneId.systemDefault().id)
         })
+        return json.decodeFromString<InviteResponse>(responseBody)
+    }
+
+    /** Redeem an invite link's token (invite-receiver, action "accept"). */
+    suspend fun acceptInvite(token: String): JoinResponse {
+        val responseBody = invokeFunction("invite-receiver", buildJsonObject {
+            put("action", "accept")
+            put("token", token)
+            put("timezone", java.time.ZoneId.systemDefault().id)
+        })
+        return json.decodeFromString<JoinResponse>(responseBody)
     }
 
     suspend fun redeemCode(code: String): RedeemCodeResponse {
         val responseBody = invokeFunction("redeem-code", buildJsonObject {
             put("code", code)
+            put("timezone", java.time.ZoneId.systemDefault().id)
         })
         return json.decodeFromString<RedeemCodeResponse>(responseBody)
     }
 
     suspend fun autoJoin(): AutoJoinResponse {
-        val responseBody = invokeFunction("auto-join", buildJsonObject { })
+        val responseBody = invokeFunction("auto-join", buildJsonObject {
+            put("timezone", java.time.ZoneId.systemDefault().id)
+        })
         return json.decodeFromString<AutoJoinResponse>(responseBody)
     }
 
