@@ -24,6 +24,10 @@ data class CheckInResponseRequest(
     val longitude: Double? = null,
     val locationAccuracyMeters: Double? = null,
     val kidResponseType: String? = null,
+    /** "ok" (default server-side), "need_help" or "call_me". */
+    val responseType: String? = null,
+    /** 0.0–1.0; the owner sees it with the check-in. */
+    val batteryLevel: Double? = null,
     /**
      * RFC 3339 instant the check-in was actually made, for a check-in replayed
      * from the offline queue (US-IOS147). Null for a live check-in, where the
@@ -149,6 +153,11 @@ class ApiService @Inject constructor(
             request.longitude?.let { put("longitude", it) }
             request.locationAccuracyMeters?.let { put("location_accuracy_meters", it) }
             request.kidResponseType?.let { put("kid_response_type", it) }
+            // Without response_type the server records "ok": "I Need Help"
+            // and "Call Me" from a notification were logged as fine and no
+            // urgent alert reached the owner.
+            request.responseType?.let { put("response_type", it) }
+            request.batteryLevel?.let { put("battery_level", it) }
             // US-IOS147. Without this the server stamps checked_in_at with
             // now(), so a check-in queued Monday and synced Thursday is
             // recorded as a Thursday check-in nobody made and the owner's

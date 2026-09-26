@@ -123,18 +123,17 @@ export async function sendFCMNotification(
     const message: Record<string, unknown> = {
       message: {
         token,
-        notification: {
-          title: payload.title,
-          body: payload.body,
-        },
+        // Data-only, high priority. With a `notification` block Android shows
+        // the system notification itself whenever the app isn't in the
+        // foreground and never calls onMessageReceived — so check-in prompts
+        // had no "I'm OK" button and every alert landed on the check-in
+        // channel. The app builds each notification (actions, channel) from
+        // this data, so title and body travel in it. No shipped Android build
+        // ever registered a token, so none relies on the old shape.
         android: {
           priority: "high",
-          notification: {
-            channel_id: "checkin_requests",
-            sound: "default",
-          },
         },
-        data: payload.data || {},
+        data: buildFCMData(payload),
       },
     };
 
@@ -176,6 +175,15 @@ export async function sendFCMNotification(
       reason,
     };
   }
+}
+
+/** FCM data (string values only) carrying the title and body the app shows. */
+export function buildFCMData(payload: FCMPayload): Record<string, string> {
+  return {
+    ...(payload.data || {}),
+    title: payload.data?.title ?? payload.title,
+    body: payload.data?.body ?? payload.body,
+  };
 }
 
 export function buildFCMAlertPayload(

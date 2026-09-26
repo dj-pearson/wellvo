@@ -64,7 +64,14 @@ class AuthViewModelTest {
     }
 
     private fun createViewModel(): AuthViewModel {
-        return AuthViewModel(authService, apiService, analyticsService)
+        return AuthViewModel(
+            authService,
+            apiService,
+            analyticsService,
+            biometricService = mockk(relaxed = true),
+            secureStorage = mockk(relaxed = true),
+            pushNotificationService = mockk(relaxed = true)
+        )
     }
 
     @Test

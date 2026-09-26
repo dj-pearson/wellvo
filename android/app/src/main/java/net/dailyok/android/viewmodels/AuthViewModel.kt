@@ -1,5 +1,7 @@
 package net.dailyok.android.viewmodels
 
+import net.dailyok.android.services.PushNotificationService
+
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -51,7 +53,8 @@ class AuthViewModel @Inject constructor(
     private val apiService: ApiService,
     private val analyticsService: AnalyticsService,
     val biometricService: BiometricService,
-    private val secureStorage: SecureStorage
+    private val secureStorage: SecureStorage,
+    private val pushNotificationService: PushNotificationService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -107,6 +110,11 @@ class AuthViewModel @Inject constructor(
     }
 
     private suspend fun fetchUserAndAuthenticate() {
+        // Register this device for push as soon as someone is signed in. Off
+        // the critical path: routing must not wait on Firebase.
+        authService.currentUserId()?.let { userId ->
+            viewModelScope.launch { pushNotificationService.onSignedIn(userId) }
+        }
         val user = authService.getCurrentUser()
         if (user != null) {
             // Keep users.timezone aligned with device zone so the edge
@@ -326,6 +334,8 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             analyticsService.track(AnalyticsService.SIGN_OUT)
             biometricService.reset()
+            // Before the session goes: deactivating the token needs it.
+            pushNotificationService.onSignedOut()
             authService.signOut()
             _uiState.value = AuthUiState()
         }

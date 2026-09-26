@@ -1,6 +1,7 @@
 package net.dailyok.android
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,7 +21,13 @@ import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.postgrest.postgrest
+import javax.inject.Inject
+import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import net.dailyok.android.ui.navigation.AuthState
 import net.dailyok.android.ui.navigation.NotificationContext
 import net.dailyok.android.ui.navigation.UserRole
@@ -30,6 +37,17 @@ import net.dailyok.android.viewmodels.AuthViewModel
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    companion object {
+        /** "Call Now" on an urgent alert: the receiver to phone. */
+        const val EXTRA_CALL_RECEIVER_ID = "call_receiver_id"
+    }
+
+    @Inject
+    lateinit var supabase: SupabaseClient
+
+    @Serializable
+    private data class ReceiverPhone(val phone: String? = null)
 
     private var notificationContext by mutableStateOf<NotificationContext?>(null)
     private var pendingInviteToken by mutableStateOf<String?>(null)
@@ -45,6 +63,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         handleNotificationIntent(intent)
         handleDeepLinkIntent(intent)
+        handleCallIntent(intent)
         setContent {
             DailyOKTheme {
                 DailyOKApp(
@@ -62,6 +81,36 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         handleNotificationIntent(intent)
         handleDeepLinkIntent(intent)
+        handleCallIntent(intent)
+    }
+
+    private fun handleCallIntent(intent: Intent?) {
+        val receiverId = intent?.getStringExtra(EXTRA_CALL_RECEIVER_ID)
+            ?.takeIf { uuidPattern.matches(it) } ?: return
+        intent.removeExtra(EXTRA_CALL_RECEIVER_ID)
+        val notificationId = intent.getIntExtra("extra_notification_id", -1)
+        if (notificationId != -1) {
+            androidx.core.app.NotificationManagerCompat.from(this).cancel(notificationId)
+        }
+        lifecycleScope.launch {
+            val phone = try {
+                supabase.postgrest.from("users")
+                    .select { filter { eq("id", receiverId) } }
+                    .decodeSingleOrNull<ReceiverPhone>()
+                    ?.phone
+            } catch (_: Exception) {
+                null
+            }
+            if (!phone.isNullOrBlank()) {
+                startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+            } else {
+                android.widget.Toast.makeText(
+                    this@MainActivity,
+                    "Couldn't find their number. Call them from your contacts.",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+        }
     }
 
     private val knownNotificationTypes = setOf(

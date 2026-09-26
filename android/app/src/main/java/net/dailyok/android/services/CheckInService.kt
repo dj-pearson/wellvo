@@ -79,7 +79,9 @@ class CheckInService @Inject constructor(
                     source = source,
                     latitude = latitude,
                     longitude = longitude,
-                    locationAccuracyMeters = locationAccuracy
+                    locationAccuracyMeters = locationAccuracy,
+                    responseType = responseType,
+                    batteryLevel = batteryLevel
                 )
             )
         } catch (e: DailyOKError) {

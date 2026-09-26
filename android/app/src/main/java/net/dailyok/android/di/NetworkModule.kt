@@ -27,7 +27,14 @@ object NetworkModule {
             install(Auth)
             install(Postgrest)
             install(Realtime)
-            install(Functions)
+            // Edge functions run as one Deno server at functions.dailyok.net
+            // (CLAUDE.md), not as Supabase-hosted functions. Without a custom
+            // URL the plugin called <SUPABASE_URL>/functions/v1/<name>, so every
+            // check-in, join, invite and heartbeat from Android missed the
+            // server. iOS has always used EDGE_FUNCTIONS_URL (EdgeFunctionsClient).
+            install(Functions) {
+                customUrl = BuildConfig.EDGE_FUNCTIONS_URL.trimEnd('/').ifBlank { null }
+            }
         }
     }
 }
