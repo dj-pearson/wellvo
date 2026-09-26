@@ -3,7 +3,7 @@ import { sendPushNotification } from "../../shared/apns.ts";
 import { endEscalationLiveActivities } from "../../shared/live-activity.ts";
 import { sendFCMNotification, buildFCMAlertPayload } from "../../shared/fcm.ts";
 import type { AuthResult } from "../../shared/auth.ts";
-import { isValidUUID, validateLocationFields, sanitizeDisplayName, truncateString, coerceNumericFields } from "../../shared/validation.ts";
+import { isValidUUID, isValidTimezone, validateLocationFields, sanitizeDisplayName, truncateString, coerceNumericFields } from "../../shared/validation.ts";
 import { localDateString, localDayBoundsUTC, resolveOccurredAt, formatOccurredAt } from "../../shared/checkin-time.ts";
 
 function haversineDistance(
@@ -162,7 +162,11 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
     .select("timezone")
     .eq("id", receiverId)
     .single();
-  const receiverTz = receiverUser?.timezone || "UTC";
+  // An unrecognised zone would make every Intl call below throw and 500 the
+  // check-in; UTC is the long-standing fallback for a missing one.
+  const receiverTz = receiverUser?.timezone && isValidTimezone(receiverUser.timezone)
+    ? receiverUser.timezone
+    : "UTC";
 
   // When did this check-in actually happen? For a live tap that is now. For a
   // row replayed from an app's offline queue it can be hours or days ago
@@ -244,12 +248,48 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
   // dedup above, streaks, escalation, exported reports — already keys off
   // checked_in_at, so they follow without further change.
   insertData.checked_in_at = occurredAt.toISOString();
+  // The receiver's local day, which the unique index (00053) dedups on. Without
+  // it an evening check-in and the next morning's (same UTC day west of UTC)
+  // collided and the morning one failed.
+  insertData.local_date = localDateString(receiverTz, occurredAt);
 
-  const { data: checkIn, error: checkInError } = await supabaseAdmin
+  let { data: checkIn, error: checkInError } = await supabaseAdmin
     .from("checkins")
     .insert(insertData)
     .select()
     .single();
+
+  // The edge deploy is not gated on the migration run, so this can reach
+  // production before 00053 adds checkins.local_date. Never lose a check-in
+  // over that: retry without the column (dedup then falls back to the lookup
+  // above, exactly as before 00053).
+  if (checkInError && isMissingLocalDateColumn(checkInError)) {
+    delete insertData.local_date;
+    ({ data: checkIn, error: checkInError } = await supabaseAdmin
+      .from("checkins")
+      .insert(insertData)
+      .select()
+      .single());
+  }
+
+  if (checkInError?.code === "23505") {
+    // A concurrent check-in for the same local day and slot won the race (e.g.
+    // the widget and the app at once). It is the same check-in: answer with
+    // that row instead of a 500 the client would surface as a failure.
+    let winnerQuery = supabaseAdmin
+      .from("checkins")
+      .select()
+      .eq("receiver_id", receiverId)
+      .eq("family_id", familyId)
+      .eq("local_date", insertData.local_date as string);
+    winnerQuery = slotKey !== null
+      ? winnerQuery.eq("slot_key", slotKey)
+      : winnerQuery.is("slot_key", null);
+    const { data: winner } = await winnerQuery.limit(1).maybeSingle();
+    if (winner) {
+      return markRequestsAndRespond(receiverId, familyId, winner, isBackfill);
+    }
+  }
 
   if (checkInError) {
     return new Response(
@@ -537,6 +577,12 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
   }
 
   return markRequestsAndRespond(receiverId, familyId, checkIn, isBackfill);
+}
+
+/** PostgREST's "column not in schema cache" (PGRST204) or Postgres 42703. */
+function isMissingLocalDateColumn(error: { code?: string; message?: string }): boolean {
+  return (error.code === "PGRST204" || error.code === "42703") &&
+    (error.message ?? "").includes("local_date");
 }
 
 async function markRequestsAndRespond(
