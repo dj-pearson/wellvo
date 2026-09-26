@@ -246,6 +246,12 @@ struct PairingCodeEntryView: View {
                 errorMessage = String(localized: "Something went wrong. Please try again.")
             }
         } catch let error as EdgeFunctionsClient.HTTPError {
+            // Same as the success path: a screen the user already left must not
+            // change the persisted attempt / lockout state.
+            guard appState.showPairingCodeEntry else {
+                isSubmitting = false
+                return
+            }
             // The server answered. Every non-2xx used to read "Could not
             // connect", so a mistyped code looked like a network fault.
             switch error.status {
@@ -257,8 +263,13 @@ struct PairingCodeEntryView: View {
                 errorMessage = String(localized: "Too many failed attempts. Try again in \(minutes) minute\(minutes == 1 ? "" : "s").")
             case 400:
                 failedAttempts += 1
-                errorMessage = error.serverMessage
-                    ?? String(localized: "That code didn't work. Check it and try again.")
+                if failedAttempts >= 10 {
+                    lockoutUntilEpoch = Date().addingTimeInterval(15 * 60).timeIntervalSince1970
+                    errorMessage = String(localized: "Too many failed attempts. Try again in 15 minutes.")
+                } else {
+                    errorMessage = error.serverMessage
+                        ?? String(localized: "That code didn't work. Check it and try again.")
+                }
             default:
                 // e.g. 403 "This family has no free receiver slots…" — not the
                 // receiver's typing, so it doesn't count as an attempt.

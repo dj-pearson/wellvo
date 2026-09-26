@@ -47,7 +47,7 @@ struct DailyOKApp: App {
     /// The invite token from a link — the last path segment of
     /// `/invite/<token>`, else the `token` query item — if it is a plausible
     /// hex token. Anything else is ignored.
-    static func inviteToken(from components: URLComponents) -> String? {
+    nonisolated static func inviteToken(from components: URLComponents) -> String? {
         let segments = components.path.split(separator: "/").map(String.init)
         let candidate: String?
         if segments.count == 2, segments[0] == "invite" {

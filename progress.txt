@@ -4628,3 +4628,50 @@ KNOWN / NOT DONE IN PHASE 1
 NEXT: Phase 2 — owner-led receiver setup (invite link that works, website
 invite page, AASA/assetlinks, pending-invite list, owner onboarding that can
 actually create a family).
+
+================================================================================
+2026-09-26 — Owner/receiver deep dive, PHASE 2: owner-led receiver setup
+================================================================================
+
+FIXED
+
+  Invite text sent receivers to App Store id6742044109; the app is
+  id6760836697. The server's invite_link (/invite?token=) matched neither the
+  AASA nor any website route. Now one link, dailyok.net/invite/<token>?code=,
+  plus the setup code, in shared/invite-message.ts (tested).
+  Website: prerendered noindex /invite page (store for the visitor's phone,
+  Open Daily OK via dailyok://, the code); _redirects serves every token;
+  AASA adds /invite; assetlinks.json added with a placeholder fingerprint.
+  iOS:
+  - A signed-in user with no family no longer falls into the owner tabs
+    (where owner setup was unreachable — isOnboarding was never set true).
+    New GetStartedChoiceView: "I was invited" / "Set up check-ins".
+  - Role lookup throws on failure; last role cached per user; retry screen
+    when offline with no cache; invite links wait for a confirmed "no
+    membership" and are cleared on sign-out; token persisted across sign-in.
+  - Deep links: /invite/<token>, www host, old ?token= form (unit tested).
+  - Joins send the device timezone, show owner_name and the real time
+    (server HH:mm:ss was shown raw); server errors shown instead of
+    "Could not connect"; 409 on accept proceeds.
+  - Family tab "Waiting to Join" (re-send / cancel); invite sheet shows the
+    code, a QR of the link and a share option.
+
+VERIFICATION
+
+  Edge: deno lint clean, 22/22 tests. Website: eslint clean, 139/139 vitest,
+  production build prerenders /invite (noindex, not in sitemap), checked in
+  Chromium at 390px. iOS: NOT compiled (no Xcode; download.swift.org blocked).
+  Syntax-checked with the tree-sitter Swift grammar (only flags the same
+  `try? await` constructs it flags in the committed files) and reviewed by an
+  independent pass acting as the compiler; its findings are fixed.
+
+MANUAL STEPS STILL NEEDED
+
+  - AASA: replace TEAMID with the Apple Team ID; enable Associated Domains
+    for com.wellvo.ios, regenerate profiles, then add applinks:dailyok.net to
+    DailyOK.entitlements (website/public/.well-known/README.md).
+  - assetlinks.json: Play App Signing SHA-256.
+  Until then the website invite page is the path, and it works.
+
+NEXT: Phase 3 — receiver one-tap reliability (notification "I'm OK" in the
+background, offline queue without network lookups, stale reminders).

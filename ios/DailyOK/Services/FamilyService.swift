@@ -96,7 +96,9 @@ actor FamilyService {
     /// who opened the app offline was shown the owner's screens. Only a
     /// successful, empty answer means nil now.
     func getCurrentUserRole() async throws -> UserRole? {
-        guard let session = try? await supabase.auth.session else { return nil }
+        // A session that can't be loaded (offline with an expired access token)
+        // is a failed lookup, not "no family".
+        let session = try await supabase.auth.session
 
         // If the user owns any family, they are an owner. This takes precedence
         // over any receiver/viewer memberships they may also hold (e.g. if the

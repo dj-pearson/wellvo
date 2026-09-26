@@ -8,22 +8,22 @@ import XCTest
 /// `dailyok://invite?token=` button, must yield the token — and nothing else
 /// may.
 final class InviteLinkTests: XCTestCase {
-    private let token = String(repeating: "ab", count: 32)
+    private let sampleToken = String(repeating: "ab", count: 32)
 
     private func token(from url: String) -> String? {
         URLComponents(string: url).flatMap(DailyOKApp.inviteToken(from:))
     }
 
     func testPathFormFromTheInviteText() {
-        XCTAssertEqual(token(from: "https://dailyok.net/invite/\(token)?code=123456"), token)
+        XCTAssertEqual(token(from: "https://dailyok.net/invite/\(sampleToken)?code=123456"), sampleToken)
     }
 
     func testOlderQueryForm() {
-        XCTAssertEqual(token(from: "https://dailyok.net/invite?token=\(token)"), token)
+        XCTAssertEqual(token(from: "https://dailyok.net/invite?token=\(sampleToken)"), sampleToken)
     }
 
     func testWebsiteOpenInAppButton() {
-        XCTAssertEqual(token(from: "dailyok://invite?token=\(token)"), token)
+        XCTAssertEqual(token(from: "dailyok://invite?token=\(sampleToken)"), sampleToken)
     }
 
     func testRejectsMalformedTokens() {

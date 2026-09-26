@@ -18,9 +18,14 @@ struct ContentView: View {
                 case .authenticated:
                     // Only honor an invite/auto-join deep link when the user isn't
                     // already a member, so a stray link can't demote an owner/viewer.
-                    if let inviteToken = appState.pendingInviteToken, appState.currentUserRole == nil {
+                    // Only once the server has confirmed there is no membership:
+                    // a persisted invite token must not be redeemed over a role
+                    // that simply hasn't loaded yet.
+                    if let inviteToken = appState.pendingInviteToken, appState.currentUserRole == nil,
+                       appState.roleResolution == .resolved {
                         ReceiverOnboardingView(inviteToken: inviteToken)
-                    } else if appState.pendingAutoJoin != nil, appState.currentUserRole == nil {
+                    } else if appState.pendingAutoJoin != nil, appState.currentUserRole == nil,
+                              appState.roleResolution == .resolved {
                         ReceiverOnboardingView(inviteToken: nil)
                     } else if appState.showPairingCodeEntry {
                         PairingCodeEntryView()
@@ -92,10 +97,18 @@ struct ContentView: View {
             // decides where it lands.
             appState.selectedTab = .dashboard
         }
-        .onChange(of: authViewModel.authState) { newState in
+        .onChange(of: authViewModel.authState) { oldState, newState in
             if newState == .unauthenticated {
                 appState.currentUserRole = nil
                 appState.roleResolution = .resolving
+                // Signing out ends any invite in progress, so it can't be
+                // redeemed for whoever signs in next on this device. (A cold
+                // start from a link goes .loading → .unauthenticated and keeps
+                // its token for the sign-in that follows.)
+                if oldState == .authenticated {
+                    appState.pendingInviteToken = nil
+                    appState.pendingAutoJoin = nil
+                }
             }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -135,7 +148,13 @@ struct ContentView: View {
     /// 3. With no membership, try a phone-number invite match before asking the
     ///    user what they're here to do.
     private func resolveRole() async {
-        guard let userId = try? await SupabaseService.shared.client.auth.session.user.id else { return }
+        guard let userId = try? await SupabaseService.shared.client.auth.session.user.id else {
+            // Signed in but the session can't be loaded right now (offline with
+            // an expired token). Retry on foreground rather than hang on the
+            // launch screen.
+            appState.roleResolution = .failed
+            return
+        }
 
         if appState.currentUserRole == nil, let cached = appState.cachedRole(for: userId) {
             appState.currentUserRole = cached
