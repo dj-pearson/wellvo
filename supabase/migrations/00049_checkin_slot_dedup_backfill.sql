@@ -50,6 +50,9 @@ BEGIN;
 -- 1. Ensure the slot dimension exists (mirrors 00044; safe if already present or
 --    if 00044 has not yet been (re)applied).
 ALTER TABLE checkins ADD COLUMN IF NOT EXISTS slot_key TEXT;
+-- Referenced below so a replay after 00053 leaves post-00053 rows alone; adding
+-- it here keeps a fresh replay (00049 before 00053) valid. Mirrors 00053.
+ALTER TABLE checkins ADD COLUMN IF NOT EXISTS local_date DATE;
 
 -- 2. Non-destructively separate same-UTC-day, NULL-slot collisions. Keep the
 --    EARLIEST row of each (receiver, family, UTC-day) group untouched (slot_key
@@ -68,6 +71,10 @@ WITH ranked AS (
         ) AS rn
     FROM checkins
     WHERE slot_key IS NULL
+      -- Rows written after 00053 carry local_date and are deduplicated by the
+      -- local-day index; two of them on one UTC day (an evening and the next
+      -- morning, west of UTC) are legitimate and must not be renamed on replay.
+      AND local_date IS NULL
 )
 UPDATE checkins c
 SET slot_key = 'legacy-dup-' || c.id::text
