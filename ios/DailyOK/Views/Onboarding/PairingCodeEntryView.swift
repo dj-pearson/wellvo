@@ -235,7 +235,7 @@ struct PairingCodeEntryView: View {
                 failedAttempts = 0
                 lockoutUntilEpoch = 0
                 if let time = response.checkinTime {
-                    checkinTimeDisplay = formatCheckinTime(time)
+                    checkinTimeDisplay = formatCheckinTimeForDisplay(time)
                 }
                 if reduceMotion {
                     joinedSuccessfully = true
@@ -245,6 +245,26 @@ struct PairingCodeEntryView: View {
             } else {
                 errorMessage = String(localized: "Something went wrong. Please try again.")
             }
+        } catch let error as EdgeFunctionsClient.HTTPError {
+            // The server answered. Every non-2xx used to read "Could not
+            // connect", so a mistyped code looked like a network fault.
+            switch error.status {
+            case 429:
+                // Server-side lockout (durable, per user / per IP). Mirror it.
+                let wait = error.retryAfter ?? 15 * 60
+                lockoutUntilEpoch = Date().addingTimeInterval(wait).timeIntervalSince1970
+                let minutes = max(1, Int((wait / 60).rounded(.up)))
+                errorMessage = String(localized: "Too many failed attempts. Try again in \(minutes) minute\(minutes == 1 ? "" : "s").")
+            case 400:
+                failedAttempts += 1
+                errorMessage = error.serverMessage
+                    ?? String(localized: "That code didn't work. Check it and try again.")
+            default:
+                // e.g. 403 "This family has no free receiver slots…" — not the
+                // receiver's typing, so it doesn't count as an attempt.
+                errorMessage = error.serverMessage
+                    ?? String(localized: "Something went wrong. Please try again.")
+            }
         } catch {
             errorMessage = String(localized: "Could not connect. Please check your internet and try again.")
         }
@@ -252,16 +272,4 @@ struct PairingCodeEntryView: View {
         isSubmitting = false
     }
 
-    private func formatCheckinTime(_ time: String) -> String {
-        // `time` is the wire format "HH:mm" — parse with a fixed POSIX formatter,
-        // then render locale-aware short time for display (US-IOS044).
-        let parser = DateFormatter()
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        parser.dateFormat = "HH:mm"
-        guard let date = parser.date(from: time) else { return time }
-        let display = DateFormatter()
-        display.timeStyle = .short
-        display.dateStyle = .none
-        return display.string(from: date)
-    }
 }

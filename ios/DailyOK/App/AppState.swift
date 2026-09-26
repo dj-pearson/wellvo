@@ -2,9 +2,28 @@ import SwiftUI
 
 @MainActor
 final class AppState: ObservableObject {
-    @Published var pendingInviteToken: String?
+    /// An invite link's token waiting to be redeemed. Persisted: the receiver
+    /// usually taps the link, then has to sign in (and may leave the app to read
+    /// the SMS code) — a token held only in memory was lost if iOS killed the
+    /// app in between, and they landed with no family.
+    @Published var pendingInviteToken: String? {
+        didSet { UserDefaults.standard.set(pendingInviteToken, forKey: Self.pendingInviteTokenKey) }
+    }
     @Published var pendingAutoJoin: AutoJoinResult?
     @Published var currentUserRole: UserRole?
+
+    /// Where launch routing stands on `currentUserRole`.
+    ///
+    /// `nil` role used to mean both "still loading / lookup failed" and "no
+    /// family yet", and both fell through to the owner's tabs — so a receiver
+    /// who opened the app offline saw owner screens. ContentView now only treats
+    /// a nil role as "new here" once the lookup has actually `.resolved`.
+    enum RoleResolution: Equatable {
+        case resolving
+        case resolved
+        case failed
+    }
+    @Published var roleResolution: RoleResolution = .resolving
     @Published var selectedTab: AppTab = .dashboard
     @Published var isOnboarding: Bool = false
     @Published var showPairingCodeEntry: Bool = false
@@ -53,6 +72,28 @@ final class AppState: ObservableObject {
     init() {
         let stored = UserDefaults.standard.object(forKey: "dailyok.haptics.enabled") as? Bool
         self.hapticsEnabled = stored ?? true
+        self.pendingInviteToken = UserDefaults.standard.string(forKey: Self.pendingInviteTokenKey)
+    }
+
+    private static let pendingInviteTokenKey = "dailyok.pendingInviteToken"
+    private static let cachedRoleKeyPrefix = "dailyok.cachedRole."
+
+    /// The last role this user was routed with on this device, so a launch with
+    /// no network still opens the right app (a receiver's check-in button, not
+    /// an owner dashboard). Keyed per user so a sign-in as someone else never
+    /// inherits it.
+    func cachedRole(for userId: UUID) -> UserRole? {
+        UserDefaults.standard.string(forKey: Self.cachedRoleKeyPrefix + userId.uuidString)
+            .flatMap(UserRole.init(rawValue:))
+    }
+
+    func cacheRole(_ role: UserRole?, for userId: UUID) {
+        let key = Self.cachedRoleKeyPrefix + userId.uuidString
+        if let role {
+            UserDefaults.standard.set(role.rawValue, forKey: key)
+        } else {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
     }
 
     enum AppTab: Int, CaseIterable {
