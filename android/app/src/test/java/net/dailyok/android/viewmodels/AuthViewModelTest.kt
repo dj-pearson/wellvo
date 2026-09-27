@@ -18,6 +18,7 @@ import net.dailyok.android.data.models.AppUser
 import net.dailyok.android.data.models.UserRole
 import net.dailyok.android.network.ApiService
 import net.dailyok.android.network.AutoJoinResponse
+import net.dailyok.android.network.JoinPreview
 import net.dailyok.android.network.DailyOKError
 import net.dailyok.android.services.AnalyticsService
 import net.dailyok.android.services.AuthService
@@ -56,6 +57,8 @@ class AuthViewModelTest {
             checkinTime = null
         )
         coEvery { apiService.checkAutoJoinResult(any()) } returns null
+        // Sign-in asks about a phone-number invite without joining (preview).
+        coEvery { apiService.previewAutoJoin() } returns JoinPreview(matched = false, reason = "no_matching_invite")
     }
 
     @After

@@ -346,7 +346,10 @@ export type PlayAction = "apply" | "payment_issue" | "lapse" | "revoke" | "ignor
  */
 export function playAction(verdict: PlayVerdict | null, notificationType: number | null, voided: boolean): PlayAction {
   // SUBSCRIPTION_REVOKED (12) or a voided purchase: refunded / charged back.
-  if (voided || notificationType === 12) return "revoke";
+  // The push body is not trusted: only act when Google itself no longer
+  // reports the purchase as covered (gone, or not entitled). A refund that
+  // Google did not revoke keeps access until it lapses, as Google intends.
+  if (voided || notificationType === 12) return !verdict || !verdict.entitled ? "revoke" : "apply";
   if (!verdict) return "ignore";
   switch (verdict.state) {
     case "SUBSCRIPTION_STATE_ACTIVE":

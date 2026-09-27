@@ -201,11 +201,11 @@ fun DashboardScreen(
             }
         ) {
             when {
-                isLoading && receiverCards.isEmpty -> {
+                isLoading && receiverCards.isEmpty() -> {
                     net.dailyok.android.ui.components.DashboardSkeletonView()
                 }
 
-                receiverCards.isEmpty && !isLoading && errorMessage != null -> {
+                receiverCards.isEmpty() && !isLoading && errorMessage != null -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -240,7 +240,7 @@ fun DashboardScreen(
                     }
                 }
 
-                receiverCards.isEmpty && !isLoading -> {
+                receiverCards.isEmpty() && !isLoading -> {
                     // Auto-present the walkthrough once when the owner lands on
                     // an empty Dashboard for the first time. The CTA below stays
                     // available for re-opens after dismissal.
@@ -299,15 +299,17 @@ fun DashboardScreen(
 
                         // Receiver Status Cards
                         items(receiverCards, key = { it.id }) { card ->
-                            // Co-caregivers get the same actions as the owner
-                            // ("Check on", "I'm on it", "Stop alerts"); the
-                            // server decides who may, and says why if not.
+                            // Co-caregivers can say "I'm on it" (any active
+                            // caregiver may claim, 00062). "Check on" and
+                            // "Stop alerts" stay owner-only, as on iOS:
+                            // on-demand-checkin and cancel-escalation refuse
+                            // anyone but the owner (403).
                             ReceiverStatusCardView(
-                                card = card,
-                                isSending = card.id in sendingCheckInFor,
-                                cooldownEndMs = cooldownUntil[card.id] ?: 0L,
+                                card = if (isViewer) card.copy(canStopAlerts = false) else card,
+                                isSending = if (isViewer) false else card.id in sendingCheckInFor,
+                                cooldownEndMs = if (isViewer) 0L else cooldownUntil[card.id] ?: 0L,
                                 onCheckOn = { viewModel.sendOnDemandCheckIn(card.id) },
-                                showCheckOnButton = true,
+                                showCheckOnButton = !isViewer,
                                 busy = actingOn,
                                 onStopAlerts = { viewModel.stopAlerts(card.id) },
                                 onClaim = { release -> viewModel.claimCheckIn(card.id, release) }

@@ -22,11 +22,10 @@ import javax.inject.Singleton
  * What the owner and co-caregivers do about a missed check-in or a help
  * request: see who is on it, say "I'm on it", stop the alerts, check on now.
  *
- * Co-caregivers use the same calls as the owner. The server decides who may:
- * claim_checkin_request / acknowledge_alert_v2 accept any active owner or
- * co-caregiver; cancel-escalation and on-demand-checkin are being opened to
- * co-caregivers server-side, and until then answer 403 with a message the
- * app shows as is.
+ * The server decides who may: claim_checkin_request / acknowledge_alert_v2
+ * accept any active owner or co-caregiver; cancel-escalation (and
+ * on-demand-checkin) are owner-only and answer 403 to anyone else, so the
+ * dashboard offers "Stop alerts" and "Check on" to the owner only (as iOS).
  */
 @Singleton
 class CaregiverActionsService @Inject constructor(

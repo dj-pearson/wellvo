@@ -286,9 +286,9 @@ class DashboardViewModel @Inject constructor(
 
     /**
      * "Stop alerts": the caregiver reached the receiver another way. Ends the
-     * escalation without recording a check-in (cancel-escalation). Offered to
-     * co-caregivers as well as the owner; a server that still limits this to
-     * the owner answers 403 and its message is shown.
+     * escalation without recording a check-in (cancel-escalation). Owner
+     * only, as on iOS: cancel-escalation answers 403 to anyone else, so the
+     * dashboard doesn't offer it to co-caregivers.
      */
     fun stopAlerts(receiverId: String) {
         val familyId = _family.value?.id ?: return

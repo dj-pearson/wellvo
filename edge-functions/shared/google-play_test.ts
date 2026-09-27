@@ -149,6 +149,9 @@ Deno.test("notification actions follow Google's current state", () => {
   assertEquals(playAction(verdict("SUBSCRIPTION_STATE_PENDING", false), 4, false), "ignore");
   assertEquals(playAction(null, 12, false), "revoke");
   assertEquals(playAction(null, -1, true), "revoke");
+  // A forged or refund-only revocation for a purchase Google still covers.
+  assertEquals(playAction(verdict("SUBSCRIPTION_STATE_ACTIVE", true), 12, false), "apply");
+  assertEquals(playAction(verdict("SUBSCRIPTION_STATE_EXPIRED", false), 12, false), "revoke");
   assertEquals(playAction(null, 2, false), "ignore");
 });
 
