@@ -200,6 +200,7 @@ class DailyOKFirebaseMessagingService : FirebaseMessagingService() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             builder.addAction(0, "Call Now", callPendingIntent)
+            builder.addAction(0, "Text", textReceiverPendingIntent(receiverId, data["type"], notificationId))
         }
 
         try {
@@ -229,6 +230,13 @@ class DailyOKFirebaseMessagingService : FirebaseMessagingService() {
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
             .addAction(0, "View Details", contentIntent)
+
+        // The co-caregivers' page (viewer_alert) is the last step of a missed
+        // check-in: offer a pre-filled text to the receiver from this phone.
+        val receiverId = data["receiver_id"]
+        if (data["type"] == "viewer_alert" && receiverId != null) {
+            builder.addAction(0, "Text", textReceiverPendingIntent(receiverId, data["type"], notificationId))
+        }
 
         try {
             NotificationManagerCompat.from(this).notify(notificationId, builder.build())
@@ -263,6 +271,24 @@ class DailyOKFirebaseMessagingService : FirebaseMessagingService() {
         } catch (e: SecurityException) {
             Log.e(TAG, "Notification permission not granted", e)
         }
+    }
+
+    /**
+     * "Text": opens the app, which looks up the receiver's number and opens the
+     * SMS app with a short note filled in. Daily OK sends no texts itself.
+     * (An activity, not a BroadcastReceiver: Android 12+ blocks trampolines.)
+     */
+    private fun textReceiverPendingIntent(receiverId: String, alertType: String?, notificationId: Int): PendingIntent {
+        val intent = Intent(this, net.dailyok.android.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(net.dailyok.android.MainActivity.EXTRA_TEXT_RECEIVER_ID, receiverId)
+            alertType?.let { putExtra(net.dailyok.android.MainActivity.EXTRA_TEXT_ALERT_TYPE, it) }
+            putExtra(EXTRA_NOTIFICATION_ID, notificationId)
+        }
+        return PendingIntent.getActivity(
+            this, notificationId + 4, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     private fun createContentIntent(

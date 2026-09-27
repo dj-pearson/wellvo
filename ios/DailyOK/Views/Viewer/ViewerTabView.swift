@@ -86,10 +86,12 @@ enum ViewerCareTeam {
     /// The footer under the family: what a co-caregiver is told, and who runs
     /// the family. Help requests reach co-caregivers too (process-checkin-
     /// response pages every active co-caregiver), which the old "You're told
-    /// when a check-in is missed" left out.
+    /// when a check-in is missed" left out. Co-caregivers can send "Check on
+    /// now" and stop alerts from the dashboard, like the owner; schedules,
+    /// invites and the plan stay the owner's.
     static func roleFooter(ownerName: String?) -> String {
         let owner = ownerName.map { String(localized: "\($0), the family's owner,") } ?? String(localized: "The family's owner")
-        return String(localized: "You're alerted if someone asks for help or misses a check-in. \(owner) manages check-ins, invites and the plan.")
+        return String(localized: "You're alerted if someone asks for help or misses a check-in, and you can send a check-in or stop the alerts from the dashboard. \(owner) manages schedules, invites and the plan.")
     }
 }
 
@@ -329,7 +331,7 @@ struct ViewerSettingsView: View {
         } header: {
             Text("Care Team")
         } footer: {
-            Text("Ask the owner to send a check-in, change a schedule or stop alerts.")
+            Text("Ask the owner to change a schedule or invite someone.")
         }
     }
 
@@ -401,9 +403,9 @@ struct ViewerSettingsView: View {
                     .foregroundStyle(.primary)
             }
         } footer: {
-            // Signing out only silences this phone; texts and other devices
-            // keep coming until you leave.
-            Text("Stops every alert about this family, including texts. Signing out only stops alerts on this iPhone. Your account stays.")
+            // Signing out only silences this phone; alerts to your other
+            // devices keep coming until you leave. (Daily OK sends no texts.)
+            Text("Stops every alert about this family, on all your devices. Signing out only stops alerts on this iPhone. Your account stays.")
         }
     }
 

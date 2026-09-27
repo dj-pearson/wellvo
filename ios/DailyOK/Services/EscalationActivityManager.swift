@@ -49,8 +49,10 @@ enum EscalationActivityManager {
     }
 
     /// Reconcile live activities with the current dashboard state.
-    /// `canStandDown` is false for co-caregivers: their activity offers "Open"
-    /// rather than an owner-only "Stand down".
+    /// `canStandDown` is true for the owner and active co-caregivers (both may
+    /// stop alerts; the app still asks to confirm). False gives the activity
+    /// "See who's on it" instead; it's what pass-8/9 builds gave co-caregivers,
+    /// and such an activity is replaced below once this flips.
     static func sync(cards: [ReceiverStatusCard], familyId: UUID, canStandDown: Bool = true) {
         #if canImport(ActivityKit)
         guard #available(iOS 16.2, *) else { return }

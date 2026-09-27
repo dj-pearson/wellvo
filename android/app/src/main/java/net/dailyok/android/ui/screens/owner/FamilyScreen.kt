@@ -691,7 +691,7 @@ private fun InviteReceiverSheet(
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(12.dp))
-                        InstructionStep(1, "They'll receive an SMS with a download link")
+                        InstructionStep(1, "You text them a download link from your own phone")
                         InstructionStep(2, "Download the app from the App Store or Play Store")
                         InstructionStep(3, "Sign in with the phone number you invited them with")
                         InstructionStep(4, "The app will automatically connect them to your family")

@@ -148,6 +148,10 @@ final class ReceiverViewModel: ObservableObject {
     /// placeholder.
     @Published var ownerName: String?
     @Published var ownerPhone: String?
+    /// The approximate location fetched for the last help request (only when
+    /// location access was already allowed), for the "Text <owner>" note.
+    /// Kept in memory only.
+    @Published var lastHelpLocation: CheckInLocation?
     @Published var isOffline = false
     @Published var pendingOfflineCount = 0
     @Published var receiverMode: ReceiverMode = .standard
@@ -1127,6 +1131,9 @@ final class ReceiverViewModel: ObservableObject {
         let level = UIDevice.current.batteryLevel
         let battery: Double? = level >= 0 ? Double(level) : nil
         let location = await Self.quickLocation(within: 4)
+        // Always this request's fix (or none): an earlier request's location
+        // must never be texted as "I'm around here" for a later one.
+        lastHelpLocation = location
 
         do {
             let row = try await NetworkRetry.execute(maxAttempts: 2) {

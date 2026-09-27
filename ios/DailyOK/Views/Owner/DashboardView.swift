@@ -3,9 +3,12 @@ import SwiftUI
 struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
     @State private var showFirstReceiverWalkthrough = false
-    /// A stand-down asked for from the Live Activity, waiting for the owner to
-    /// confirm it here (never acted on straight from the URL).
+    /// A stand-down asked for from the Live Activity, waiting for the caregiver
+    /// to confirm it here (never acted on straight from the URL).
     @State private var standDownPrompt: ReceiverStatusCard?
+    /// A caregiver alert's "Text" action, opened in Messages once the card is
+    /// loaded.
+    @State private var alertTextDraft: TextMessageDraft?
     @EnvironmentObject var appState: AppState
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.requestReview) private var requestReview
@@ -14,8 +17,11 @@ struct DashboardView: View {
     // first invite, so the walkthrough doesn't ask for the same person again.
     static let walkthroughAutoShownKey = "dailyok.firstReceiverWalkthrough.autoShown"
 
-    /// Owners act; viewers (co-caregivers) see everything but the owner-only
-    /// controls, which the server rejects for them anyway (403).
+    /// Owners manage the family; viewers (co-caregivers) see everything but the
+    /// owner-only controls (settings, clearing alerts, releasing others'
+    /// claims), which the server rejects for them anyway (403). Stopping
+    /// alerts and "Check on now" are for every active caregiver
+    /// (`viewModel.canActOnEscalations`).
     private var isOwner: Bool { appState.currentUserRole == .owner }
 
     var body: some View {
@@ -32,6 +38,7 @@ struct DashboardView: View {
             .task {
                 await viewModel.loadDashboard()
                 resolvePendingStandDown()
+                resolvePendingText()
             }
             // Reload when the app is brought back to the foreground so the owner
             // sees check-ins that landed while the app was suspended (e.g. the
@@ -49,6 +56,15 @@ struct DashboardView: View {
                     Task { await viewModel.loadDashboard() }
                 }
             }
+            // An alert's "Text" action: load fresh status, then open Messages.
+            .onChange(of: appState.pendingTextReceiver) { _, pending in
+                guard pending != nil else { return }
+                Task {
+                    await viewModel.loadDashboard()
+                    resolvePendingText()
+                }
+            }
+            .textMessageComposer(item: $alertTextDraft)
             // Live Activity "Stand down": load fresh status, then confirm.
             .onChange(of: appState.pendingStandDown) { _, pending in
                 guard pending != nil else { return }
@@ -132,7 +148,11 @@ struct DashboardView: View {
                 }
                 Button("Keep alerting", role: .cancel) {}
             } message: { card in
-                Text("Only do this if you've confirmed \(card.name) is OK. It stops the reminders and caregiver alerts.")
+                Text(DashboardViewModel.standDownConfirmMessage(
+                    name: card.name,
+                    isViewer: !isOwner,
+                    ownerName: viewModel.ownerName
+                ))
             }
         }
     }
@@ -200,6 +220,7 @@ struct DashboardView: View {
                     ReceiverStatusCardView(
                         card: card,
                         isReadOnly: !isOwner,
+                        canActOnEscalation: viewModel.canActOnEscalations,
                         onCheckOn: {
                             await viewModel.sendOnDemandCheckIn(to: card.id)
                         },
@@ -210,7 +231,6 @@ struct DashboardView: View {
                         handledBy: handledBy(for: card),
                         settingsMember: isOwner ? viewModel.receiverMembers[card.id] : nil,
                         ownerName: viewModel.ownerName,
-                        ownerPhone: viewModel.ownerPhone,
                         currentUserId: viewModel.currentUserId,
                         canReleaseAnyClaim: isOwner,
                         isClaiming: viewModel.claimingCardIds.contains(card.id),
@@ -287,15 +307,20 @@ struct DashboardView: View {
     }
 
     /// Match a Live Activity stand-down to a receiver who is actually
-    /// escalating in the loaded family, then ask. Anything else (another
-    /// family, nothing escalating, not the owner) is explained, not acted on.
+    /// escalating in the loaded family, then ask. The owner and active
+    /// co-caregivers of that family may stop alerts. Anything else (another
+    /// family, nothing escalating, no longer a caregiver) is explained, not
+    /// acted on.
     private func resolvePendingStandDown() {
         guard let pending = appState.pendingStandDown else { return }
         appState.pendingStandDown = nil
-        guard isOwner else {
+        // The owner is always allowed (known from the role even when the
+        // reload just failed offline); a co-caregiver needs the loaded family
+        // to confirm they're still an active member.
+        guard isOwner || viewModel.canActOnEscalations else {
             appState.deepLinkOutcome = AppState.DeepLinkOutcome(
-                title: "Only the owner can stop alerts",
-                message: "The family owner can stand down alerts once they've reached them.",
+                title: "Couldn't stop alerts",
+                message: "Only the family's caregivers can stop its alerts. If you've been removed from the family, ask its owner to invite you again.",
                 isFailure: true
             )
             return
@@ -312,6 +337,35 @@ struct DashboardView: View {
             return
         }
         standDownPrompt = card
+    }
+
+    /// "Text" on a missed-check-in or help alert: open Messages pre-filled for
+    /// that receiver ("Hi Mom, … are you OK?"), sent from this phone. Daily
+    /// OK sends no texts itself. Explains when there's no one or no number.
+    private func resolvePendingText() {
+        guard let receiverId = appState.pendingTextReceiver else { return }
+        appState.pendingTextReceiver = nil
+        guard let card = viewModel.receiverCards.first(where: { $0.id == receiverId }) else {
+            appState.deepLinkOutcome = AppState.DeepLinkOutcome(
+                title: "Couldn't open Messages",
+                message: "That person isn't in the family shown here. Their card on the dashboard has other ways to reach them.",
+                isFailure: true
+            )
+            return
+        }
+        guard let phone = card.phone, ContactQuickActions.dialableNumber(phone) != nil else {
+            appState.deepLinkOutcome = AppState.DeepLinkOutcome(
+                title: "No number to text",
+                message: "There's no phone number on file for \(card.name). Their card on the dashboard has other ways to reach them.",
+                isFailure: true
+            )
+            return
+        }
+        // The alert may have been answered since it arrived; a plain hello
+        // then, rather than "are you OK?".
+        let body = FamilyTextMessage.checkingOn(name: card.name, status: card.status, helpKind: card.helpKind)
+            ?? String(localized: "Hi \(FamilyTextMessage.greetingName(card.name)), just thinking of you. How are you doing?")
+        alertTextDraft = TextMessageDraft(recipient: phone, body: body)
     }
 
     private func confirmStandDown(_ card: ReceiverStatusCard) async {
@@ -657,7 +711,12 @@ struct TodayTimelineCard: View {
 struct ReceiverStatusCardView: View {
     @Environment(\.colorSchemeContrast) private var contrast
     let card: ReceiverStatusCard
+    /// A co-caregiver's card: no owner-only settings or warnings, and the
+    /// escalation copy is written from their side. Not about the actions below.
     var isReadOnly: Bool = false
+    /// "Check on" and "I've reached them — stop alerts": the owner and active
+    /// co-caregivers (the server allows both). Off for anyone else.
+    var canActOnEscalation: Bool = true
     /// Sends the on-demand request and reports what could be delivered, so the
     /// card never shows "Request sent" when no phone was notified.
     let onCheckOn: () async -> CheckOnOutcome
@@ -673,9 +732,9 @@ struct ReceiverStatusCardView: View {
     /// & alerts from the card. Nil hides the link (viewers).
     var settingsMember: FamilyMember? = nil
     /// The family owner, for a co-caregiver's card: who was alerted before
-    /// them, and who to ask for a check-in or to stop alerts.
+    /// them, who is told when they stop the alerts, and who to ask to change
+    /// alert settings.
     var ownerName: String? = nil
-    var ownerPhone: String? = nil
     /// "I'm on it" for the unanswered request (owner and co-caregivers), so
     /// the family doesn't all call at once. `canReleaseAnyClaim` is the owner.
     var currentUserId: UUID? = nil
@@ -689,6 +748,8 @@ struct ReceiverStatusCardView: View {
     @State private var checkOnState: CheckOnState = .idle
     @State private var showStandDownConfirm = false
     @State private var isStandingDown = false
+    /// "Text <name>": a pre-filled message for this phone's Messages app.
+    @State private var textDraft: TextMessageDraft?
 
     private var statusColor: Color {
         card.stoodDown && card.status != .needsHelp
@@ -792,17 +853,20 @@ struct ReceiverStatusCardView: View {
                     .foregroundStyle(.secondary)
             }
 
-            if !isReadOnly {
+            // Pending / missed: a warm "are you OK?" text from this phone.
+            // (Help requests have it in the red banner above.)
+            if card.status == .pending || card.status == .missed {
+                textReceiverButton
+            }
+
+            if canActOnEscalation {
                 checkOnButton
             }
 
             // One-tap reach the receiver directly — useful for any caregiver
-            // (owner or viewer) when a check-in looks off.
-            ContactQuickActions(name: card.name, phone: card.phone)
-
-            if isReadOnly && answerOutstanding {
-                askOwnerRow
-            }
+            // (owner or viewer) when a check-in looks off. "Text" is
+            // pre-filled while an answer is outstanding.
+            ContactQuickActions(name: card.name, phone: card.phone, textBody: textBody)
 
             // Shared care notes / timeline (owner + viewers). US-IOS016.
             if let familyId {
@@ -851,9 +915,35 @@ struct ReceiverStatusCardView: View {
         .glassCard(style: .regular, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(card.name), \(card.status.label). \(card.statusDetail ?? "")")
+        .textMessageComposer(item: $textDraft)
     }
 
     // MARK: Pieces
+
+    /// The pre-filled "are you OK?" text while an answer is outstanding (not
+    /// once someone has reached them). Nil otherwise.
+    private var textBody: String? {
+        guard answerOutstanding || card.status == .needsHelp else { return nil }
+        return FamilyTextMessage.checkingOn(name: card.name, status: card.status, helpKind: card.helpKind)
+    }
+
+    /// "Text <name>": opens Messages pre-filled, sent from this phone. Daily
+    /// OK itself sends no texts. Hidden without a dialable number.
+    @ViewBuilder
+    private var textReceiverButton: some View {
+        if let body = textBody, let phone = card.phone, ContactQuickActions.dialableNumber(phone) != nil {
+            Button {
+                textDraft = TextMessageDraft(recipient: phone, body: body)
+            } label: {
+                Label("Text \(card.name)", systemImage: "message.fill")
+                    .font(card.status == .needsHelp ? .headline : .subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.bordered)
+            .tint(card.status == .needsHelp ? Color(red: 0.72, green: 0.0, blue: 0.0) : DailyOKColor.green700)
+            .accessibilityHint("Opens Messages with a short note to \(card.name), ready to send from your phone.")
+        }
+    }
 
     /// A help request outranks everything on the card: red, first, with the
     /// call one tap away.
@@ -877,6 +967,7 @@ struct ReceiverStatusCardView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(Color(red: 0.72, green: 0.0, blue: 0.0))
             }
+            textReceiverButton
         }
     }
 
@@ -954,7 +1045,8 @@ struct ReceiverStatusCardView: View {
     }
 
     /// What the escalation has done and what happens next, in plain words —
-    /// for every caregiver. Stand-down is the owner's call.
+    /// for every caregiver. Any active caregiver can stop the alerts once
+    /// they've reached them.
     @ViewBuilder
     private var escalationSection: some View {
         if card.stoodDown {
@@ -972,7 +1064,7 @@ struct ReceiverStatusCardView: View {
                     claimRow(onClaim: onClaim)
                 }
 
-                if !isReadOnly, onStandDown != nil {
+                if canActOnEscalation, onStandDown != nil {
                     Button {
                         showStandDownConfirm = true
                     } label: {
@@ -1000,7 +1092,7 @@ struct ReceiverStatusCardView: View {
                         }
                         Button("Keep alerting", role: .cancel) {}
                     } message: {
-                        Text("Only do this if you've confirmed \(card.name) is OK. It stops the reminders and caregiver alerts.")
+                        Text(standDownConfirmMessage)
                     }
                 }
             }
@@ -1064,25 +1156,10 @@ struct ReceiverStatusCardView: View {
         }
     }
 
-    /// A co-caregiver can call the receiver but can't send a check-in or stop
-    /// the alerts. Say who can, one tap from a message to them.
-    @ViewBuilder
-    private var askOwnerRow: some View {
-        let owner = ownerName ?? String(localized: "the family owner")
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Only \(owner) can send \(card.name) a check-in or stop the alerts.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            if let ownerName, let number = ContactQuickActions.dialableNumber(ownerPhone),
-               let sms = URL(string: "sms:\(number)") {
-                Link(destination: sms) {
-                    Label("Text \(ownerName)", systemImage: "message.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(minHeight: 44)
-                }
-                .accessibilityHint("Opens Messages to \(ownerName)")
-            }
-        }
+    /// A co-caregiver's stand-down is announced to the owner and the other
+    /// co-caregivers (cancel-escalation), so say so before they confirm.
+    private var standDownConfirmMessage: String {
+        DashboardViewModel.standDownConfirmMessage(name: card.name, isViewer: isReadOnly, ownerName: ownerName)
     }
 
     private func standDown() async {

@@ -78,3 +78,52 @@ export function requestsResolvedByCheckIn(
     })
     .map((r) => r.id);
 }
+
+/**
+ * Who hears about an escalation's all-clear or a caregiver's action.
+ *
+ * `pagedIds` are the co-caregivers who were paged about the requests (the
+ * all-clear always reaches them). With `wholeTeam` (the actor is a
+ * co-caregiver: they stopped the alerts or sent a check-in) the owner and
+ * every other active co-caregiver hear it too, so nobody phones Mom a second
+ * time or wonders why the alerts stopped. The actor never hears about their
+ * own action. Only active co-caregivers (`viewerIds`) and the owner qualify.
+ */
+export function careTeamRecipientIds(args: {
+  ownerId: string | null;
+  viewerIds: string[];
+  pagedIds: string[];
+  actorId: string | null;
+  wholeTeam: boolean;
+}): string[] {
+  const actor = args.actorId?.toLowerCase() ?? null;
+  const active = new Set(args.viewerIds.map((id) => id.toLowerCase()));
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const add = (id: string | null) => {
+    if (!id) return;
+    const key = id.toLowerCase();
+    if (key === actor || seen.has(key)) return;
+    seen.add(key);
+    out.push(id);
+  };
+  if (args.wholeTeam) add(args.ownerId);
+  for (const id of args.viewerIds) {
+    if (args.wholeTeam || args.pagedIds.some((p) => p.toLowerCase() === id.toLowerCase())) add(id);
+  }
+  return out.filter((id) => id === args.ownerId || active.has(id.toLowerCase()));
+}
+
+/** "Tom sent Mom a check-in" — to the owner and the other co-caregivers. */
+export function caregiverCheckedOnCopy(args: {
+  actorName?: string | null;
+  receiverName: string;
+  delivered: boolean;
+}): { title: string; body: string } {
+  const who = args.actorName ?? "A caregiver";
+  const title = `${who} checked on ${args.receiverName}`;
+  const body = args.delivered
+    ? `${who} sent ${args.receiverName} a check-in. Open Daily OK to see when they answer.`
+    : `${who} sent ${args.receiverName} a check-in, but their phone couldn't be notified. You may want to call.`;
+  return { title, body };
+}

@@ -13,7 +13,7 @@ export default function Privacy() {
       <div className="container">
         <div className="legal-content">
           <h1>Privacy Policy</h1>
-          <p className="legal-updated">Last updated: July 23, 2026</p>
+          <p className="legal-updated">Last updated: September 27, 2026</p>
 
           <section>
             <h2>Introduction</h2>
@@ -48,7 +48,8 @@ export default function Privacy() {
             <ul>
               <li>
                 <strong>Account Information:</strong> Email address, display name, and optionally
-                a phone number for SMS escalation alerts.
+                a phone number, used to sign in and so members of your family group can call or
+                text you from their own phones.
               </li>
               <li>
                 <strong>Profile Information:</strong> Optional profile photo and time zone.
@@ -132,7 +133,7 @@ export default function Privacy() {
             <ul>
               <li>To provide, operate, and maintain the Service</li>
               <li>To send daily check-in notifications and on-demand check-in requests</li>
-              <li>To deliver escalation alerts (push, SMS, or in-app) when a check-in is missed</li>
+              <li>To deliver escalation alerts (push notifications and in-app) when a check-in is missed</li>
               <li>To display history, streaks, and trends to authorized members of your family group</li>
               <li>To process and manage your subscription</li>
               <li>To authenticate users and protect against fraud, abuse, and security threats</li>
@@ -142,60 +143,50 @@ export default function Privacy() {
           </section>
 
           <section id="sms">
-            <h2>SMS Messaging (A2P 10DLC)</h2>
+            <h2>Text Messages (SMS)</h2>
             <p>
-              Daily OK sends only one type of SMS message from its own systems:
-              escalation alerts (described below). We do not use phone numbers for
+              Daily OK does not send alert or marketing text messages from its own
+              systems. Missed check-in and help alerts are delivered as push
+              notifications and in the app. We do not use phone numbers for
               marketing. Mobile opt-in data, phone numbers, and SMS consent
               information will never be shared with or sold to any third party
               for any purpose.
             </p>
-            <h3>Message types and consent</h3>
+            <h3>Texts you send from your own phone</h3>
             <ul>
               <li>
-                <strong>Invitation message (sent from the Owner's own phone):</strong>{' '}
-                When a family Owner adds a family member as a Receiver inside the
-                Daily OK app, the Owner enters that person's phone number and the
-                app opens the Owner's native Messages app with a prewritten text
-                containing a link to download Daily OK. The Owner chooses whether to
-                send it, and the message is delivered from the Owner's own phone
-                number using their carrier — not from Daily OK. Daily OK does not
-                send this invitation and does not transmit it through our SMS
-                provider. We store the entered phone number so the invited person is
+                <strong>Invitations:</strong> When a family Owner adds someone
+                inside the Daily OK app, the app opens the Owner&apos;s own Messages
+                app with a prewritten text containing a link to download Daily OK.
+                The Owner chooses whether to send it, and it is delivered from the
+                Owner&apos;s own phone number by their carrier, not by Daily OK. We
+                store the entered phone number so the invited person is
                 automatically connected to the family group when they sign in with
                 that number.
               </li>
               <li>
-                <strong>Escalation alerts:</strong> SMS escalation is OFF by
-                default. After joining a family group, a user must explicitly
-                enable SMS escalation in the app's <em>Receiver Settings</em>
-                before any alert messages are sent to family Owners or Viewers.
-                Alerts are only sent when a Receiver misses their scheduled daily
-                check-in after two push notification reminders go unanswered.
+                <strong>Check-in and help texts:</strong> When a check-in is
+                missed or someone asks for help, the app can open your Messages app
+                with a short prewritten note (for example, &quot;Hi Mom, are you
+                OK?&quot;, or a request for help with an approximate map link if
+                you have allowed location access). You review it and choose whether
+                to send it from your own phone number. Daily OK does not send or
+                receive these messages.
               </li>
             </ul>
-            <h3>Message frequency</h3>
+            <h3>Sign-in codes</h3>
             <p>
-              Daily OK does not send invitation messages; those are sent by the
-              Owner from their own device. Escalation alert frequency depends on
-              missed check-ins; under normal conditions users receive zero SMS
-              messages from Daily OK on most days.
+              If you sign in with a phone number, a one-time verification code is
+              sent to that number by our SMS verification provider. It is used only
+              to sign you in.
             </p>
-            <h3>Opt-out and help</h3>
+            <h3>Opting out and help</h3>
             <p>
-              You may opt out of escalation alerts at any time by replying{' '}
-              <strong>STOP</strong> to any alert message, or by disabling SMS
-              escalation in the app's settings. Reply <strong>HELP</strong> for
-              assistance, or contact{' '}
+              Texts from a family member come from that person&apos;s own phone;
+              to stop receiving them, reply to that person directly. For help,
+              contact{' '}
               <a href="mailto:support@dailyok.net">support@dailyok.net</a>.
-              Invitation texts come from an Owner's personal phone, so to stop
-              receiving those, reply to that person directly.
-            </p>
-            <h3>Carrier and rates</h3>
-            <p>
-              Message and data rates may apply. Carriers are not liable for
-              delayed or undelivered messages. Supported carriers include all
-              major U.S. carriers.
+              Message and data rates may apply to texts you send or receive.
             </p>
           </section>
 
@@ -249,7 +240,7 @@ export default function Privacy() {
               <li><strong>Sentry</strong> — application error and crash reporting for our apps, website, and backend, used to detect and fix defects. Configured not to send personal information by default; may process technical data such as IP address and error context.</li>
               <li><strong>Apple Push Notification service (APNs)</strong> — delivery of iOS push notifications.</li>
               <li><strong>Google Firebase Cloud Messaging (FCM)</strong> — delivery of Android push notifications.</li>
-              <li><strong>Twilio (SMS)</strong> — escalation text messages where SMS fallback is enabled.</li>
+              <li><strong>SMS verification provider</strong> — delivers one-time sign-in codes when you sign in with a phone number. Daily OK sends no alert or marketing texts.</li>
               <li><strong>Apple App Store and Google Play</strong> — payment processing for subscriptions.</li>
             </ul>
           </section>

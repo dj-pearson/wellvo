@@ -80,11 +80,16 @@ final class AppState: ObservableObject {
     /// A stand-down asked for from outside the app — the escalation Live
     /// Activity's "Stand down" button (`dailyok://standdown`). Never acted on
     /// directly: the URL scheme is public, so any link (a text from a family
-    /// member, a web page) could otherwise cancel an escalation on the owner's
-    /// phone with one tap. The dashboard shows the same "Stop alerts for X?"
-    /// confirmation as the card, and only for a receiver who is escalating in
-    /// the owner's loaded family.
+    /// member, a web page) could otherwise cancel an escalation on a
+    /// caregiver's phone with one tap. The dashboard shows the same "Stop
+    /// alerts for X?" confirmation as the card, and only for a receiver who is
+    /// escalating in the loaded family, to its owner or an active co-caregiver.
     @Published var pendingStandDown: PendingStandDown?
+
+    /// A "Text" tapped on a caregiver alert: the dashboard opens Messages
+    /// pre-filled for this receiver once their card has loaded (and says so
+    /// when there's no number to text).
+    @Published var pendingTextReceiver: UUID?
 
     struct PendingStandDown: Equatable {
         let receiverId: UUID
@@ -163,6 +168,7 @@ final class AppState: ObservableObject {
         setupCodeAfterSignIn = false
         autoJoinBlockedMessage = nil
         lastRoleResolvedAt = nil
+        pendingTextReceiver = nil
     }
 
     enum AppTab: Int, CaseIterable {

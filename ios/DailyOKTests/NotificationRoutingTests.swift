@@ -19,6 +19,12 @@ final class NotificationRoutingTests: XCTestCase {
         XCTAssertEqual(NotificationRoute.route(for: "CALL_RECEIVER_ACTION"), .callReceiver)
     }
 
+    /// "Text" on an urgent alert opens Messages pre-filled (the server sends no
+    /// SMS), so it must not fall through to `.none`.
+    func testTextReceiverActionRoutesToComposer() {
+        XCTAssertEqual(NotificationRoute.route(for: "TEXT_RECEIVER_ACTION"), .textReceiver)
+    }
+
     /// The server attaches LOCATION_ALERT to geofence, low-battery and viewer
     /// alerts as of the same change that registered this route. Before it, the
     /// registered "View Details" action mapped to `.none` — it opened the app
@@ -43,7 +49,8 @@ final class NotificationRoutingTests: XCTestCase {
     // MARK: Body taps on caregiver alerts (viewer deep dive)
 
     func testCaregiverAlertBodyTapOpensTheDashboard() {
-        for type in ["need_help", "call_me", "sos", "owner_alert", "viewer_alert", "geofence_alert", "escalation_resolved"] {
+        for type in ["need_help", "call_me", "sos", "owner_alert", "viewer_alert", "geofence_alert", "escalation_resolved",
+                     "caregiver_checked_on"] {
             XCTAssertTrue(NotificationRoute.opensDashboard(type: type, category: nil), type)
         }
         XCTAssertTrue(NotificationRoute.opensDashboard(type: nil, category: "URGENT_ALERT"))

@@ -275,11 +275,16 @@ final class DashboardViewModel: ObservableObject {
     /// Active receivers' membership rows keyed by receiver user id, so an
     /// owner's card can open that receiver's schedule & alerts.
     @Published var receiverMembers: [UUID: FamilyMember] = [:]
-    /// The family owner's name and phone, so a co-caregiver's screens can say
-    /// who was alerted before them and who to ask ("Ask Sarah"). Nil until
-    /// loaded or when the owner has no membership row.
+    /// The family owner's name, so a co-caregiver's screens can say who was
+    /// alerted before them, who hears when they stop the alerts, and who to
+    /// ask about alert settings ("Ask Sarah"). Nil until loaded or when the
+    /// owner has no membership row.
     @Published var ownerName: String?
-    @Published var ownerPhone: String?
+    /// The signed-in user may stop alerts and send "Check on now" for this
+    /// family's receivers: its owner or an active co-caregiver (the server
+    /// checks the same, cancel-escalation / on-demand-checkin). Everything
+    /// else on the dashboard that changes the family stays owner-only.
+    @Published private(set) var canActOnEscalations = false
     /// Signed in, but the server says this user is in no family any more
     /// (removed, family deleted). Distinct from "family has nobody to check on
     /// yet": the view says so and re-resolves the role instead of promising
@@ -371,7 +376,11 @@ final class DashboardViewModel: ObservableObject {
             let receivers = members.filter { $0.role == .receiver && $0.status == .active }
             let owner = members.first { $0.userId == family.ownerId }?.user
             ownerName = owner.map(\.displayName).flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 }
-            ownerPhone = owner?.phone
+            canActOnEscalations = Self.mayActOnEscalations(
+                ownerId: family.ownerId,
+                currentUserId: currentUserId,
+                members: members
+            )
             receiverMembers = Dictionary(receivers.map { ($0.userId, $0) }, uniquingKeysWith: { first, _ in first })
 
             // Which receivers have notifications on — one RPC for all of them.
@@ -532,12 +541,12 @@ final class DashboardViewModel: ObservableObject {
             // an at-a-glance summary without opening the app.
             SharedOwnerPublisher.publish(receiverCards)
             // Start/refresh/end Live Activities for any receiver in escalation.
-            // Co-caregivers get the activity too, but without "Stand down",
-            // which only the owner can do.
+            // The owner and active co-caregivers both get "Stand down" (it
+            // still asks for confirmation in the app).
             EscalationActivityManager.sync(
                 cards: receiverCards,
                 familyId: family.id,
-                canStandDown: family.ownerId == currentUserId
+                canStandDown: canActOnEscalations
             )
             weeklySummary = computeWeeklySummary(
                 checkIns: weeklyCheckIns,
@@ -574,7 +583,7 @@ final class DashboardViewModel: ObservableObject {
         receiverCards = []
         receiverMembers = [:]
         ownerName = nil
-        ownerPhone = nil
+        canActOnEscalations = false
         alerts = []
         weeklySummary = nil
         refreshError = nil
@@ -601,8 +610,8 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
-    /// Owner "stand down" — stop the escalation chain for a receiver after
-    /// reaching them another way. Returns true on success. The server records
+    /// Caregiver "stand down" (owner or active co-caregiver) — stop the
+    /// escalation chain for a receiver after reaching them another way. Returns true on success. The server records
     /// the stand-down on the request (00055), so the reload that follows keeps
     /// the banner and Live Activity gone instead of bringing them back; the
     /// card is updated immediately for feedback.
@@ -669,6 +678,20 @@ final class DashboardViewModel: ObservableObject {
             errorMessage = String(localized: "Saying \"I'm on it\" isn't available yet. Call or text the other caregivers instead.")
         } catch {
             errorMessage = DailyOKError.network(error).localizedDescription
+        }
+    }
+
+    /// Owner, or an active co-caregiver of this family: may stop alerts and
+    /// send "Check on now". Receivers and removed or invited members may not.
+    nonisolated static func mayActOnEscalations(
+        ownerId: UUID,
+        currentUserId: UUID?,
+        members: [FamilyMember]
+    ) -> Bool {
+        guard let currentUserId else { return false }
+        if ownerId == currentUserId { return true }
+        return members.contains {
+            $0.userId == currentUserId && $0.role == .viewer && $0.status == .active
         }
     }
 
@@ -886,6 +909,15 @@ final class DashboardViewModel: ObservableObject {
         }
         let ask = ownerName.map { " Ask \($0) to turn them on." } ?? " The family owner can turn them on."
         return "Missed-check-in alerts are off for \(name) — nobody, including you, is alerted if they don't answer.\(ask)"
+    }
+
+    /// The "Stop alerts for Mom?" confirmation. A co-caregiver's stand-down
+    /// is announced to the owner and the other co-caregivers, so they're told.
+    nonisolated static func standDownConfirmMessage(name: String, isViewer: Bool, ownerName: String?) -> String {
+        let base = "Only do this if you've confirmed \(name) is OK. It stops the reminders and caregiver alerts."
+        guard isViewer else { return base }
+        let who = ownerName.map { "\($0) and the other caregivers" } ?? "The family owner and the other caregivers"
+        return "\(base) \(who) will be told you stopped them."
     }
 
     /// "Tom is handling this" — or "You're handling this" to Tom.

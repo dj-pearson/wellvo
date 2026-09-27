@@ -3,6 +3,7 @@ import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID } from "../../shared/validation.ts";
 import { endEscalationLiveActivities } from "../../shared/live-activity.ts";
 import { notifyEscalationResolved } from "../../shared/caregiver-alerts.ts";
+import { resolveCaregiverActor } from "../../shared/caregiver-access.ts";
 
 interface CancelEscalationRequest {
   receiver_id: string;
@@ -10,10 +11,11 @@ interface CancelEscalationRequest {
 }
 
 /**
- * Owner "stand down" — stops the escalation chain for a receiver's currently
+ * Caregiver "stand down" — stops the escalation chain for a receiver's currently
  * pending check-in request(s) without falsely recording a check-in. Used when
- * the owner has reached the receiver another way (phone, in person) and wants
- * the reminders/alerts to stop.
+ * a caregiver (the family owner or an active co-caregiver) has reached the
+ * receiver another way (phone, in person) and wants the reminders/alerts to
+ * stop.
  *
  * Mechanism: set next_escalation_at = NULL on the receiver's pending requests.
  * escalation_tick only selects rows where `next_escalation_at <= NOW()`, so a
@@ -32,7 +34,7 @@ export async function handleCancelEscalation(req: Request, auth: AuthResult): Pr
     );
   }
 
-  // Get the family and verify ownership
+  // Get the family and verify the caller is one of its caregivers
   const { data: family } = await supabaseAdmin
     .from("families")
     .select("owner_id")
@@ -46,11 +48,16 @@ export async function handleCancelEscalation(req: Request, auth: AuthResult): Pr
     );
   }
 
-  // AUTHORIZATION: only the family owner may stand down an escalation
+  // AUTHORIZATION: the family owner or an active co-caregiver of THIS family
+  // may stand down (they reached the receiver another way). Receivers,
+  // removed or invited members and other families' caregivers get 403, as before.
+  // Looser than owner-only, intentionally (CLAUDE.md §B, product decision).
+  let actorRole: "owner" | "viewer" | null = null;
   if (!auth.isServiceRole) {
-    if (!auth.userId || auth.userId !== family.owner_id) {
+    actorRole = await resolveCaregiverActor(family_id, family.owner_id, auth.userId);
+    if (!actorRole) {
       return new Response(
-        JSON.stringify({ error: "Only the family owner can stand down an escalation" }),
+        JSON.stringify({ error: "Only the family owner or a co-caregiver can stand down an escalation" }),
         { status: 403, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -120,7 +127,10 @@ export async function handleCancelEscalation(req: Request, auth: AuthResult): Pr
 
   // Co-caregivers who were paged about this escalation hear that it's over
   // ("Sarah reached Mom and stopped the alerts"). Before, only the owner's
-  // own screen changed and a sibling paged at 10:30 stayed worried.
+  // own screen changed and a sibling paged at 10:30 stayed worried. When a
+  // co-caregiver stood down, the owner and every other co-caregiver hear it
+  // too ("Tom reached Mom and stopped the alerts"): the alerts they were
+  // relying on have stopped, and they should know who decided that.
   // Best-effort; never fails the stand-down.
   const stoodDownIds = [...(updated ?? []).map((r: { id: string }) => r.id), ...missedIds];
   if (stoodDownIds.length > 0) {
@@ -130,6 +140,7 @@ export async function handleCancelEscalation(req: Request, auth: AuthResult): Pr
       requestIds: stoodDownIds,
       how: "stood_down",
       byUserId: stoodDownBy,
+      wholeTeam: actorRole === "viewer",
     });
   }
 

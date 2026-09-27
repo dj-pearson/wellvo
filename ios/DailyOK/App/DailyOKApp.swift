@@ -121,11 +121,12 @@ struct DailyOKApp: App {
         case "standdown":
             // From an escalation Live Activity "Stand down" button. The custom
             // URL scheme is public, so anything could invoke this — a crafted
-            // link texted to the owner would pass the server's owner check,
-            // because the owner's own phone is the caller. So this never
+            // link texted to a caregiver would pass the server's caregiver
+            // check, because their own phone is the caller. So this never
             // cancels anything by itself: it opens the dashboard, which asks
             // "Stop alerts for <name>?" — the same confirmation as the card —
-            // and only for a receiver who is escalating in the owner's family.
+            // and only for a receiver who is escalating in the loaded family,
+            // to its owner or an active co-caregiver.
             guard let r = components.queryItems?.first(where: { $0.name == "receiver" })?.value,
                   let f = components.queryItems?.first(where: { $0.name == "family" })?.value,
                   let receiverId = UUID(uuidString: r), let familyId = UUID(uuidString: f) else {

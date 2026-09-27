@@ -21,7 +21,7 @@ const plans = [
       'Mood tracking',
       'Pattern alerts',
       '90-day check-in history',
-      'SMS fallback alerts',
+      'One-tap "Text them" from your phone',
     ],
     cta: 'Start 7-Day Free Trial',
     highlight: true,

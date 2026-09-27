@@ -858,5 +858,92 @@ final class ViewerCareTeamTests: XCTestCase {
         let footer = ViewerCareTeam.roleFooter(ownerName: "Sarah")
         XCTAssertTrue(footer.contains("asks for help"))
         XCTAssertTrue(footer.contains("Sarah"))
+        // Co-caregivers can check on and stop alerts themselves now.
+        XCTAssertTrue(footer.contains("send a check-in or stop the alerts"))
+        XCTAssertFalse(footer.contains("manages check-ins"))
+    }
+
+    // MARK: Stop alerts / Check on now (owner and active co-caregivers)
+
+    func testOwnerAndActiveCoCaregiversCanActOnEscalations() {
+        let ownerId = UUID(), tom = UUID()
+        let members = [
+            member("Sarah", role: .owner, id: ownerId),
+            member("Tom", role: .viewer, id: tom),
+            member("Mom", role: .receiver),
+        ]
+        XCTAssertTrue(DashboardViewModel.mayActOnEscalations(ownerId: ownerId, currentUserId: ownerId, members: members))
+        XCTAssertTrue(DashboardViewModel.mayActOnEscalations(ownerId: ownerId, currentUserId: tom, members: members))
+        // The owner needs no membership row.
+        XCTAssertTrue(DashboardViewModel.mayActOnEscalations(ownerId: ownerId, currentUserId: ownerId, members: []))
+    }
+
+    func testReceiversRemovedAndOutsidersCannotActOnEscalations() {
+        let ownerId = UUID(), mom = UUID(), gone = UUID(), invited = UUID()
+        let members = [
+            member("Sarah", role: .owner, id: ownerId),
+            member("Mom", role: .receiver, id: mom),
+            member("Gone", role: .viewer, id: gone, status: .deactivated),
+            member("New", role: .viewer, id: invited, status: .invited),
+        ]
+        for user in [mom, gone, invited, UUID()] {
+            XCTAssertFalse(DashboardViewModel.mayActOnEscalations(ownerId: ownerId, currentUserId: user, members: members))
+        }
+        XCTAssertFalse(DashboardViewModel.mayActOnEscalations(ownerId: ownerId, currentUserId: nil, members: members))
+    }
+
+    func testCoCaregiverStandDownConfirmationSaysWhoWillBeTold() {
+        let owner = DashboardViewModel.standDownConfirmMessage(name: "Mom", isViewer: false, ownerName: "Sarah")
+        XCTAssertEqual(owner, "Only do this if you've confirmed Mom is OK. It stops the reminders and caregiver alerts.")
+        let viewer = DashboardViewModel.standDownConfirmMessage(name: "Mom", isViewer: true, ownerName: "Sarah")
+        XCTAssertTrue(viewer.hasPrefix(owner))
+        XCTAssertTrue(viewer.hasSuffix("Sarah and the other caregivers will be told you stopped them."))
+        XCTAssertFalse(viewer.contains("Only Sarah"))
+        XCTAssertTrue(DashboardViewModel.standDownConfirmMessage(name: "Mom", isViewer: true, ownerName: nil)
+            .contains("The family owner and the other caregivers"))
+    }
+
+    // MARK: - Family texts (Messages composer, no server SMS)
+
+    func testCaregiverTextMatchesTheCardState() {
+        let pending = FamilyTextMessage.checkingOn(name: "Margaret Smith", status: .pending, helpKind: nil)
+        XCTAssertEqual(pending?.hasPrefix("Hi Margaret,"), true)
+        XCTAssertEqual(pending?.contains("All good?"), true)
+        XCTAssertEqual(FamilyTextMessage.checkingOn(name: "Mom", status: .missed, helpKind: nil)?
+            .contains("make sure you're OK"), true)
+        XCTAssertEqual(FamilyTextMessage.checkingOn(name: "Mom", status: .needsHelp, helpKind: .needHelp)?
+            .contains("I'm on it"), true)
+        XCTAssertEqual(FamilyTextMessage.checkingOn(name: "Mom", status: .needsHelp, helpKind: .callMe)?
+            .contains("like a call"), true)
+        // Nothing to ask about.
+        XCTAssertNil(FamilyTextMessage.checkingOn(name: "Mom", status: .checkedIn, helpKind: nil))
+        XCTAssertNil(FamilyTextMessage.checkingOn(name: "Mom", status: .upcoming, helpKind: nil))
+        XCTAssertNil(FamilyTextMessage.checkingOn(name: "Mom", status: .noData, helpKind: nil))
+    }
+
+    func testReceiverHelpTextAddsApproximateLocationOnlyWhenKnown() {
+        let noLocation = FamilyTextMessage.askingForHelp(kind: .needHelp, ownerName: "Sarah Jones", location: nil)
+        XCTAssertEqual(noLocation, "Hi Sarah, I need help. Please call me as soon as you can.")
+
+        let located = FamilyTextMessage.askingForHelp(
+            kind: .needHelp, ownerName: nil,
+            location: CheckInLocation(latitude: 40.712776, longitude: -74.005974, accuracy: 20)
+        )
+        XCTAssertTrue(located.hasPrefix("I need help."))
+        // Rounded to ~100 m.
+        XCTAssertTrue(located.contains("https://maps.apple.com/?ll=40.713,-74.006"))
+
+        XCTAssertTrue(FamilyTextMessage.askingForHelp(kind: .callMe, ownerName: nil, location: nil)
+            .hasPrefix("Can you call me"))
+        // A 0,0 "fix" is not a location.
+        XCTAssertNil(FamilyTextMessage.approximateMapLink(CheckInLocation(latitude: 0, longitude: 0, accuracy: nil)))
+    }
+
+    func testTextDraftFallsBackToAnSmsURLWithTheBody() {
+        let draft = TextMessageDraft(recipient: "(555) 123-4567", body: "Hi Mom, are you OK? A&B")
+        let url = draft.smsURL?.absoluteString
+        XCTAssertEqual(url?.hasPrefix("sms:5551234567&body="), true)
+        XCTAssertEqual(url?.contains("A%26B"), true)
+        XCTAssertNil(TextMessageDraft(recipient: "", body: "x").smsURL)
     }
 }

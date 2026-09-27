@@ -88,7 +88,6 @@ fun ReceiverSettingsScreen(
     val quietStartMinute by viewModel.quietHoursStartMinute.collectAsState()
     val quietEndHour by viewModel.quietHoursEndHour.collectAsState()
     val quietEndMinute by viewModel.quietHoursEndMinute.collectAsState()
-    val smsEscalation by viewModel.smsEscalationEnabled.collectAsState()
     val moodTracking by viewModel.moodTrackingEnabled.collectAsState()
     val customDayEnabled by viewModel.customDayEnabled.collectAsState()
     val customDayHours by viewModel.customDayHours.collectAsState()
@@ -353,13 +352,22 @@ fun ReceiverSettingsScreen(
                     }
                 }
 
-                // -- SMS Escalation --
-                SettingsSection("SMS Escalation") {
-                    SettingsToggle(
-                        label = "SMS Fallback",
-                        checked = smsEscalation,
-                        onCheckedChange = { viewModel.smsEscalationEnabled.value = it },
-                        description = "Send SMS when push notifications fail during escalation"
+                // -- How alerts arrive --
+                // Daily OK no longer sends text messages (server SMS needs an
+                // A2P 10DLC registration), so the old "SMS Fallback" toggle is
+                // gone. sms_escalation_enabled is still loaded and saved
+                // unchanged for older app builds; nothing acts on it.
+                SettingsSection("How Alerts Arrive") {
+                    Text(
+                        text = "Alerts arrive as notifications on your phone and on each co-caregiver's phone. " +
+                            "Daily OK doesn't send text messages.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "To reach them, tap Text on their dashboard card. Your messages app opens with a short note ready to send from your own number.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 

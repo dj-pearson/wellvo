@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.RemoveCircle
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -941,6 +942,45 @@ private fun ReceiverStatusCardView(
             card.kidResponseType?.takeIf { it.isNotEmpty() }?.let { response ->
                 Spacer(modifier = Modifier.height(8.dp))
                 KidResponseBadge(rawValue = response)
+            }
+
+            // "Text <name>": a warm, pre-filled note in this phone's SMS app
+            // while an answer is outstanding or they asked for help. Daily OK
+            // sends no texts itself; the caregiver taps Send.
+            val textBody = when {
+                card.helpRequest != null ->
+                    net.dailyok.android.util.FamilyText.helpReply(
+                        card.name,
+                        callMe = card.helpRequest == net.dailyok.android.data.models.CheckInResponseType.CallMe
+                    )
+                card.status == ReceiverCheckInStatus.Pending || card.status == ReceiverCheckInStatus.Missed ->
+                    net.dailyok.android.util.FamilyText.checkingOn(
+                        card.name,
+                        missed = card.status == ReceiverCheckInStatus.Missed
+                    )
+                else -> null
+            }
+            val textPhone = card.phone?.takeIf { net.dailyok.android.util.FamilyText.dialable(it) != null }
+            if (textBody != null && textPhone != null) {
+                val context = LocalContext.current
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = { net.dailyok.android.util.FamilyText.open(context, textPhone, textBody) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics {
+                            contentDescription = "Text ${card.name}. Opens your messages app with a short note, ready to send."
+                        },
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Sms,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Text ${card.name}")
+                }
             }
 
             // Check on button (disabled for checked-in receivers and during cooldown)

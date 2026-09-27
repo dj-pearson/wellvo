@@ -94,6 +94,13 @@ struct ContentView: View {
         }
         .animation(reduceMotion ? nil : .easeInOut, value: authViewModel.authState)
         .animation(reduceMotion ? nil : .easeInOut, value: authViewModel.biometricLocked)
+        // An alert's "Text" action: land on the dashboard, which opens the
+        // composer for that receiver. onAppear covers a cold launch where the
+        // action arrived before this view was listening.
+        .onReceive(NotificationCenter.default.publisher(for: AppDelegate.textReceiverRequested)) { _ in
+            takePendingTextReceiver()
+        }
+        .onAppear { takePendingTextReceiver() }
         .onReceive(NotificationCenter.default.publisher(for: AppDelegate.showDashboardRequested)) { note in
             // "View Details", or a body tap on a caregiver alert (help, missed
             // check-in, location). The notification already brings the app
@@ -158,6 +165,16 @@ struct ContentView: View {
 
             await resolveRole()
         }
+    }
+
+    /// Hand an alert's "Text" action to the dashboard. Only a caregiver's
+    /// dashboard acts on it; a receiver's device never gets these alerts.
+    @MainActor
+    private func takePendingTextReceiver() {
+        guard let receiverId = AppDelegate.pendingTextReceiverId else { return }
+        AppDelegate.pendingTextReceiverId = nil
+        appState.selectedTab = .dashboard
+        appState.pendingTextReceiver = receiverId
     }
 
     /// Work out where this signed-in user belongs.

@@ -241,8 +241,8 @@ actor FamilyService {
     /// the approved sender (Twilio won't approve it). Instead the backend just
     /// records the invite (so phone-based auto-join works) and hands back a
     /// pre-composed message the caller drops into the iOS Messages composer, so
-    /// the text comes from the owner's personal number. The Twilio campaign is
-    /// reserved for escalation alerts only.
+    /// the text comes from the owner's personal number. (The server sends no
+    /// SMS at all now; escalation alerts are push only.)
     ///
     /// `role` is `.receiver` (someone to check on) or `.viewer` (a
     /// co-caregiver). The field is only sent for viewers, so a receiver invite

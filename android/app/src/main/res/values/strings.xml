@@ -220,7 +220,7 @@
     <string name="family_sending">Sending…</string>
     <string name="family_send_invitation">Send Invitation</string>
     <string name="family_invitation_sent">Invitation Sent!</string>
-    <string name="family_invitation_sent_body">A text message has been sent to %1$s with instructions to get started.</string>
+    <string name="family_invitation_sent_body">Send %1$s the invite text from your messages app to get them started.</string>
     <string name="family_setup_guide">How %1$s Sets Up</string>
     <string name="family_view_setup_guide">View Full Setup Guide for %1$s</string>
     <string name="family_done">Done</string>
@@ -282,9 +282,9 @@
     <string name="receiver_settings_quiet_hours_desc">No notifications during specified hours</string>
     <string name="receiver_settings_quiet_start">Start</string>
     <string name="receiver_settings_quiet_end">End</string>
-    <string name="receiver_settings_sms">SMS Escalation</string>
-    <string name="receiver_settings_sms_toggle">SMS Fallback</string>
-    <string name="receiver_settings_sms_desc">Send SMS when push notifications fail during escalation</string>
+    <string name="receiver_settings_sms">How Alerts Arrive</string>
+    <string name="receiver_settings_sms_toggle">Notifications only</string>
+    <string name="receiver_settings_sms_desc">Alerts arrive as notifications. Daily OK doesn\'t send text messages; tap Text on a card to message them from your phone.</string>
     <string name="receiver_settings_mood">Mood Tracking</string>
     <string name="receiver_settings_mood_toggle">Mood Tracking</string>
     <string name="receiver_settings_mood_desc">Allow sharing mood after check-in</string>

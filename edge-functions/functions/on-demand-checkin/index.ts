@@ -2,13 +2,15 @@ import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification, buildCheckinPayload } from "../../shared/apns.ts";
 import { sendFCMNotification, buildFCMCheckinPayload } from "../../shared/fcm.ts";
 import type { AuthResult } from "../../shared/auth.ts";
-import { isValidUUID } from "../../shared/validation.ts";
+import { isValidUUID, sanitizeDisplayName } from "../../shared/validation.ts";
+import { resolveCaregiverActor } from "../../shared/caregiver-access.ts";
+import { notifyCaregiverCheckedOn } from "../../shared/caregiver-alerts.ts";
 
 /**
  * A second "Check on" tap within this window re-sends the push for the request
  * that is already open instead of starting another, independent escalation
  * chain (each pending row escalates on its own: reminder, owner alert, viewer
- * alert + SMS).
+ * alert; the server no longer sends SMS).
  */
 const REUSE_OPEN_REQUEST_MS = 5 * 60 * 1000;
 
@@ -28,7 +30,7 @@ export async function handleOnDemandCheckin(req: Request, auth: AuthResult): Pro
     );
   }
 
-  // Get the family and verify ownership
+  // Get the family and verify the caller is one of its caregivers
   const { data: family } = await supabaseAdmin
     .from("families")
     .select("owner_id")
@@ -42,11 +44,16 @@ export async function handleOnDemandCheckin(req: Request, auth: AuthResult): Pro
     );
   }
 
-  // AUTHORIZATION: Verify the requesting user is the family owner
+  // AUTHORIZATION: the family owner or an active co-caregiver of THIS family
+  // may send "Check on now". Receivers, removed or invited members and other
+  // families' caregivers get 403, as before. Looser than owner-only,
+  // intentionally (CLAUDE.md §B, product decision).
+  let actorRole: "owner" | "viewer" | null = null;
   if (!auth.isServiceRole) {
-    if (!auth.userId || auth.userId !== family.owner_id) {
+    actorRole = await resolveCaregiverActor(family_id, family.owner_id, auth.userId);
+    if (!actorRole) {
       return new Response(
-        JSON.stringify({ error: "Only the family owner can send check-in requests" }),
+        JSON.stringify({ error: "Only the family owner or a co-caregiver can send check-in requests" }),
         { status: 403, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -68,11 +75,13 @@ export async function handleOnDemandCheckin(req: Request, auth: AuthResult): Pro
     );
   }
 
-  // Get the owner's name for the notification
-  const { data: owner } = await supabaseAdmin
+  // Whose name the receiver sees ("Tom is checking on you"): the caregiver
+  // who asked, or the owner for a service-role call.
+  const askerId = actorRole === "viewer" && auth.userId ? auth.userId : family.owner_id;
+  const { data: asker } = await supabaseAdmin
     .from("users")
     .select("display_name")
-    .eq("id", family.owner_id)
+    .eq("id", askerId)
     .single();
 
   // Get receiver settings for grace period
@@ -105,7 +114,10 @@ export async function handleOnDemandCheckin(req: Request, auth: AuthResult): Pro
   const deduplicated = request != null;
 
   if (!request) {
-    // Create check-in request
+    // Create check-in request. requested_by stays the family owner even when a
+    // co-caregiver asked: it is NOT NULL ... ON DELETE CASCADE (00001), so
+    // pointing it at a co-caregiver would delete the receiver's request
+    // history if that co-caregiver ever erased their account.
     const { data: created, error: requestError } = await supabaseAdmin
       .from("checkin_requests")
       .insert({
@@ -139,7 +151,9 @@ export async function handleOnDemandCheckin(req: Request, auth: AuthResult): Pro
 
   let deliveredDevices = 0;
   if (tokens?.length) {
-    const displayName = owner?.display_name || "Your family";
+    // A co-caregiver's own display name now reaches the receiver's lock
+    // screen; strip markup/control characters like the caregiver alerts do.
+    const displayName = sanitizeDisplayName(asker?.display_name ?? "") || "Your family";
     const apnsPayload = buildCheckinPayload(displayName, requestId, "on_demand");
     const fcmPayload = buildFCMCheckinPayload(displayName, requestId, receiver_id, "on_demand");
 
@@ -179,6 +193,19 @@ export async function handleOnDemandCheckin(req: Request, auth: AuthResult): Pro
     type: "checkin_reminder",
     status: deliveredDevices > 0 ? "sent" : "failed",
   });
+
+  // A co-caregiver's check-on is announced to the owner and the other
+  // co-caregivers. Not for a repeated tap that reused the open request (they
+  // already heard), and never fails the check-in.
+  if (actorRole === "viewer" && auth.userId && !deduplicated) {
+    await notifyCaregiverCheckedOn({
+      familyId: family_id,
+      receiverId: receiver_id,
+      requestId,
+      actorId: auth.userId,
+      delivered: deliveredDevices > 0,
+    });
+  }
 
   return new Response(
     // `delivered_devices` and `deduplicated` are additive, optional fields: the

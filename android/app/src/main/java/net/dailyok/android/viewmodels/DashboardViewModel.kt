@@ -22,6 +22,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import net.dailyok.android.data.models.CheckIn
+import net.dailyok.android.data.models.CheckInResponseType
 import net.dailyok.android.data.models.Family
 import net.dailyok.android.data.models.Mood
 import net.dailyok.android.data.models.MemberStatus
@@ -62,7 +63,11 @@ data class ReceiverStatusCard(
     val hasNotificationsEnabled: Boolean,
     val checkedInTime: String?,
     val locationLabel: String?,
-    val kidResponseType: String?
+    val kidResponseType: String?,
+    /** Receiver's phone, for "Text <name>" (sent from this phone). Null hides it. */
+    val phone: String? = null,
+    /** Today's check-in asked for help (need help / call me). Null otherwise. */
+    val helpRequest: CheckInResponseType? = null
 )
 
 @Immutable
@@ -190,7 +195,10 @@ class DashboardViewModel @Inject constructor(
                         hasNotificationsEnabled = receiver.userId in allTokens,
                         checkedInTime = todayCheckIn?.checkedInAt,
                         locationLabel = todayCheckIn?.locationLabel,
-                        kidResponseType = todayCheckIn?.kidResponseType
+                        kidResponseType = todayCheckIn?.kidResponseType,
+                        phone = receiver.user?.phone?.takeIf { it.isNotBlank() },
+                        helpRequest = todayCheckIn?.responseType
+                            ?.takeIf { it == CheckInResponseType.NeedHelp || it == CheckInResponseType.CallMe }
                     )
                 }
 

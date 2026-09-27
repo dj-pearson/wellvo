@@ -222,8 +222,8 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   // Invitation delivery is a *native* send from the Owner's own device (the
   // Messages composer). We deliberately DO NOT send this invite through
   // Twilio: an invite goes to a person who has not opted into our A2P 10DLC
-  // campaign, so it can't ride the approved sender. The Twilio campaign is
-  // reserved for escalation alerts. P2P body — no STOP/HELP footer, since it
+  // campaign, so it can't ride the approved sender. (The server no longer
+  // sends any SMS — shared/sms.ts is off unless SMS_ENABLED.) P2P body — no STOP/HELP footer, since it
   // comes from the Owner's personal number.
   const inviteMessage = role === "viewer"
     ? buildCaregiverInviteMessage(sanitizeDisplayName(name), inviteLink, pairingCode)

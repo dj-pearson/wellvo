@@ -195,7 +195,7 @@ export default function Terms() {
               The Service relies on, and your use is also subject to, third-party terms
               including the Apple App Store Licensed Application End User License Agreement,
               Google Play Terms of Service, the Apple Push Notification service, Firebase
-              Cloud Messaging, and any SMS provider used to deliver escalation alerts. Where
+              Cloud Messaging, and any SMS provider used to deliver sign-in codes. Where
               these Terms conflict with a third-party agreement that applies to your use of
               that third party's service, the third-party agreement controls with respect to
               that service.

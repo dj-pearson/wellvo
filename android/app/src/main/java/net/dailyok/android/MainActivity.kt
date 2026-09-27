@@ -24,6 +24,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.postgrest
 import javax.inject.Inject
 import kotlinx.coroutines.launch
@@ -43,6 +44,10 @@ class MainActivity : ComponentActivity() {
     companion object {
         /** "Call Now" on an urgent alert: the receiver to phone. */
         const val EXTRA_CALL_RECEIVER_ID = "call_receiver_id"
+        /** "Text" on an alert: the receiver to text (from this phone). */
+        const val EXTRA_TEXT_RECEIVER_ID = "text_receiver_id"
+        /** The alert's push `type`, which picks the pre-filled words. */
+        const val EXTRA_TEXT_ALERT_TYPE = "text_alert_type"
     }
 
     @Inject
@@ -50,6 +55,12 @@ class MainActivity : ComponentActivity() {
 
     @Serializable
     private data class ReceiverPhone(val phone: String? = null)
+
+    @Serializable
+    private data class ReceiverContact(
+        val phone: String? = null,
+        @kotlinx.serialization.SerialName("display_name") val displayName: String? = null
+    )
 
     private var notificationContext by mutableStateOf<NotificationContext?>(null)
     private var pendingInviteToken by mutableStateOf<String?>(null)
@@ -66,6 +77,7 @@ class MainActivity : ComponentActivity() {
         handleNotificationIntent(intent)
         handleDeepLinkIntent(intent)
         handleCallIntent(intent)
+        handleTextIntent(intent)
         setContent {
             DailyOKTheme {
                 DailyOKApp(
@@ -84,6 +96,7 @@ class MainActivity : ComponentActivity() {
         handleNotificationIntent(intent)
         handleDeepLinkIntent(intent)
         handleCallIntent(intent)
+        handleTextIntent(intent)
     }
 
     private fun handleCallIntent(intent: Intent?) {
@@ -96,6 +109,9 @@ class MainActivity : ComponentActivity() {
         }
         lifecycleScope.launch {
             val phone = try {
+                // A cold launch from the notification can get here before the
+                // stored session is loaded; as anon, RLS hides the number.
+                supabase.auth.awaitInitialization()
                 supabase.postgrest.from("users")
                     .select { filter { eq("id", receiverId) } }
                     .decodeSingleOrNull<ReceiverPhone>()
@@ -109,6 +125,48 @@ class MainActivity : ComponentActivity() {
                 android.widget.Toast.makeText(
                     this@MainActivity,
                     "Couldn't find their number. Call them from your contacts.",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    /**
+     * "Text" on a missed check-in or help alert: open the SMS app to the
+     * receiver with a short note filled in. Nothing is sent until the
+     * caregiver taps Send — Daily OK's servers send no texts.
+     */
+    private fun handleTextIntent(intent: Intent?) {
+        val receiverId = intent?.getStringExtra(EXTRA_TEXT_RECEIVER_ID)
+            ?.takeIf { uuidPattern.matches(it) } ?: return
+        val alertType = intent.getStringExtra(EXTRA_TEXT_ALERT_TYPE)?.take(40)
+        intent.removeExtra(EXTRA_TEXT_RECEIVER_ID)
+        intent.removeExtra(EXTRA_TEXT_ALERT_TYPE)
+        val notificationId = intent.getIntExtra("extra_notification_id", -1)
+        if (notificationId != -1) {
+            androidx.core.app.NotificationManagerCompat.from(this).cancel(notificationId)
+        }
+        lifecycleScope.launch {
+            val contact = try {
+                // Same as "Call Now": wait for the stored session on a cold
+                // launch, or RLS hides the number.
+                supabase.auth.awaitInitialization()
+                supabase.postgrest.from("users")
+                    .select(columns = io.github.jan.supabase.postgrest.query.Columns.list("phone", "display_name")) {
+                        filter { eq("id", receiverId) }
+                    }
+                    .decodeSingleOrNull<ReceiverContact>()
+            } catch (_: Exception) {
+                null
+            }
+            val phone = contact?.phone?.takeIf { net.dailyok.android.util.FamilyText.dialable(it) != null }
+            if (phone != null) {
+                val body = net.dailyok.android.util.FamilyText.forAlertType(contact?.displayName.orEmpty(), alertType)
+                net.dailyok.android.util.FamilyText.open(this@MainActivity, phone, body)
+            } else {
+                android.widget.Toast.makeText(
+                    this@MainActivity,
+                    "Couldn't find their number. Text them from your contacts.",
                     android.widget.Toast.LENGTH_LONG
                 ).show()
             }

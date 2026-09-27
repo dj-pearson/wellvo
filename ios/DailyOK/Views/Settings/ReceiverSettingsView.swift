@@ -206,15 +206,6 @@ struct ReceiverSettingsView: View {
         return currentForm.timesInsideQuietHours
     }
 
-    private var owner: FamilyMember? {
-        careTeam.first { $0.role == .owner }
-    }
-
-    private var ownerPhone: String? {
-        guard let phone = owner?.user?.phone?.trimmingCharacters(in: .whitespaces), !phone.isEmpty else { return nil }
-        return phone
-    }
-
     private var viewerNames: [String] {
         careTeam
             .filter { $0.role == .viewer && $0.status == .active }
@@ -462,7 +453,7 @@ struct ReceiverSettingsView: View {
 
             escalationSection
 
-            smsSection
+            howAlertsArriveSection
 
             quietHoursSection
 
@@ -886,7 +877,6 @@ struct ReceiverSettingsView: View {
             lines.append(String(localized: "If \(name) doesn't answer:"))
         }
         let viewers = viewerNames
-        let textsYou = smsEscalationEnabled && ownerPhone != nil
         for step in ReceiverSettingsForm.escalationSteps(gracePeriodMinutes: gracePeriod, reminderIntervalMinutes: reminderInterval) {
             let time = when(step.offsetMinutes)
             switch step.kind {
@@ -895,9 +885,7 @@ struct ReceiverSettingsView: View {
             case .reminder:
                 lines.append(String(localized: "\(time) — a reminder to \(name)"))
             case .ownerAlerted:
-                lines.append(textsYou
-                             ? String(localized: "\(time) — you're alerted (notification and text)")
-                             : String(localized: "\(time) — you're alerted"))
+                lines.append(String(localized: "\(time) — you're alerted"))
             case .viewersAlerted:
                 if viewers.isEmpty {
                     lines.append(String(localized: "\(time) — viewers would be alerted (you have none yet)"))
@@ -912,26 +900,32 @@ struct ReceiverSettingsView: View {
         return lines.joined(separator: "\n")
     }
 
-    private var smsSection: some View {
+    /// Daily OK doesn't send text messages any more (server SMS needs an A2P
+    /// 10DLC registration). The old "Text Alerts" toggle is gone; its
+    /// `sms_escalation_enabled` column is still loaded and saved unchanged so
+    /// older app builds keep reading the value they wrote, but nothing acts on
+    /// it. Alerts are notifications; a text is sent by the caregiver from their
+    /// own phone, pre-filled, from the dashboard card.
+    private var howAlertsArriveSection: some View {
         Section {
-            Toggle("Text Alerts", isOn: $smsEscalationEnabled)
-                .disabled(!escalationEnabled)
-                .accessibilityLabel("Text message alerts")
-                .accessibilityHint("Also sends a text message when a check-in is missed")
-        } header: {
-            Text("Text Message Alerts")
-        } footer: {
-            VStack(alignment: .leading, spacing: 4) {
-                if !escalationEnabled {
-                    Text("Turn on Escalation Alerts to use text alerts.")
-                } else if smsEscalationEnabled && ownerPhone == nil && !careTeam.isEmpty {
-                    Text("Your account has no phone number, so texts can't reach you. Add one in your account settings.")
-                        .foregroundStyle(Self.warningText)
-                } else if smsEscalationEnabled, let ownerPhone {
-                    Text("Texts to you go to \(ownerPhone).")
-                }
-                Text("When a check-in is missed, you — and viewers with a phone number — also get a text, in addition to the notification. Msg & data rates may apply. Reply STOP to any message to opt out, or HELP for assistance.")
+            Label {
+                Text("Alerts arrive as notifications on your phone and on each viewer's phone.")
+            } icon: {
+                Image(systemName: "bell.badge.fill")
+                    .foregroundStyle(.orange)
+                    .accessibilityHidden(true)
             }
+            Label {
+                Text("To reach \(name), tap Text on their card. Your Messages app opens with a short note ready to send from your own number.")
+            } icon: {
+                Image(systemName: "message.fill")
+                    .foregroundStyle(.green)
+                    .accessibilityHidden(true)
+            }
+        } header: {
+            Text("How Alerts Arrive")
+        } footer: {
+            Text("Daily OK doesn't send text messages. Allow Daily OK notifications, including Time Sensitive ones, so alerts get through Focus.")
         }
     }
 

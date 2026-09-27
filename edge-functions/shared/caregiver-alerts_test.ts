@@ -1,5 +1,7 @@
 import { assertEquals } from "std/assert/mod.ts";
 import {
+  careTeamRecipientIds,
+  caregiverCheckedOnCopy,
   escalationCollapseId,
   escalationResolvedCopy,
   requestsResolvedByCheckIn,
@@ -82,4 +84,39 @@ Deno.test("App Store notifications go to the payer's family, not the oldest clai
   // Nothing verified: oldest, as before.
   assertEquals(pickBilledFamily([attacker], null)?.id, "b");
   assertEquals(pickBilledFamily([], "payer"), null);
+});
+
+Deno.test("an owner's stand-down reaches only the co-caregivers who were paged", () => {
+  assertEquals(
+    careTeamRecipientIds({ ownerId: "owner", viewerIds: ["tom", "ann"], pagedIds: ["tom"], actorId: "owner", wholeTeam: false }),
+    ["tom"],
+  );
+});
+
+Deno.test("a co-caregiver's action reaches the owner and every other active co-caregiver, not themselves", () => {
+  assertEquals(
+    careTeamRecipientIds({ ownerId: "owner", viewerIds: ["tom", "ann"], pagedIds: [], actorId: "tom", wholeTeam: true }),
+    ["owner", "ann"],
+  );
+  // A paged-but-since-removed co-caregiver (not in viewerIds) hears nothing.
+  assertEquals(
+    careTeamRecipientIds({ ownerId: "owner", viewerIds: ["tom"], pagedIds: ["gone"], actorId: "tom", wholeTeam: true }),
+    ["owner"],
+  );
+  // Ids compare case-insensitively (auth ids vs stored ids).
+  assertEquals(
+    careTeamRecipientIds({ ownerId: "OWNER", viewerIds: ["Tom"], pagedIds: [], actorId: "tom", wholeTeam: true }),
+    ["OWNER"],
+  );
+});
+
+Deno.test("check-on notice says who asked, and when nothing was delivered", () => {
+  assertEquals(
+    caregiverCheckedOnCopy({ actorName: "Tom", receiverName: "Mom", delivered: true }),
+    { title: "Tom checked on Mom", body: "Tom sent Mom a check-in. Open Daily OK to see when they answer." },
+  );
+  assertEquals(
+    caregiverCheckedOnCopy({ receiverName: "Mom", delivered: false }).body,
+    "A caregiver sent Mom a check-in, but their phone couldn't be notified. You may want to call.",
+  );
 });

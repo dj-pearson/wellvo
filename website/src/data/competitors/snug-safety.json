@@ -5,11 +5,11 @@
   "company_url": "https://www.snugsafe.com",
   "last_verified": "2026-04-22",
   "meta_description": "Snug is built for the senior checking on themselves. Daily OK is built for the adult child who needs the quiet confirmation. Compared feature by feature.",
-  "daily_ok_verdict": "Snug Safety is Daily OK's closest direct competitor — same basic category (a daily check-in app for independent older adults) with a different audience focus. Snug is built around the senior checking on themselves; Daily OK is built around the adult child getting a quiet confirmation. Snug offers a free tier that Daily OK does not, which is a real advantage for a single senior with no paying family member. Daily OK invests more heavily in family-side features: sibling coordination, SMS fallback, and a family-first escalation chain. If you are one senior living alone, try Snug's free tier. If you are an adult child coordinating with siblings and want the check-in routed to you first, Daily OK is the better fit.",
+  "daily_ok_verdict": "Snug Safety is Daily OK's closest direct competitor — same basic category (a daily check-in app for independent older adults) with a different audience focus. Snug is built around the senior checking on themselves; Daily OK is built around the adult child getting a quiet confirmation. Snug offers a free tier that Daily OK does not, which is a real advantage for a single senior with no paying family member. Daily OK invests more heavily in family-side features: sibling coordination, one-tap call and text from the alert, and a family-first escalation chain. If you are one senior living alone, try Snug's free tier. If you are an adult child coordinating with siblings and want the check-in routed to you first, Daily OK is the better fit.",
   "best_for_daily_ok": [
     "Adult children coordinating across multiple siblings on the same parent",
     "Caregivers who want alerts routed to family first (not the senior's own contacts)",
-    "Families who need SMS fallback when the parent's internet is flaky",
+    "Families who want to call or text the parent straight from a missed check-in alert",
     "Households where the caregiver, not the senior, is the primary account holder"
   ],
   "best_for_competitor": [
@@ -72,8 +72,8 @@
       "winner": "different"
     },
     {
-      "feature": "SMS fallback when internet is down",
-      "daily_ok": "On higher tiers",
+      "feature": "Reach the parent from the alert",
+      "daily_ok": "One-tap call, or a pre-written text sent from your own phone",
       "competitor": "Verify tier availability on Snug's site",
       "winner": "different"
     },
@@ -132,7 +132,7 @@
     },
     {
       "q": "Why would I pay for Daily OK when Snug has a free option?",
-      "a": "The honest answer is: if Snug's free tier meets your needs, you shouldn't. Daily OK earns its price when you need family-side coordination — sibling visibility, SMS fallback, and alerts that go to a caregiver first rather than to the senior's own configured contacts."
+      "a": "The honest answer is: if Snug's free tier meets your needs, you shouldn't. Daily OK earns its price when you need family-side coordination — sibling visibility, one-tap call and text from the alert, and alerts that go to a caregiver first rather than to the senior's own configured contacts."
     },
     {
       "q": "Can Snug and Daily OK run side by side?",

@@ -2,7 +2,7 @@ import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification, buildCheckinPayload } from "../../shared/apns.ts";
 import type { APNsPayload } from "../../shared/apns.ts";
 import { sendFCMNotification, buildFCMCheckinPayload, buildFCMAlertPayload } from "../../shared/fcm.ts";
-import { sendSMS, buildEscalationSMS } from "../../shared/sms.ts";
+import { sendSMS, buildEscalationSMS, SMS_ENABLED } from "../../shared/sms.ts";
 import { logInfo, logWarn, logError } from "../../shared/logger.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidTimezone, sanitizeDisplayName } from "../../shared/validation.ts";
@@ -268,8 +268,8 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       .eq("id", receiver_id)
       .single();
 
-    // Declared here, not inside the push block below. The SMS fallback further
-    // down is a SIBLING block, not a nested one, so a const declared in the push
+    // Declared here, not inside the push block below. The (now gated) SMS
+    // fallback further down is a SIBLING block, not a nested one, so a const declared in the push
     // block is out of scope there — `deno run` strips types without checking, so
     // this reached production as a ReferenceError that killed the escalation SMS
     // the moment an owner had SMS enabled and a phone on file (US-EDGE001).
@@ -317,48 +317,53 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       failures.push("no active push tokens");
     }
 
-    // SMS fallback for owner — send if push tokens are missing or as supplement
-    const { data: ownerUser } = await supabaseAdmin
-      .from("users")
-      .select("phone")
-      .eq("id", owner_id)
-      .single();
-
-    // Check if SMS escalation is enabled for this receiver's settings
-    const { data: receiverMember } = await supabaseAdmin
-      .from("family_members")
-      .select("id")
-      .eq("user_id", receiver_id)
-      .eq("family_id", family_id)
-      .single();
-
-    let smsEnabled = false;
-    if (receiverMember) {
-      const { data: settings } = await supabaseAdmin
-        .from("receiver_settings")
-        .select("sms_escalation_enabled")
-        .eq("family_member_id", receiverMember.id)
+    // SMS fallback for owner. Off unless the deployment sets SMS_ENABLED
+    // (shared/sms.ts): the server no longer texts anyone, the apps open the
+    // phone's own Messages composer instead. The receiver's
+    // sms_escalation_enabled column is kept for older clients but is not read
+    // while SMS is off, so it can't make a difference to who is alerted.
+    if (SMS_ENABLED) {
+      const { data: ownerUser } = await supabaseAdmin
+        .from("users")
+        .select("phone")
+        .eq("id", owner_id)
         .single();
-      smsEnabled = settings?.sms_escalation_enabled ?? false;
-    }
 
-    if (smsEnabled && ownerUser?.phone) {
-      const smsBody = buildEscalationSMS(
-        safeReceiverName,
-        "owner_alert"
-      );
-      logInfo("Sending owner escalation SMS", { path: "/escalation-tick", userId: owner_id });
-      const smsResult = await sendSMS(ownerUser.phone, smsBody);
-      if (smsResult.success) {
-        delivered = true;
-      } else {
-        logError("Owner escalation SMS failed", smsResult.error, { path: "/escalation-tick", userId: owner_id });
-        failures.push(`SMS failed: ${smsResult.error || "unknown error"}`);
+      const { data: receiverMember } = await supabaseAdmin
+        .from("family_members")
+        .select("id")
+        .eq("user_id", receiver_id)
+        .eq("family_id", family_id)
+        .single();
+
+      let smsEnabled = false;
+      if (receiverMember) {
+        const { data: settings } = await supabaseAdmin
+          .from("receiver_settings")
+          .select("sms_escalation_enabled")
+          .eq("family_member_id", receiverMember.id)
+          .single();
+        smsEnabled = settings?.sms_escalation_enabled ?? false;
+      }
+
+      if (smsEnabled && ownerUser?.phone) {
+        const smsBody = buildEscalationSMS(
+          safeReceiverName,
+          "owner_alert"
+        );
+        logInfo("Sending owner escalation SMS", { path: "/escalation-tick", userId: owner_id });
+        const smsResult = await sendSMS(ownerUser.phone, smsBody);
+        if (smsResult.success) {
+          delivered = true;
+        } else {
+          logError("Owner escalation SMS failed", smsResult.error, { path: "/escalation-tick", userId: owner_id });
+          failures.push(`SMS failed: ${smsResult.error || "unknown error"}`);
+        }
       }
     }
 
     // One row with the real outcome. It used to log "sent" unconditionally, so
-    // an owner with no push token and SMS off — who was told nothing — looked
+    // an owner with no push token — who was told nothing — looked
     // alerted in every report.
     if (!delivered) {
       logError("Owner missed-check-in alert reached no device", null, {
@@ -422,10 +427,10 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
     // The co-caregiver who said "I'm on it" isn't told that they are.
     const copyForClaimer = viewerMissedAlertCopy({ receiverName: safeViewerReceiverName, sinceLocal, ownerName, claimedByName: null });
 
-    // Viewer SMS follows the same per-receiver opt-in as the owner's. It used to
-    // text every viewer with a number on file, whatever the owner had chosen.
+    // Viewer SMS follows the same per-receiver opt-in as the owner's, and the
+    // same SMS_ENABLED gate (off by default: nothing is texted by the server).
     let viewerSmsEnabled = false;
-    if (viewers?.length) {
+    if (SMS_ENABLED && viewers?.length) {
       const { data: receiverMember } = await supabaseAdmin
         .from("family_members")
         .select("id")
@@ -491,25 +496,28 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
           failures.push("no active push tokens");
         }
 
-        // SMS fallback for viewers with phone numbers
-        const { data: viewerUser } = await supabaseAdmin
-          .from("users")
-          .select("phone")
-          .eq("id", viewer.user_id)
-          .single();
+        // SMS fallback for viewers with phone numbers — only when the
+        // deployment has SMS_ENABLED (viewerSmsEnabled is false otherwise).
+        if (viewerSmsEnabled) {
+          const { data: viewerUser } = await supabaseAdmin
+            .from("users")
+            .select("phone")
+            .eq("id", viewer.user_id)
+            .single();
 
-        if (viewerSmsEnabled && viewerUser?.phone) {
-          const smsBody = buildEscalationSMS(
-            safeViewerReceiverName,
-            "viewer_alert"
-          );
-          logInfo("Sending viewer escalation SMS", { path: "/escalation-tick", userId: viewer.user_id });
-          const smsResult = await sendSMS(viewerUser.phone, smsBody);
-          if (smsResult.success) {
-            delivered = true;
-          } else {
-            logError("Viewer escalation SMS failed", smsResult.error, { path: "/escalation-tick", userId: viewer.user_id });
-            failures.push(`SMS failed: ${smsResult.error || "unknown error"}`);
+          if (viewerUser?.phone) {
+            const smsBody = buildEscalationSMS(
+              safeViewerReceiverName,
+              "viewer_alert"
+            );
+            logInfo("Sending viewer escalation SMS", { path: "/escalation-tick", userId: viewer.user_id });
+            const smsResult = await sendSMS(viewerUser.phone, smsBody);
+            if (smsResult.success) {
+              delivered = true;
+            } else {
+              logError("Viewer escalation SMS failed", smsResult.error, { path: "/escalation-tick", userId: viewer.user_id });
+              failures.push(`SMS failed: ${smsResult.error || "unknown error"}`);
+            }
           }
         }
 

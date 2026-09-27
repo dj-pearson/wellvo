@@ -13,6 +13,10 @@ enum NotificationRoute: Equatable {
     case snooze
     /// Owner taps "Call Now" on an urgent alert.
     case callReceiver
+    /// Caregiver taps "Text" on an urgent alert: open the dashboard with the
+    /// Messages composer pre-filled for that receiver (sent from this phone —
+    /// the server sends no texts).
+    case textReceiver
     /// Owner/viewer taps "View Details" on a location, battery or missed
     /// check-in alert — open the app on the dashboard.
     case viewDetails
@@ -28,7 +32,7 @@ enum NotificationRoute: Equatable {
     static let dashboardAlertTypes: Set<String> = [
         "need_help", "call_me", "sos", "owner_alert", "viewer_alert",
         "geofence_alert", "low_battery_alert", "picking_me_up", "can_stay_longer",
-        "escalation_resolved", "checkin_confirmed",
+        "escalation_resolved", "checkin_confirmed", "caregiver_checked_on",
     ]
     static let dashboardCategories: Set<String> = ["URGENT_ALERT", "KID_RESPONSE", "LOCATION_ALERT"]
 
@@ -47,6 +51,7 @@ enum NotificationRoute: Equatable {
         case "CHECKIN_CALL_ME_ACTION": return .checkIn(.callMe)
         case "CHECKIN_SNOOZE_ACTION": return .snooze
         case "CALL_RECEIVER_ACTION": return .callReceiver
+        case "TEXT_RECEIVER_ACTION": return .textReceiver
         case "VIEW_LOCATION_ACTION": return .viewDetails
         case UNNotificationDefaultActionIdentifier: return .openApp
         default: return .none
@@ -65,6 +70,14 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     /// dashboard is up (e.g. "Call Now" couldn't find a number).
     static let outcomeTitleKey = "outcome_title"
     static let outcomeMessageKey = "outcome_message"
+    /// Posted for an alert's "Text" action, with `receiverIdKey`. ContentView
+    /// hands it to AppState; the dashboard opens the composer once the card
+    /// has loaded.
+    static let textReceiverRequested = Notification.Name("DailyOK.textReceiverRequested")
+    static let receiverIdKey = "receiver_id"
+    /// Held for a cold launch, where the action can arrive before ContentView
+    /// is listening. ContentView takes it when it appears.
+    @MainActor static var pendingTextReceiverId: UUID?
 
     func application(
         _ application: UIApplication,
@@ -204,6 +217,22 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             return
         case .callReceiver:
             handleCallReceiver(userInfo: userInfo)
+        case .textReceiver:
+            // `.foreground`: the app is already opening. Nothing is sent here;
+            // the dashboard shows the composer and the caregiver taps Send.
+            let receiverId = (userInfo["receiver_id"] as? String).flatMap(UUID.init(uuidString:))
+            Task { @MainActor in
+                guard let receiverId else {
+                    NotificationCenter.default.post(name: AppDelegate.showDashboardRequested, object: nil)
+                    return
+                }
+                AppDelegate.pendingTextReceiverId = receiverId
+                NotificationCenter.default.post(
+                    name: AppDelegate.textReceiverRequested,
+                    object: nil,
+                    userInfo: [AppDelegate.receiverIdKey: receiverId]
+                )
+            }
         case .viewDetails:
             // The action carries `.foreground`, so iOS is already opening the
             // app; make sure it lands on the dashboard rather than wherever the
@@ -537,9 +566,17 @@ enum NotificationCategories {
             options: [.foreground]
         )
 
+        // "Text": opens the app on the dashboard with Messages pre-filled
+        // ("Hi Mom, are you OK?"). Daily OK sends no texts itself.
+        let textReceiverAction = UNNotificationAction(
+            identifier: "TEXT_RECEIVER_ACTION",
+            title: "Text",
+            options: [.foreground]
+        )
+
         let urgentAlertCategory = UNNotificationCategory(
             identifier: "URGENT_ALERT",
-            actions: [callNowAction],
+            actions: [callNowAction, textReceiverAction],
             intentIdentifiers: [],
             options: []
         )
@@ -552,7 +589,7 @@ enum NotificationCategories {
         // CALL_RECEIVER_ACTION needs.
         let kidResponseCategory = UNNotificationCategory(
             identifier: "KID_RESPONSE",
-            actions: [callNowAction],
+            actions: [callNowAction, textReceiverAction],
             intentIdentifiers: [],
             options: []
         )

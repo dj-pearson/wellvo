@@ -172,7 +172,7 @@ actor CheckInService {
         }
     }
 
-    /// Owner "stand down" — stop the escalation chain for a receiver's pending
+    /// Caregiver "stand down" (the owner or an active co-caregiver) — stop the escalation chain for a receiver's pending
     /// request(s) after reaching them another way (call, in person).
     @discardableResult
     func cancelEscalation(receiverId: UUID, familyId: UUID) async throws -> CancelEscalationResult {

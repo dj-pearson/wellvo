@@ -1,24 +1,58 @@
 /**
- * SMS client using Twilio API.
- * Used as a fallback escalation channel when push notifications fail
- * or as an additional alert for critical escalation steps.
+ * SMS client using Twilio API — DISABLED BY DEFAULT.
+ *
+ * Daily OK no longer sends text messages from a server. Server-sent SMS needs
+ * an A2P 10DLC registration the product can't meet, so a text between family
+ * members is now written on the phone itself: the apps open the Messages
+ * composer pre-filled ("Text Mom") and the person sends it from their own
+ * number. Escalation still pages owners and co-caregivers by push (APNs/FCM).
+ *
+ * The code is kept so the paths still compile and a future, compliant sender
+ * could be switched back on deliberately. Nothing is sent unless the
+ * deployment sets SMS_ENABLED=true (and Twilio credentials) explicitly.
  */
 
-const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID") || "";
-const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN") || "";
-const TWILIO_FROM_NUMBER = Deno.env.get("TWILIO_FROM_NUMBER") || "";
+/**
+ * Whether the server may send SMS. Only an explicit "true" / "1" turns it on;
+ * unset, empty or anything else is off.
+ */
+export function parseSmsEnabled(raw: string | undefined | null): boolean {
+  const v = (raw ?? "").trim().toLowerCase();
+  return v === "true" || v === "1";
+}
+
+/**
+ * Env read that tolerates a missing --allow-env: CI's `deno test` runs with no
+ * permissions, and sms_test imports this module. The server always has
+ * --allow-env, so production reads are unchanged. Unreadable reads as unset,
+ * which keeps SMS off.
+ */
+function readEnv(name: string): string | undefined {
+  try {
+    return Deno.env.get(name);
+  } catch {
+    return undefined;
+  }
+}
+
+export const SMS_ENABLED = parseSmsEnabled(readEnv("SMS_ENABLED"));
+
+const TWILIO_ACCOUNT_SID = readEnv("TWILIO_ACCOUNT_SID") || "";
+const TWILIO_AUTH_TOKEN = readEnv("TWILIO_AUTH_TOKEN") || "";
+const TWILIO_FROM_NUMBER = readEnv("TWILIO_FROM_NUMBER") || "";
 // Preferred sender for A2P 10DLC: routes through the approved campaign's sender pool.
 // When set, takes precedence over TWILIO_FROM_NUMBER.
-const TWILIO_MESSAGING_SERVICE_SID = Deno.env.get("TWILIO_MESSAGING_SERVICE_SID") || "";
+const TWILIO_MESSAGING_SERVICE_SID = readEnv("TWILIO_MESSAGING_SERVICE_SID") || "";
 
 const hasSender = !!(TWILIO_MESSAGING_SERVICE_SID || TWILIO_FROM_NUMBER);
 
-if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !hasSender) {
+// Only worth a warning when someone switched SMS on and it still can't send.
+if (SMS_ENABLED && (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !hasSender)) {
   console.warn(
     JSON.stringify({
       timestamp: new Date().toISOString(),
       level: "warn",
-      message: "Twilio SMS credentials not configured. SMS escalation will be disabled. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and either TWILIO_MESSAGING_SERVICE_SID (preferred) or TWILIO_FROM_NUMBER.",
+      message: "SMS_ENABLED is set but Twilio credentials are not configured, so no SMS will be sent. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and either TWILIO_MESSAGING_SERVICE_SID (preferred) or TWILIO_FROM_NUMBER.",
     })
   );
 }
@@ -30,6 +64,11 @@ export interface SMSResult {
 }
 
 export async function sendSMS(to: string, body: string): Promise<SMSResult> {
+  if (!SMS_ENABLED) {
+    // No network call, no Twilio. Callers check SMS_ENABLED first; this is the
+    // backstop for any caller that doesn't.
+    return { success: false, error: "SMS disabled" };
+  }
   if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !hasSender) {
     console.warn("SMS: Twilio credentials not configured, skipping SMS");
     return { success: false, error: "Twilio not configured" };

@@ -23,6 +23,8 @@ struct ReceiverHomeView: View {
     @State private var showAccountSheet = false
     /// An urgent send waiting for "Send Help Alert" in the confirmation.
     @State private var pendingHelp: ReceiverHelpKind?
+    /// "Text <owner>": a pre-filled note for this phone's Messages app.
+    @State private var textDraft: TextMessageDraft?
     /// Width available to the content, so the button never outgrows the screen
     /// at the largest text sizes.
     @State private var contentWidth: CGFloat = 0
@@ -234,6 +236,7 @@ struct ReceiverHomeView: View {
                 showCelebration = false
             }
         }
+        .textMessageComposer(item: $textDraft)
         .sheet(isPresented: $showHealthSharing) {
             HealthSharingView()
         }
@@ -915,6 +918,8 @@ struct ReceiverHomeView: View {
                     .buttonStyle(.bordered)
                     .tint(Self.helpRed)
                     .disabled(viewModel.isSendingHelp)
+                    // A text can still get through when Daily OK can't.
+                    textOwnerButton(kind: failure.kind)
                 }
             }
 
@@ -957,6 +962,33 @@ struct ReceiverHomeView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(DailyOKColor.green700)
+        }
+    }
+
+    /// "Text <owner>": Messages opens with "I need help…" (plus a rough map
+    /// link when the phone already had a location), sent from this phone.
+    /// Daily OK sends no texts itself. Hidden without the owner's number.
+    @ViewBuilder
+    private func textOwnerButton(kind: ReceiverHelpKind) -> some View {
+        if let phone = viewModel.ownerPhone, Self.telURL(phone) != nil {
+            Button {
+                textDraft = TextMessageDraft(
+                    recipient: phone,
+                    body: FamilyTextMessage.askingForHelp(
+                        kind: kind,
+                        ownerName: viewModel.ownerName,
+                        location: viewModel.lastHelpLocation
+                    )
+                )
+            } label: {
+                Label(viewModel.ownerName.map { String(localized: "Text \($0)") } ?? String(localized: "Text your family"),
+                      systemImage: "message.fill")
+                    .font(isSimpleMode ? .title3.weight(.semibold) : .body.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: isSimpleMode ? 60 : 50)
+            }
+            .buttonStyle(.bordered)
+            .tint(DailyOKColor.green700)
+            .accessibilityHint("Opens Messages with a note saying you need help, ready to send from your phone")
         }
     }
 
@@ -1026,6 +1058,7 @@ struct ReceiverHomeView: View {
             }
 
             callOwnerButton
+            textOwnerButton(kind: help.kind)
 
             Text("Tapped this by mistake? Call \(ownerLabel) to let them know you're OK.")
                 .font(.footnote)

@@ -30,6 +30,8 @@ services:
       - APNS_TEAM_ID=${APNS_TEAM_ID}
       - APNS_PRIVATE_KEY=${APNS_PRIVATE_KEY}
       - APNS_ENVIRONMENT=${APNS_ENVIRONMENT:-development}
+      # Server-sent SMS is off unless SMS_ENABLED=true (see edge-functions/shared/sms.ts).
+      - SMS_ENABLED=${SMS_ENABLED:-false}
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
       - TWILIO_FROM_NUMBER=${TWILIO_FROM_NUMBER}
