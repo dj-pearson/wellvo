@@ -300,17 +300,20 @@ fun DashboardScreen(
 
                         // Receiver Status Cards
                         items(receiverCards, key = { it.id }) { card ->
-                            // Co-caregivers can say "I'm on it" (any active
-                            // caregiver may claim, 00062). "Check on" and
-                            // "Stop alerts" stay owner-only, as on iOS:
-                            // on-demand-checkin and cancel-escalation refuse
-                            // anyone but the owner (403).
+                            // Every active caregiver (owner or co-caregiver)
+                            // gets "I'm on it" (claim_checkin_request, 00062),
+                            // "Check on" and "Stop alerts": on-demand-checkin
+                            // and cancel-escalation accept the owner and the
+                            // family's active co-caregivers
+                            // (resolveCaregiverActor), as on iOS. The
+                            // dashboard only loads a family through an active
+                            // membership, so a card here means an active one.
                             ReceiverStatusCardView(
-                                card = if (isViewer) card.copy(canStopAlerts = false) else card,
-                                isSending = if (isViewer) false else card.id in sendingCheckInFor,
-                                cooldownEndMs = if (isViewer) 0L else cooldownUntil[card.id] ?: 0L,
+                                card = card,
+                                isSending = card.id in sendingCheckInFor,
+                                cooldownEndMs = cooldownUntil[card.id] ?: 0L,
                                 onCheckOn = { viewModel.sendOnDemandCheckIn(card.id) },
-                                showCheckOnButton = !isViewer,
+                                showCheckOnButton = true,
                                 busy = actingOn,
                                 onStopAlerts = { viewModel.stopAlerts(card.id) },
                                 onClaim = { release -> viewModel.claimCheckIn(card.id, release) }
