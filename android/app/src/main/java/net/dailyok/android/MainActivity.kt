@@ -56,9 +56,6 @@ class MainActivity : ComponentActivity() {
     lateinit var supabase: SupabaseClient
 
     @Serializable
-    private data class ReceiverPhone(val phone: String? = null)
-
-    @Serializable
     private data class ReceiverContact(
         val phone: String? = null,
         @kotlinx.serialization.SerialName("display_name") val displayName: String? = null
@@ -136,10 +133,10 @@ class MainActivity : ComponentActivity() {
                 // A cold launch from the notification can get here before the
                 // stored session is loaded; as anon, RLS hides the number.
                 supabase.auth.awaitInitialization()
-                supabase.postgrest.from("users")
-                    .select { filter { eq("id", receiverId) } }
-                    .decodeSingleOrNull<ReceiverPhone>()
-                    ?.phone
+                // Numbers this caregiver may see (00067); the users row no
+                // longer carries other people's phone.
+                net.dailyok.android.network.MemberDirectory
+                    .contactNumbers(supabase, null, listOf(receiverId))[receiverId]
             } catch (_: Exception) {
                 null
             }
@@ -175,11 +172,16 @@ class MainActivity : ComponentActivity() {
                 // Same as "Call Now": wait for the stored session on a cold
                 // launch, or RLS hides the number.
                 supabase.auth.awaitInitialization()
-                supabase.postgrest.from("users")
-                    .select(columns = io.github.jan.supabase.postgrest.query.Columns.list("phone", "display_name")) {
+                val name = supabase.postgrest.from("users")
+                    .select(columns = io.github.jan.supabase.postgrest.query.Columns.list("display_name")) {
                         filter { eq("id", receiverId) }
                     }
                     .decodeSingleOrNull<ReceiverContact>()
+                    ?.displayName
+                // Numbers this caregiver may see (00067).
+                val number = net.dailyok.android.network.MemberDirectory
+                    .contactNumbers(supabase, null, listOf(receiverId))[receiverId]
+                ReceiverContact(phone = number, displayName = name)
             } catch (_: Exception) {
                 null
             }

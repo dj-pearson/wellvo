@@ -11,6 +11,7 @@ import net.dailyok.android.data.models.Family
 import net.dailyok.android.data.models.FamilyMember
 import net.dailyok.android.data.models.UserRole
 import net.dailyok.android.network.ApiService
+import net.dailyok.android.network.MemberDirectory
 import net.dailyok.android.network.AutoJoinResult
 import net.dailyok.android.network.InviteReceiverRequest
 import net.dailyok.android.network.RedeemCodeResponse
@@ -33,7 +34,7 @@ class FamilyService @Inject constructor(
                     put("name", name)
                     put("owner_id", userId)
                 }) {
-                    select()
+                    select(Columns.raw(Family.COLUMNS))
                 }
                 .decodeSingle<Family>()
 
@@ -58,7 +59,7 @@ class FamilyService @Inject constructor(
             // Earliest join wins — keeps owner + receiver apps agreeing on the
             // same family when stray duplicates exist in the DB.
             val member = supabase.postgrest.from("family_members")
-                .select {
+                .select(columns = Columns.raw(FamilyMember.COLUMNS)) {
                     filter { eq("user_id", userId) }
                     filter { eq("status", "active") }
                     order("joined_at", Order.ASCENDING)
@@ -69,7 +70,7 @@ class FamilyService @Inject constructor(
                 ?: return null
 
             return supabase.postgrest.from("families")
-                .select {
+                .select(columns = Columns.raw(Family.COLUMNS)) {
                     filter { eq("id", member.familyId) }
                 }
                 .decodeSingleOrNull<Family>()
@@ -78,13 +79,25 @@ class FamilyService @Inject constructor(
         }
     }
 
+    /**
+     * Members with their public profile. Phone numbers are not in the embed
+     * (other members' email / phone are off limits, 00067); they are filled in
+     * from `family_contact_numbers`, which only returns the numbers this
+     * caller may see. A failed number lookup leaves them blank.
+     */
     suspend fun getFamilyMembers(familyId: String): List<FamilyMember> {
         try {
-            return supabase.postgrest.from("family_members")
-                .select(columns = Columns.raw("*, users(*)")) {
+            val members = supabase.postgrest.from("family_members")
+                .select(columns = Columns.raw(FamilyMember.COLUMNS_WITH_USER)) {
                     filter { eq("family_id", familyId) }
                 }
                 .decodeList<FamilyMember>()
+            val phones = MemberDirectory.contactNumbersOrEmpty(supabase, familyId, members.map { it.userId })
+            if (phones.isEmpty()) return members
+            return members.map { member ->
+                val phone = phones[member.userId]
+                if (phone != null && member.user != null) member.copy(user = member.user.copy(phone = phone)) else member
+            }
         } catch (e: Exception) {
             throw DailyOKError.Unknown(e.message ?: "Failed to fetch family members.")
         }
@@ -93,7 +106,7 @@ class FamilyService @Inject constructor(
     suspend fun getCurrentUserRole(userId: String, familyId: String): UserRole? {
         try {
             val member = supabase.postgrest.from("family_members")
-                .select {
+                .select(columns = Columns.raw(FamilyMember.COLUMNS)) {
                     filter { eq("user_id", userId) }
                     filter { eq("family_id", familyId) }
                     filter { eq("status", "active") }

@@ -171,7 +171,7 @@ struct CaregiverDigestView: View {
         do {
             try await SupabaseService.shared.client
                 .from("users")
-                .update(DigestPrefs(digest_frequency: frequency, digest_hour: hour))
+                .update(DigestPrefs(digest_frequency: frequency, digest_hour: hour), returning: .minimal)
                 .eq("id", value: session.user.id.uuidString)
                 .execute()
 

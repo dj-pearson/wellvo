@@ -198,11 +198,9 @@ class AuthService @Inject constructor(
     suspend fun getCurrentUser(): AppUser? {
         val userId = currentUserId() ?: return null
         return try {
-            supabase.postgrest.from("users")
-                .select {
-                    filter { eq("id", userId) }
-                }
-                .decodeSingleOrNull<AppUser>()
+            // get_my_profile (00067): self-reads of email / phone must not
+            // go through the table once column SELECT on them is revoked.
+            net.dailyok.android.network.MemberDirectory.myProfile(supabase, userId)
         } catch (_: Exception) {
             null
         }

@@ -302,6 +302,15 @@ fun ReceiverHomeScreen(
                 failureMessage = state.helpFailureMessage,
                 onRequest = { kind -> pendingHelp = kind },
                 onDismissMessage = viewModel::clearHelpMessages,
+                textOwnerLabel = if (state.canTextOwnerAboutHelp) {
+                    state.ownerName?.let { "Text ${net.dailyok.android.util.FamilyText.greetingName(it)}" }
+                        ?: "Text your family"
+                } else null,
+                onTextOwner = {
+                    state.ownerPhone?.let { phone ->
+                        net.dailyok.android.util.FamilyText.open(context, phone, state.helpTextForOwner())
+                    }
+                },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(horizontal = 16.dp, vertical = 24.dp)
@@ -683,6 +692,9 @@ private fun HelpActions(
     failureMessage: String?,
     onRequest: (net.dailyok.android.viewmodels.ReceiverHelpKind) -> Unit,
     onDismissMessage: () -> Unit,
+    /** "Text Mom" under a help result; null hides it (no number on file). */
+    textOwnerLabel: String? = null,
+    onTextOwner: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -699,18 +711,33 @@ private fun HelpActions(
                 elevation = DailyOKElevation.level2,
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp)
             ) {
-                androidx.compose.foundation.layout.Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (failureMessage != null) MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = onDismissMessage) { Text("OK") }
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    androidx.compose.foundation.layout.Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (failureMessage != null) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = onDismissMessage) { Text("OK") }
+                    }
+                    // A text from this phone can still get through when Daily OK
+                    // can't, and it reaches the owner even when it did. Opens the
+                    // SMS app pre-filled; nothing is sent until they tap Send.
+                    if (textOwnerLabel != null) {
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = onTextOwner,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                        ) {
+                            Text(textOwnerLabel)
+                        }
+                    }
                 }
             }
         }

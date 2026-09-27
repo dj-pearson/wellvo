@@ -26,9 +26,8 @@
 --    clients (the function is kept, so this is reversible with one GRANT and
 --    the service role can still call it).
 --
--- Not included (still used by shipped builds — see 00063 NOT CHANGED):
--- families.billing_* and users(*) column revokes need explicit column lists
--- shipped in both apps first.
+-- Not included: the users / families column revokes. They are staged
+-- separately in member_column_privileges.sql (step 2 of 00067).
 --
 -- VERIFICATION (expected values after applying):
 --   SELECT count(*) FROM pg_policies

@@ -270,19 +270,20 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             return
         }
 
+        // Narrows the lookup when the push names the family; nil searches
+        // every family this caregiver is in.
+        let familyId = (userInfo["family_id"] as? String).flatMap(UUID.init(uuidString:))
+
         Task {
             do {
-                // Fetch receiver's phone number
-                let users: [AppUser] = try await SupabaseService.shared.client
-                    .from("users")
-                    .select("id, phone")
-                    .eq("id", value: receiverId.uuidString)
-                    .limit(1)
-                    .execute()
-                    .value
+                // The receiver's number, from the numbers this caregiver may
+                // see (00067). Decoding `[AppUser]` from `select("id, phone")`
+                // threw on the missing display_name / created_at, so this
+                // action always ended in the failure alert.
+                let phones = try await FamilyService.shared.fetchContactNumbers(familyId: familyId, userIds: [receiverId])
 
                 // Normalize to a tel:// URL (dialable characters only).
-                let cleaned = (users.first?.phone ?? "")
+                let cleaned = (phones[receiverId] ?? "")
                     .replacingOccurrences(of: "[^0-9+]", with: "", options: .regularExpression)
                 guard !cleaned.isEmpty, let telURL = URL(string: "tel://\(cleaned)") else {
                     Log.general.error("No phone number found for receiver")

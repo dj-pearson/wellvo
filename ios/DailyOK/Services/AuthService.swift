@@ -59,13 +59,7 @@ actor AuthService {
         let appleProvidedEmail = credential.email
 
         // First, check if user profile already exists
-        let existingUser: AppUser? = try? await supabase
-            .from("users")
-            .select()
-            .eq("id", value: session.user.id.uuidString)
-            .single()
-            .execute()
-            .value
+        let existingUser: AppUser? = try? await fetchMyProfile(userId: session.user.id)
 
         if let existing = existingUser {
             // Only update fields that Apple actually provided (non-nil)
@@ -79,14 +73,18 @@ actor AuthService {
                 updates["email"] = email
             }
 
-            let user: AppUser = try await supabase
+            // `returning: .minimal`: a returned row is `select=*`, which names
+            // email and phone, and the staged column revoke hides those from
+            // direct reads (your own row too). Read it back through
+            // get_my_profile instead.
+            try await supabase
                 .from("users")
-                .update(updates)
+                .update(updates, returning: .minimal)
                 .eq("id", value: existing.id.uuidString)
-                .select()
-                .single()
                 .execute()
-                .value
+            guard let user = try await fetchMyProfile(userId: existing.id) else {
+                throw AuthError.userNotFound
+            }
 
             // Persist the Apple user ID for revocation checks
             persistAppleUserID(credential.user)
@@ -94,7 +92,7 @@ actor AuthService {
             return user
         } else {
             // First-time sign-in — create user profile
-            let user: AppUser = try await supabase
+            try await supabase
                 .from("users")
                 .insert([
                     "id": session.user.id.uuidString,
@@ -102,10 +100,10 @@ actor AuthService {
                     "display_name": appleProvidedName ?? "User",
                     "timezone": TimeZone.current.identifier,
                 ])
-                .select()
-                .single()
                 .execute()
-                .value
+            guard let user = try await fetchMyProfile(userId: session.user.id) else {
+                throw AuthError.userNotFound
+            }
 
             persistAppleUserID(credential.user)
 
@@ -169,7 +167,7 @@ actor AuthService {
 
         _ = try? await supabase
             .from("users")
-            .update(["timezone": deviceTz])
+            .update(["timezone": deviceTz], returning: .minimal)
             .eq("id", value: session.user.id.uuidString)
             .execute()
     }
@@ -243,15 +241,7 @@ actor AuthService {
         // with "User" and re-set the email. Fetch as an array with a limit so a
         // genuine not-found is an empty array, while a transient error THROWS and
         // propagates instead of clobbering the profile.
-        let existing: [AppUser] = try await supabase
-            .from("users")
-            .select()
-            .eq("id", value: userId.uuidString)
-            .limit(1)
-            .execute()
-            .value
-
-        if let existing = existing.first { return existing }
+        if let existing = try await fetchMyProfile(userId: userId) { return existing }
 
         // Profile doesn't exist — create it
         let fields: [String: String] = [
@@ -261,15 +251,44 @@ actor AuthService {
             "timezone": TimeZone.current.identifier,
         ]
 
-        let user: AppUser = try await supabase
+        // ignoreDuplicates (ON CONFLICT DO NOTHING): a row that appeared
+        // meanwhile (the auth.users trigger) is kept as it is, never
+        // overwritten. A DO UPDATE would also need SELECT on email, which the
+        // staged column revoke takes away.
+        try await supabase
             .from("users")
-            .upsert(fields)
-            .select()
-            .single()
+            .upsert(fields, returning: .minimal, ignoreDuplicates: true)
             .execute()
-            .value
-
+        guard let user = try await fetchMyProfile(userId: userId) else {
+            throw AuthError.userNotFound
+        }
         return user
+    }
+
+    /// The signed-in user's own profile, every column, or nil when there is no
+    /// profile row yet. Throws when the lookup fails.
+    ///
+    /// Reads through `get_my_profile()` (00067), not the table: a staged
+    /// migration revokes column SELECT on users.email / phone /
+    /// is_system_admin, and column privileges bind your own row too. A server
+    /// without the function yet gets the same columns from the table.
+    private func fetchMyProfile(userId: UUID) async throws -> AppUser? {
+        do {
+            let rows: [AppUser] = try await supabase
+                .rpc("get_my_profile")
+                .execute()
+                .value
+            return rows.first
+        } catch let error where FamilyService.isMissingFunction(error) {
+            let rows: [AppUser] = try await supabase
+                .from("users")
+                .select(AppUser.selfColumns)
+                .eq("id", value: userId.uuidString)
+                .limit(1)
+                .execute()
+                .value
+            return rows.first
+        }
     }
 
     // MARK: - Accounts without an email (phone sign-in was retired)
@@ -333,7 +352,7 @@ actor AuthService {
               let email = user.email, !email.isEmpty else { return }
         _ = try? await supabase
             .from("users")
-            .update(["email": email])
+            .update(["email": email], returning: .minimal)
             .eq("id", value: user.id.uuidString)
             .execute()
     }
@@ -418,14 +437,10 @@ actor AuthService {
             return nil
         }
 
-        let user: AppUser = try await supabase
-            .from("users")
-            .select()
-            .eq("id", value: userId.uuidString)
-            .single()
-            .execute()
-            .value
-
+        // A missing profile throws, as `.single()` did before.
+        guard let user = try await fetchMyProfile(userId: userId) else {
+            throw AuthError.userNotFound
+        }
         return user
     }
 

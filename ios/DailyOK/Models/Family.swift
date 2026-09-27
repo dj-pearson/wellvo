@@ -58,6 +58,12 @@ struct Family: Codable, Identifiable {
     /// transfer it stays the ex-owner while their subscription covers it.
     var billingUserId: UUID? = nil
 
+    /// Columns for `Family`. Never `*`: the billing receipt columns
+    /// (billing_original_transaction_id / _platform / _verified_at) are not
+    /// for clients (00067; revoked by a staged migration).
+    static let columns =
+        "id, name, owner_id, subscription_tier, subscription_status, subscription_expires_at, free_tier_expires_at, max_receivers, max_viewers, created_at, billing_user_id"
+
     enum CodingKeys: String, CodingKey {
         case id, name
         case ownerId = "owner_id"
@@ -92,6 +98,12 @@ struct FamilyMember: Codable, Identifiable {
 
     // Joined fields
     var user: AppUser?
+
+    /// The membership row's own columns.
+    static let columns = "id, family_id, user_id, role, status, invited_at, joined_at"
+
+    /// Membership plus the member's public profile (no email / phone).
+    static let columnsWithUser = columns + ", users(\(AppUser.memberColumns))"
 
     enum CodingKeys: String, CodingKey {
         case id, role, status

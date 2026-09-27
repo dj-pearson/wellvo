@@ -1040,7 +1040,7 @@ struct DataRetentionView: View {
         do {
             try await SupabaseService.shared.client
                 .from("families")
-                .update(["data_retention_days": retentionDays])
+                .update(["data_retention_days": retentionDays], returning: .minimal)
                 .eq("id", value: family.id.uuidString)
                 .execute()
 

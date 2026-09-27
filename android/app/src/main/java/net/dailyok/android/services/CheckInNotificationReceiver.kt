@@ -16,13 +16,10 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -145,13 +142,10 @@ class CheckInNotificationReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         receiverScope.launch {
             try {
-                val user = supabase.postgrest.from("users")
-                    .select {
-                        filter { eq("id", receiverId) }
-                    }
-                    .decodeSingleOrNull<UserPhone>()
-
-                val phone = user?.phone
+                // Numbers this caregiver may see (00067); the users row no
+                // longer carries other people's phone.
+                val phone = net.dailyok.android.network.MemberDirectory
+                    .contactNumbers(supabase, null, listOf(receiverId))[receiverId]
                 if (phone != null) {
                     val callIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -188,12 +182,4 @@ class CheckInNotificationReceiver : BroadcastReceiver() {
 
         return Triple(location.latitude, location.longitude, location.accuracy.toDouble())
     }
-
-    @Serializable
-    private data class UserPhone(
-        val id: String,
-        val phone: String? = null,
-        @SerialName("display_name")
-        val displayName: String? = null
-    )
 }

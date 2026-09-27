@@ -29,7 +29,16 @@ data class Family(
     val maxViewers: Int,
     @SerialName("created_at")
     val createdAt: String
-)
+) {
+    companion object {
+        /**
+         * Columns for [Family]. Never `*`: the billing receipt columns are
+         * not for clients (00067; revoked by a staged migration).
+         */
+        const val COLUMNS =
+            "id, name, owner_id, subscription_tier, subscription_status, subscription_expires_at, free_tier_expires_at, max_receivers, max_viewers, created_at"
+    }
+}
 
 @Serializable
 enum class SubscriptionTier {
@@ -67,4 +76,12 @@ data class FamilyMember(
     val joinedAt: String? = null,
     @SerialName("users")
     val user: AppUser? = null
-)
+) {
+    companion object {
+        /** The membership row's own columns. */
+        const val COLUMNS = "id, family_id, user_id, role, status, invited_at, joined_at"
+
+        /** Membership plus the member's public profile (no email / phone). */
+        const val COLUMNS_WITH_USER = "$COLUMNS, users(${AppUser.MEMBER_COLUMNS})"
+    }
+}

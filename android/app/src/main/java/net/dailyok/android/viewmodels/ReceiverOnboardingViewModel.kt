@@ -164,7 +164,7 @@ class ReceiverOnboardingViewModel @Inject constructor(
                 // Active only, first row: a receiver who was removed and
                 // re-invited has two rows, and decodeSingleOrNull threw on them.
                 val member = supabase.postgrest.from("family_members")
-                    .select {
+                    .select(columns = io.github.jan.supabase.postgrest.query.Columns.raw(FamilyMember.COLUMNS)) {
                         filter { eq("user_id", userId) }
                         filter { eq("role", "receiver") }
                         filter { eq("status", "active") }
@@ -181,7 +181,7 @@ class ReceiverOnboardingViewModel @Inject constructor(
                         .decodeSingleOrNull<ReceiverSettings>()
 
                     val user = supabase.postgrest.from("users")
-                        .select {
+                        .select(columns = io.github.jan.supabase.postgrest.query.Columns.raw(net.dailyok.android.data.models.AppUser.MEMBER_COLUMNS)) {
                             filter { eq("id", userId) }
                         }
                         .decodeSingleOrNull<net.dailyok.android.data.models.AppUser>()

@@ -301,7 +301,7 @@ final class ReceiverViewModel: ObservableObject {
             .value
         receiverTimezone = tzRow?.timezone
 
-        await loadOwnerContact(ownerId: family.ownerId)
+        await loadOwnerContact(ownerId: family.ownerId, familyId: family.id)
 
         // Sync any queued offline check-ins first so the subsequent status
         // query reflects them. Without this, a synced check-in would only
@@ -487,26 +487,30 @@ final class ReceiverViewModel: ObservableObject {
         actionMessage = nil
     }
 
-    /// The owner's name and phone. Receivers may read family members' users
-    /// rows (00002 "Family members can read each other"). Best-effort.
-    private func loadOwnerContact(ownerId: UUID) async {
+    /// The owner's name and phone. The name comes from the owner's users row
+    /// (members may read each other's public profile); the phone from
+    /// `family_contact_numbers` (00067), which gives a receiver its
+    /// caregivers' numbers only. Best-effort.
+    private func loadOwnerContact(ownerId: UUID, familyId: UUID) async {
         struct OwnerRow: Decodable {
             let displayName: String?
-            let phone: String?
             enum CodingKeys: String, CodingKey {
                 case displayName = "display_name"
-                case phone
             }
         }
-        guard let row: OwnerRow = try? await SupabaseService.shared.client
+        if let row: OwnerRow = try? await SupabaseService.shared.client
             .from("users")
-            .select("display_name, phone")
+            .select("display_name")
             .eq("id", value: ownerId.uuidString)
             .single()
             .execute()
-            .value else { return }
-        ownerName = JoinPreview.presentableName(row.displayName)
-        let phone = row.phone?.trimmingCharacters(in: .whitespacesAndNewlines)
+            .value {
+            ownerName = JoinPreview.presentableName(row.displayName)
+        }
+        let phones = await FamilyService.shared.contactNumbers(familyId: familyId, userIds: [ownerId])
+        // Empty also means the lookup failed: keep what we had.
+        guard !phones.isEmpty else { return }
+        let phone = phones[ownerId]?.trimmingCharacters(in: .whitespacesAndNewlines)
         ownerPhone = (phone?.isEmpty == false) ? phone : nil
     }
 
@@ -891,7 +895,7 @@ final class ReceiverViewModel: ObservableObject {
         do {
             let members: [FamilyMember] = try await SupabaseService.shared.client
                 .from("family_members")
-                .select()
+                .select(FamilyMember.columns)
                 .eq("user_id", value: userId.uuidString)
                 .eq("family_id", value: familyId.uuidString)
                 .limit(1)

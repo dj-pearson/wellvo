@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import net.dailyok.android.data.models.CheckIn
 import net.dailyok.android.data.models.CheckInRequest
 import net.dailyok.android.data.models.DaySchedule
+import io.github.jan.supabase.postgrest.query.Columns
 import net.dailyok.android.data.models.FamilyMember
 import net.dailyok.android.data.models.Mood
 import net.dailyok.android.data.models.ReceiverSettings
@@ -56,8 +57,34 @@ data class ReceiverUiState(
     /** What was sent, in the receiver's words ("We told your family you need help."). */
     val helpSentMessage: String? = null,
     /** A help send that failed. Never queued: shown with "call instead". */
-    val helpFailureMessage: String? = null
-)
+    val helpFailureMessage: String? = null,
+    /** The urgent kind behind helpSentMessage / helpFailureMessage, for "Text <owner>". */
+    val lastHelpKind: ReceiverHelpKind? = null,
+    /** The family owner's name, for "Text <owner>". Null when unknown. */
+    val ownerName: String? = null,
+    /**
+     * The owner's number (family_contact_numbers, 00067: a receiver gets its
+     * caregivers' numbers only). Null hides "Text <owner>".
+     */
+    val ownerPhone: String? = null
+) {
+    /**
+     * "Text <owner>" under a help result: only for urgent kinds (a text can
+     * still get through when Daily OK can't) and only with a dialable number.
+     */
+    val canTextOwnerAboutHelp: Boolean
+        get() = lastHelpKind?.isUrgent == true &&
+            (helpSentMessage != null || helpFailureMessage != null) &&
+            net.dailyok.android.util.FamilyText.dialable(ownerPhone) != null
+
+    /** The pre-filled "I need help" text for the owner, with a rough map link when known. */
+    fun helpTextForOwner(): String = net.dailyok.android.util.FamilyText.askingForHelp(
+        ownerName = ownerName,
+        callMe = lastHelpKind == ReceiverHelpKind.CallMe,
+        latitude = lastCheckIn?.latitude,
+        longitude = lastCheckIn?.longitude
+    )
+}
 
 /**
  * Something the receiver sends besides "I'm OK". Help / call-me / SOS page the
@@ -119,7 +146,7 @@ class ReceiverViewModel @Inject constructor(
                 val userId = supabase.auth.currentUserOrNull()?.id ?: return@launch
 
                 val member = supabase.postgrest.from("family_members")
-                    .select {
+                    .select(columns = Columns.raw(FamilyMember.COLUMNS)) {
                         filter { eq("user_id", userId) }
                         filter { eq("role", "receiver") }
                         filter { eq("status", "active") }
@@ -182,6 +209,7 @@ class ReceiverViewModel @Inject constructor(
                     streakDays = streakDays,
                     consistencyPercent = consistencyPercent
                 )
+                loadOwnerContact(member.familyId)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -189,6 +217,48 @@ class ReceiverViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    @kotlinx.serialization.Serializable
+    private data class OwnerIdRow(@kotlinx.serialization.SerialName("owner_id") val ownerId: String)
+
+    @kotlinx.serialization.Serializable
+    private data class NameRow(@kotlinx.serialization.SerialName("display_name") val displayName: String? = null)
+
+    /**
+     * The owner's name (their public profile) and number (from
+     * family_contact_numbers, which gives a receiver its caregivers' numbers
+     * only). Best-effort: a failure keeps whatever was loaded before.
+     */
+    private suspend fun loadOwnerContact(familyId: String) {
+        try {
+            val ownerId = supabase.postgrest.from("families")
+                .select(columns = Columns.list("owner_id")) {
+                    filter { eq("id", familyId) }
+                    limit(1)
+                }
+                .decodeList<OwnerIdRow>()
+                .firstOrNull()
+                ?.ownerId ?: return
+            val name = try {
+                supabase.postgrest.from("users")
+                    .select(columns = Columns.list("display_name")) {
+                        filter { eq("id", ownerId) }
+                        limit(1)
+                    }
+                    .decodeList<NameRow>()
+                    .firstOrNull()
+                    ?.displayName
+                    ?.let { net.dailyok.android.network.JoinPreview.presentableName(it) }
+            } catch (_: Exception) { null }
+            val phones = net.dailyok.android.network.MemberDirectory
+                .contactNumbersOrEmpty(supabase, familyId, listOf(ownerId))
+            val current = _uiState.value
+            _uiState.value = current.copy(
+                ownerName = name ?: current.ownerName,
+                ownerPhone = if (phones.isEmpty()) current.ownerPhone else phones[ownerId]
+            )
+        } catch (_: Exception) { /* best-effort */ }
     }
 
     fun checkIn() {
@@ -343,7 +413,8 @@ class ReceiverViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(
                 isSendingHelp = true,
                 helpSentMessage = null,
-                helpFailureMessage = null
+                helpFailureMessage = null,
+                lastHelpKind = kind
             )
             try {
                 checkInService.checkIn(
@@ -384,7 +455,7 @@ class ReceiverViewModel @Inject constructor(
     }
 
     fun clearHelpMessages() {
-        _uiState.value = _uiState.value.copy(helpSentMessage = null, helpFailureMessage = null)
+        _uiState.value = _uiState.value.copy(helpSentMessage = null, helpFailureMessage = null, lastHelpKind = null)
     }
 
     private fun helpFailureMessage(e: Exception): String = when (e) {

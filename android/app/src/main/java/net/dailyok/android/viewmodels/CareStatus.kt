@@ -53,6 +53,28 @@ object CareStatus {
         return if (holder == currentUserId) "You're on it" else "${request.claimedByName?.takeIf { it.isNotBlank() } ?: "A caregiver"} is on it"
     }
 
+    /**
+     * The "Stop alerts for Mom?" confirmation (same copy as iOS
+     * DashboardViewModel.standDownConfirmMessage). A co-caregiver's stand-down
+     * is announced to the owner and the other co-caregivers, so they're told.
+     */
+    fun stopAlertsConfirmMessage(name: String, isCoCaregiver: Boolean, ownerName: String?): String {
+        val base = "Only do this if you've confirmed $name is OK. It stops the reminders and caregiver alerts."
+        if (!isCoCaregiver) return base
+        val who = ownerName?.takeIf { it.isNotBlank() }?.let { "$it and the other caregivers" }
+            ?: "The family owner and the other caregivers"
+        return "$base $who will be told you stopped them."
+    }
+
+    /** What "Stop alerts" did, once it worked. */
+    fun stopAlertsDoneMessage(name: String, isCoCaregiver: Boolean, ownerName: String?): String {
+        val base = "Alerts stopped for $name. Their check-in stays open until they answer."
+        if (!isCoCaregiver) return base
+        val who = ownerName?.takeIf { it.isNotBlank() }?.let { "$it and the other caregivers were" }
+            ?: "The family owner and the other caregivers were"
+        return "$base $who told you stopped them."
+    }
+
     fun parseInstant(raw: String): Instant? = try {
         OffsetDateTime.parse(raw).toInstant()
     } catch (_: Exception) {

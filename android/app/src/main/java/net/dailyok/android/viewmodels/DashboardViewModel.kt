@@ -133,6 +133,10 @@ class DashboardViewModel @Inject constructor(
     private val _cooldownUntil = MutableStateFlow<Map<String, Long>>(emptyMap())
     val cooldownUntil: StateFlow<Map<String, Long>> = _cooldownUntil.asStateFlow()
 
+    /** The family owner's display name, for co-caregiver copy ("Sarah and the other caregivers"). */
+    private val _ownerName = MutableStateFlow<String?>(null)
+    val ownerName: StateFlow<String?> = _ownerName.asStateFlow()
+
     private var currentUserId: String? = null
     private var realtimeChannel: RealtimeChannel? = null
     private var realtimeJob: Job? = null
@@ -153,6 +157,9 @@ class DashboardViewModel @Inject constructor(
                 _family.value = fetchedFamily
 
                 val members = familyService.getFamilyMembers(fetchedFamily.id)
+                _ownerName.value = members.firstOrNull { it.userId == fetchedFamily.ownerId }
+                    ?.user?.displayName
+                    ?.let { net.dailyok.android.network.JoinPreview.presentableName(it) }
                 val receivers = members.filter {
                     it.role == UserRole.Receiver && it.status == MemberStatus.Active
                 }
@@ -293,6 +300,21 @@ class DashboardViewModel @Inject constructor(
     }
 
     /**
+     * The signed-in caregiver is a co-caregiver, not the owner: their
+     * stand-down is announced to the rest of the care team.
+     */
+    val isCoCaregiver: Boolean
+        get() {
+            val ownerId = _family.value?.ownerId ?: return false
+            val me = currentUserId ?: return false
+            return ownerId != me
+        }
+
+    /** Body of the "Stop alerts for <name>?" confirmation. */
+    fun stopAlertsConfirmMessage(name: String): String =
+        CareStatus.stopAlertsConfirmMessage(name, isCoCaregiver, _ownerName.value)
+
+    /**
      * "Stop alerts": the caregiver reached the receiver another way. Ends the
      * escalation without recording a check-in (cancel-escalation). The owner
      * and the family's active co-caregivers may, as on iOS; the server
@@ -302,11 +324,13 @@ class DashboardViewModel @Inject constructor(
     fun stopAlerts(receiverId: String) {
         val familyId = _family.value?.id ?: return
         val name = _receiverCards.value.find { it.id == receiverId }?.name ?: "them"
+        val coCaregiver = isCoCaregiver
+        val owner = _ownerName.value
         viewModelScope.launch {
             try {
                 acting("stop:$receiverId") {
                     caregiverActions.stopAlerts(familyId = familyId, receiverId = receiverId)
-                    _successMessage.value = "Alerts stopped for $name. Their check-in stays open until they answer."
+                    _successMessage.value = CareStatus.stopAlertsDoneMessage(name, coCaregiver, owner)
                     currentUserId?.let { loadDashboard(it) }
                 }
             } catch (e: Exception) {

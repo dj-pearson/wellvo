@@ -61,8 +61,8 @@ Finishes `00063_client_access_lockdown`:
    values with `curl https://functions.dailyok.net/app-config`.
 2. `git mv supabase/pending-migrations/client_access_lockdown_final.sql
    supabase/migrations/000NN_client_access_lockdown_final.sql`. Use the next
-   free number: 00064 was skipped and the highest today is 00066, so this
-   would be 00067 unless others land first.
+   free number: 00064 was skipped and the highest today is 00067, so this
+   would be 00068 unless others land first.
 3. Merge through the normal `develop` → `release/*` → `main` flow. The
    migrations workflow applies it after the production approval and the
    pre-migration backup.
@@ -72,3 +72,77 @@ Tested on a scratch Postgres 16. After migrations 00001–00066, a receiver's
 direct insert and an owner's v1 transfer worked. After this file, both got
 `permission denied`. v2 transfer, receiver mood updates and service-role
 check-in inserts kept working. Running the file a second time does no harm.
+
+## member_column_privileges.sql
+
+Step 2 of `00067_member_contact_rpcs`. Hides other people's contact details
+and the billing receipt from clients with PostgreSQL column privileges:
+
+- `users`: `email`, `phone`, `is_system_admin`, `digest_last_sent_at` are no
+  longer selectable by `authenticated` (or `anon`). Every other column stays
+  readable, under the same RLS as before.
+- `families`: `billing_original_transaction_id`, `billing_platform`,
+  `billing_verified_at` are no longer selectable. `billing_user_id` stays
+  (iOS shows a co-caregiver who pays for the family).
+- Writes, `service_role` (edge functions) and every `SECURITY DEFINER`
+  function are unchanged.
+
+Column privileges bind your own row too: RLS picks rows, not columns. So in
+the release that ships 00067, the apps stopped reading those columns from
+the tables:
+
+- your own profile comes from `get_my_profile()`,
+- other members' numbers come from `family_contact_numbers(family_id)`
+  (owner and co-caregivers get every active member's number; a receiver gets
+  only its caregivers'),
+- member lists embed `users(<public columns>)` instead of `users(*)`,
+- `families` reads name their columns instead of `select=*`,
+- writes to `users` / `families` ask for no row back (`return=minimal`) or
+  name their columns, because a returned row is `select=*`,
+- the website's admin check calls `is_system_admin()` instead of reading
+  the column.
+
+A build from before that release fails on the whole request, not just the
+column: `permission denied for table users`. That includes its sign-in
+profile load (`users?select=*`), so it could not get past the first screen.
+
+### Apply only when both floors include the release that ships 00067
+
+1. **`MIN_SUPPORTED_IOS_APP_VERSION` >= the first App Store version built
+   from this branch** (the commit that added `00067_member_contact_rpcs.sql`).
+   `main` ships 1.0.9, which reads `users(*)` and `select=*`, so the floor has
+   to be that later version (1.0.10 or whatever this branch ships as).
+2. **`MIN_SUPPORTED_ANDROID_APP_VERSION` >= the first Play `versionName`
+   built from this branch.** Unlike `client_access_lockdown_final.sql`, this
+   one is a hard dependency on Android too: earlier Android builds embed
+   `users(*)` and load the signed-in profile with `select=*`.
+3. **00067 is applied in production** (the apps fall back to direct column
+   reads when the RPCs are missing, and those are what this file removes).
+4. **The website is deployed from this branch** (admin sign-in check).
+
+The version headers and the update screen described above are what move
+users onto a supported build; builds without the headers (iOS 1.0.6 and
+earlier) are far below this floor anyway.
+
+### How to apply
+
+Same as above: raise both floors in Coolify and check `/app-config`, then
+`git mv supabase/pending-migrations/member_column_privileges.sql
+supabase/migrations/000NN_member_column_privileges.sql` with the next free
+number, merge through `develop` → `release/*` → `main`, and run the
+VERIFICATION block at the top of the file. Rollback is one statement (in the
+file header).
+
+A column added to `users` or `families` after this runs is not readable by
+clients until a migration grants it: `GRANT SELECT (new_col) ON public.users
+TO authenticated;`.
+
+Tested on a scratch Postgres 16: migrations 00001–00067, then
+`client_access_lockdown_final.sql`, then this file (twice). Every query shape
+the apps now send worked as owner, co-caregiver, receiver and a brand-new
+user (member list with the `users(...)` embed, `families` with named
+columns, profile writes with no row back, `INSERT ... ON CONFLICT DO
+NOTHING`, family insert and rename returning named columns, both RPCs, care
+note insert, alert and location reads). `select=*` on either table, a
+receiver reading the owner's `phone`, `is_system_admin`, `billing_platform`
+and `UPDATE ... RETURNING *` on `users` all got `permission denied`.

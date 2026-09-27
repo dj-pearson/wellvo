@@ -26,7 +26,21 @@ data class AppUser(
     val lastBatteryLevel: Double? = null,
     @SerialName("last_app_version")
     val lastAppVersion: String? = null
-)
+) {
+    companion object {
+        /**
+         * Columns for OTHER people's users rows (member lists, embeds). Never
+         * `*`: email, phone and is_system_admin are not for other members
+         * (00067; column SELECT on them is revoked by a staged migration).
+         * Phone numbers come from MemberDirectory.contactNumbers.
+         */
+        const val MEMBER_COLUMNS =
+            "id, display_name, role, avatar_url, timezone, created_at, updated_at, last_seen_at, last_battery_level, last_app_version"
+
+        /** Your own row through the table, for a server without get_my_profile(). */
+        const val SELF_COLUMNS = "$MEMBER_COLUMNS, email, phone"
+    }
+}
 
 @Serializable
 enum class UserRole {

@@ -46,13 +46,12 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     }
     try {
       const supabase = getSupabase()
-      const { data, error } = await supabase
-        .from('users')
-        .select('is_system_admin')
-        .eq('id', session.user.id)
-        .maybeSingle()
+      // is_system_admin() (SECURITY DEFINER) answers for the caller. The
+      // column itself is being hidden from clients (staged migration
+      // member_column_privileges.sql), which would break a direct select.
+      const { data, error } = await supabase.rpc('is_system_admin')
       if (error) throw error
-      setIsAdmin(!!data?.is_system_admin)
+      setIsAdmin(data === true)
     } catch {
       setIsAdmin(false)
     } finally {

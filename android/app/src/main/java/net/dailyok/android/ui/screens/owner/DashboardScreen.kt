@@ -147,6 +147,9 @@ fun DashboardScreen(
     // Walkthrough state — auto-launches once on first empty Dashboard load,
     // and is re-openable via the empty state's "Get Started" CTA.
     var showWalkthrough by remember { mutableStateOf(false) }
+    // "Stop alerts for Mom?" — asked first, as on iOS: it ends the reminders
+    // and caregiver alerts for everyone, not just this caregiver.
+    var stopAlertsFor by remember { mutableStateOf<ReceiverStatusCard?>(null) }
     val familyViewModel: FamilyViewModel = hiltViewModel()
     LaunchedEffect(userId) { familyViewModel.loadFamily(userId) }
 
@@ -315,7 +318,7 @@ fun DashboardScreen(
                                 onCheckOn = { viewModel.sendOnDemandCheckIn(card.id) },
                                 showCheckOnButton = true,
                                 busy = actingOn,
-                                onStopAlerts = { viewModel.stopAlerts(card.id) },
+                                onStopAlerts = { stopAlertsFor = card },
                                 onClaim = { release -> viewModel.claimCheckIn(card.id, release) }
                             )
                         }
@@ -329,6 +332,23 @@ fun DashboardScreen(
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.BottomCenter)
+        )
+    }
+
+    stopAlertsFor?.let { card ->
+        net.dailyok.android.ui.components.GlassAlertDialog(
+            onDismissRequest = { stopAlertsFor = null },
+            title = { Text("Stop alerts for ${card.name}?") },
+            text = { Text(viewModel.stopAlertsConfirmMessage(card.name)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    stopAlertsFor = null
+                    viewModel.stopAlerts(card.id)
+                }) { Text("Stop alerts", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { stopAlertsFor = null }) { Text("Keep alerting") }
+            }
         )
     }
 

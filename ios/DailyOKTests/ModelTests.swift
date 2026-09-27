@@ -948,3 +948,69 @@ final class SharedSessionTokenTests: XCTestCase {
         XCTAssertNil(SessionTokenReconciler.adopt(tokens(userA, refresh: "r2", expiresIn: 3600), into: Data("first".utf8)))
     }
 }
+
+/// Member rows no longer carry other people's email / phone (00067): the
+/// column lists the apps send, and decoding what the server then returns.
+final class MemberColumnsTests: XCTestCase {
+
+    private func columns(_ list: String) -> Set<String> {
+        Set(list.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+    }
+
+    func testMemberColumnsLeaveOutPrivateFields() {
+        let member = columns(AppUser.memberColumns)
+        XCTAssertFalse(member.contains("email"))
+        XCTAssertFalse(member.contains("phone"))
+        XCTAssertFalse(member.contains("is_system_admin"))
+        XCTAssertFalse(member.contains("*"))
+        // Everything AppUser needs to decode without its private fields.
+        for key in ["id", "display_name", "role", "created_at", "updated_at"] {
+            XCTAssertTrue(member.contains(key), key)
+        }
+        XCTAssertTrue(columns(AppUser.selfColumns).isSuperset(of: ["email", "phone"]))
+        XCTAssertTrue(FamilyMember.columnsWithUser.contains("users(\(AppUser.memberColumns))"))
+        XCTAssertFalse(FamilyMember.columnsWithUser.contains("*"))
+    }
+
+    func testFamilyColumnsLeaveOutBillingReceipt() {
+        let family = columns(Family.columns)
+        XCTAssertFalse(family.contains("*"))
+        XCTAssertFalse(family.contains("billing_original_transaction_id"))
+        XCTAssertFalse(family.contains("billing_platform"))
+        XCTAssertFalse(family.contains("billing_verified_at"))
+        XCTAssertTrue(family.contains("billing_user_id"))
+    }
+
+    func testMemberWithPublicProfileDecodesAndTakesAPhoneLater() throws {
+        let json = """
+        [{
+            "id": "11111111-1111-1111-1111-111111111111",
+            "family_id": "33333333-3333-3333-3333-333333333333",
+            "user_id": "22222222-2222-2222-2222-222222222222",
+            "role": "receiver",
+            "status": "active",
+            "invited_at": null,
+            "joined_at": "2026-03-18T08:30:00Z",
+            "users": {
+                "id": "22222222-2222-2222-2222-222222222222",
+                "display_name": "Mom",
+                "role": "owner",
+                "avatar_url": null,
+                "timezone": "America/Chicago",
+                "created_at": "2026-03-01T00:00:00Z",
+                "updated_at": "2026-03-01T00:00:00Z",
+                "last_seen_at": null,
+                "last_battery_level": 0.5,
+                "last_app_version": "1.0.9"
+            }
+        }]
+        """.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        var members = try decoder.decode([FamilyMember].self, from: json)
+        XCTAssertNil(members[0].user?.email)
+        XCTAssertNil(members[0].user?.phone)
+        members[0].user?.phone = "+15551234567"
+        XCTAssertEqual(members[0].user?.phone, "+15551234567")
+    }
+}

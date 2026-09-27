@@ -19,7 +19,7 @@ actor FamilyService {
         // family their dashboard never showed. Reuse the family they own.
         let owned: [Family] = try await supabase
             .from("families")
-            .select()
+            .select(Family.columns)
             .eq("owner_id", value: session.user.id.uuidString)
             .order("created_at", ascending: true)
             .limit(1)
@@ -49,7 +49,7 @@ actor FamilyService {
                 "max_receivers": "1",
                 "max_viewers": "0",
             ])
-            .select()
+            .select(Family.columns)
             .single()
             .execute()
             .value
@@ -100,7 +100,7 @@ actor FamilyService {
             .from("families")
             .update(["name": name])
             .eq("id", value: id.uuidString)
-            .select()
+            .select(Family.columns)
             .single()
             .execute()
             .value
@@ -114,7 +114,7 @@ actor FamilyService {
         }
         try await supabase
             .from("users")
-            .update(["display_name": name])
+            .update(["display_name": name], returning: .minimal)
             .eq("id", value: session.user.id.uuidString)
             .execute()
     }
@@ -149,7 +149,7 @@ actor FamilyService {
         // duplicates exist in the DB.
         let families: [Family] = try await supabase
             .from("families")
-            .select()
+            .select(Family.columns)
             .eq("owner_id", value: session.user.id.uuidString)
             .order("created_at", ascending: true)
             .limit(1)
@@ -162,7 +162,7 @@ actor FamilyService {
         // same reason as above.
         let memberships: [FamilyMember] = try await supabase
             .from("family_members")
-            .select()
+            .select(FamilyMember.columns)
             .eq("user_id", value: session.user.id.uuidString)
             .eq("status", value: MemberStatus.active.rawValue)
             .order("joined_at", ascending: true)
@@ -174,7 +174,7 @@ actor FamilyService {
 
         let family: Family = try await supabase
             .from("families")
-            .select()
+            .select(Family.columns)
             .eq("id", value: membership.familyId.uuidString)
             .single()
             .execute()
@@ -198,7 +198,10 @@ actor FamilyService {
         // If the user owns any family, they are an owner. This takes precedence
         // over any receiver/viewer memberships they may also hold (e.g. if the
         // same account was invited into another family for testing).
-        let ownedFamilies: [Family] = try await supabase
+        // Decode just the id: `[Family]` from `select("id")` threw keyNotFound
+        // (name, owner_id, ...) for every owner.
+        struct IdRow: Decodable { let id: UUID }
+        let ownedFamilies: [IdRow] = try await supabase
             .from("families")
             .select("id")
             .eq("owner_id", value: session.user.id.uuidString)
@@ -212,7 +215,7 @@ actor FamilyService {
 
         let members: [FamilyMember] = try await supabase
             .from("family_members")
-            .select()
+            .select(FamilyMember.columns)
             .eq("user_id", value: session.user.id.uuidString)
             .eq("status", value: MemberStatus.active.rawValue)
             .limit(1)
@@ -222,15 +225,84 @@ actor FamilyService {
         return members.first?.role
     }
 
+    /// Members with their public profile. Phone numbers are not in the
+    /// embed (other members' email / phone are off limits, 00067); they are
+    /// filled in from `contactNumbers`, which only returns the numbers this
+    /// caller may see (a receiver gets its caregivers' numbers, not other
+    /// receivers').
     func getFamilyMembers(familyId: UUID) async throws -> [FamilyMember] {
-        let members: [FamilyMember] = try await supabase
+        var members: [FamilyMember] = try await supabase
             .from("family_members")
-            .select("*, users(*)")
+            .select(FamilyMember.columnsWithUser)
             .eq("family_id", value: familyId.uuidString)
             .execute()
             .value
 
+        let phones = await contactNumbers(familyId: familyId, userIds: members.map(\.userId))
+        for index in members.indices {
+            if let phone = phones[members[index].userId] {
+                members[index].user?.phone = phone
+            }
+        }
         return members
+    }
+
+    /// Phone numbers the caller may see, by user id: `family_contact_numbers`
+    /// (00067). `familyId` nil means every family the caller is in.
+    /// Best-effort: a failure means no numbers, not an error.
+    func contactNumbers(familyId: UUID?, userIds: [UUID]) async -> [UUID: String] {
+        (try? await fetchContactNumbers(familyId: familyId, userIds: userIds)) ?? [:]
+    }
+
+    /// `contactNumbers`, but a failed lookup throws.
+    ///
+    /// On a server without the function (00067 not applied yet) it reads
+    /// `users.phone` for `userIds` directly, which works until the staged
+    /// column revoke lands, and that only lands once every supported build
+    /// has this code.
+    func fetchContactNumbers(familyId: UUID?, userIds: [UUID]) async throws -> [UUID: String] {
+        struct Row: Decodable {
+            let userId: UUID
+            let phone: String?
+            enum CodingKeys: String, CodingKey {
+                case userId = "user_id"
+                case phone
+            }
+        }
+        var params: [String: String] = [:]
+        if let familyId { params["p_family_id"] = familyId.uuidString }
+        var byUser: [UUID: String] = [:]
+        do {
+            let rows: [Row] = try await supabase
+                .rpc("family_contact_numbers", params: params)
+                .execute()
+                .value
+            for row in rows {
+                if let phone = FamilyRoster.nonEmpty(row.phone) { byUser[row.userId] = phone }
+            }
+            return byUser
+        } catch let error where Self.isMissingFunction(error) {
+            guard !userIds.isEmpty else { return [:] }
+        }
+        struct LegacyRow: Decodable { let id: UUID; let phone: String? }
+        let legacy: [LegacyRow] = try await supabase
+            .from("users")
+            .select("id, phone")
+            .in("id", values: userIds.map(\.uuidString))
+            .execute()
+            .value
+        for row in legacy {
+            if let phone = FamilyRoster.nonEmpty(row.phone) { byUser[row.id] = phone }
+        }
+        return byUser
+    }
+
+    /// PostgREST's "function not found" (PGRST202), i.e. a server that
+    /// predates the RPC.
+    nonisolated static func isMissingFunction(_ error: Error) -> Bool {
+        guard let error = error as? PostgrestError else { return false }
+        if error.code == "PGRST202" { return true }
+        return error.message.localizedCaseInsensitiveContains("could not find the function")
     }
 
     /// Create a pending invite and return everything the app needs to deliver

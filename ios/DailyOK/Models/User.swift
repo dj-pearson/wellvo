@@ -30,8 +30,12 @@ enum MemberStatus: String, Codable {
 
 struct AppUser: Codable, Identifiable {
     let id: UUID
+    /// Only on your OWN profile (`get_my_profile`). Other members' rows are
+    /// read with `memberColumns`, which leaves email and phone out.
     let email: String?
-    let phone: String?
+    /// Your own number, or (for other members) filled in from
+    /// `family_contact_numbers` by `FamilyService.getFamilyMembers`.
+    var phone: String?
     var displayName: String
     var role: UserRole
     var avatarUrl: String?
@@ -47,6 +51,15 @@ struct AppUser: Codable, Identifiable {
     var lastSeenAt: Date?
     var lastBatteryLevel: Double?
     var lastAppVersion: String?
+
+    /// Columns to read for OTHER people's `users` rows (member lists, embeds).
+    /// Never `*`: email, phone and is_system_admin are not for other members
+    /// (00067; column SELECT on them is revoked by a staged migration).
+    static let memberColumns =
+        "id, display_name, role, avatar_url, timezone, created_at, updated_at, last_seen_at, last_battery_level, last_app_version"
+
+    /// Your own row through the table, for a server without get_my_profile().
+    static let selfColumns = memberColumns + ", email, phone"
 
     enum CodingKeys: String, CodingKey {
         case id, email, phone, role, timezone

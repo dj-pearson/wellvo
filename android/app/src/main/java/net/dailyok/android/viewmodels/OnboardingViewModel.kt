@@ -148,7 +148,7 @@ class OnboardingViewModel @Inject constructor(
                         put("name", name)
                         put("owner_id", userId)
                     }) {
-                        select()
+                        select(io.github.jan.supabase.postgrest.query.Columns.raw(Family.COLUMNS))
                     }
                     .decodeSingle<Family>()
 
