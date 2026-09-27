@@ -90,17 +90,26 @@ extension View {
 private struct InviteComposerModifier: ViewModifier {
     @Binding var item: InviteDetails?
     let onFinish: (Bool) -> Void
+    /// Set when the composer / share sheet reported its own result. Swiping
+    /// the sheet down skips those callbacks; onDismiss then reports "not sent"
+    /// so the caller never sits there without knowing what happened.
+    @State private var controllerReported = false
 
     func body(content: Content) -> some View {
-        content.sheet(item: $item) { invite in
+        content.sheet(item: $item, onDismiss: {
+            if !controllerReported { onFinish(false) }
+            controllerReported = false
+        }) { invite in
             Group {
                 if InviteMessageComposer.canSendText {
                     InviteMessageComposer(invite: invite) { sent in
+                        controllerReported = true
                         item = nil
                         onFinish(sent)
                     }
                 } else {
                     InviteShareSheet(text: invite.message) { completed in
+                        controllerReported = true
                         item = nil
                         onFinish(completed)
                     }

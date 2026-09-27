@@ -1,5 +1,9 @@
 import { supabaseAdmin } from "./supabase.ts";
 import { logError } from "./logger.ts";
+import { sendNotificationToUser } from "./send-notification.ts";
+
+/** How someone joined: invite link, phone-number match, or 6-digit code. */
+export type JoinVia = "link" | "phone" | "code";
 
 /**
  * The outcome of redeeming an invite, from the `redeem_invite` RPC (00054).
@@ -29,23 +33,113 @@ export async function redeemInvite(
   inviteId: string,
   userId: string,
   timezone?: string | null,
+  via?: JoinVia,
 ): Promise<JoinResult> {
   const { data, error } = await supabaseAdmin.rpc("redeem_invite", {
     p_invite_id: inviteId,
     p_user_id: userId,
     p_timezone: timezone ?? null,
   });
+  let result: JoinResult;
   if (error && isMissingFunction(error)) {
     // The edge deploy is not gated on the migration run, so this can be live
     // before 00054 creates redeem_invite. Joining must keep working in that
     // window, so fall back to the pre-00054 step-by-step join.
-    return await legacyRedeemInvite(inviteId, userId, timezone);
-  }
-  if (error || !data) {
+    result = await legacyRedeemInvite(inviteId, userId, timezone);
+  } else if (error || !data) {
     logError("redeem_invite failed", error, { userId });
     return { status: "error" };
+  } else {
+    result = data as JoinResult;
   }
-  return data as JoinResult;
+  if (via) await notifyOwnerOfJoin(inviteId, result, via);
+  return result;
+}
+
+/**
+ * Tell the family owner when someone joins, or tried to join a full family.
+ *
+ * Joining never asked the owner, and a 6-digit code can be guessed, so the
+ * owner is the one who can spot a stranger ("Not them? Remove them from the
+ * Family tab."). A join refused for lack of a free slot used to reach only the
+ * invitee, who can't fix it. Best effort: a failed push never fails the join.
+ */
+/**
+ * A refused join is retried by the invitee's app (auto-join runs every time a
+ * signed-in user with no family opens it), so the owner is told about a given
+ * invite at most once per window rather than on every launch. In-memory, like
+ * the rate limiter: fine for the single-container deploy.
+ */
+const BLOCKED_NOTICE_WINDOW_MS = 6 * 60 * 60 * 1000;
+const lastBlockedNotice = new Map<string, number>();
+
+function shouldSendBlockedNotice(inviteId: string, now = Date.now()): boolean {
+  const last = lastBlockedNotice.get(inviteId);
+  if (last !== undefined && now - last < BLOCKED_NOTICE_WINDOW_MS) return false;
+  lastBlockedNotice.set(inviteId, now);
+  if (lastBlockedNotice.size > 5000) {
+    for (const [id, at] of lastBlockedNotice) {
+      if (now - at >= BLOCKED_NOTICE_WINDOW_MS) lastBlockedNotice.delete(id);
+    }
+  }
+  return true;
+}
+
+async function notifyOwnerOfJoin(inviteId: string, result: JoinResult, via: JoinVia): Promise<void> {
+  if (result.status !== "joined" && result.status !== "limit_reached") return;
+  if (result.status === "limit_reached" && !shouldSendBlockedNotice(inviteId)) return;
+  try {
+    const { data: invite } = await supabaseAdmin
+      .from("invite_tokens")
+      .select("name, role, family_id")
+      .eq("id", inviteId)
+      .maybeSingle();
+    if (!invite) return;
+    const { data: family } = await supabaseAdmin
+      .from("families")
+      .select("id, owner_id")
+      .eq("id", invite.family_id)
+      .maybeSingle();
+    if (!family?.owner_id) return;
+
+    const who = (invite.name ?? "").trim() || "Someone you invited";
+    const isViewer = invite.role === "viewer";
+    let title: string;
+    let body: string;
+    if (result.status === "joined") {
+      title = `${who} joined your family`;
+      body = isViewer
+        ? `${who} will now be told if a check-in is missed.`
+        : `${who} is set up for daily check-ins.`;
+      if (via === "code") {
+        body += " They used the setup code. Not them? Remove them from the Family tab.";
+      }
+    } else {
+      title = `${who} couldn't join`;
+      body = isViewer
+        ? "Your plan has no free co-caregiver seats. Upgrade or remove someone in the Family tab, then ask them to try again."
+        : "Your plan has no free slots for someone to check on. Upgrade or remove someone in the Family tab, then ask them to try again.";
+    }
+
+    const type = result.status === "joined" ? "member_joined" : "member_join_blocked";
+    await sendNotificationToUser(
+      family.owner_id,
+      {
+        aps: {
+          alert: { title, body },
+          sound: "default",
+          "thread-id": `family-${family.id}`,
+        },
+        type,
+        family_id: family.id,
+      },
+      { title, body, data: { type, family_id: family.id } },
+      // Repeats of the same notice replace each other instead of stacking.
+      { collapseId: `${type}-${inviteId}`.slice(0, 64) },
+    );
+  } catch (e) {
+    logError("join notification failed", e, { inviteId });
+  }
 }
 
 /** PostgREST "function not found" (PGRST202) or Postgres 42883. */
@@ -122,4 +216,4 @@ async function legacyRedeemInvite(
 }
 
 export const LIMIT_REACHED_MESSAGE =
-  "This family has no free receiver slots. Ask the person who invited you to upgrade their plan or remove someone first.";
+  "This family's plan has no free places. Ask the person who invited you to upgrade their plan or remove someone first.";

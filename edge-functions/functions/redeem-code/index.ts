@@ -102,7 +102,7 @@ export async function handleRedeemCode(
 
   await recordAttempt(userId, ip, true);
 
-  const result = await redeemInvite(invite.id, userId, body.timezone);
+  const result = await redeemInvite(invite.id, userId, body.timezone, "code");
 
   switch (result.status) {
     case "joined":

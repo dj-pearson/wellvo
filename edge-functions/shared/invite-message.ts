@@ -20,3 +20,15 @@ export function buildInviteMessage(name: string, inviteLink: string, pairingCode
     `2. Sign in with this phone number and we're connected.\n\n` +
     `Using a different phone, an iPad, or no phone number? Enter this setup code in the app: ${pairingCode}`;
 }
+
+/**
+ * The text an owner sends a co-caregiver (a viewer): someone who is told when
+ * a check-in is missed, and never asked to check in themselves.
+ */
+export function buildCaregiverInviteMessage(name: string, inviteLink: string, pairingCode: string): string {
+  return `Hi ${name}! I'm using Daily OK to check in on our family each day. ` +
+    `Join me so you're told too if a check-in is missed — you won't be asked to check in yourself.\n\n` +
+    `1. Get the app: ${inviteLink}\n` +
+    `2. Sign in with this phone number and we're connected.\n\n` +
+    `Using a different phone, an iPad, or no phone number? Enter this setup code in the app: ${pairingCode}`;
+}

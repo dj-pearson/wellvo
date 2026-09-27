@@ -106,7 +106,7 @@ async function tryMatchPhone(
     );
   }
 
-  const result = await redeemInvite(invite.id, userId, timezone);
+  const result = await redeemInvite(invite.id, userId, timezone, "phone");
 
   switch (result.status) {
     case "joined":

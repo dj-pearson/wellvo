@@ -7,6 +7,8 @@ import Supabase
 /// What it guarantees:
 /// - Nothing on screen is invented: the form only appears once the real row
 ///   has loaded; a failed load shows an inline retry, not editable defaults.
+///   A member with no settings row is told so ("No check-in schedule yet"):
+///   the form starts on defaults, reads as unsaved, and Save creates the row.
 /// - Save writes only what the owner changed (a receiver's own Simple Mode /
 ///   Spoken Confirmation choices survive), writes `custom_schedule` as a JSON
 ///   object, and only reports "Saved" when a row was actually updated.
@@ -36,6 +38,10 @@ struct ReceiverSettingsView: View {
     @State private var hasLoaded = false
     /// True when the load failed — the screen shows an inline retry.
     @State private var loadFailed = false
+    /// The member is in the family but has no receiver_settings row (a join
+    /// from before 00054). Dispatch needs that row, so no check-in is being
+    /// sent. The form starts on defaults and Save creates the row.
+    @State private var needsFirstSave = false
     @State private var isSaving = false
     @State private var showSavedConfirmation = false
     /// A failed save or manual check-in.
@@ -160,7 +166,7 @@ struct ReceiverSettingsView: View {
 
     private var hasUnsavedChanges: Bool {
         guard hasLoaded, let loadedForm else { return false }
-        return currentForm != loadedForm
+        return needsFirstSave || currentForm != loadedForm
     }
 
     /// The zone dispatch actually uses (receiver_settings.timezone), falling
@@ -410,6 +416,19 @@ struct ReceiverSettingsView: View {
 
     private var settingsForm: some View {
         Form {
+            if needsFirstSave {
+                Section {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("No check-in schedule yet", systemImage: "calendar.badge.exclamationmark")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Self.warningText)
+                        Text("\(name) isn't being asked to check in. Choose a time below and tap Save to start daily check-ins.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
             if member.status != .active {
                 Section {
                     Label("\(name) isn't active in your family, so these settings won't take effect.",
@@ -1031,13 +1050,27 @@ struct ReceiverSettingsView: View {
         loadFailed = false
         defer { isLoading = false }
         do {
-            let loaded: ReceiverSettings = try await SupabaseService.shared.client
+            // An array, not .single(): a missing row is an answer ("no
+            // schedule yet"), not a failure. .single() turned it into
+            // "Check your connection" with a Try Again that could never work.
+            let rows: [ReceiverSettings] = try await SupabaseService.shared.client
                 .from("receiver_settings")
                 .select()
                 .eq("family_member_id", value: member.id.uuidString)
-                .single()
+                .limit(1)
                 .execute()
                 .value
+
+            guard let loaded = rows.first else {
+                // Defaults on screen, clearly marked as not saved yet.
+                needsFirstSave = true
+                loadedForm = currentForm
+                hasLoaded = true
+                let team = try? await FamilyService.shared.getFamilyMembers(familyId: member.familyId)
+                if let team { careTeam = team }
+                return
+            }
+            needsFirstSave = false
 
             apply(loaded)
             // Snapshot from on-screen state (not the raw row) so formats match
@@ -1179,6 +1212,34 @@ struct ReceiverSettingsView: View {
         guard !rows.isEmpty else { throw SaveFailure.nothingUpdated }
     }
 
+    /// Save goes to the existing row, or creates it when there is none yet.
+    private func writePatch(_ patch: ReceiverSettingsPatch) async throws {
+        if needsFirstSave {
+            try await insertSettingsRow(patch)
+        } else {
+            try await applyPatch(patch)
+        }
+    }
+
+    /// Create the missing row (owners may insert under "Owners can manage
+    /// receiver settings"; the 00052 trigger fills in the receiver's zone). If
+    /// a row appeared meanwhile (they re-joined), update that one instead.
+    private func insertSettingsRow(_ patch: ReceiverSettingsPatch) async throws {
+        var row = patch
+        row.set("family_member_id", .string(member.id.uuidString))
+        do {
+            let rows: [IdRow] = try await SupabaseService.shared.client
+                .from("receiver_settings")
+                .insert(row)
+                .select("id")
+                .execute()
+                .value
+            guard !rows.isEmpty else { throw SaveFailure.nothingUpdated }
+        } catch let error where "\(error)".contains("23505") {
+            try await applyPatch(patch)
+        }
+    }
+
     /// PostgREST reports an unknown column as PGRST204 naming it.
     private static func isMissingColumn(_ error: Error, _ column: String) -> Bool {
         let text = "\(error) \(error.localizedDescription)"
@@ -1214,7 +1275,9 @@ struct ReceiverSettingsView: View {
         }
 
         let form = currentForm
-        var patch = form.patch(from: loadedForm)
+        // A first save sends every field, so the new row holds what is on
+        // screen rather than column defaults.
+        var patch = form.patch(from: needsFirstSave ? nil : loadedForm)
         guard !patch.isEmpty else {
             loadedForm = form
             return true
@@ -1226,13 +1289,13 @@ struct ReceiverSettingsView: View {
         var pauseEndUnsupported = false
         do {
             do {
-                try await applyPatch(patch)
+                try await writePatch(patch)
             } catch {
                 // Server without 00056: save everything else and say that the
                 // pause won't end by itself.
                 guard patch["paused_until"] != nil, Self.isMissingColumn(error, "paused_until") else { throw error }
                 patch.remove("paused_until")
-                if !patch.isEmpty { try await applyPatch(patch) }
+                if !patch.isEmpty { try await writePatch(patch) }
                 pauseEndUnsupported = true
             }
 
@@ -1246,6 +1309,7 @@ struct ReceiverSettingsView: View {
             }
             loadedForm = currentForm
             customScheduleMissing = false
+            needsFirstSave = false
 
             // Confirm the save for sighted, haptic, AND VoiceOver users.
             DailyOKHaptics.success()

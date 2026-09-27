@@ -2,7 +2,7 @@ import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID, isValidTime24H, isValidTimezone, sanitizeDisplayName } from "../../shared/validation.ts";
 import { LIMIT_REACHED_MESSAGE, redeemInvite } from "../../shared/join-family.ts";
-import { buildInviteLink, buildInviteMessage } from "../../shared/invite-message.ts";
+import { buildCaregiverInviteMessage, buildInviteLink, buildInviteMessage } from "../../shared/invite-message.ts";
 
 interface InviteRequest {
   action?: "create" | "accept";
@@ -12,6 +12,12 @@ interface InviteRequest {
   phone?: string;
   checkin_time?: string;
   timezone?: string;
+  /**
+   * Optional (additive): who is being invited. "receiver" (the default, and
+   * all that older clients send) is someone to check on; "viewer" is a
+   * co-caregiver who gets alerts but no check-ins.
+   */
+  role?: "receiver" | "viewer";
   // Accept invite
   token?: string;
 }
@@ -29,6 +35,14 @@ export async function handleInviteReceiver(req: Request, auth: AuthResult): Prom
 
 async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Response> {
   const { family_id, name, phone, checkin_time } = body;
+  const role: string = body.role ?? "receiver";
+
+  if (role !== "receiver" && role !== "viewer") {
+    return new Response(
+      JSON.stringify({ error: "role must be \"receiver\" or \"viewer\"" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
   if (!family_id || !name || !phone) {
     return new Response(
@@ -88,7 +102,7 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
 
   const { data: family } = await supabaseAdmin
     .from("families")
-    .select("owner_id, max_receivers")
+    .select("owner_id, max_receivers, max_viewers")
     .eq("id", family_id)
     .single();
 
@@ -99,19 +113,59 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
     );
   }
 
-  // Check receiver limit
-  const { count: currentReceivers } = await supabaseAdmin
-    .from("family_members")
-    .select("*", { count: "exact", head: true })
-    .eq("family_id", family_id)
-    .eq("role", "receiver")
-    .in("status", ["active", "invited"]);
+  if (role === "receiver") {
+    // Check receiver limit (unchanged for shipped clients: open invites are
+    // not counted here, so the 403 contract is the same as before; the app
+    // counts them itself, and redeem_invite enforces the limit at join).
+    const { count: currentReceivers } = await supabaseAdmin
+      .from("family_members")
+      .select("*", { count: "exact", head: true })
+      .eq("family_id", family_id)
+      .eq("role", "receiver")
+      .in("status", ["active", "invited"]);
 
-  if (currentReceivers !== null && currentReceivers >= family.max_receivers) {
-    return new Response(
-      JSON.stringify({ error: "Receiver limit reached for your subscription tier" }),
-      { status: 403, headers: { "Content-Type": "application/json" } }
-    );
+    if (currentReceivers !== null && currentReceivers >= family.max_receivers) {
+      return new Response(
+        JSON.stringify({ error: "Receiver limit reached for your subscription tier" }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  } else {
+    // Co-caregiver seats: active viewers plus open viewer invites to other
+    // numbers (a re-send to the same number replaces its invite, so it must
+    // not count against itself). A new path, so counting open invites here
+    // changes nothing for older clients.
+    const { count: activeViewers } = await supabaseAdmin
+      .from("family_members")
+      .select("*", { count: "exact", head: true })
+      .eq("family_id", family_id)
+      .eq("role", "viewer")
+      .eq("status", "active");
+
+    const { data: openViewerInvites } = await supabaseAdmin
+      .from("invite_tokens")
+      .select("phone")
+      .eq("family_id", family_id)
+      .eq("role", "viewer")
+      .is("used_by", null)
+      .gt("expires_at", new Date().toISOString());
+
+    const target = phoneDigits(phone);
+    const waiting = new Set(
+      (openViewerInvites ?? [])
+        .map((inv: { phone: string | null }) => phoneDigits(inv.phone ?? ""))
+        .filter((d: string) => d !== "" && d !== target),
+    ).size;
+
+    if ((activeViewers ?? 0) + waiting >= (family.max_viewers ?? 0)) {
+      return new Response(
+        JSON.stringify({
+          error: "Co-caregiver limit reached for your subscription tier",
+          reason: "viewer_limit_reached",
+        }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
   }
 
   // Generate cryptographically secure invite token
@@ -128,10 +182,11 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
     pairingCode = generatePairingCode();
     ({ error: inviteError } = await supabaseAdmin.from("invite_tokens").insert({
       family_id,
-      role: "receiver",
+      role,
       phone,
       name,
-      checkin_time: checkin_time || "08:00",
+      // A co-caregiver has no check-in schedule.
+      checkin_time: role === "viewer" ? null : checkin_time || "08:00",
       token: inviteToken,
       pairing_code: pairingCode,
     }));
@@ -165,7 +220,9 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
   // campaign, so it can't ride the approved sender. The Twilio campaign is
   // reserved for escalation alerts. P2P body — no STOP/HELP footer, since it
   // comes from the Owner's personal number.
-  const inviteMessage = buildInviteMessage(sanitizeDisplayName(name), inviteLink, pairingCode);
+  const inviteMessage = role === "viewer"
+    ? buildCaregiverInviteMessage(sanitizeDisplayName(name), inviteLink, pairingCode)
+    : buildInviteMessage(sanitizeDisplayName(name), inviteLink, pairingCode);
 
   return new Response(
     JSON.stringify({
@@ -178,6 +235,9 @@ async function createInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
       sms_sent: false,
       // Pre-composed body for the native Messages composer (additive field).
       invite_message: inviteMessage,
+      // Echoes the role actually stored (additive), so a client can tell an
+      // older server that ignored `role` from one that honoured it.
+      role,
     }),
     { headers: { "Content-Type": "application/json" } }
   );
@@ -228,7 +288,7 @@ async function acceptInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
     );
   }
 
-  const result = await redeemInvite(invite.id, acceptingUserId, body.timezone);
+  const result = await redeemInvite(invite.id, acceptingUserId, body.timezone, "link");
 
   switch (result.status) {
     case "joined":

@@ -150,6 +150,7 @@
 		B3U000A3 /* SharedOwnerStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U000A3; };
 		B3U000A4 /* CheckInReportGeneratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U000A4; };
 		B3U00300 /* HistoryTimelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00300; };
+		B3U00400 /* FamilyRosterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00400; };
 		B3U00010 /* EscalationActivityManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00010; };
 		B3U00011 /* NotificationRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U00011; };
 		B3U0C001 /* InviteLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3U0C001; };
@@ -348,6 +349,7 @@
 		F3U000A3 /* SharedOwnerStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedOwnerStateTests.swift; sourceTree = "<group>"; };
 		F3U000A4 /* CheckInReportGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInReportGeneratorTests.swift; sourceTree = "<group>"; };
 		F3U00300 /* HistoryTimelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryTimelineTests.swift; sourceTree = "<group>"; };
+		F3U00400 /* FamilyRosterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyRosterTests.swift; sourceTree = "<group>"; };
 		F3U00010 /* EscalationActivityManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscalationActivityManagerTests.swift; sourceTree = "<group>"; };
 		F3U00011 /* NotificationRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationRoutingTests.swift; sourceTree = "<group>"; };
 		F3U0C001 /* InviteLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteLinkTests.swift; sourceTree = "<group>"; };
@@ -893,6 +895,7 @@
 				F3U000A3 /* SharedOwnerStateTests.swift */,
 				F3U000A4 /* CheckInReportGeneratorTests.swift */,
 				F3U00300 /* HistoryTimelineTests.swift */,
+				F3U00400 /* FamilyRosterTests.swift */,
 				F3U00010 /* EscalationActivityManagerTests.swift */,
 				F3U00011 /* NotificationRoutingTests.swift */,
 				F3U0C001 /* InviteLinkTests.swift */,
@@ -1229,6 +1232,7 @@
 				B3U000A3 /* SharedOwnerStateTests.swift in Sources */,
 				B3U000A4 /* CheckInReportGeneratorTests.swift in Sources */,
 				B3U00300 /* HistoryTimelineTests.swift in Sources */,
+				B3U00400 /* FamilyRosterTests.swift in Sources */,
 				B3U00010 /* EscalationActivityManagerTests.swift in Sources */,
 				B3U00011 /* NotificationRoutingTests.swift in Sources */,
 				B3U0C001 /* InviteLinkTests.swift in Sources */,

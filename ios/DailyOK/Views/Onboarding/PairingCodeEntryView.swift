@@ -9,6 +9,9 @@ struct PairingCodeEntryView: View {
     @State private var isSubmitting = false
     @State private var errorMessage: String?
     @State private var joinedSuccessfully = false
+    /// The role the server says this code joined as (a co-caregiver code
+    /// makes a viewer, who is never asked to check in).
+    @State private var joinedRole: UserRole = .receiver
     // nil until the server tells us the real time — never assert a fabricated
     // "8:00 AM" the receiver might not actually be scheduled for (US-IOS112).
     @State private var checkinTimeDisplay: String?
@@ -156,18 +159,24 @@ struct PairingCodeEntryView: View {
                 .fontWeight(.bold)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
 
-            Text(checkinTimeDisplay.map { "Your daily check-in is at **\($0)**.\nJust tap \"I'm OK\" when you get the notification." }
-                 ?? "We'll remind you each day.\nJust tap \"I'm OK\" when you get the notification.")
+            Group {
+                if joinedRole == .viewer {
+                    Text("You're a co-caregiver now. We'll tell you if a check-in is missed — you won't be asked to check in yourself.")
+                } else {
+                    Text(checkinTimeDisplay.map { "Your daily check-in is at **\($0)**.\nJust tap \"I'm OK\" when you get the notification." }
+                         ?? "We'll remind you each day.\nJust tap \"I'm OK\" when you get the notification.")
+                }
+            }
                 .font(.title3)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                 .padding(.horizontal, 32)
 
-            Button("Start Checking In") {
+            Button(joinedRole == .viewer ? "Open Daily OK" : "Start Checking In") {
                 appState.showPairingCodeEntry = false
                 appState.isOnboarding = false
-                appState.currentUserRole = .receiver
+                appState.currentUserRole = joinedRole
             }
             .buttonStyle(.borderedProminent)
             .tint(DailyOKColor.green500)
@@ -234,6 +243,7 @@ struct PairingCodeEntryView: View {
             } else if response.success == true {
                 failedAttempts = 0
                 lockoutUntilEpoch = 0
+                joinedRole = response.role == UserRole.viewer.rawValue ? .viewer : .receiver
                 if let time = response.checkinTime {
                     checkinTimeDisplay = formatCheckinTimeForDisplay(time)
                 }

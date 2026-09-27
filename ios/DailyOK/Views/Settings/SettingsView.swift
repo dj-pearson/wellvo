@@ -473,8 +473,10 @@ struct SubscriptionView: View {
     private static let paywallFeatures: [PaywallFeature] = [
         PaywallFeature(
             systemImage: "person.2.fill",
-            title: "Unlimited family members",
-            description: "Add every parent, sibling, and caregiver — everyone stays in the loop."
+            // Plans are capped (1 / 3 / 6 people to check on, 3 / 5 / 10
+            // co-caregivers), so "unlimited" was not true.
+            title: "Room for the whole family",
+            description: "Check on up to 6 people and add up to 10 co-caregivers, depending on your plan."
         ),
         PaywallFeature(
             systemImage: "bell.badge.fill",
@@ -494,7 +496,7 @@ struct SubscriptionView: View {
         PaywallFeature(
             systemImage: "lock.shield.fill",
             title: "Privacy-first by design",
-            description: "End-to-end encryption and rigorous data minimization — always."
+            description: "Encrypted connections and strict data minimization — your family's data is never sold."
         )
     ]
 

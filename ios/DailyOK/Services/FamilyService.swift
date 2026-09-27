@@ -138,8 +138,8 @@ actor FamilyService {
         return members
     }
 
-    /// Create a pending invite for a receiver and return everything the app
-    /// needs to deliver it *natively* from the owner's own device.
+    /// Create a pending invite and return everything the app needs to deliver
+    /// it *natively* from the owner's own device.
     ///
     /// The invitation is no longer sent server-side via Twilio: an invite goes
     /// to someone who hasn't opted into our A2P 10DLC campaign, so it can't ride
@@ -148,17 +148,43 @@ actor FamilyService {
     /// pre-composed message the caller drops into the iOS Messages composer, so
     /// the text comes from the owner's personal number. The Twilio campaign is
     /// reserved for escalation alerts only.
+    ///
+    /// `role` is `.receiver` (someone to check on) or `.viewer` (a
+    /// co-caregiver). The field is only sent for viewers, so a receiver invite
+    /// is the same request older builds make.
     @discardableResult
-    func inviteReceiver(familyId: UUID, name: String, phone: String, checkinTime: String) async throws -> InviteDetails {
-        let response: InviteResponse = try await EdgeFunctionsClient.invoke(
-            "invite-receiver",
-            body: [
-                "family_id": familyId.uuidString,
-                "name": name,
-                "phone": phone,
-                "checkin_time": checkinTime,
-            ]
-        )
+    func inviteReceiver(
+        familyId: UUID,
+        name: String,
+        phone: String,
+        checkinTime: String,
+        role: UserRole = .receiver
+    ) async throws -> InviteDetails {
+        var body: [String: String] = [
+            "family_id": familyId.uuidString,
+            "name": name,
+            "phone": phone,
+            "checkin_time": checkinTime,
+        ]
+        if role == .viewer {
+            body["role"] = UserRole.viewer.rawValue
+            body.removeValue(forKey: "checkin_time")
+        }
+        let response: InviteResponse = try await EdgeFunctionsClient.invoke("invite-receiver", body: body)
+
+        // A server from before co-caregiver invites ignores `role` and stores a
+        // RECEIVER invite: that person would start getting daily check-ins.
+        // Such a server doesn't echo `role`, so withdraw the invite and say so.
+        if role == .viewer && response.role != UserRole.viewer.rawValue {
+            if let token = response.inviteToken {
+                try? await supabase
+                    .from("invite_tokens")
+                    .update(["expires_at": Self.cancelledExpiry])
+                    .eq("token", value: token)
+                    .execute()
+            }
+            throw FamilyError.caregiverInvitesUnavailable
+        }
 
         // Prefer the server-composed body (keeps the copy in one place), but
         // fall back to a locally-built message so an older backend that doesn't
@@ -172,46 +198,93 @@ actor FamilyService {
             phone: phone,
             message: message,
             pairingCode: response.pairingCode,
-            inviteLink: response.inviteLink
+            inviteLink: response.inviteLink,
+            name: name,
+            role: role,
+            token: response.inviteToken
         )
     }
 
-    /// Invites this family has sent that nobody has used yet and that haven't
-    /// expired — "waiting to join". Read straight from invite_tokens (owners
-    /// have RLS read on their own family's invites). A re-send expires the
-    /// earlier invite server-side, so each person appears once.
-    func pendingInvites(familyId: UUID) async throws -> [PendingInvite] {
-        // Filtered here rather than with IS NULL / > filters so this only uses
-        // query builders already exercised elsewhere in the app. Expired rows
-        // are purged nightly (00005), so the recent window is small.
-        let recent: [PendingInvite] = try await supabase
+    /// This family's recent invites, used or not, newest first. Owners have
+    /// RLS read on their own family's invites. `FamilyRoster.partitionInvites`
+    /// turns them into "waiting to join" and "expired, hasn't joined".
+    func recentInvites(familyId: UUID) async throws -> [PendingInvite] {
+        // Filtered client-side rather than with IS NULL / > filters so this
+        // only uses query builders already exercised elsewhere in the app.
+        // Unused invites are kept 30 days past expiry (00058), so the window
+        // stays small.
+        try await supabase
             .from("invite_tokens")
-            .select("id, name, phone, checkin_time, pairing_code, created_at, expires_at, used_by")
+            .select("id, name, phone, role, token, checkin_time, pairing_code, created_at, expires_at, used_by")
             .eq("family_id", value: familyId.uuidString)
             .order("created_at", ascending: false)
             .limit(50)
             .execute()
             .value
-        let now = Date()
-        return recent.filter { $0.usedBy == nil && $0.expiresAt > now }
     }
+
+    /// A fixed past instant for a cancelled invite. Not the device clock: a
+    /// phone set behind would write a time still in the server's future and
+    /// leave the "cancelled" link working. Also lets the app tell a
+    /// cancellation from a natural expiry.
+    static let cancelledExpiry = "2000-01-01T00:00:00Z"
 
     /// Cancel an invite: its link and setup code stop working at once. Expires
     /// it rather than deleting it, so the record of what was sent remains.
     func cancelInvite(id: UUID) async throws {
         try await supabase
             .from("invite_tokens")
-            .update(["expires_at": ISO8601DateFormatter().string(from: Date())])
+            .update(["expires_at": Self.cancelledExpiry])
             .eq("id", value: id.uuidString)
             .execute()
     }
 
-    func removeMember(memberId: UUID) async throws {
+    /// Hand the family to an active co-caregiver. Uses
+    /// transfer_family_ownership_v2 (00058), which refuses a receiver and
+    /// keeps the caller as a viewer even without a membership row. On a server
+    /// without it, falls back to the 00045 function; the app only offers
+    /// viewers as targets, so the fallback is asked the same thing.
+    func transferOwnership(familyId: UUID, to newOwnerUserId: UUID) async throws {
+        let params = [
+            "p_family_id": familyId.uuidString,
+            "p_new_owner_user_id": newOwnerUserId.uuidString,
+        ]
+        do {
+            try await supabase.rpc("transfer_family_ownership_v2", params: params).execute()
+        } catch let error where Self.isMissingFunction(error) {
+            try await supabase.rpc("transfer_family_ownership", params: params).execute()
+        }
+    }
+
+    /// PostgREST "function not found" (PGRST202) or Postgres 42883.
+    nonisolated static func isMissingFunction(_ error: Error) -> Bool {
+        let text = "\(error) \(error.localizedDescription)"
+        return text.contains("PGRST202") || text.contains("42883")
+            || text.contains("Could not find the function")
+    }
+
+    /// Withdraw an invite that was created but never sent.
+    func cancelInvite(token: String) async throws {
         try await supabase
+            .from("invite_tokens")
+            .update(["expires_at": Self.cancelledExpiry])
+            .eq("token", value: token)
+            .execute()
+    }
+
+    /// Remove someone from the family. Throws `.notPermitted` when RLS let the
+    /// request through but changed nothing (ownership moved, already gone),
+    /// which used to look like success.
+    func removeMember(memberId: UUID) async throws {
+        struct IdRow: Decodable { let id: UUID }
+        let rows: [IdRow] = try await supabase
             .from("family_members")
             .update(["status": MemberStatus.deactivated.rawValue])
             .eq("id", value: memberId.uuidString)
+            .select("id")
             .execute()
+            .value
+        if rows.isEmpty { throw FamilyError.notPermitted }
     }
 
     /// Accept an invite link. Returns what the server says about the family
@@ -226,7 +299,11 @@ actor FamilyService {
                 "timezone": TimeZone.current.identifier,
             ]
         )
-        return JoinDetails(checkinTime: response.checkinTime, ownerName: response.ownerName)
+        return JoinDetails(
+            checkinTime: response.checkinTime,
+            ownerName: response.ownerName,
+            role: response.role.flatMap(UserRole.init(rawValue:))
+        )
     }
 
     /// Redeem a 6-digit pairing code (iPad / alternate-device setup).
@@ -272,6 +349,11 @@ struct InviteDetails: Identifiable {
     let message: String
     let pairingCode: String?
     let inviteLink: String?
+    /// Who the invite is for, as the owner typed it.
+    var name: String? = nil
+    var role: UserRole = .receiver
+    /// The invite's secret, so an invite that was never sent can be withdrawn.
+    var token: String? = nil
 
     /// Local fallback body used only when the backend doesn't return a
     /// server-composed `invite_message` (older edge-functions build). Kept in
@@ -291,11 +373,15 @@ struct InviteDetails: Identifiable {
     }
 }
 
-/// An invite that has been sent but not yet used.
+/// A row of invite_tokens as the owner sees it: sent, and maybe used.
 struct PendingInvite: Decodable, Identifiable, Equatable {
     let id: UUID
     let name: String?
     let phone: String?
+    /// nil only if the column wasn't selected; the table default is receiver.
+    var role: UserRole? = nil
+    /// The link's secret. Lets the app rebuild the link and its QR code.
+    var token: String? = nil
     /// Postgres TIME, e.g. "08:30:00".
     let checkinTime: String?
     let pairingCode: String?
@@ -303,8 +389,20 @@ struct PendingInvite: Decodable, Identifiable, Equatable {
     let expiresAt: Date
     let usedBy: UUID?
 
+    /// Receiver unless the row says viewer.
+    var invitedRole: UserRole { role == .viewer ? .viewer : .receiver }
+
+    /// The link the invite text carried (same format as the server's
+    /// buildInviteLink), or nil without a token.
+    var inviteLink: String? {
+        guard let token, !token.isEmpty else { return nil }
+        var link = "https://dailyok.net/invite/\(token)"
+        if let code = pairingCode, !code.isEmpty { link += "?code=\(code)" }
+        return link
+    }
+
     enum CodingKeys: String, CodingKey {
-        case id, name, phone
+        case id, name, phone, role, token
         case checkinTime = "checkin_time"
         case pairingCode = "pairing_code"
         case createdAt = "created_at"
@@ -320,9 +418,11 @@ struct InviteResponse: Decodable {
     let inviteLink: String?
     let pairingCode: String?
     let inviteMessage: String?
+    /// Echoed by servers that understand co-caregiver invites (additive).
+    let role: String?
 
     enum CodingKeys: String, CodingKey {
-        case success
+        case success, role
         case inviteToken = "invite_token"
         case inviteLink = "invite_link"
         case pairingCode = "pairing_code"
@@ -381,16 +481,20 @@ struct AutoJoinResult {
 struct JoinDetails {
     let checkinTime: String?
     let ownerName: String?
+    /// The role joined as (nil against an older backend: a receiver).
+    var role: UserRole? = nil
 }
 
 /// Raw decode of a successful invite-receiver accept.
 struct JoinDetailsResponse: Decodable {
     let checkinTime: String?
     let ownerName: String?
+    let role: String?
 
     enum CodingKeys: String, CodingKey {
         case checkinTime = "checkin_time"
         case ownerName = "owner_name"
+        case role
     }
 }
 
@@ -411,12 +515,20 @@ enum FamilyError: LocalizedError {
     case notAuthenticated
     case familyNotFound
     case memberLimitReached
+    /// The server predates co-caregiver invites; the invite was withdrawn.
+    case caregiverInvitesUnavailable
+    /// The write was allowed through but changed nothing.
+    case notPermitted
 
     var errorDescription: String? {
         switch self {
         case .notAuthenticated: return "You must be signed in"
         case .familyNotFound: return "Family not found"
         case .memberLimitReached: return "You've reached the maximum number of members for your plan"
+        case .notPermitted:
+            return "Nothing was changed — you may no longer manage this family. Pull down to refresh."
+        case .caregiverInvitesUnavailable:
+            return "Co-caregiver invites aren't available yet. Nothing was sent — please try again after the next update."
         }
     }
 }

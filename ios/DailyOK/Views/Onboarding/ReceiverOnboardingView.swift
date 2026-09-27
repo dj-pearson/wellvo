@@ -20,6 +20,11 @@ struct ReceiverOnboardingView: View {
     @State private var joinFailed = false
     /// True once the receiver was asked for notification permission and denied it.
     @State private var notificationDenied = false
+    /// What the invite made them. A co-caregiver invite makes a viewer, who is
+    /// alerted about missed check-ins and never asked to check in.
+    @State private var joinedRole: UserRole = .receiver
+
+    private var isCaregiver: Bool { joinedRole == .viewer }
 
     /// Nil when using auto-join (phone match) flow.
     let inviteToken: String?
@@ -93,18 +98,32 @@ struct ReceiverOnboardingView: View {
                 .fontWeight(.bold)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
 
-            Text(checkinTimeDisplay.map { "Every day at **\($0)**, we'll send you a notification." }
-                 ?? "We'll remind you each day with a notification.")
-                .font(.title3)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+            if isCaregiver {
+                Text("\(ownerName) added you as a co-caregiver.")
+                    .font(.title3)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility2)
 
-            Text("Just tap **\"I'm OK\"** and that's it.\nNo setup. No learning curve.")
-                .font(.body)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+                Text("We'll tell you if a check-in is missed. You won't be asked to check in yourself.")
+                    .font(.body)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+            } else {
+                Text(checkinTimeDisplay.map { "Every day at **\($0)**, we'll send you a notification." }
+                     ?? "We'll remind you each day with a notification.")
+                    .font(.title3)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+
+                Text("Just tap **\"I'm OK\"** and that's it.\nNo setup. No learning curve.")
+                    .font(.body)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+            }
 
             if let error = errorMessage {
                 Text(error)
@@ -174,7 +193,9 @@ struct ReceiverOnboardingView: View {
                 .fontWeight(.bold)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
 
-            Text("We need to send you a notification each day so you can check in.\n\nWithout this, your family won't know you're OK.")
+            Text(isCaregiver
+                 ? "Allow notifications so we can tell you right away if a check-in is missed."
+                 : "We need to send you a notification each day so you can check in.\n\nWithout this, your family won't know you're OK.")
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
@@ -184,7 +205,9 @@ struct ReceiverOnboardingView: View {
                 // The system won't re-prompt once denied — guide to Settings rather
                 // than silently advancing to "All set" with no daily reminder.
                 VStack(spacing: 16) {
-                    Label("Notifications are turned off. You won't get your daily check-in reminder until you turn them on in Settings.",
+                    Label(isCaregiver
+                          ? "Notifications are turned off. You won't hear about a missed check-in until you turn them on in Settings."
+                          : "Notifications are turned off. You won't get your daily check-in reminder until you turn them on in Settings.",
                           systemImage: "exclamationmark.triangle.fill")
                         .font(.body)
                         .foregroundStyle(DailyOKColor.gold)
@@ -255,17 +278,19 @@ struct ReceiverOnboardingView: View {
                 .fontWeight(.bold)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
 
-            Text("\(ownerName) will be notified when you check in each day.")
+            Text(isCaregiver
+                 ? "You'll be alerted if a check-in is missed, and you can see how everyone's doing."
+                 : "\(ownerName) will be notified when you check in each day.")
                 .font(.title3)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
 
-            Button("Start Checking In") {
+            Button(isCaregiver ? "Open Daily OK" : "Start Checking In") {
                 appState.pendingInviteToken = nil
                 appState.pendingAutoJoin = nil
                 appState.isOnboarding = false
-                appState.currentUserRole = .receiver
+                appState.currentUserRole = joinedRole
             }
             .buttonStyle(.borderedProminent)
             .tint(DailyOKColor.green500)
@@ -283,6 +308,7 @@ struct ReceiverOnboardingView: View {
             await acceptInviteByToken(token)
         } else if let autoJoin = appState.pendingAutoJoin {
             // Auto-join flow — invite already accepted server-side
+            joinedRole = autoJoin.role == UserRole.viewer.rawValue ? .viewer : .receiver
             if let time = autoJoin.checkinTime {
                 checkinTimeDisplay = formatCheckinTimeForDisplay(time)
             }
@@ -296,6 +322,7 @@ struct ReceiverOnboardingView: View {
         isProcessing = true
         do {
             let joined = try await FamilyService.shared.acceptInvite(token: token)
+            joinedRole = joined.role == .viewer ? .viewer : .receiver
             if let time = joined.checkinTime {
                 checkinTimeDisplay = formatCheckinTimeForDisplay(time)
             }

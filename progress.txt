@@ -5385,3 +5385,345 @@ no Xcode/swiftc here; tree-sitter parse clean)
   - PDF exported after midnight without a reload used a new "now" for the
     period, file name and streak while its days were from the loaded
     snapshot. Export (and the summary card's streak) now use the load time.
+
+================================================================================
+2026-09-27 — iOS function deep dive: Owner: Family tab (members, invite, resend/cancel, remove, transfer ownership, paywall limits)
+================================================================================
+
+What the Family tab must guarantee: the list says who is really in the
+family, who is still invited, and how many places the plan has left, counting
+invites nobody has used yet. Removing someone stops everything that person
+was getting, including an alert already on its way. Ownership can only go to
+a co-caregiver. It never goes to the person being checked on, whose
+check-ins would silently stop. An invite never dies or disappears without
+the owner being told. The screen never shows a raw "Network error" for a
+problem that isn't a network problem.
+Four reviewer passes (UI/UX, break-it, spoof, product). Every claim was
+checked against the code first. All were confirmed except one: "swipe works
+on a .disabled row" could not be checked here, and it is moot now that rows
+are no longer disabled links.
+
+FIXED
+
+  - CRITICAL: Transfer Ownership was offered on receiver rows. The 00045
+    RPC accepts any active member, and dispatch only asks fm.role =
+    'receiver', so one swipe on Mom's row ended her daily check-ins and sent
+    her own missed-check-in alerts to her.
+      * iOS offers Transfer ("Make Owner") only for active co-caregivers
+        (FamilyRoster.canTransferOwnership).
+      * It calls the new transfer_family_ownership_v2, which refuses a
+        receiver. On a server without v2 (PGRST202) it falls back to v1.
+      * The alert names the consequence: "You'll become a co-caregiver and
+        can't undo this yourself", and warns that the subscription stays on
+        the owner's Apple ID and stops covering the family.
+      * v2 also upserts the caller's viewer membership. v1's UPDATE left an
+        owner with no family_members row with no membership at all.
+  - Carry-over 1: the iOS 18 zoom transition (HeroSourceModifier) into
+    ReceiverSettingsView let swipe-down/pinch skip the unsaved-changes
+    prompt. The zoom is removed; it is a plain push now.
+  - Carry-over 2: an active receiver with no receiver_settings row saw
+    "Check your connection" forever. loadSettings now reads an array with
+    limit(1). No row is an answer, not a failure: "No check-in schedule yet
+    — <name> isn't being asked to check in". The form starts on defaults,
+    reads as unsaved (Back warns, Save enabled), and Save INSERTs the row
+    (owner FOR ALL policy; the 00052 trigger fills the zone). On 23505 it
+    falls back to UPDATE. The legacy re-send's time read no longer uses
+    .single() either.
+  - Places ignored unused invites. A Caregiver-plan owner could invite Mom
+    and Dad, and whoever joined second was told "no free slots" on their own
+    phone. FamilyRoster.usage counts open invites per person (phone digits,
+    matching the server's rule; a stray invite to someone already seated
+    counts once).
+      * Footer: "Checking on 0 of 1. 1 waiting to join."
+      * The invite button reads "(upgrade needed)" / "(plan full)" at the
+        limit.
+      * The server's create-time 403 is unchanged for receivers (no contract
+        change for shipped builds).
+  - Removing a receiver left their pending request escalating: owner and
+    viewers kept getting "Mom missed her check-in" for someone no longer in
+    the family. New trigger (00058) stands down that member's pending
+    requests on deactivate or delete, with the same stood_down_at marker
+    cancel-escalation writes.
+  - Double-tapping Send Invite created two invites that expired each other.
+    isLoading is now set before any await. The Send button shows a spinner.
+    Cancel is disabled while a send is in flight. A composer that was
+    cancelled reuses the same invite on the next Send instead of creating
+    (and superseding with) a new one.
+  - Re-send, then cancelling the composer, silently killed the link Mom
+    already had. Now an alert says: "Invite not sent. The link and code
+    <name> had before no longer work — only the new ones do. Send the new
+    invite now?" with Send Now / Not Now.
+  - A swipe-dismissed composer or share sheet reported nothing.
+    InviteComposerModifier now reports "not sent" from onDismiss when the
+    controller didn't. This also applies to the onboarding and walkthrough
+    callers, which already handle false.
+  - Removed members stayed mixed into Members. They showed as nameless
+    "Invited · Deactivated" rows (RLS hides their user row), still opened
+    editable settings, and could be removed again. Now:
+      * Members is ordered owner → people checked on → co-caregivers, by
+        name;
+      * removed members sit in a collapsed "Removed (n)" group with no
+        settings link and no Remove, labelled "Removed member" when the name
+        is unreadable;
+      * "Invite Again" appears when the phone is known.
+  - Owner and viewer rows looked greyed out (a .disabled NavigationLink),
+    and receiver rows had a double chevron. Only rows that open something
+    are links now. The rest are plain rows. The owner's row reads "(you)".
+    Role reads "Checks in daily" / "Co-caregiver" / "Owner", plus the join
+    date.
+  - Mutation failures reused the load banner ("Network error: <raw
+    Postgres text>"), whose Try Again only reloaded. Remove, cancel, re-send
+    and transfer failures now open an alert named for the action ("Couldn't
+    remove Mom") with plain copy and a Try Again that re-runs that action.
+    The banner is for loads only. A failed refresh keeps the list ("Couldn't
+    refresh. What you see may be out of date.").
+  - removeMember treated an RLS no-op (0 rows) as success. It now selects
+    the id back and throws FamilyError.notPermitted.
+  - Re-send had no feedback. The row shows a spinner, VoiceOver hears
+    "Preparing a new invite for <name>", and a missing phone says so instead
+    of returning silently.
+  - Paywall at the limit: it now shows why ("Your Caregiver plan covers 1
+    person to check on. 1 of those places is held by an invite waiting to be
+    used. Upgrade your plan, or remove someone or cancel an invite…"). The
+    family reloads when it is dismissed, so a fresh upgrade isn't met by the
+    paywall again. On Family Plus (nothing to buy) an alert explains the
+    limit instead.
+  - Paywall copy: "Unlimited family members" was untrue (plans cap at
+    1/3/6 people checked on and 3/5/10 co-caregivers). It now reads "Room for
+    the whole family — check on up to 6 people and add up to 10
+    co-caregivers, depending on your plan". "End-to-end encryption" was
+    untrue for server-readable data; it now says encrypted connections and
+    that data is never sold (matches the privacy policy).
+  - Plan badge: "Family_plus" → display names. A lapsed, grace-period or
+    cancelled plan no longer shows a green badge ("· Expired", "· Payment
+    issue", "· Ends Oct 3"). The owner can tap it to open plans.
+  - Invite expiry text floored 24-hour periods: a fresh invite read "6
+    days", and 9 AM tomorrow read "expires today". It now counts calendar
+    days ("expires tomorrow", "in 7 days").
+  - Cancel Invite wrote the device clock, so a phone set behind left the
+    "cancelled" link live. It now writes a fixed past instant
+    (2000-01-01Z), which also marks it as cancelled rather than expired.
+  - loadData had no ordering guard, so an older response could overwrite a
+    newer one after remove or cancel. It now uses a generation counter, and
+    no family clears the lists.
+  - Invite sheet:
+      * the check-in time defaulted to "now" (11:42 PM invites); it now
+        defaults to 9:00 AM, with the footer "In their own time zone, set
+        when they join";
+      * "Done" before sending discarded typed input; it is now Cancel, with a
+        confirmation;
+      * an invite created but not sent offers "Keep Invite for Later" or
+        "Withdraw Invite" (withdrawn by token);
+      * swipe-dismiss is disabled while anything would be lost;
+      * the success copy no longer claims "your text is on its way" after a
+        share-sheet Copy.
+  - Setup guide:
+      * it said "no codes or links to enter", contradicting the invite text;
+        it now includes an "On an iPad or a different number? Enter the
+        setup code 123456" step;
+      * the duplicate "Invite Sent!" header is gone;
+      * step 1 says to tap the link in the text, not "go to the App Store";
+      * a "Send these steps" ShareLink was added;
+      * step numbers are white on green700 (AA), in a @ScaledMetric circle.
+  - Contrast: the "Invited" / expired text uses a dark orange that stays
+    readable (systemOrange text on white was ~2.2:1). Instruction numbers
+    use @ScaledMetric minWidth instead of a fixed 16 pt.
+
+ADDED
+
+  - Co-caregivers (viewers) can be invited. Every paid tier sells 3/5/10
+    seats and escalation texts viewers, but no path created a viewer
+    invite. Changes:
+      * Backend: optional `role` on invite-receiver create (see below).
+      * Family tab: two actions, "Invite Someone to Check On" and "Add a
+        Co-Caregiver", each gated by its own places.
+      * InviteReceiverSheet(role:): the co-caregiver variant has no schedule
+        and its own copy.
+      * Footer: "Co-caregivers: 1 of 3. Co-caregivers are told when a
+        check-in is missed. They're never asked to check in."
+      * Waiting rows are labelled "Co-caregiver"; re-sends keep the role.
+      * Joining: ReceiverOnboardingView (link / phone match) and
+        PairingCodeEntryView read the joined role from the server. A
+        co-caregiver sees caregiver copy ("We'll tell you if a check-in is
+        missed. You won't be asked to check in yourself."), and the app
+        routes them as a viewer instead of hard-coding .receiver.
+      * Guard: if a viewer invite gets a response without `role: "viewer"`
+        (an older server that ignored the field and stored a RECEIVER
+        invite), the app withdraws that invite by token and says
+        "Co-caregiver invites aren't available yet". Nobody is accidentally
+        signed up for check-ins.
+  - Waiting invites can be reopened. Tap a row to open InviteDetailSheet:
+    who it's for, "Sent 2 days ago · expires in 5 days", the large setup
+    code, a QR code of the rebuilt link (same format as buildInviteLink,
+    from `token`), "Send the invite another way", the setup guide (people
+    checked on), Re-send and Cancel.
+  - Expired invites no longer vanish. An unused invite that ran its full
+    life (≥6 days, so not a cancel or supersede) and whose person hasn't
+    joined another way shows for 30 days as "Invite expired — Dad hasn't
+    joined", with Send New (gated by places, since it takes one again) and
+    Dismiss. One row per person: a newer or used invite hides older ones.
+  - Owner push when someone joins: "<name> joined your family". When the
+    6-digit code was used, the push adds: "They used the setup code. Not
+    them? Remove them from the Family tab." The owner also gets a push when a
+    join is refused for lack of places ("Dad couldn't join"), which used to
+    reach only the invitee. Types member_joined / member_join_blocked; iOS
+    has no routing on type, so they display as ordinary alerts. Best effort:
+    a failed push never fails the join.
+  - Role-specific remove copy. Receiver: "<name> will stop getting daily
+    check-ins now, and no one will be alerted if they don't respond. Their
+    history is kept, and you can invite them again." Viewer: "…stop getting
+    missed-check-in alerts and lose access to check-ins, history, location
+    and care notes." Button: "Remove <name>". Success posts a VoiceOver
+    announcement and a toast.
+
+BACKEND (additive, CLAUDE.md §A/§B)
+
+  supabase/migrations/00058_family_tab_integrity.sql:
+  - transfer_family_ownership_v2(p_family_id, p_new_owner_user_id) → jsonb.
+    SECURITY DEFINER with search_path pinned. Only the current owner may
+    call it, only to an active viewer. It upserts the caller as an active
+    viewer and mirrors users.role. EXECUTE is granted to authenticated.
+    The 00045 function is untouched apart from ALTER FUNCTION … SET
+    search_path = public (no signature or behaviour change).
+  - Trigger family_members_stand_down_on_leave (AFTER UPDATE OF status OR
+    DELETE): the member's pending checkin_requests get next_escalation_at =
+    NULL and stood_down_at = COALESCE(…, NOW()). It also covers the 00005
+    plan-downgrade deactivation.
+  - guard_family_members_client_write (client roles only) now also refuses:
+      * any role change except an owner demoting their own row to viewer;
+      * deactivated/invited → active by PATCH.
+    Audited shipped writes still pass: iOS/Android remove (→ deactivated),
+    and the owner's own INSERT at family creation. Android's 3-write
+    transfer now fails at its first write (target → owner) instead of at
+    its third (owner_id, which has raised since 00051), so it no longer
+    leaves the family half-transferred.
+  - guard_invite_tokens_client_write (new, client roles only, silent
+    clamps):
+      * UPDATE pins id, family_id, role, token, used_by, created_at, phone,
+        pairing_code and receiver_mode; expires_at may only move earlier;
+      * a direct INSERT is forced unused and live for at most 7 days.
+    Shipped writes (cancel = expires_at now / 2000) pass.
+  - enforce_data_retention: unused invites are deleted 30 days after
+    expiry instead of the next night. All join paths still require
+    expires_at > NOW().
+
+  edge-functions:
+  - invite-receiver create: optional `role` ("receiver" default | "viewer");
+    anything else → 400.
+      * Viewer invites check max_viewers against active viewers plus open
+        viewer invites to other numbers ("viewer_limit_reached", 403), store
+        no checkin_time, and use buildCaregiverInviteMessage.
+      * The response echoes `role` (additive).
+      * Receiver requests from older clients are unchanged.
+  - shared/join-family.ts: redeemInvite(…, via?) takes an optional
+    "link" | "phone" | "code" and then notifies the owner (above). Callers:
+    invite-receiver accept, auto-join and redeem-code. Response shapes are
+    unchanged.
+  - shared/invite-message.ts: buildCaregiverInviteMessage, plus a Deno test.
+
+  Verified on local Postgres 16 (pg_cron/pg_net stubbed, auth.uid() from a
+  GUC, SET ROLE authenticated so RLS applies): 00001–00058 apply on a fresh
+  DB, and 00058 replays. Scenarios:
+    * v2 refuses a receiver ("Ownership can only go to a co-caregiver"),
+      refuses a non-owner, and moves the family to a viewer (old owner
+      viewer/active, users.role viewer);
+    * an owner with no membership row ends up viewer/active;
+    * a client PATCH receiver→viewer raises; reactivating a removed member
+      raises; an owner demoting their own row passes;
+    * an invite PATCH of expires_at +10y and token is clamped/pinned, while
+      cancel to 2000 works;
+    * deactivating a receiver nulls next_escalation_at and sets
+      stood_down_at on their pending request;
+    * deleting a family with a pending request cascades cleanly;
+    * retention keeps a 10-day-old expired invite and drops a 40-day one.
+  TypeScript was syntax-checked with the TypeScript transpiler (no deno
+  here, so no type check or deno test run).
+
+TESTS
+
+  New DailyOKTests/FamilyRosterTests.swift (added to the pbxproj test
+  target: F3U00400 / B3U00400):
+  - places: an open invite takes a place; removed members don't; per-role
+    and per-person counting (NANP +1 normalisation, nil role = receiver); a
+    stray invite to a seated member isn't counted twice;
+  - only active viewers can become owner; removed members can't be removed
+    or opened; only the owner opens receiver settings; ordering and the
+    Removed split;
+  - invites: newest per person, expired vs cancelled vs used,
+    joined-another-way, the 30-day window;
+  - calendar-day expiry text; link rebuild matches the server format; the
+    row decodes role and token;
+  - tier display names; limit copy (plan, waiting invite, no "Upgrade" on
+    the top tier, no-viewer plans); caregiver share text; plan badge states.
+
+DEFERRED
+
+  - The 00045 RPC still accepts a receiver target for shipped iOS builds.
+    Refusing it there tightens an existing RPC, so it needs a release
+    boundary once MIN_SUPPORTED_IOS_APP_VERSION includes this build.
+  - Billing after a transfer: subscription-webhook matches families by
+    owner_id, so the ex-owner's renewals 404 and the family lapses after
+    grace. The alert now warns. The fix (nullable
+    families.billing_user_id, matched by the webhook) belongs with
+    US-EDGE005 (receipt verification), since the webhook still trusts the
+    client's product_id.
+  - Pairing-code guessing. Partly mitigated: the owner is now pushed on
+    every code join with a "Not them? Remove them" prompt. Still open:
+      * a shorter code lifetime than the link (new column);
+      * trusting CF-Connecting-IP / X-Forwarded-For only behind the known
+        proxy (needs the Coolify/Cloudflare topology confirmed);
+      * a joined_via flag to highlight such rows;
+      * a global failure alarm.
+    The deferred checkins receiver-read RLS restriction (History pass)
+    matters more now.
+  - Join consent: auto-join and link accept redeem before the joiner
+    confirms, and receivers have no "Leave family". Needs an additive
+    `preview` mode on auto-join/accept, a leave_family RPC, and
+    receiver-side UI (onboarding / receiver functions).
+  - getFamilyMembers selects users(*) (phone, email, is_system_admin) for
+    every caller. The dashboard and History share it. Narrowing it needs a
+    directory RPC or a reviewed column list across those screens.
+  - Invite sheet extras:
+      * Parent/Child (kid mode) choice: invite_tokens.receiver_mode exists,
+        but create would need an optional `receiver_mode` field;
+      * a Contacts picker;
+      * phone-optional invites (code only).
+  - Member-row health (schedule time, notifications off, last seen), using
+    the data the dashboard already computes.
+  - A one-off backfill of receiver_settings for active receivers without a
+    row. The honest client state covers it. A backfill would start
+    check-ins at a default time nobody chose.
+  - Android:
+      * no viewer-invite UI;
+      * its join flows should be checked for role 'viewer';
+      * its transfer should call transfer_family_ownership_v2 (it now fails
+        cleanly at its first write).
+  - An older iOS build that redeems a viewer invite shows receiver
+    onboarding and routes as receiver until the next launch re-resolves the
+    role. New installs get the current build.
+  - The link-accept 409 ("already a member") path in ReceiverOnboardingView
+    doesn't know the role and keeps routing as .receiver, as before.
+  - member_joined / member_join_blocked pushes ignore any per-owner
+    notification preference (none exists for membership events yet).
+
+  Not compiled (no Xcode, no swiftc, no deno). The tree-sitter Swift grammar
+  parses every changed and new Swift file cleanly, apart from the
+  pre-existing `if let x = try? await` construct in ReceiverSettingsView that
+  it already failed on. SQL was run on a local Postgres 16.
+
+  Review pass (same working tree, not compiled):
+  - Removed members could never be named or invited again: RLS hides a
+    removed member's users row, so `member.user` is nil and the "Invite
+    Again" action (gated on user.phone) never appeared. The name and number
+    now come from the invite they joined with (invite_tokens.used_by =
+    member.user_id, owner-readable) via FamilyRoster.joinInvite; the Removed
+    group is owner-only (co-caregivers can't read either source). Test added.
+  - InviteReceiverSheet: changing the name/number after an unsent invite
+    created a second invite and left the first holding a place (a re-send
+    only supersedes the same number). The unsent one is withdrawn first.
+  - member_join_blocked push: auto-join runs on every launch for a signed-in
+    user with no family, so a full family's owner was pushed on each of the
+    invitee's launches. Now at most once per invite per 6 h (in-memory, like
+    the rate limiter) and collapsed by apns-collapse-id.
+  - LIMIT_REACHED_MESSAGE said "receiver slots" to co-caregivers too; now
+    role-neutral ("no free places"). No client matches on the text.

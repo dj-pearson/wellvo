@@ -1,5 +1,5 @@
 import { assertEquals, assertStringIncludes } from "std/assert/mod.ts";
-import { buildInviteLink, buildInviteMessage } from "./invite-message.ts";
+import { buildCaregiverInviteMessage, buildInviteLink, buildInviteMessage } from "./invite-message.ts";
 
 // The link must be path-based: the AASA and Android App Links match
 // `/invite/*`, and the website serves /invite/:token. The query form the
@@ -16,4 +16,14 @@ Deno.test("invite text has the link and the setup code, and no hard-coded store 
   assertStringIncludes(text, "123456");
   // The old text hard-coded an App Store id that did not match the app's.
   assertEquals(text.includes("apps.apple.com"), false);
+});
+
+Deno.test("co-caregiver text has the link and code and never asks them to check in", () => {
+  const link = buildInviteLink("ab12", "123456");
+  const text = buildCaregiverInviteMessage("Alex", link, "123456");
+  assertStringIncludes(text, "Hi Alex!");
+  assertStringIncludes(text, link);
+  assertStringIncludes(text, "123456");
+  assertStringIncludes(text, "won't be asked to check in");
+  assertEquals(text.includes("tap \"I'm OK\""), false);
 });
