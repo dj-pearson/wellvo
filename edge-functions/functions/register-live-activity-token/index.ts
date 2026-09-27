@@ -3,8 +3,8 @@ import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID } from "../../shared/validation.ts";
 
 /**
- * Register (or deactivate) an ActivityKit push token for the owner's escalation
- * Live Activity (US-IOS127).
+ * Register (or deactivate) an ActivityKit push token for an escalation Live
+ * Activity (US-IOS127) — the owner's, or a co-caregiver's.
  *
  * The app calls this when an activity vends/refreshes a push token, and again
  * with `active: false` when the activity ends locally. The token is stored in
@@ -88,18 +88,35 @@ export async function handleRegisterLiveActivityToken(
       );
     }
 
-    // AUTHORIZATION: only the family owner may register an activity token for
-    // this family — the activity surfaces on the owner's device and is targeted
-    // by receiver+family on resolve.
+    // AUTHORIZATION: the family owner, or an active co-caregiver of this
+    // family. Co-caregivers get the escalation Live Activity too; refusing
+    // their token (as this did) meant a resolved escalation left their Lock
+    // Screen counting "Overdue" until they next opened the app. The token is
+    // stored under the caller's own id and is only ever used to END an
+    // activity, so this widens nothing else (CLAUDE.md §B: looser auth,
+    // intentional).
     const { data: family } = await supabaseAdmin
       .from("families")
       .select("owner_id")
       .eq("id", familyId)
       .single();
 
-    if (!family || family.owner_id.toLowerCase() !== ownerId) {
+    let allowed = !!family && family.owner_id.toLowerCase() === ownerId;
+    if (family && !allowed) {
+      const { data: membership } = await supabaseAdmin
+        .from("family_members")
+        .select("id")
+        .eq("family_id", familyId)
+        .eq("user_id", ownerId)
+        .eq("role", "viewer")
+        .eq("status", "active")
+        .limit(1);
+      allowed = (membership?.length ?? 0) > 0;
+    }
+
+    if (!allowed) {
       return new Response(
-        JSON.stringify({ error: "Only the family owner can register an activity token" }),
+        JSON.stringify({ error: "Only the family owner or a co-caregiver can register an activity token" }),
         { status: 403, headers: { "Content-Type": "application/json" } }
       );
     }

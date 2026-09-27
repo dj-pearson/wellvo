@@ -6,7 +6,8 @@ import type { AuthResult } from "../../shared/auth.ts";
  * US-IOS014 — Caregiver daily / weekly digest.
  *
  * Service-role only: invoked by the `dispatch_caregiver_digests` pg_cron job
- * (migration 00040) once the owner's chosen local delivery hour arrives. It
+ * (migration 00040; co-caregivers since 00062) once the caregiver's chosen
+ * local delivery hour arrives. It
  * computes the same period metrics the dashboard already shows (consistency,
  * check-ins X of Y, misses, dominant mood) and sends one reassuring push.
  *
@@ -15,7 +16,10 @@ import type { AuthResult } from "../../shared/auth.ts";
  * handler is defensive about it anyway.
  */
 interface DigestRequest {
-  owner_id: string;
+  /** Kept for the dispatcher before 00062, which only sent owners. */
+  owner_id?: string;
+  /** 00062+: the caregiver (owner or co-caregiver) to send to. */
+  user_id?: string;
 }
 
 interface CheckinRow {
@@ -32,37 +36,60 @@ const MOOD_EMOJI: Record<string, string> = {
 
 export async function handleSendDigest(req: Request, _auth: AuthResult): Promise<Response> {
   const body: DigestRequest = await req.json();
-  const ownerId = body.owner_id;
+  const recipientId = body.user_id ?? body.owner_id;
 
-  if (!ownerId) {
-    return json({ error: "owner_id is required" }, 400);
+  if (!recipientId) {
+    return json({ error: "user_id is required" }, 400);
   }
 
-  // Owner + their digest preference.
-  const { data: owner } = await supabaseAdmin
+  // The caregiver + their digest preference.
+  const { data: recipient } = await supabaseAdmin
     .from("users")
     .select("display_name, digest_frequency")
-    .eq("id", ownerId)
+    .eq("id", recipientId)
     .single();
 
-  if (!owner || owner.digest_frequency === "off") {
-    return json({ ok: true, skipped: "digest off or owner missing", sent: 0 }, 200);
+  if (!recipient || recipient.digest_frequency === "off") {
+    return json({ ok: true, skipped: "digest off or user missing", sent: 0 }, 200);
   }
 
-  const isWeekly = owner.digest_frequency === "weekly";
+  const isWeekly = recipient.digest_frequency === "weekly";
   const days = isWeekly ? 7 : 1;
   const periodLabel = isWeekly ? "This week" : "Today";
 
-  // The owner's family.
-  // Earliest owned family, as the apps pick it (`.single()` returned nothing
-  // at all when stray duplicates existed, so no digest was ever sent).
+  // The family: the earliest one they own, as the apps pick it (`.single()`
+  // returned nothing at all when stray duplicates existed). Otherwise the
+  // family they're an active co-caregiver in (00062) — earliest join, as
+  // FamilyService.getFamily resolves it.
   const { data: families } = await supabaseAdmin
     .from("families")
-    .select("id, name, subscription_status")
-    .eq("owner_id", ownerId)
+    .select("id, name, subscription_status, owner_id")
+    .eq("owner_id", recipientId)
     .order("created_at", { ascending: true })
     .limit(1);
-  const family = families?.[0];
+  let family = families?.[0];
+  let isOwner = !!family;
+
+  if (!family) {
+    const { data: memberships } = await supabaseAdmin
+      .from("family_members")
+      .select("family_id")
+      .eq("user_id", recipientId)
+      .eq("role", "viewer")
+      .eq("status", "active")
+      .order("joined_at", { ascending: true })
+      .limit(1);
+    const familyId = memberships?.[0]?.family_id as string | undefined;
+    if (familyId) {
+      const { data: viewerFamily } = await supabaseAdmin
+        .from("families")
+        .select("id, name, subscription_status, owner_id")
+        .eq("id", familyId)
+        .maybeSingle();
+      family = viewerFamily ?? undefined;
+      isOwner = false;
+    }
+  }
 
   if (!family) {
     return json({ ok: true, skipped: "no family", sent: 0 }, 200);
@@ -99,11 +126,15 @@ export async function handleSendDigest(req: Request, _auth: AuthResult): Promise
 
   const sinceISO = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-  // Check-ins over the period.
+  // Check-ins over the period — the active receivers' only. Rows from anyone
+  // else in the family (a receiver who has left, or a row a member inserted
+  // as themselves before 00062) must not count toward "X of Y — no misses".
+  const receiverUserIds: string[] = receivers.map((r: { user_id: string }) => r.user_id);
   const { data: checkins } = await supabaseAdmin
     .from("checkins")
     .select("receiver_id, checked_in_at, mood")
     .eq("family_id", family.id)
+    .in("receiver_id", receiverUserIds)
     .gte("checked_in_at", sinceISO);
 
   // Missed requests over the period.
@@ -142,12 +173,16 @@ export async function handleSendDigest(req: Request, _auth: AuthResult): Promise
   // Build a calm, reassuring summary line.
   const title = isWeekly ? `${family.name}: weekly summary` : `${family.name}: today's check-ins`;
   const parts: string[] = [];
+  // A co-caregiver can't renew the plan or change a schedule: tell them who can.
   if (planEnded) {
-    parts.push("Check-ins are paused because your Daily OK plan has ended. Open the app to renew.");
+    parts.push(isOwner
+      ? "Check-ins are paused because your Daily OK plan has ended. Open the app to renew."
+      : "Check-ins are paused because the family's Daily OK plan has ended. The family owner can renew it.");
   } else if (pausedCount > 0) {
+    const fix = isOwner ? "Open the app to check their schedules." : "The family owner manages schedules.";
     parts.push(pausedCount === receivers.length
-      ? "Check-ins aren't being sent to anyone right now. Open the app to check their schedules."
-      : `Check-ins aren't being sent to ${pausedCount} of ${receivers.length} people. Open the app to check their schedules.`);
+      ? `Check-ins aren't being sent to anyone right now. ${fix}`
+      : `Check-ins aren't being sent to ${pausedCount} of ${receivers.length} people. ${fix}`);
   }
   parts.push(`${periodLabel}: ${totalCheckins} of ${expected} check-ins (${consistency}%).`);
   if (misses > 0) {
@@ -162,7 +197,7 @@ export async function handleSendDigest(req: Request, _auth: AuthResult): Promise
   const message = parts.join(" ");
 
   const result = await sendNotificationToUser(
-    ownerId,
+    recipientId,
     {
       aps: {
         alert: { title, body: message },

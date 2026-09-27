@@ -637,3 +637,226 @@ final class DashboardViewModelTests: XCTestCase {
         )
     }
 }
+
+// MARK: - Co-caregiver (viewer) deep dive
+
+/// What a co-caregiver's dashboard says and decides: their schedule comes from
+/// family_receiver_schedules, escalation wording is true for them, claims
+/// confirm, and informational alerts can't be "claimed".
+final class ViewerDashboardTests: XCTestCase {
+    private let fmt: (Date) -> String = { date in
+        let f = DateFormatter()
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.dateFormat = "HH:mm"
+        return f.string(from: date)
+    }
+    private let tenAM = Date(timeIntervalSince1970: 1_790_071_200) // 2026-09-22 10:00 UTC
+
+    private func settings(member: UUID, paused: Bool = false, escalation: Bool = true) throws -> ReceiverSettings {
+        let json = """
+        {"id":"\(UUID().uuidString)","family_member_id":"\(member.uuidString)",
+         "checkin_time":"08:00:00","timezone":"UTC",
+         "grace_period_minutes":30,"reminder_interval_minutes":30,"escalation_enabled":\(escalation),
+         "mood_tracking_enabled":true,"sms_escalation_enabled":false,"is_active":true,
+         "location_tracking_enabled":false,"geofence_radius_meters":500,"location_alert_enabled":false,
+         "schedule_paused":\(paused)}
+        """
+        return try JSONDecoder().decode(ReceiverSettings.self, from: Data(json.utf8))
+    }
+
+    // MARK: Schedules (deferred item: the dashboard read receiver_settings directly)
+
+    func testViewerDirectReadIsEmptySoTheRPCFillsEveryone() throws {
+        let mom = UUID(), dad = UUID()
+        let rpc = [try settings(member: mom, paused: true), try settings(member: dad)]
+        XCTAssertTrue(DashboardViewModel.needsScheduleFallback(direct: [], memberIds: [mom, dad]))
+        let merged = DashboardViewModel.mergeSchedules(direct: [], fallback: rpc, memberIds: [mom, dad])
+        XCTAssertEqual(merged.count, 2)
+        XCTAssertEqual(merged[mom]?.schedulePaused, true)
+    }
+
+    func testOwnerDirectRowsWinAndNoFallbackIsNeeded() throws {
+        let mom = UUID()
+        let direct = [try settings(member: mom, escalation: false)]
+        XCTAssertFalse(DashboardViewModel.needsScheduleFallback(direct: direct, memberIds: [mom]))
+        let merged = DashboardViewModel.mergeSchedules(direct: direct, fallback: [try settings(member: mom)], memberIds: [mom])
+        XCTAssertEqual(merged[mom]?.escalationEnabled, false)
+    }
+
+    func testRPCRowsForPeopleNotOnTheDashboardAreIgnored() throws {
+        let mom = UUID(), leftFamily = UUID()
+        let merged = DashboardViewModel.mergeSchedules(
+            direct: [], fallback: [try settings(member: mom), try settings(member: leftFamily)], memberIds: [mom]
+        )
+        XCTAssertEqual(Array(merged.keys), [mom])
+    }
+
+    func testMissingEverywhereStaysUnknown() {
+        let mom = UUID()
+        XCTAssertTrue(DashboardViewModel.mergeSchedules(direct: [], fallback: nil, memberIds: [mom]).isEmpty)
+    }
+
+    func testAPausedScheduleFromTheRPCReadsNotDueForAViewer() throws {
+        // Before: no settings → .unknown → "Pending" all day.
+        let paused = try settings(member: UUID(), paused: true)
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        let schedule = DashboardViewModel.scheduleState(settings: paused, now: tenAM, calendar: utc)
+        XCTAssertEqual(schedule, .paused)
+        XCTAssertEqual(DashboardViewModel.resolveStatus(todayCheckIn: nil, activeRequest: nil, schedule: schedule).status, .upcoming)
+    }
+
+    // MARK: Escalation wording
+
+    func testOwnerWordingIsUnchanged() {
+        let text = DashboardViewModel.escalationText(
+            name: "Mom", status: .pending, step: 2, nextEscalationAt: tenAM,
+            reminderIntervalMinutes: 30, isViewer: false, ownerName: "Sarah", formatTime: fmt
+        )
+        XCTAssertEqual(text, "You've been alerted. Other caregivers will be alerted at 10:00 if there's still no answer.")
+    }
+
+    func testViewerStepOneSaysTheOwnerThenThem() {
+        let text = DashboardViewModel.escalationText(
+            name: "Mom", status: .pending, step: 1, nextEscalationAt: tenAM,
+            reminderIntervalMinutes: 30, isViewer: true, ownerName: "Sarah", formatTime: fmt
+        )
+        XCTAssertEqual(text, "Reminder re-sent to Mom. Sarah will be alerted at 10:00 and you at 10:30 if there's still no answer.")
+    }
+
+    func testViewerStepTwoSaysTheOwnerWasAlertedNotThem() {
+        let text = DashboardViewModel.escalationText(
+            name: "Mom", status: .pending, step: 2, nextEscalationAt: tenAM,
+            reminderIntervalMinutes: 30, isViewer: true, ownerName: "Sarah", formatTime: fmt
+        )
+        XCTAssertEqual(text, "Sarah has been alerted. You'll be alerted at 10:00 if there's still no answer.")
+        XCTAssertFalse(text.contains("You've been alerted"))
+    }
+
+    func testViewerStepThreeAndMissed() {
+        XCTAssertEqual(
+            DashboardViewModel.escalationText(name: "Mom", status: .pending, step: 3, nextEscalationAt: nil,
+                                              reminderIntervalMinutes: nil, isViewer: true, ownerName: nil, formatTime: fmt),
+            "You and the family owner have been alerted. Mom still hasn't answered."
+        )
+        XCTAssertTrue(
+            DashboardViewModel.escalationText(name: "Mom", status: .missed, step: 3, nextEscalationAt: nil,
+                                              reminderIntervalMinutes: nil, isViewer: true, ownerName: "Sarah", formatTime: fmt)
+                .contains("including you")
+        )
+    }
+
+    func testViewerStepOneWithoutAnIntervalStillOrdersThem() {
+        let text = DashboardViewModel.escalationText(
+            name: "Mom", status: .pending, step: 1, nextEscalationAt: tenAM,
+            reminderIntervalMinutes: nil, isViewer: true, ownerName: "Sarah", formatTime: fmt
+        )
+        XCTAssertEqual(text, "Reminder re-sent to Mom. Sarah will be alerted at 10:00, then you, if there's still no answer.")
+    }
+
+    func testEscalationOffTellsAViewerWhoToAsk() {
+        XCTAssertTrue(DashboardViewModel.escalationOffText(name: "Dad", isViewer: false, ownerName: "Sarah").hasPrefix("Escalation is off"))
+        let viewer = DashboardViewModel.escalationOffText(name: "Dad", isViewer: true, ownerName: "Sarah")
+        XCTAssertTrue(viewer.contains("nobody, including you"))
+        XCTAssertTrue(viewer.hasSuffix("Ask Sarah to turn them on."))
+    }
+
+    // MARK: Claims
+
+    func testHandlingLineSaysYouToTheClaimer() {
+        XCTAssertEqual(DashboardViewModel.handlingLine(name: "Sarah", isMine: true), "You're handling this")
+        XCTAssertEqual(DashboardViewModel.handlingLine(name: "Tom", isMine: false), "Tom is handling this")
+        XCTAssertEqual(DashboardViewModel.handlingLine(name: nil, isMine: false), "A caregiver is handling this")
+    }
+
+    func testMissedCheckInClaimLine() {
+        XCTAssertTrue(DashboardViewModel.claimLine(name: "Tom", at: nil, isMine: false) == "Tom is on it")
+        XCTAssertTrue(DashboardViewModel.claimLine(name: "Tom", at: nil, isMine: true) == "You're on it")
+        XCTAssertTrue(DashboardViewModel.claimLine(name: nil, at: tenAM, isMine: false).hasPrefix("A caregiver is on it ("))
+    }
+
+    func testClaimColumnsDecodeAndAreOptional() throws {
+        let base = """
+        "id":"\(UUID().uuidString)","family_id":"\(UUID().uuidString)","receiver_id":"\(UUID().uuidString)",
+        "requested_by":"\(UUID().uuidString)","type":"scheduled","status":"missed",
+        "created_at":"2026-09-27T09:00:00Z","escalation_step":3
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let old = try decoder.decode(CheckInRequest.self, from: Data("{\(base)}".utf8))
+        XCTAssertNil(old.claimedBy)
+        let claimer = UUID()
+        let claimed = try decoder.decode(CheckInRequest.self, from: Data(
+            "{\(base),\"claimed_by\":\"\(claimer.uuidString)\",\"claimed_by_name\":\"Tom\",\"claimed_at\":\"2026-09-27T09:42:00Z\"}".utf8
+        ))
+        XCTAssertEqual(claimed.claimedBy, claimer)
+        XCTAssertEqual(claimed.claimedByName, "Tom")
+    }
+
+    func testLeftTheFamilyIsNotClaimable() {
+        XCTAssertFalse(DashboardViewModel.isClaimable(alert(type: "member_left")))
+        XCTAssertTrue(DashboardViewModel.isClaimable(alert(type: "need_help")))
+        XCTAssertTrue(DashboardViewModel.isClaimable(alert(type: "stale_heartbeat")))
+    }
+
+    func testClaimAndReleaseAreAnnounced() {
+        XCTAssertEqual(DashboardViewModel.acknowledgementAnnouncement(release: false, receiverName: "Mom"),
+                       "You're handling this for Mom. Other caregivers can see that.")
+        XCTAssertNotNil(DashboardViewModel.acknowledgementAnnouncement(release: true, receiverName: nil))
+    }
+
+    private func alert(type: String) -> DailyOKAlert {
+        let json = """
+        {"id":"\(UUID().uuidString)","family_id":"\(UUID().uuidString)","receiver_id":"\(UUID().uuidString)",
+         "type":"\(type)","title":"t","message":"m","is_read":false,"created_at":"2026-09-27T09:00:00Z"}
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try! decoder.decode(DailyOKAlert.self, from: Data(json.utf8))
+    }
+}
+
+/// The co-caregiver's Settings: who is on the care team, and the words.
+final class ViewerCareTeamTests: XCTestCase {
+    private let familyId = UUID()
+    private let now = Date(timeIntervalSince1970: 1_790_000_000)
+
+    private func member(_ name: String, role: UserRole, id: UUID = UUID(), status: MemberStatus = .active, phone: String? = nil) -> FamilyMember {
+        FamilyMember(
+            id: UUID(), familyId: familyId, userId: id, role: role, status: status,
+            invitedAt: nil, joinedAt: now,
+            user: AppUser(id: id, email: nil, phone: phone, displayName: name, role: role,
+                          createdAt: now, updatedAt: now)
+        )
+    }
+
+    func testOwnerFirstThenCoCaregiversNotMeNotReceiversNotRemoved() {
+        let ownerId = UUID(), me = UUID()
+        let members = [
+            member("Zoe", role: .viewer),
+            member("Me", role: .viewer, id: me),
+            member("Mom", role: .receiver),
+            member("Sarah", role: .owner, id: ownerId, phone: "+15551234567"),
+            member("Ann", role: .viewer),
+            member("Gone", role: .viewer, status: .deactivated),
+        ]
+        let people = ViewerCareTeam.people(members: members, ownerId: ownerId, me: me)
+        XCTAssertEqual(people.map(\.name), ["Sarah", "Ann", "Zoe"])
+        XCTAssertTrue(people[0].isOwner)
+        XCTAssertEqual(people[0].phone, "+15551234567")
+    }
+
+    func testLeaveCopyNamesWhoTheyStopHearingAbout() {
+        let members = [member("Mom", role: .receiver), member("Sarah", role: .owner), member("Dad", role: .receiver)]
+        let names = ViewerCareTeam.receiverNames(members: members)
+        XCTAssertTrue(names?.contains("Mom") ?? false)
+        XCTAssertTrue(names?.contains("Dad") ?? false)
+        XCTAssertNil(ViewerCareTeam.receiverNames(members: [member("Sarah", role: .owner)]))
+    }
+
+    func testFooterMentionsHelpRequestsAndTheOwner() {
+        let footer = ViewerCareTeam.roleFooter(ownerName: "Sarah")
+        XCTAssertTrue(footer.contains("asks for help"))
+        XCTAssertTrue(footer.contains("Sarah"))
+    }
+}

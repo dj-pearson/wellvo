@@ -49,7 +49,9 @@ enum EscalationActivityManager {
     }
 
     /// Reconcile live activities with the current dashboard state.
-    static func sync(cards: [ReceiverStatusCard], familyId: UUID) {
+    /// `canStandDown` is false for co-caregivers: their activity offers "Open"
+    /// rather than an owner-only "Stand down".
+    static func sync(cards: [ReceiverStatusCard], familyId: UUID, canStandDown: Bool = true) {
         #if canImport(ActivityKit)
         guard #available(iOS 16.2, *) else { return }
 
@@ -90,6 +92,15 @@ enum EscalationActivityManager {
                 dueSince: dueSince
             )
 
+            // Attributes are fixed for an activity's life. One started when
+            // this user could stand down (before handing the family over, or
+            // by an older build) is replaced when that has changed.
+            if let existing, (existing.attributes.canStandDown ?? true) != canStandDown {
+                Task { await existing.end(nil, dismissalPolicy: .immediate) }
+                startActivity(for: card, familyId: familyId, canStandDown: canStandDown, state: state, dueSince: dueSince)
+                continue
+            }
+
             if let existing {
                 // Ensure we mirror this activity's push token even if it was
                 // started in a previous app session (US-IOS127).
@@ -99,32 +110,46 @@ enum EscalationActivityManager {
                 guard existing.content.state != state else { continue }
                 Task { await existing.update(ActivityContent(state: state, staleDate: staleDate(after: dueSince))) }
             } else {
-                let attributes = EscalationActivityAttributes(
-                    receiverName: card.name,
-                    receiverPhone: card.phone,
-                    receiverId: card.id.uuidString,
-                    familyId: familyId.uuidString
-                )
-                do {
-                    // Synchronous throwing API — surface failures (e.g. exceeding
-                    // the system Live Activity cap) instead of silently dropping
-                    // them so the owner isn't left thinking escalation is visible.
-                    // Request a push token (.token) so the backend can end this
-                    // activity when the escalation resolves while the app is
-                    // closed (US-IOS127).
-                    let activity = try Activity.request(
-                        attributes: attributes,
-                        content: ActivityContent(state: state, staleDate: staleDate(after: dueSince)),
-                        pushType: .token
-                    )
-                    LiveActivityTokenService.shared.track(activity)
-                } catch {
-                    Log.general.error("Failed to start escalation Live Activity: \(error.localizedDescription, privacy: .public)")
-                }
+                startActivity(for: card, familyId: familyId, canStandDown: canStandDown, state: state, dueSince: dueSince)
             }
         }
         #endif
     }
+
+    #if canImport(ActivityKit)
+    @available(iOS 16.2, *)
+    private static func startActivity(
+        for card: ReceiverStatusCard,
+        familyId: UUID,
+        canStandDown: Bool,
+        state: EscalationActivityAttributes.ContentState,
+        dueSince: Date
+    ) {
+        let attributes = EscalationActivityAttributes(
+            receiverName: card.name,
+            receiverPhone: card.phone,
+            receiverId: card.id.uuidString,
+            familyId: familyId.uuidString,
+            canStandDown: canStandDown
+        )
+        do {
+            // Synchronous throwing API — surface failures (e.g. exceeding
+            // the system Live Activity cap) instead of silently dropping
+            // them so the owner isn't left thinking escalation is visible.
+            // Request a push token (.token) so the backend can end this
+            // activity when the escalation resolves while the app is
+            // closed (US-IOS127).
+            let activity = try Activity.request(
+                attributes: attributes,
+                content: ActivityContent(state: state, staleDate: staleDate(after: dueSince)),
+                pushType: .token
+            )
+            LiveActivityTokenService.shared.track(activity)
+        } catch {
+            Log.general.error("Failed to start escalation Live Activity: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+    #endif
 
     /// Immediately end any Live Activity for a specific receiver. Call this the
     /// moment a stand-down succeeds (deep link or in-app) so the owner isn't left

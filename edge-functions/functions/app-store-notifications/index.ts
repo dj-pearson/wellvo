@@ -92,7 +92,7 @@ export async function handleAppStoreNotification(req: Request, _auth: AuthResult
       if ((data?.length ?? 0) > 0) payer = token;
     }
 
-    let family: BillingFamily | null = await findFamilyByOriginalTransaction(tx.originalTransactionId);
+    let family: BillingFamily | null = await findFamilyByOriginalTransaction(tx.originalTransactionId, payer);
     if (!family && payer) family = await findBillingFamily(payer);
     if (!family) return json({ ok: true, handled: false, reason: "no_family" });
 

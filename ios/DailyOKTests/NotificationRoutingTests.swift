@@ -39,4 +39,18 @@ final class NotificationRoutingTests: XCTestCase {
         XCTAssertEqual(NotificationRoute.route(for: "SOME_FUTURE_ACTION"), .none)
         XCTAssertEqual(NotificationRoute.route(for: ""), .none)
     }
+
+    // MARK: Body taps on caregiver alerts (viewer deep dive)
+
+    func testCaregiverAlertBodyTapOpensTheDashboard() {
+        for type in ["need_help", "call_me", "sos", "owner_alert", "viewer_alert", "geofence_alert", "escalation_resolved"] {
+            XCTAssertTrue(NotificationRoute.opensDashboard(type: type, category: nil), type)
+        }
+        XCTAssertTrue(NotificationRoute.opensDashboard(type: nil, category: "URGENT_ALERT"))
+    }
+
+    func testReceiverCheckInRequestsDoNotMoveTheTab() {
+        XCTAssertFalse(NotificationRoute.opensDashboard(type: "checkin_reminder", category: "CHECKIN_REQUEST"))
+        XCTAssertFalse(NotificationRoute.opensDashboard(type: nil, category: nil))
+    }
 }

@@ -21,6 +21,23 @@ enum NotificationRoute: Equatable {
     /// An action this build doesn't handle.
     case none
 
+    /// Caregiver alerts whose body tap should land on the dashboard — where the
+    /// card, its Call button and "I've got this" are — instead of whichever tab
+    /// was open last (a co-caregiver left on Settings tapped "Mom needs help"
+    /// and landed on Settings).
+    static let dashboardAlertTypes: Set<String> = [
+        "need_help", "call_me", "sos", "owner_alert", "viewer_alert",
+        "geofence_alert", "low_battery_alert", "picking_me_up", "can_stay_longer",
+        "escalation_resolved", "checkin_confirmed",
+    ]
+    static let dashboardCategories: Set<String> = ["URGENT_ALERT", "KID_RESPONSE", "LOCATION_ALERT"]
+
+    static func opensDashboard(type: String?, category: String?) -> Bool {
+        if let type, dashboardAlertTypes.contains(type) { return true }
+        if let category, dashboardCategories.contains(category) { return true }
+        return false
+    }
+
     /// Map a `UNNotificationResponse.actionIdentifier` to a route. Mirrors the
     /// categories registered in `registerNotificationCategories()`.
     static func route(for actionIdentifier: String) -> NotificationRoute {
@@ -44,6 +61,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     /// moves the tab — the same bridge the app already uses for offline-sync
     /// completion.
     static let showDashboardRequested = Notification.Name("DailyOK.showDashboardRequested")
+    /// userInfo keys on showDashboardRequested: an explanation to show once the
+    /// dashboard is up (e.g. "Call Now" couldn't find a number).
+    static let outcomeTitleKey = "outcome_title"
+    static let outcomeMessageKey = "outcome_message"
 
     func application(
         _ application: UIApplication,
@@ -177,6 +198,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             if let requestId = userInfo["checkin_request_id"] as? String {
                 Task { await CheckInService.shared.confirmDelivery(checkinRequestId: requestId) }
             }
+            if NotificationRoute.opensDashboard(
+                type: userInfo["type"] as? String,
+                category: response.notification.request.content.categoryIdentifier
+            ) {
+                NotificationCenter.default.post(name: AppDelegate.showDashboardRequested, object: nil)
+            }
         case .none:
             break
         }
@@ -274,9 +301,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     }
 
     private func handleCallReceiver(userInfo: [AnyHashable: Any]) {
-        // Look up the receiver's phone number and initiate a call
+        // Look up the receiver's phone number and initiate a call. The action
+        // is `.foreground`, so the app is already opening: any failure lands
+        // on the dashboard (where the card's Call button is) with a reason,
+        // instead of an unrelated screen and nothing happening.
         guard let receiverIdString = userInfo["receiver_id"] as? String,
-              let receiverId = UUID(uuidString: receiverIdString) else { return }
+              let receiverId = UUID(uuidString: receiverIdString) else {
+            AppDelegate.showCallFailure(message: String(localized: "Open their card on the dashboard to call them."))
+            return
+        }
 
         Task {
             do {
@@ -289,24 +322,43 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                     .execute()
                     .value
 
-                guard let phone = users.first?.phone, !phone.isEmpty else {
+                // Normalize to a tel:// URL (dialable characters only).
+                let cleaned = (users.first?.phone ?? "")
+                    .replacingOccurrences(of: "[^0-9+]", with: "", options: .regularExpression)
+                guard !cleaned.isEmpty, let telURL = URL(string: "tel://\(cleaned)") else {
                     Log.general.error("No phone number found for receiver")
+                    AppDelegate.showCallFailure(message: String(localized: "There's no phone number on file for them. Open their card on the dashboard for other ways to reach them."))
                     return
                 }
 
-                // Normalize to tel:// URL format
-                let cleaned = phone.replacingOccurrences(of: "[^0-9+]", with: "", options: .regularExpression)
-                guard let telURL = URL(string: "tel://\(cleaned)") else { return }
-
                 await MainActor.run {
-                    UIApplication.shared.open(telURL)
+                    UIApplication.shared.open(telURL) { opened in
+                        if !opened {
+                            AppDelegate.showCallFailure(message: String(localized: "This device can't place calls. Open their card on the dashboard for other ways to reach them."))
+                        }
+                    }
                 }
             } catch {
                 // Don't let an urgent "Call Now" action silently no-op on a query
                 // failure (offline / RLS) — the previous bare `try` discarded the
                 // throw entirely.
                 Log.general.error("Call-receiver lookup failed: \(error.localizedDescription, privacy: .public)")
+                AppDelegate.showCallFailure(message: String(localized: "Couldn't look up their number — check your connection. Tap Call on their card on the dashboard."))
             }
+        }
+    }
+
+    /// "Call Now" couldn't start a call: open the dashboard and say why.
+    private static func showCallFailure(message: String) {
+        Task { @MainActor in
+            NotificationCenter.default.post(
+                name: AppDelegate.showDashboardRequested,
+                object: nil,
+                userInfo: [
+                    AppDelegate.outcomeTitleKey: String(localized: "Couldn't start the call"),
+                    AppDelegate.outcomeMessageKey: message,
+                ]
+            )
         }
     }
 

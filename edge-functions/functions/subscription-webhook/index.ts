@@ -12,6 +12,7 @@ import {
   applyEntitlement,
   bindReceipt,
   findBillingFamily,
+  unverifiedOriginalIdIsSafe,
   verifyAppleClaim,
 } from "../../shared/subscription-billing.ts";
 
@@ -186,7 +187,18 @@ export async function handleSubscriptionWebhook(req: Request, auth: AuthResult):
       // used to store NULL — which the grace job never lapses.
       expiresAt = capUnverifiedExpiry(body.expiration_date, now);
       if (!expiresAt) return json({ error: "expiration_date is required" }, 400);
-      originalTransactionId = body.original_id || null;
+      // A client-claimed subscription id is kept only if it can't belong to
+      // someone else (see unverifiedOriginalIdIsSafe). Every family member
+      // can read families.billing_original_transaction_id, so taking it as
+      // given let a co-caregiver copy the family's id onto a family they own
+      // and receive the payer's App Store renewals. The request still
+      // succeeds without it, as before for requests that sent none.
+      const claimedOriginal = typeof body.original_id === "string" && body.original_id.length > 0
+        ? body.original_id
+        : null;
+      originalTransactionId = claimedOriginal && await unverifiedOriginalIdIsSafe(claimedOriginal, userId)
+        ? claimedOriginal
+        : null;
     }
   } else {
     // Android: purchase_token is not verified with the Play Developer API yet

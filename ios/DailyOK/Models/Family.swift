@@ -398,6 +398,69 @@ enum PlanSummary {
         }
     }
 
+    /// What a co-caregiver sees about the plan: which plan, who pays for it,
+    /// and — when it needs attention — what that means and who can fix it.
+    /// The payer's wording ("Choose a plan", "Update your payment method")
+    /// told co-caregivers to do things they can't, and nothing named the plan
+    /// or the payer while all was well.
+    ///
+    /// `payerName` is the paying member's name when known; `payerIsMe` when
+    /// this co-caregiver's own Apple ID pays (e.g. the owner before a
+    /// hand-over); `ownerName` is who manages the family.
+    static func viewerLine(
+        for family: Family,
+        payerName: String?,
+        payerIsMe: Bool,
+        ownerName: String?,
+        now: Date = Date()
+    ) -> Line {
+        let plan = family.subscriptionTier.displayName
+        let day: (Date) -> String = { $0.formatted(.dateTime.month(.abbreviated).day()) }
+        let owner = ownerName ?? String(localized: "The family owner")
+        // Whoever can fix it: the payer, else the owner.
+        let fixer = payerIsMe ? nil : (payerName ?? ownerName)
+        let fixerMid = fixer ?? String(localized: "the family owner")
+
+        if family.subscriptionTier == .free {
+            guard let deadline = family.freeTierExpiresAt else {
+                return Line(title: plan, detail: nil, needsAttention: false)
+            }
+            return deadline < now
+                ? Line(title: plan, detail: String(localized: "The family's free period has ended. \(owner) can choose a plan to keep check-ins running."), needsAttention: true)
+                : Line(title: plan, detail: String(localized: "Free until \(day(deadline)). \(owner) can choose a plan before then."), needsAttention: false)
+        }
+
+        let paidBy: String? = payerIsMe ? String(localized: "you") : payerName
+        switch FamilyRoster.planState(family, now: now) {
+        case .active:
+            let through = family.subscriptionExpiresAt.map { day($0) }
+            let detail: String?
+            switch (paidBy, through) {
+            case let (who?, date?): detail = String(localized: "Paid by \(who) through \(date)")
+            case let (who?, nil): detail = String(localized: "Paid by \(who)")
+            case let (nil, date?): detail = String(localized: "Paid through \(date)")
+            case (nil, nil): detail = nil
+            }
+            return Line(title: plan, detail: detail, needsAttention: false)
+        case .renewSoon:
+            let stop = family.subscriptionExpiresAt.map { day($0.addingTimeInterval(7 * 24 * 3600)) }
+            let when = stop.map { String(localized: "Check-ins stop on \($0) unless it renews.") }
+                ?? String(localized: "Check-ins stop soon unless it renews.")
+            if payerIsMe {
+                return Line(title: plan, detail: String(localized: "Your payment didn't go through. \(when) Update it in Manage Subscription."), needsAttention: true)
+            }
+            let whose = fixer.map { String(localized: "\($0)'s payment") } ?? String(localized: "The plan's payment")
+            return Line(title: plan, detail: String(localized: "\(whose) didn't go through. \(when) Let them know."), needsAttention: true)
+        case .endsOn(let end):
+            if payerIsMe {
+                return Line(title: plan, detail: String(localized: "Ends \(day(end)) — renewal is off on your Apple ID. Check-ins pause after that."), needsAttention: true)
+            }
+            return Line(title: plan, detail: String(localized: "Ends \(day(end)). Check-ins pause after that unless \(fixerMid) renews it."), needsAttention: true)
+        case .expired:
+            return Line(title: plan, detail: String(localized: "The plan has ended, so daily check-ins are paused. \(owner) can choose a plan to restart them."), needsAttention: true)
+        }
+    }
+
     /// How the subscription on this phone's Apple ID relates to the family.
     enum StoreRelation: Equatable {
         /// Nothing to explain.

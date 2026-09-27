@@ -436,14 +436,40 @@ actor CheckInService {
            let row = rows.first {
             return row
         }
-        guard let rows: [ReceiverSettings] = try? await supabase
-            .rpc("family_receiver_schedules", params: FamilyScheduleParams(p_family_id: familyId.uuidString))
-            .execute()
-            .value else {
+        guard let rows = try? await familyReceiverSchedules(familyId: familyId) else {
             return nil
         }
         return rows.first { $0.familyMemberId == familyMemberId }
     }
+
+    /// "I'm on it" (or release) for a pending / missed check-in request
+    /// (claim_checkin_request, 00062). Returns the row as it now stands, so a
+    /// claim someone else got first comes back with their name.
+    func claimCheckInRequest(requestId: UUID, release: Bool) async throws -> CheckInRequest {
+        let row: CheckInRequest = try await supabase
+            .rpc("claim_checkin_request", params: ClaimRequestParams(p_request_id: requestId.uuidString, p_release: release))
+            .single()
+            .execute()
+            .value
+        return row
+    }
+
+    /// Every receiver's schedule fields in a family (no home coordinates),
+    /// via `family_receiver_schedules` (00057): the owner and active
+    /// co-caregivers may call it. Throws on an older server without it.
+    func familyReceiverSchedules(familyId: UUID) async throws -> [ReceiverSettings] {
+        let rows: [ReceiverSettings] = try await supabase
+            .rpc("family_receiver_schedules", params: FamilyScheduleParams(p_family_id: familyId.uuidString))
+            .execute()
+            .value
+        return rows
+    }
+}
+
+/// `claim_checkin_request` (00062) parameters.
+private struct ClaimRequestParams: Encodable {
+    let p_request_id: String
+    let p_release: Bool
 }
 
 /// `family_receiver_schedules` (00057) parameters.

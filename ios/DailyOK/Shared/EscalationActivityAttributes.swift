@@ -18,5 +18,10 @@ struct EscalationActivityAttributes: ActivityAttributes {
     var receiverPhone: String?
     var receiverId: String
     var familyId: String
+    /// Only the family owner can stand an escalation down. A co-caregiver's
+    /// activity shows "Open" instead of a "Stand down" that could only answer
+    /// "Only the owner can stop alerts". Optional so an activity started by an
+    /// older build (no key) decodes, and reads as the owner's (true).
+    var canStandDown: Bool? = nil
 }
 #endif

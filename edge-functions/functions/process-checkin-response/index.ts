@@ -5,6 +5,7 @@ import { sendFCMNotification, buildFCMAlertPayload } from "../../shared/fcm.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID, isValidTimezone, validateLocationFields, sanitizeDisplayName, truncateString, coerceNumericFields } from "../../shared/validation.ts";
 import { localDateString, localDayBoundsUTC, resolveOccurredAt, formatOccurredAt } from "../../shared/checkin-time.ts";
+import { notifyEscalationResolved, requestsResolvedByCheckIn } from "../../shared/caregiver-alerts.ts";
 import { followUpUpgrade, isKidInfoSignal, isRepeatOfRecentAlert, isUrgentSignal, FOLLOW_UP_REPEAT_WINDOW_MS } from "../../shared/checkin-followup.ts";
 
 function haversineDistance(
@@ -225,7 +226,8 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
         distanceFromHome: null, isBackfill, receiverTz, occurredAt, isFollowUp: true,
       });
     }
-    return markRequestsAndRespond(receiverId, familyId, answered, isBackfill);
+    return markRequestsAndRespond(receiverId, familyId, answered, isBackfill,
+      { receiverTz, answeredAt: occurredAt.toISOString(), announce: !isUrgent, allowMissed: false });
   }
 
   // Receiver settings: home point for the distance, and whether the family
@@ -327,7 +329,8 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
           distanceFromHome, isBackfill, receiverTz, occurredAt, isFollowUp: true,
         });
       }
-      return markRequestsAndRespond(receiverId, familyId, answered, isBackfill);
+      return markRequestsAndRespond(receiverId, familyId, answered, isBackfill,
+        { receiverTz, answeredAt: occurredAt.toISOString(), announce: !isUrgent, allowMissed: false });
     }
   }
 
@@ -441,7 +444,11 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
     }
   }
 
-  return markRequestsAndRespond(receiverId, familyId, checkIn, isBackfill);
+  // A fresh row (not a duplicate of the day's earlier one) may also answer a
+  // missed request whose alerts already ran out; a help request is never an
+  // all-clear.
+  return markRequestsAndRespond(receiverId, familyId, checkIn, isBackfill,
+    { receiverTz, answeredAt: occurredAt.toISOString(), announce: !isUrgent, allowMissed: true });
 }
 
 /** PostgREST's "column not in schema cache" (PGRST204) or Postgres 42703. */
@@ -455,12 +462,22 @@ async function markRequestsAndRespond(
   familyId: string,
   checkIn: Record<string, unknown>,
   isBackfill = false,
+  // When the receiver answered: this request's occurred_at, which on the
+  // duplicate path is later than the day's existing row.
+  allClear?: { receiverTz: string; answeredAt: string; announce: boolean; allowMissed: boolean },
 ): Promise<Response> {
   // A backfill answers a day that is already over, so it resolves nothing that
   // is live right now. Clearing today's pending request or ending today's
   // escalation on the strength of a three-day-old tap is precisely the false
   // "they're fine" this whole change exists to remove (US-IOS147).
   if (!isBackfill) {
+    // Which escalations reached the co-caregivers and are answered by this
+    // check-in — read BEFORE the update below flips them to checked_in.
+    let resolvedForViewers: string[] = [];
+    if (allClear?.announce) {
+      resolvedForViewers = await escalationsAnsweredNow(receiverId, familyId, checkIn, allClear.allowMissed, allClear.answeredAt);
+    }
+
     // Mark all pending requests for this receiver+family as checked_in
     await supabaseAdmin
       .from("checkin_requests")
@@ -476,6 +493,17 @@ async function markRequestsAndRespond(
     // closed-app owner's Lock Screen stops showing a stale "Overdue" timer
     // (US-IOS127). Best-effort; never blocks/fails the check-in response.
     await endEscalationLiveActivities(familyId, receiverId);
+
+    // Co-caregivers who were paged hear that it's over (best-effort).
+    if (allClear && resolvedForViewers.length > 0) {
+      await notifyEscalationResolved({
+        familyId,
+        receiverId,
+        requestIds: resolvedForViewers,
+        how: "checked_in",
+        atLocal: formatOccurredAt(allClear.receiverTz, allClear.answeredAt, false),
+      });
+    }
   }
 
   // `backfilled` is a new response field. Swift's Decodable and the Android
@@ -484,6 +512,48 @@ async function markRequestsAndRespond(
     JSON.stringify({ success: true, checkin: checkIn, backfilled: isBackfill }),
     { headers: { "Content-Type": "application/json" } }
   );
+}
+
+/**
+ * Escalated requests this check-in answers, for the co-caregivers' all-clear
+ * (shared/caregiver-alerts.ts decides which count). Never throws.
+ */
+async function escalationsAnsweredNow(
+  receiverId: string,
+  familyId: string,
+  checkIn: Record<string, unknown>,
+  allowMissed: boolean,
+  answeredAt: string,
+): Promise<string[]> {
+  try {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: requests } = await supabaseAdmin
+      .from("checkin_requests")
+      .select("id, status, escalation_step, created_at, stood_down_at")
+      .eq("receiver_id", receiverId)
+      .eq("family_id", familyId)
+      .in("status", allowMissed ? ["pending", "missed"] : ["pending"])
+      .gte("created_at", since)
+      .order("created_at", { ascending: true });
+    if (!requests?.length) return [];
+
+    let previousCheckInAt: string | null = null;
+    if (allowMissed) {
+      const { data: previous } = await supabaseAdmin
+        .from("checkins")
+        .select("checked_in_at")
+        .eq("receiver_id", receiverId)
+        .eq("family_id", familyId)
+        .neq("id", checkIn.id as string)
+        .order("checked_in_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      previousCheckInAt = (previous?.checked_in_at as string | undefined) ?? null;
+    }
+    return requestsResolvedByCheckIn(requests, previousCheckInAt, allowMissed, answeredAt);
+  } catch {
+    return [];
+  }
 }
 
 /**

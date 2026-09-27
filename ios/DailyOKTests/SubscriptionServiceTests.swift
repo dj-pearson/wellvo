@@ -218,6 +218,41 @@ final class SettingsPlanTests: XCTestCase {
         XCTAssertTrue(freeEnded.needsAttention)
     }
 
+    // MARK: Co-caregiver plan row (viewer deep dive)
+
+    func testViewerSeesPlanAndWhoPays() {
+        let paid = family(tier: .family, expires: now.addingTimeInterval(86_400 * 10), payer: sibling)
+        let line = PlanSummary.viewerLine(for: paid, payerName: "Tom", payerIsMe: false, ownerName: "Sarah", now: now)
+        XCTAssertEqual(line.title, "Family")
+        XCTAssertFalse(line.needsAttention)
+        XCTAssertTrue(line.detail?.hasPrefix("Paid by Tom through") ?? false)
+
+        let mine = PlanSummary.viewerLine(for: paid, payerName: nil, payerIsMe: true, ownerName: "Sarah", now: now)
+        XCTAssertTrue(mine.detail?.hasPrefix("Paid by you") ?? false)
+    }
+
+    func testViewerPaymentIssueNamesThePayerNotAnActionTheyCantTake() {
+        let grace = family(tier: .family, status: .gracePeriod, expires: now, payer: sibling)
+        let line = PlanSummary.viewerLine(for: grace, payerName: "Tom", payerIsMe: false, ownerName: "Sarah", now: now)
+        XCTAssertTrue(line.needsAttention)
+        XCTAssertTrue(line.detail?.contains("Tom's payment didn't go through") ?? false)
+        XCTAssertFalse(line.detail?.contains("Update your payment method") == true)
+
+        let ownGrace = PlanSummary.viewerLine(for: grace, payerName: nil, payerIsMe: true, ownerName: "Sarah", now: now)
+        XCTAssertTrue(ownGrace.detail?.contains("Manage Subscription") ?? false)
+    }
+
+    func testViewerExpiredAndFreeEndedPointToTheOwner() {
+        let expired = PlanSummary.viewerLine(for: family(tier: .family, status: .expired), payerName: nil, payerIsMe: false, ownerName: "Sarah", now: now)
+        XCTAssertTrue(expired.needsAttention)
+        XCTAssertTrue(expired.detail?.contains("Sarah can choose a plan") ?? false)
+
+        let freeEnded = PlanSummary.viewerLine(for: family(tier: .free, freeDeadline: now.addingTimeInterval(-1)), payerName: nil, payerIsMe: false, ownerName: nil, now: now)
+        XCTAssertTrue(freeEnded.needsAttention)
+        XCTAssertFalse(freeEnded.detail?.contains("Choose a plan to keep") == true)
+        XCTAssertTrue(freeEnded.detail?.contains("The family owner can choose a plan") ?? false)
+    }
+
     // MARK: This Apple ID vs. the family
 
     func testNewOwnerAfterTransferIsNotUpsoldAPlanASiblingPays() {

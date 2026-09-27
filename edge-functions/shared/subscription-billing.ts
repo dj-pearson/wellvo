@@ -22,7 +22,7 @@ import {
   verifyAppStoreJWS,
 } from "./app-store-jws.ts";
 import { APPLE_BUNDLE_ID, lookUpTransaction } from "./app-store-server-api.ts";
-import { decideApply, type TierInfo } from "./subscription-policy.ts";
+import { decideApply, pickBilledFamily, type TierInfo } from "./subscription-policy.ts";
 
 export interface BillingFamily {
   id: string;
@@ -86,16 +86,46 @@ export async function findBillingFamily(userId: string): Promise<BillingFamily |
   return ((owned.data ?? [])[0] as BillingFamily | undefined) ?? null;
 }
 
-/** Family currently billed to this App Store subscription, if any. */
-export async function findFamilyByOriginalTransaction(originalTransactionId: string): Promise<BillingFamily | null> {
+/**
+ * Family currently billed to this App Store subscription, if any.
+ *
+ * More than one family can carry the same id (an unverified legacy request
+ * could store any id it was given). Prefer, in order: a family billed to the
+ * account the verified receipt is bound to, then one whose billing was
+ * verified, then the oldest. It used to be "oldest" alone, which a family
+ * owner could win by claiming someone else's id on a family they own.
+ */
+export async function findFamilyByOriginalTransaction(
+  originalTransactionId: string,
+  payerUserId?: string | null,
+): Promise<BillingFamily | null> {
   const { data, error } = await supabaseAdmin
     .from("families")
-    .select(BILLING_COLUMNS)
+    .select(`${BILLING_COLUMNS}, billing_verified_at`)
     .eq("billing_original_transaction_id", originalTransactionId)
     .order("created_at", { ascending: true })
-    .limit(1);
+    .limit(10);
   if (error) return null;
-  return ((data ?? [])[0] as BillingFamily | undefined) ?? null;
+  const rows = (data ?? []) as (BillingFamily & { billing_verified_at?: string | null })[];
+  return pickBilledFamily(rows, payerUserId ?? null);
+}
+
+/**
+ * Whether an UNVERIFIED client may record this App Store subscription id on
+ * its own family: not when a verified receipt binds it to another account,
+ * and not when another account's family is already billed to it.
+ */
+export async function unverifiedOriginalIdIsSafe(originalTransactionId: string, userId: string): Promise<boolean> {
+  const owner = await receiptOwner(originalTransactionId);
+  if (owner && owner !== userId) return false;
+  const { data, error } = await supabaseAdmin
+    .from("families")
+    .select("id, billing_user_id")
+    .eq("billing_original_transaction_id", originalTransactionId)
+    .limit(10);
+  // Before 00059 there is no such column: nothing to collide with.
+  if (error) return isMissingColumn(error);
+  return !(data ?? []).some((f: { billing_user_id: string | null }) => f.billing_user_id !== userId);
 }
 
 /** Account a verified App Store subscription is bound to, if recorded. */

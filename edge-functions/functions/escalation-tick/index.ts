@@ -5,7 +5,9 @@ import { sendFCMNotification, buildFCMCheckinPayload, buildFCMAlertPayload } fro
 import { sendSMS, buildEscalationSMS } from "../../shared/sms.ts";
 import { logInfo, logWarn, logError } from "../../shared/logger.ts";
 import type { AuthResult } from "../../shared/auth.ts";
-import { sanitizeDisplayName } from "../../shared/validation.ts";
+import { isValidTimezone, sanitizeDisplayName } from "../../shared/validation.ts";
+import { formatOccurredAt } from "../../shared/checkin-time.ts";
+import { escalationCollapseId, viewerMissedAlertCopy } from "../../shared/caregiver-alerts.ts";
 
 interface PushToken {
   token: string;
@@ -73,7 +75,10 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
   const body: EscalationRequest = await req.json();
   const { request_id, receiver_id, family_id, escalation_step, owner_id } = body;
 
-  // Handle geofence alert — send urgent push to family owner
+  // Handle geofence alert — urgent push to the family owner AND every active
+  // co-caregiver. It used to reach the owner only: when a child left the safe
+  // zone or a parent with dementia wandered, the co-parent or sibling nearest
+  // to them heard nothing (help requests already page every caregiver).
   if (body.type === "geofence_alert") {
     const { data: family } = await supabaseAdmin
       .from("families")
@@ -81,14 +86,27 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       .eq("id", family_id)
       .single();
 
-    if (family?.owner_id) {
-      const { data: ownerTokens } = await supabaseAdmin
+    const recipients: string[] = [];
+    if (family?.owner_id) recipients.push(family.owner_id as string);
+    const { data: geoViewers } = await supabaseAdmin
+      .from("family_members")
+      .select("user_id")
+      .eq("family_id", family_id)
+      .eq("role", "viewer")
+      .eq("status", "active");
+    for (const v of geoViewers ?? []) {
+      const id = v.user_id as string | null;
+      if (id && id !== receiver_id && !recipients.includes(id)) recipients.push(id);
+    }
+
+    if (recipients.length) {
+      const { data: tokens } = await supabaseAdmin
         .from("push_tokens")
         .select("token, platform")
-        .eq("user_id", family.owner_id)
+        .in("user_id", recipients)
         .eq("is_active", true);
 
-      if (ownerTokens?.length) {
+      if (tokens?.length) {
         const displayName = sanitizeDisplayName(body.display_name || "A family member");
         const distance = body.distance_meters ? Math.round(body.distance_meters) : "unknown";
         const alertTitle = "Location Alert";
@@ -99,20 +117,21 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
             sound: "urgent.caf",
             "interruption-level": "critical" as const,
             "thread-id": `geofence-${family_id}`,
-            // LOCATION_ALERT has been registered by the app all along, with a
-            // "View Details" action, and nothing ever sent it.
-            category: "LOCATION_ALERT",
+            // "Call Now" (looks the number up from receiver_id) is what a
+            // caregiver needs when someone has wandered off; the body tap
+            // opens the dashboard.
+            category: "URGENT_ALERT",
           },
           type: "geofence_alert",
           receiver_id,
         };
 
         const results = await sendByPlatform(
-          ownerTokens, payload, alertTitle, alertBody,
+          tokens, payload, alertTitle, alertBody,
           { type: "geofence_alert", receiver_id },
           { priority: 10 },
         );
-        await deactivateInvalidTokens(ownerTokens, results, family.owner_id);
+        await deactivateInvalidTokens(tokens, results, family?.owner_id ?? family_id);
       }
     }
 
@@ -355,7 +374,7 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
       error_message: delivered ? null : failures.join("; ") || "no delivery channel",
     });
   } else if (escalation_step != null && escalation_step >= 3) {
-    // Step 3: Alert to all Viewers
+    // Step 3: Alert to all Viewers (co-caregivers)
     const { data: viewers } = await supabaseAdmin
       .from("family_members")
       .select("user_id")
@@ -365,12 +384,43 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
 
     const { data: receiver } = await supabaseAdmin
       .from("users")
-      .select("display_name")
+      .select("display_name, timezone")
       .eq("id", receiver_id)
       .single();
 
     // Same scoping bug as the owner path above (US-EDGE001).
     const safeViewerReceiverName = sanitizeDisplayName(receiver?.display_name || "A family member");
+
+    // Context for the page: since when, and that the owner already knows.
+    let sinceLocal: string | null = null;
+    let claimedByName: string | null = null;
+    let claimedById: string | null = null;
+    if (request_id) {
+      // "*": claimed_by_name only exists from 00062, and naming it would fail
+      // the whole read on an older schema.
+      const { data: requestRow } = await supabaseAdmin
+        .from("checkin_requests")
+        .select("*")
+        .eq("id", request_id)
+        .maybeSingle();
+      const tz = receiver?.timezone && isValidTimezone(receiver.timezone) ? receiver.timezone : "UTC";
+      if (requestRow?.created_at) sinceLocal = formatOccurredAt(tz, requestRow.created_at as string, false);
+      const claimer = requestRow?.claimed_by_name as string | null | undefined;
+      if (claimer) claimedByName = sanitizeDisplayName(claimer) || null;
+      claimedById = (requestRow?.claimed_by as string | null | undefined) ?? null;
+    }
+    let ownerName: string | null = null;
+    if (owner_id) {
+      const { data: ownerUser } = await supabaseAdmin
+        .from("users")
+        .select("display_name")
+        .eq("id", owner_id)
+        .maybeSingle();
+      ownerName = ownerUser?.display_name ? sanitizeDisplayName(ownerUser.display_name) || null : null;
+    }
+    const copy = viewerMissedAlertCopy({ receiverName: safeViewerReceiverName, sinceLocal, ownerName, claimedByName });
+    // The co-caregiver who said "I'm on it" isn't told that they are.
+    const copyForClaimer = viewerMissedAlertCopy({ receiverName: safeViewerReceiverName, sinceLocal, ownerName, claimedByName: null });
 
     // Viewer SMS follows the same per-receiver opt-in as the owner's. It used to
     // text every viewer with a number on file, whatever the owner had chosen.
@@ -394,6 +444,10 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
 
     if (viewers?.length) {
       for (const viewer of viewers) {
+        let delivered = false;
+        const failures: string[] = [];
+        const viewerCopy = claimedById && claimedById === viewer.user_id ? copyForClaimer : copy;
+
         const { data: viewerTokens } = await supabaseAdmin
           .from("push_tokens")
           .select("token, platform")
@@ -401,16 +455,18 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
           .eq("is_active", true);
 
         if (viewerTokens?.length) {
-          const alertTitle = "Family Alert";
-          const alertBody = `${safeViewerReceiverName} has missed their check-in today.`;
+          // This is the LAST page — nobody has answered for over an hour — so
+          // it is as urgent as the owner's step-2 alert: time-sensitive (gets
+          // through Focus, which the app tells co-caregivers to allow for
+          // exactly this), the urgent sound, and URGENT_ALERT, whose only
+          // action is "Call Now" (receiver_id below) — not a stand-down. It
+          // used to be "active" + LOCATION_ALERT ("View Details").
           const payload = {
             aps: {
-              alert: { title: alertTitle, body: alertBody },
-              sound: "default",
-              "interruption-level": "active" as const,
-              // A viewer cannot stand an escalation down, so this gets the
-              // read-only category rather than URGENT_ALERT's "Call Now".
-              category: "LOCATION_ALERT",
+              alert: { title: viewerCopy.title, body: viewerCopy.body },
+              sound: "urgent.caf",
+              "interruption-level": "time-sensitive" as const,
+              category: "URGENT_ALERT",
               "thread-id": `alert-${request_id}`,
             },
             checkin_request_id: request_id,
@@ -419,10 +475,20 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
           };
 
           const results = await sendByPlatform(
-            viewerTokens, payload, alertTitle, alertBody,
+            viewerTokens, payload, viewerCopy.title, viewerCopy.body,
             { checkin_request_id: request_id || "", type: "viewer_alert", receiver_id },
+            // Same collapse id as the all-clear (shared/caregiver-alerts.ts),
+            // which then replaces this alarm on the Lock Screen.
+            { priority: 10, ...(request_id ? { collapseId: escalationCollapseId(request_id) } : {}) },
           );
           await deactivateInvalidTokens(viewerTokens, results, viewer.user_id);
+          if (results.some((r) => r.success)) {
+            delivered = true;
+          } else {
+            failures.push(`push failed on ${results.length} device(s)`);
+          }
+        } else {
+          failures.push("no active push tokens");
         }
 
         // SMS fallback for viewers with phone numbers
@@ -439,23 +505,24 @@ export async function handleEscalationTick(req: Request, _auth: AuthResult): Pro
           );
           logInfo("Sending viewer escalation SMS", { path: "/escalation-tick", userId: viewer.user_id });
           const smsResult = await sendSMS(viewerUser.phone, smsBody);
-          if (!smsResult.success) {
+          if (smsResult.success) {
+            delivered = true;
+          } else {
             logError("Viewer escalation SMS failed", smsResult.error, { path: "/escalation-tick", userId: viewer.user_id });
-            await supabaseAdmin.from("notification_log").insert({
-              user_id: viewer.user_id,
-              checkin_request_id: request_id,
-              type: "viewer_alert",
-              status: "failed",
-              error_message: smsResult.error || "SMS send failed",
-            });
+            failures.push(`SMS failed: ${smsResult.error || "unknown error"}`);
           }
         }
 
+        // One row per viewer with the real outcome, like the owner path. It
+        // used to write "sent" unconditionally (and a second row after a
+        // failed SMS), so a co-caregiver with no device looked alerted. The
+        // all-clear goes to the co-caregivers logged here.
         await supabaseAdmin.from("notification_log").insert({
           user_id: viewer.user_id,
           checkin_request_id: request_id,
           type: "viewer_alert",
-          status: "sent",
+          status: delivered ? "sent" : "failed",
+          error_message: delivered ? null : failures.join("; ") || "no delivery channel",
         });
       }
     }

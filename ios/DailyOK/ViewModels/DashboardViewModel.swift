@@ -50,6 +50,17 @@ struct ReceiverStatusCard: Identifiable {
     /// False when the owner turned escalation off for this receiver — no alert
     /// will come if they don't answer, so the card says so.
     var escalationEnabled: Bool = true
+    /// Minutes between escalation steps (receiver_settings, 30 by default).
+    /// A co-caregiver is alerted one step after the owner, so their card can
+    /// say when. Nil = unknown.
+    var reminderIntervalMinutes: Int? = nil
+    /// The unanswered request behind a Pending / Missed card, and who said
+    /// "I'm on it" for it (00062) — so the owner and co-caregivers don't all
+    /// call at once.
+    var requestId: UUID? = nil
+    var claimedBy: UUID? = nil
+    var claimedByName: String? = nil
+    var claimedAt: Date? = nil
     /// Phone health from the receiver's heartbeat (users.last_seen_at /
     /// last_battery_level, 0…1) — tells "phone is dead" from "not answering".
     var lastSeenAt: Date? = nil
@@ -264,6 +275,21 @@ final class DashboardViewModel: ObservableObject {
     /// Active receivers' membership rows keyed by receiver user id, so an
     /// owner's card can open that receiver's schedule & alerts.
     @Published var receiverMembers: [UUID: FamilyMember] = [:]
+    /// The family owner's name and phone, so a co-caregiver's screens can say
+    /// who was alerted before them and who to ask ("Ask Sarah"). Nil until
+    /// loaded or when the owner has no membership row.
+    @Published var ownerName: String?
+    @Published var ownerPhone: String?
+    /// Signed in, but the server says this user is in no family any more
+    /// (removed, family deleted). Distinct from "family has nobody to check on
+    /// yet": the view says so and re-resolves the role instead of promising
+    /// people will appear.
+    @Published var familyMissing = false
+    /// Alerts with a claim / release in flight, so "I've got this" can't be
+    /// sent twice and shows progress on a slow network.
+    @Published var acknowledgingAlertIds: Set<UUID> = []
+    /// Cards with an "I'm on it" / release in flight.
+    @Published var claimingCardIds: Set<UUID> = []
     /// Set true when a milestone (a receiver reaching a multi-day streak) makes
     /// this a good moment to ask for an App Store rating. The view observes this
     /// and presents the system prompt, then resets it.
@@ -332,15 +358,20 @@ final class DashboardViewModel: ObservableObject {
                 // family deleted): don't keep showing — or publishing to the
                 // Lock Screen widget — the last family's status.
                 await clearFamilyState()
+                familyMissing = true
                 isLoading = false
                 return
             }
+            familyMissing = false
             // Mirror the grandfather deadline so subscription gating can honor it
             // (US-IOS097).
             SubscriptionService.shared.freeTierExpiresAt = family.freeTierExpiresAt
 
             let members = try await FamilyService.shared.getFamilyMembers(familyId: family.id)
             let receivers = members.filter { $0.role == .receiver && $0.status == .active }
+            let owner = members.first { $0.userId == family.ownerId }?.user
+            ownerName = owner.map(\.displayName).flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 }
+            ownerPhone = owner?.phone
             receiverMembers = Dictionary(receivers.map { ($0.userId, $0) }, uniquingKeysWith: { first, _ in first })
 
             // Which receivers have notifications on — one RPC for all of them.
@@ -349,8 +380,10 @@ final class DashboardViewModel: ObservableObject {
 
             // Batch each receiver's schedule (one query) so consistency can be
             // judged against the days they were actually scheduled to check in
-            // (US-IOS075) and the card can say "Due at 10:00 AM".
-            let settingsByMember = await receiverSettingsByMember(memberIds: receivers.map(\.id))
+            // (US-IOS075) and the card can say "Due at 10:00 AM". Co-caregivers
+            // can't read receiver_settings (RLS), so theirs come from the
+            // family_receiver_schedules RPC (00057).
+            let settingsByMember = await receiverSettingsByMember(memberIds: receivers.map(\.id), familyId: family.id)
 
             var cards: [ReceiverStatusCard] = []
             var weeklyCheckIns: [CheckIn] = []
@@ -473,6 +506,11 @@ final class DashboardViewModel: ObservableObject {
                     stoodDownAt: resolved.stoodDownAt,
                     nextEscalationAt: resolved.stoodDown ? nil : resolved.request?.nextEscalationAt,
                     escalationEnabled: settings?.escalationEnabled ?? true,
+                    reminderIntervalMinutes: settings?.reminderIntervalMinutes,
+                    requestId: resolved.stoodDown ? nil : resolved.request?.id,
+                    claimedBy: resolved.stoodDown ? nil : resolved.request?.claimedBy,
+                    claimedByName: resolved.stoodDown ? nil : resolved.request?.claimedByName,
+                    claimedAt: resolved.stoodDown ? nil : resolved.request?.claimedAt,
                     lastSeenAt: receiver.user?.lastSeenAt,
                     batteryLevel: receiver.user?.lastBatteryLevel
                 ))
@@ -494,7 +532,13 @@ final class DashboardViewModel: ObservableObject {
             // an at-a-glance summary without opening the app.
             SharedOwnerPublisher.publish(receiverCards)
             // Start/refresh/end Live Activities for any receiver in escalation.
-            EscalationActivityManager.sync(cards: receiverCards, familyId: family.id)
+            // Co-caregivers get the activity too, but without "Stand down",
+            // which only the owner can do.
+            EscalationActivityManager.sync(
+                cards: receiverCards,
+                familyId: family.id,
+                canStandDown: family.ownerId == currentUserId
+            )
             weeklySummary = computeWeeklySummary(
                 checkIns: weeklyCheckIns,
                 totalScheduledDays: totalScheduledDays,
@@ -529,6 +573,8 @@ final class DashboardViewModel: ObservableObject {
     private func clearFamilyState() async {
         receiverCards = []
         receiverMembers = [:]
+        ownerName = nil
+        ownerPhone = nil
         alerts = []
         weeklySummary = nil
         refreshError = nil
@@ -586,6 +632,50 @@ final class DashboardViewModel: ObservableObject {
             errorMessage = DailyOKError.network(error).localizedDescription
             return false
         }
+    }
+
+    /// "I'm on it" (or release) for the unanswered request behind a card. The
+    /// row change reaches the other caregivers through the realtime
+    /// subscription on checkin_requests.
+    func claimRequest(for cardId: UUID, release: Bool) async {
+        guard let idx = receiverCards.firstIndex(where: { $0.id == cardId }),
+              let requestId = receiverCards[idx].requestId,
+              !claimingCardIds.contains(cardId) else { return }
+        claimingCardIds.insert(cardId)
+        defer { claimingCardIds.remove(cardId) }
+        let name = receiverCards[idx].name
+        do {
+            let row = try await CheckInService.shared.claimCheckInRequest(requestId: requestId, release: release)
+            if let i = receiverCards.firstIndex(where: { $0.id == cardId }) {
+                receiverCards[i].claimedBy = row.claimedBy
+                receiverCards[i].claimedByName = row.claimedByName
+                receiverCards[i].claimedAt = row.claimedAt
+            }
+            if !release, let currentUserId, let holder = row.claimedBy, holder != currentUserId {
+                errorMessage = String(localized: "\(row.claimedByName ?? String(localized: "Another caregiver")) is already on it.")
+            } else if !release, row.claimedBy == nil {
+                // Answered or stood down in the meantime: nothing to claim.
+                await loadDashboard()
+            } else {
+                DailyOKHaptics.success()
+                UIAccessibility.post(
+                    notification: .announcement,
+                    argument: release
+                        ? String(localized: "Released. Other caregivers can take this on.")
+                        : String(localized: "You're on it for \(name). Other caregivers can see that.")
+                )
+            }
+        } catch where Self.isMissingRPC(error, named: "claim_checkin_request") {
+            errorMessage = String(localized: "Saying \"I'm on it\" isn't available yet. Call or text the other caregivers instead.")
+        } catch {
+            errorMessage = DailyOKError.network(error).localizedDescription
+        }
+    }
+
+    /// "Tom is on it (10:42 AM)" / "You're on it (10:42 AM)".
+    nonisolated static func claimLine(name: String?, at: Date?, isMine: Bool) -> String {
+        let when = at.map { " (\($0.formatted(date: .omitted, time: .shortened)))" } ?? ""
+        return isMine ? "You're on it\(when)" : "\(name ?? "A caregiver") is on it\(when)"
     }
 
     // MARK: - Pure status resolution (unit-tested)
@@ -737,6 +827,72 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
+    /// What the escalation has done and what happens next, for the person
+    /// reading it. escalation-tick alerts the owner at step 2 and co-caregivers
+    /// at step 3 (one reminder interval later), so the owner's wording ("You've
+    /// been alerted. Other caregivers will be alerted at …") was false on a
+    /// co-caregiver's card: they hadn't been, and "other caregivers" was them.
+    nonisolated static func escalationText(
+        name: String,
+        status: ReceiverCheckInStatus,
+        step: Int,
+        nextEscalationAt: Date?,
+        reminderIntervalMinutes: Int?,
+        isViewer: Bool,
+        ownerName: String?,
+        formatTime: (Date) -> String = { $0.formatted(date: .omitted, time: .shortened) }
+    ) -> String {
+        let next = nextEscalationAt.map { " at \(formatTime($0))" } ?? ""
+        guard isViewer else {
+            if status == .missed {
+                return "\(name) didn't answer — all caregivers were alerted."
+            }
+            switch step {
+            case 1:
+                return "Reminder re-sent to \(name). You'll be alerted\(next) if there's still no answer."
+            case 2:
+                return "You've been alerted. Other caregivers will be alerted\(next) if there's still no answer."
+            default:
+                return "All caregivers have been alerted. \(name) still hasn't answered."
+            }
+        }
+
+        let owner = ownerName ?? "The family owner"
+        let ownerMid = ownerName ?? "the family owner"
+        if status == .missed {
+            return "\(name) didn't answer — \(ownerMid) and every co-caregiver, including you, were alerted."
+        }
+        switch step {
+        case 1:
+            // You're alerted one interval after the owner.
+            if let at = nextEscalationAt {
+                let yours = reminderIntervalMinutes.map { " and you at \(formatTime(at.addingTimeInterval(TimeInterval($0 * 60))))" }
+                    ?? ", then you,"
+                return "Reminder re-sent to \(name). \(owner) will be alerted\(next)\(yours) if there's still no answer."
+            }
+            return "Reminder re-sent to \(name). \(owner) will be alerted, then you, if there's still no answer."
+        case 2:
+            return "\(owner) has been alerted. You'll be alerted\(next) if there's still no answer."
+        default:
+            return "You and \(ownerMid) have been alerted. \(name) still hasn't answered."
+        }
+    }
+
+    /// The card's "Escalation is off" line: an owner can fix it; a co-caregiver
+    /// needs to know nobody (including them) will be alerted, and who to ask.
+    nonisolated static func escalationOffText(name: String, isViewer: Bool, ownerName: String?) -> String {
+        guard isViewer else {
+            return "Escalation is off — you won't be alerted if \(name) doesn't answer."
+        }
+        let ask = ownerName.map { " Ask \($0) to turn them on." } ?? " The family owner can turn them on."
+        return "Missed-check-in alerts are off for \(name) — nobody, including you, is alerted if they don't answer.\(ask)"
+    }
+
+    /// "Tom is handling this" — or "You're handling this" to Tom.
+    nonisolated static func handlingLine(name: String?, isMine: Bool) -> String {
+        isMine ? "You're handling this" : "\(name ?? "A caregiver") is handling this"
+    }
+
     /// Stand-down times are the caregiver's own action — shown in this
     /// device's zone.
     nonisolated static func stoodDownDetail(at: Date?, timezone: String?) -> String {
@@ -800,6 +956,15 @@ final class DashboardViewModel: ObservableObject {
         urgentAlertTypes.contains(alert.type)
     }
 
+    /// Alerts that are news, not something to act on: nobody needs to say
+    /// "I've got this" about someone leaving the family, and offering it
+    /// there makes a real claim mean less.
+    nonisolated static let informationalAlertTypes: Set<String> = ["member_left"]
+
+    nonisolated static func isClaimable(_ alert: DailyOKAlert) -> Bool {
+        !informationalAlertTypes.contains(alert.type)
+    }
+
     /// Urgent and unacknowledged first, then newest first.
     nonisolated static func sortAlerts(_ alerts: [DailyOKAlert]) -> [DailyOKAlert] {
         func rank(_ a: DailyOKAlert) -> Int {
@@ -851,6 +1016,10 @@ final class DashboardViewModel: ObservableObject {
     /// first, this caregiver sees "Handled by <them>" instead of silently
     /// overwriting the claim. Falls back to v1 on a backend without it.
     func acknowledgeAlert(_ alert: DailyOKAlert, release: Bool) async {
+        // One claim / release at a time per alert (a double tap sent two RPCs).
+        guard !acknowledgingAlertIds.contains(alert.id) else { return }
+        acknowledgingAlertIds.insert(alert.id)
+        defer { acknowledgingAlertIds.remove(alert.id) }
         let params = AcknowledgeAlertParams(p_alert_id: alert.id.uuidString, p_release: release)
         do {
             let updated: DailyOKAlert
@@ -875,8 +1044,14 @@ final class DashboardViewModel: ObservableObject {
             if let idx = alerts.firstIndex(where: { $0.id == updated.id }) {
                 alerts[idx] = updated
             }
+            let receiverName = receiverCards.first(where: { $0.id == alert.receiverId })?.name
             if !release, let currentUserId, let holder = updated.acknowledgedBy, holder != currentUserId {
                 errorMessage = String(localized: "\(updated.acknowledgedByName ?? String(localized: "Another caregiver")) is already handling this.")
+            } else if let outcome = Self.acknowledgementAnnouncement(release: release, receiverName: receiverName) {
+                // Confirm it registered — the stand-down and check-on actions
+                // already do; a claim was silent, including for VoiceOver.
+                DailyOKHaptics.success()
+                UIAccessibility.post(notification: .announcement, argument: outcome)
             }
             await AnalyticsService.shared.track(
                 release ? .alertReleased : .alertAcknowledged,
@@ -885,6 +1060,17 @@ final class DashboardViewModel: ObservableObject {
         } catch {
             errorMessage = DailyOKError.network(error).localizedDescription
         }
+    }
+
+    /// What VoiceOver hears after a claim or release went through.
+    nonisolated static func acknowledgementAnnouncement(release: Bool, receiverName: String?) -> String? {
+        if release {
+            return String(localized: "Released. Other caregivers can take this on.")
+        }
+        if let receiverName {
+            return String(localized: "You're handling this for \(receiverName). Other caregivers can see that.")
+        }
+        return String(localized: "You're handling this. Other caregivers can see that.")
     }
 
     /// PostgREST reports an unknown RPC as PGRST202 ("Could not find the
@@ -1014,21 +1200,52 @@ final class DashboardViewModel: ObservableObject {
     }
 
     /// Each receiver's settings (keyed by family_member_id) fetched in ONE query,
-    /// so consistency can be judged against their real schedule. Falls back to an
-    /// empty map (→ "every day expected") if the read fails.
-    private func receiverSettingsByMember(memberIds: [UUID]) async -> [UUID: ReceiverSettings] {
+    /// so consistency can be judged against their real schedule.
+    ///
+    /// Owners read receiver_settings directly. Co-caregivers get 0 rows there
+    /// (RLS — the row also holds home coordinates) without an error, so every
+    /// card of theirs used to read "Pending" from midnight — on days off, while
+    /// paused, before the due time — with every day counted as expected and
+    /// "Escalation is off" never known. Any member the direct read didn't
+    /// return is filled from `family_receiver_schedules` (00057), which
+    /// returns the schedule fields to the owner and active co-caregivers.
+    /// Missing from both (older server, offline) stays absent: "unknown".
+    private func receiverSettingsByMember(memberIds: [UUID], familyId: UUID) async -> [UUID: ReceiverSettings] {
         guard !memberIds.isEmpty else { return [:] }
-        do {
-            let rows: [ReceiverSettings] = try await SupabaseService.shared.client
-                .from("receiver_settings")
-                .select()
-                .in("family_member_id", values: memberIds.map { $0.uuidString })
-                .execute()
-                .value
-            return Dictionary(rows.map { ($0.familyMemberId, $0) }, uniquingKeysWith: { first, _ in first })
-        } catch {
-            return [:]
+        let direct: [ReceiverSettings] = (try? await SupabaseService.shared.client
+            .from("receiver_settings")
+            .select()
+            .in("family_member_id", values: memberIds.map { $0.uuidString })
+            .execute()
+            .value) ?? []
+        var fallback: [ReceiverSettings]?
+        if Self.needsScheduleFallback(direct: direct, memberIds: memberIds) {
+            fallback = try? await CheckInService.shared.familyReceiverSchedules(familyId: familyId)
         }
+        return Self.mergeSchedules(direct: direct, fallback: fallback, memberIds: memberIds)
+    }
+
+    /// The direct read left someone out (always, for a co-caregiver).
+    nonisolated static func needsScheduleFallback(direct: [ReceiverSettings], memberIds: [UUID]) -> Bool {
+        !Set(memberIds).isSubset(of: Set(direct.map(\.familyMemberId)))
+    }
+
+    /// Direct rows win; the RPC fills only members the direct read missed, and
+    /// only the members asked for (the RPC returns the whole family).
+    nonisolated static func mergeSchedules(
+        direct: [ReceiverSettings],
+        fallback: [ReceiverSettings]?,
+        memberIds: [UUID]
+    ) -> [UUID: ReceiverSettings] {
+        let wanted = Set(memberIds)
+        var result: [UUID: ReceiverSettings] = [:]
+        for row in (fallback ?? []) where wanted.contains(row.familyMemberId) {
+            result[row.familyMemberId] = row
+        }
+        for row in direct where wanted.contains(row.familyMemberId) {
+            result[row.familyMemberId] = row
+        }
+        return result
     }
 
     private func computeWeeklySummary(

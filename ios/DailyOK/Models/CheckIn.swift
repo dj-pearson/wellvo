@@ -292,6 +292,11 @@ struct CheckInRequest: Codable, Identifiable {
     /// covers by inferring a stand-down from a cleared escalation clock.
     var stoodDownAt: Date?
     var stoodDownBy: UUID?
+    /// A caregiver said "I'm on it" (claim_checkin_request, 00062) so the
+    /// others don't all call at once. Server-owned; nil on older backends.
+    var claimedBy: UUID?
+    var claimedAt: Date?
+    var claimedByName: String?
 
     enum CodingKeys: String, CodingKey {
         case id, type, status
@@ -306,5 +311,8 @@ struct CheckInRequest: Codable, Identifiable {
         case snoozeCount = "snooze_count"
         case stoodDownAt = "stood_down_at"
         case stoodDownBy = "stood_down_by"
+        case claimedBy = "claimed_by"
+        case claimedAt = "claimed_at"
+        case claimedByName = "claimed_by_name"
     }
 }

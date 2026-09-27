@@ -127,10 +127,7 @@ struct ReceiverOnboardingView: View {
                     .blur(radius: 30)
                 Image(systemName: "heart.circle.fill")
                     .font(.system(size: 80))
-                    .foregroundStyle(
-                        LinearGradient(colors: [DailyOKColor.green400, DailyOKColor.green600],
-                                       startPoint: .top, endPoint: .bottom)
-                    )
+                    .foregroundStyle(DailyOKColor.green600)
                     .accessibilityHidden(true)
             }
 
@@ -156,7 +153,7 @@ struct ReceiverOnboardingView: View {
                     .foregroundStyle(.secondary)
                     .dynamicTypeSize(...DynamicTypeSize.accessibility2)
 
-                Text("We'll tell you if a check-in is missed. You won't be asked to check in yourself.")
+                Text("We'll tell you if someone asks for help or misses a check-in. You won't be asked to check in yourself.")
                     .font(.body)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
@@ -266,11 +263,7 @@ struct ReceiverOnboardingView: View {
                     .blur(radius: 32)
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 80))
-                    .foregroundStyle(
-                        LinearGradient(colors: [DailyOKColor.green400, DailyOKColor.green600],
-                                       startPoint: .top, endPoint: .bottom)
-                    )
-                    .symbolEffect(.bounce, value: currentStep)
+                    .foregroundStyle(DailyOKColor.green600)
                     .accessibilityHidden(true)
             }
 
@@ -280,7 +273,7 @@ struct ReceiverOnboardingView: View {
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
 
             Text(isCaregiver
-                 ? "You'll be alerted if a check-in is missed, and you can see how everyone's doing."
+                 ? "You'll be alerted if someone asks for help or misses a check-in, and you can see how everyone's doing."
                  : "\(ownerName ?? String(localized: "Your family")) will be notified when you check in each day.")
                 .font(.title3)
                 .multilineTextAlignment(.center)
@@ -570,10 +563,7 @@ struct NotificationPermissionStepCard: View {
                     .blur(radius: 26)
                 Image(systemName: "bell.badge.fill")
                     .font(.system(size: 60))
-                    .foregroundStyle(
-                        LinearGradient(colors: [DailyOKColor.green500, DailyOKColor.teal],
-                                       startPoint: .topLeading, endPoint: .bottomTrailing)
-                    )
+                    .foregroundStyle(DailyOKColor.green600)
                     .symbolEffect(.pulse)
                     .accessibilityHidden(true)
             }
@@ -584,7 +574,7 @@ struct NotificationPermissionStepCard: View {
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
 
             Text(isCaregiver
-                 ? "Allow notifications so we can tell you right away if a check-in is missed."
+                 ? "Allow notifications so we can tell you right away if someone asks for help or misses a check-in."
                  : "We need to send you a notification each day so you can check in.\n\nWithout this, your family won't know you're OK.")
                 .font(.body)
                 .multilineTextAlignment(.center)

@@ -2,6 +2,7 @@ import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID } from "../../shared/validation.ts";
 import { endEscalationLiveActivities } from "../../shared/live-activity.ts";
+import { notifyEscalationResolved } from "../../shared/caregiver-alerts.ts";
 
 interface CancelEscalationRequest {
   receiver_id: string;
@@ -93,6 +94,7 @@ export async function handleCancelEscalation(req: Request, auth: AuthResult): Pr
   // A missed request has nothing left to cancel, but "I've reached them" still
   // resolves it for the family. Best-effort: the escalation itself is over.
   let resolvedMissed = 0;
+  let missedIds: string[] = [];
   if (!missingColumns) {
     const { data: missed } = await supabaseAdmin
       .from("checkin_requests")
@@ -101,14 +103,35 @@ export async function handleCancelEscalation(req: Request, auth: AuthResult): Pr
       .eq("receiver_id", receiver_id)
       .eq("status", "missed")
       .is("stood_down_at", null)
-      .select("id");
+      .select("id, created_at");
     resolvedMissed = missed?.length ?? 0;
+    // Only today's misses: this update also marks old, never-resolved misses,
+    // and nobody should get "reached" about last week.
+    const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    missedIds = (missed ?? [])
+      .filter((r: { created_at: string }) => Date.parse(r.created_at) >= dayAgo)
+      .map((r: { id: string }) => r.id);
   }
 
   // Stand-down resolves the escalation — end any running owner Live Activity now
   // (e.g. one started on another of the owner's devices) so it stops showing a
   // stale "Overdue" timer even if that device's app is closed (US-IOS127).
   await endEscalationLiveActivities(family_id, receiver_id);
+
+  // Co-caregivers who were paged about this escalation hear that it's over
+  // ("Sarah reached Mom and stopped the alerts"). Before, only the owner's
+  // own screen changed and a sibling paged at 10:30 stayed worried.
+  // Best-effort; never fails the stand-down.
+  const stoodDownIds = [...(updated ?? []).map((r: { id: string }) => r.id), ...missedIds];
+  if (stoodDownIds.length > 0) {
+    await notifyEscalationResolved({
+      familyId: family_id,
+      receiverId: receiver_id,
+      requestIds: stoodDownIds,
+      how: "stood_down",
+      byUserId: stoodDownBy,
+    });
+  }
 
   return new Response(
     // `cancelled` keeps its meaning (pending requests whose escalation stopped).

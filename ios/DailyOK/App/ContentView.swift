@@ -94,11 +94,16 @@ struct ContentView: View {
         }
         .animation(reduceMotion ? nil : .easeInOut, value: authViewModel.authState)
         .animation(reduceMotion ? nil : .easeInOut, value: authViewModel.biometricLocked)
-        .onReceive(NotificationCenter.default.publisher(for: AppDelegate.showDashboardRequested)) { _ in
-            // "View Details" on a location / low-battery / missed-check-in
-            // notification. The action already brings the app forward; this
-            // decides where it lands.
+        .onReceive(NotificationCenter.default.publisher(for: AppDelegate.showDashboardRequested)) { note in
+            // "View Details", or a body tap on a caregiver alert (help, missed
+            // check-in, location). The notification already brings the app
+            // forward; this decides where it lands.
             appState.selectedTab = .dashboard
+            // "Call Now" that couldn't place the call says why.
+            if let title = note.userInfo?[AppDelegate.outcomeTitleKey] as? String,
+               let message = note.userInfo?[AppDelegate.outcomeMessageKey] as? String {
+                appState.deepLinkOutcome = AppState.DeepLinkOutcome(title: title, message: message, isFailure: true)
+            }
         }
         .onChange(of: authViewModel.authState) { oldState, newState in
             if newState == .unauthenticated {

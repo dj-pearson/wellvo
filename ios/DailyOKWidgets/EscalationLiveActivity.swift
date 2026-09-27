@@ -14,6 +14,15 @@ private func standDownURL(receiverId: String, familyId: String) -> URL {
     URL(string: "dailyok://standdown?receiver=\(receiverId)&family=\(familyId)")!
 }
 
+private let dashboardURL = URL(string: "dailyok://dashboard")!
+
+/// Only the owner can stand down. A co-caregiver's activity (canStandDown ==
+/// false) gets "Open" instead of a button that could only say "Only the owner
+/// can stop alerts". Activities without the key (older builds) are owners'.
+private func canStandDown(_ context: ActivityViewContext<EscalationActivityAttributes>) -> Bool {
+    context.attributes.canStandDown ?? true
+}
+
 /// Status word, suffixed once ActivityKit marks the activity stale (the 6h
 /// `staleDate` set in EscalationActivityManager). Past that point the resolution
 /// state can no longer be trusted, so the surface should read as "stuck" rather
@@ -54,8 +63,14 @@ struct EscalationLiveActivity: Widget {
                         }
                     }
                     Spacer()
-                    Link(destination: standDownURL(receiverId: context.attributes.receiverId, familyId: context.attributes.familyId)) {
-                        Label("Stand down", systemImage: "hand.raised.fill").font(.caption)
+                    if canStandDown(context) {
+                        Link(destination: standDownURL(receiverId: context.attributes.receiverId, familyId: context.attributes.familyId)) {
+                            Label("Stand down", systemImage: "hand.raised.fill").font(.caption)
+                        }
+                    } else {
+                        Link(destination: dashboardURL) {
+                            Label("Open", systemImage: "arrow.up.forward.app").font(.caption)
+                        }
                     }
                 }
             }
@@ -86,8 +101,14 @@ struct EscalationLiveActivity: Widget {
                             Link(destination: url) { Label("Call", systemImage: "phone.fill") }
                         }
                         Spacer()
-                        Link(destination: standDownURL(receiverId: context.attributes.receiverId, familyId: context.attributes.familyId)) {
-                            Label("Stand down", systemImage: "hand.raised.fill")
+                        if canStandDown(context) {
+                            Link(destination: standDownURL(receiverId: context.attributes.receiverId, familyId: context.attributes.familyId)) {
+                                Label("Stand down", systemImage: "hand.raised.fill")
+                            }
+                        } else {
+                            Link(destination: dashboardURL) {
+                                Label("Open", systemImage: "arrow.up.forward.app")
+                            }
                         }
                     }
                     .font(.caption)
@@ -108,7 +129,7 @@ struct EscalationLiveActivity: Widget {
             // A tap on the island is "show me", never "stand down": it only
             // opens the dashboard. Stand-down stays an explicit button, and even
             // that asks for confirmation in the app.
-            .widgetURL(URL(string: "dailyok://dashboard"))
+            .widgetURL(dashboardURL)
         }
     }
 }

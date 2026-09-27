@@ -6669,3 +6669,300 @@ DEFERRED
   - A failed setting change while the help card is up was never shown (only
     the hidden status card displayed it); now shown under the help card.
   - Doc comment for ReceiverAccountSheet moved back onto it.
+
+================================================================================
+2026-09-27 — iOS function deep dive: Viewer (co-caregiver) experience: tabs, dashboard/history as viewer, viewer settings, alerts they receive
+================================================================================
+
+What the co-caregiver experience must guarantee: a co-caregiver sees the same
+truth as the owner about every person checked on (schedule, pause, day off,
+escalation on/off). Every sentence on their screen about who was alerted, or
+will be, is true for them. The last-step page reaches them through Focus and
+lets them call in one tap, and they hear when it's over. They can coordinate
+("I'm on it"), reach the owner and the other co-caregivers, see the plan and
+who pays for it, choose their own notifications, and leave. Nothing offers
+them a button for an owner-only action, and nothing they can read about the
+family can be used against it.
+
+Four reviewer passes (UI/UX, break-it, spoof, product). Every claim was checked
+against the code, and the SQL was run on a local Postgres 16 with 00001–00062
+applied. All were confirmed except as noted under DECIDED. The deferred item
+from the History pass is closed: the dashboard now reads viewer schedules
+through family_receiver_schedules.
+
+Branch: worked in the existing claude/ios-app-deep-dive-cm3nu0 working tree,
+as the orchestrator asked. Nothing was committed.
+
+FIXED
+
+  - HIGH: the viewer dashboard had no schedule. receiverSettingsByMember read
+    receiver_settings directly, which returns 0 rows to a viewer (RLS) with no
+    error, so every card read "Pending" from midnight. That included days off,
+    paused schedules and mornings before the due time. There was no "Due at /
+    Paused / No check-in today" detail, the weekly figures and the "Dad: 3 of
+    7 days" line counted every day as expected, and escalationEnabled was
+    always true. Members the direct read misses are now filled from
+    family_receiver_schedules (00057; direct rows win, and rows for people not
+    on the dashboard are ignored). Missing from both still means "unknown".
+    The RPC call lives in CheckInService.familyReceiverSchedules, which
+    History's receiverSchedule now reuses.
+  - HIGH: no way to leave. ViewerSettingsView has "Leave Sarah's family". The
+    confirmation names who they stop hearing about ("You'll stop getting
+    alerts about Mom and Dad. Sarah will see that you left. You can be
+    invited again.") and the footer says Sign Out only silences this iPhone.
+    It uses the 00061 leave_family RPC, clears the owner widget snapshot,
+    ends Live Activities and re-resolves the role. On an older server it
+    says "ask Sarah to remove you", and offline has its own copy.
+  - HIGH: escalation copy was false for viewers. Step 2 told them "You've
+    been alerted. Other caregivers will be alerted at …" (only the owner had
+    been, and "other caregivers" was them). Step 1 told them "You'll be
+    alerted at" the owner's time. Viewer wording now matches escalation-tick:
+    "Sarah will be alerted at 10:00 and you at 10:30" (next step plus
+    reminder_interval_minutes), "Sarah has been alerted. You'll be alerted at
+    10:30", "You and Sarah have been alerted". The owner's wording is
+    unchanged. It lives in DashboardViewModel.escalationText and is tested.
+  - HIGH: "Escalation is off" was hidden from viewers, who then expected alerts
+    that never come. They now see "Missed-check-in alerts are off for Dad —
+    nobody, including you, is alerted if they don't answer. Ask Sarah to turn
+    them on."
+  - HIGH: the viewer's last-step page was "Family Alert: Mom has missed their
+    check-in today." It used interruption-level "active" (held back by Focus
+    and Sleep, although the app tells co-caregivers to turn on Time Sensitive
+    for exactly this) and LOCATION_ALERT ("View Details"). The comment said a
+    viewer "cannot stand down", but URGENT_ALERT's only action is Call Now.
+    The page is now time-sensitive, uses urgent.caf and URGENT_ALERT (Call Now
+    via receiver_id), and reads "Mom hasn't checked in / No answer since 9:00
+    AM. Sarah was alerted too." — or "Tom is on it." once someone has
+    claimed it. type stays viewer_alert.
+  - HIGH (security): billing takeover via a readable subscription id. Every
+    family member can read families.billing_original_transaction_id. In the
+    default SUBSCRIPTION_VERIFY_MODE=log, an unsigned /subscription-webhook
+    stored any client-sent original_id on the caller's own family, and App
+    Store notifications picked "the oldest family with that id". An owner
+    could also PATCH their family's created_at (not pinned) to win that
+    ordering, so a co-caregiver could redirect the payer's renewals, expiries
+    and refunds to a family they own. Three fixes: the unverified path keeps
+    original_id only if no other account's receipt or family holds it
+    (unverifiedOriginalIdIsSafe; the request still succeeds without it);
+    findFamilyByOriginalTransaction prefers the receipt owner's family, then
+    a verified one, then the oldest (pickBilledFamily, tested); and 00062
+    pins families.created_at for client writes.
+  - MEDIUM: viewers' Live Activity always showed "Stand down", which could
+    only answer "Only the owner can stop alerts". EscalationActivityAttributes
+    gains an optional canStandDown, where a missing value means an owner's
+    activity from an older build. A viewer's activity shows "Open" instead. An
+    activity whose role has changed (a hand-over) is replaced.
+    register-live-activity-token refused viewers' tokens (403), so a resolved
+    escalation left their Lock Screen "Overdue" until they opened the app. It
+    now accepts active co-caregivers of that family. This loosens auth on
+    purpose; the token is only used to end the activity.
+  - MEDIUM: tapping a help or missed-check-in notification opened whatever tab
+    was last used. A body tap on a caregiver alert (need_help, call_me, sos,
+    owner/viewer_alert, geofence, low battery, kid replies, all-clear, or
+    categories URGENT_ALERT / KID_RESPONSE / LOCATION_ALERT) now opens the
+    Dashboard (NotificationRoute.opensDashboard, tested). "Call Now" never
+    fails silently any more: a failed lookup, a missing number or a device
+    that can't dial opens the dashboard and says why.
+  - MEDIUM: plan and payer. Viewers saw no plan name and no payer, and the
+    warnings asked them to do things they can't ("Choose a plan", "Update your
+    payment method"). PlanSummary.viewerLine always shows the plan, "Paid by
+    Tom through Oct 3" / "Paid by you", "Tom's payment didn't go through.
+    Check-ins stop on Oct 10 unless it renews. Let them know.", and "Sarah can
+    choose a plan …" for expired or free-ended plans. The ex-owner told "Tap
+    Restore Purchases" now has the button.
+  - MEDIUM (security): fake check-ins padded the summary. The checkins INSERT
+    guard only required any active membership, so an owner or co-caregiver
+    could insert rows as themselves, and send-digest counted every row in
+    the family. The 00062 guard now requires an active receiver (no shipped
+    iOS or Android build inserts checkins; audited again), and send-digest
+    counts only active receivers' rows.
+  - LOW (security): acknowledge_alert v1 (still granted) let any viewer take
+    over or clear someone else's claim. The same signature now follows v2's
+    rules and returns the row as it stands.
+  - LOW (security): a removed co-caregiver could rewrite or delete their old
+    care notes with an UNFILTERED PATCH/DELETE. A filtered one (?id=eq.…)
+    was already stopped by the SELECT policy, so the finding was only
+    partly right. Reproduced on PG16. Client UPDATE and DELETE now need an
+    active owner/viewer membership (is_active_caregiver_of, new BEFORE
+    DELETE trigger). Cascades and service role are unaffected.
+  - LOW: viewer escalation logging wrote "sent" even when nothing was
+    delivered, plus a second row after an SMS failure. It now writes one row
+    per viewer with the real status and error_message, like the owner path.
+  - LOW: "I've got this" had no in-flight state (a double tap sent two RPCs)
+    and appeared on member_left rows. The button now disables and shows a
+    spinner, and informational alerts have no claim row. A claim or release
+    gives a success haptic and a VoiceOver announcement. The help banner
+    says "You're handling this" to the claimer instead of their own name.
+  - LOW: a removed viewer was told "No One to Check On Yet — the owner adds
+    people". getFamily() == nil now shows "You're No Longer in a Family" and
+    re-resolves the role at once. ViewerSettingsView no longer keeps the old
+    family on screen, and a failed first load shows "Couldn't load your
+    family" with Try Again instead of a silently missing section.
+  - LOW: copy understated what viewers get. The Settings footer, joining
+    screen, "All Set" and the notification step now say help requests too
+    ("You're alerted if someone asks for help or misses a check-in. Sarah,
+    the family's owner, manages …").
+  - LOW craft: the join screens' gradient icons and bounce effect are now
+    solid green600, and the bounce is gone.
+
+ADDED
+
+  - All-clear for co-caregivers (critical product gap). Before, anyone paged
+    about a missed check-in heard nothing more. Now:
+      * a fresh routine check-in that answers a request which reached the
+        viewer step (pending, step >= 3), or a missed request raised after
+        the receiver's previous check-in, sends the viewers who were paged
+        (notification_log viewer_alert) "Mom checked in ✓ / Mom checked in
+        at 10:45 AM. The missed check-in alert is over.";
+      * cancel-escalation sends "Sarah reached Mom and stopped the alerts."
+        This covers today's misses only, not old unresolved rows.
+    Help requests are never an all-clear, and backfills and duplicates
+    don't announce a miss. The alarm and the all-clear share apns-collapse-id
+    escalation-<request>, so iOS replaces the alarm. New push type
+    escalation_resolved: older iOS shows a plain banner and Android shows a
+    family update. Logic is in shared/caregiver-alerts(-copy).ts.
+  - "I'm on it" for missed / escalating check-ins. Before, only help alerts
+    could be claimed. New claim_checkin_request RPC and nullable
+    checkin_requests.claimed_by / claimed_at / claimed_by_name (00062),
+    pinned by the client-write guard. It follows v2's rules: only an unclaimed
+    or own pending/missed request can be claimed, and release is the
+    claimer's or the owner's. Cards for the owner and viewers show "I'm on
+    it" or "Tom is on it (10:42 AM)" with Release. Other dashboards update
+    through the existing realtime subscription.
+  - Care Team in viewer Settings: the owner first, then other active
+    co-caregivers, each with Call and Text. A viewer's card that is waiting
+    on an answer says "Only Sarah can send Mom a check-in or stop the alerts."
+    and offers "Text Sarah".
+  - Viewer notification preferences: Live Activity toggle, Check-in Summary
+    (CaregiverDigestView) and Haptic Feedback. dispatch_caregiver_digests now
+    includes active co-caregivers and sends user_id along with owner_id.
+    send-digest resolves a viewer's family through their membership and uses
+    viewer wording ("The family owner can renew it").
+  - Geofence breach now pages active co-caregivers as well as the owner,
+    using URGENT_ALERT (Call Now).
+
+BACKEND (additive, CLAUDE.md §A/§B)
+
+  - 00062_viewer_experience_integrity.sql:
+      * dispatch_caregiver_digests (adds recipients);
+      * acknowledge_alert v1 re-defined with the same signature;
+      * is_active_caregiver_of (new);
+      * care note UPDATE check and a new DELETE trigger;
+      * families.created_at pinned for client writes;
+      * checkins client INSERT requires an active receiver;
+      * checkin_requests.claimed_* (nullable), claim_checkin_request (new),
+        and the checkin_requests guard (00061 body plus the claim columns).
+    No policy or enum is added, removed or changed. The migration was
+    applied on PG16 after 00001–00061 and replayed. Exercised as
+    `authenticated`:
+      * v1 takeover and release by another viewer are refused, and the owner
+        can release;
+      * a viewer's fake check-in is refused while the receiver's still
+        inserts;
+      * created_at can't be moved on UPDATE or chosen on INSERT;
+      * a removed viewer's unfiltered care-note UPDATE and DELETE raise,
+        while the owner can still delete;
+      * the digest dispatcher picks up viewers;
+      * claims: claim, no takeover, release by the owner only, strangers
+        and receivers refused, answered requests are not claimable, and a
+        client PATCH can't set the claim.
+  - Edge (same request/response shapes; new optional fields and push types
+    only):
+      * escalation-tick: viewer page urgency and copy, collapse-id, honest
+        logging, geofence to co-caregivers;
+      * process-checkin-response and cancel-escalation: all-clear;
+      * subscription-webhook, app-store-notifications and
+        subscription-billing: subscription-id hardening;
+      * send-digest: viewers, and only active receivers' rows;
+      * register-live-activity-token: accepts co-caregivers.
+  - shared/caregiver-alerts-copy.ts and pickBilledFamily (in
+    subscription-policy.ts) are pure. caregiver-alerts_test.ts has 9 tests,
+    run under Node 22 with a Deno.test shim: 9/9, and
+    subscription-policy_test still passes 6/6. Every touched edge file
+    type-checks with tsc --strict (supabase, jose and sentry stubbed; the
+    only error is the stub-caused one in shared/sentry.ts, present before
+    this change).
+
+TESTS
+
+  - DailyOKTests/DashboardViewModelTests.swift:
+      * ViewerDashboardTests: RPC fills an empty direct read; owner rows win
+        and need no fallback; stray RPC rows ignored; unknown stays unknown;
+        a paused RPC schedule resolves "Not Due Yet"; owner escalation
+        wording unchanged; viewer step 1 (with and without an interval),
+        step 2, step 3 and missed; "Escalation is off" for viewers;
+        handlingLine; claimLine; claim columns decode and stay optional;
+        member_left is not claimable; claim announcements.
+      * ViewerCareTeamTests: owner first, then co-caregivers — not me, not
+        receivers, not removed; leave copy names receivers; footer mentions
+        help requests.
+  - SubscriptionServiceTests (SettingsPlanTests): the viewer plan line shows
+    the plan and payer; a payment issue names the payer (own Apple ID → Manage
+    Subscription); expired and free-ended plans point to the owner.
+  - NotificationRoutingTests: caregiver alert body taps open the dashboard;
+    check-in requests don't move the tab.
+
+DECIDED
+
+  - Viewers still can't stand an escalation down or send a check-in
+    (cancel-escalation / on-demand-checkin stay owner-only). Opening either
+    to viewers is a product and SMS-cost decision: on-demand sends texts,
+    and a stand-down silences everyone. Instead a viewer can say "I'm on it",
+    sees who can act ("Only Sarah can …" plus Text Sarah and the care team),
+    and their Live Activity no longer offers a dead Stand down.
+  - The finding that a removed co-caregiver can edit old care notes was only
+    partly right: filtered writes were already blocked by the SELECT
+    policy. Fixed for unfiltered writes.
+  - The all-clear goes to co-caregivers who were paged. The owner already
+    gets the routine "Checked in ✓" (notify_owner_on_checkin, default on).
+    The all-clear is sent in the receiver's zone ("at 10:45 AM"), like the
+    owner's confirmation. A stand-down all-clear has no time, because the
+    notification carries its own.
+  - The geofence page moved from LOCATION_ALERT (View Details) to URGENT_ALERT
+    (Call Now). A body tap still opens the dashboard.
+
+DEFERRED
+
+  - Per-user alert dismissal (alert_dismissals table): viewers still can't
+    clear an alert; only the owner can. The claim row is now gone from
+    informational alerts, and resolved help requests show as handled. This
+    needs its own table and a reader in both apps.
+  - A per-co-caregiver SMS opt-out, and an opt-in for routine "Checked in ✓"
+    confirmations for viewers (a new per-member preference that escalation-
+    tick and process-checkin-response would read). Leaving the family is the
+    exit that exists today.
+  - An "I'm on it" action on the notification itself (needs alert_id in the
+    urgent payload and a background action), and a push to the others when
+    someone claims. Claims already reach every open dashboard in real time.
+  - An all-clear by SMS for viewers who were reached only by text.
+  - A my_family_plan() RPC so members stop reading
+    billing_original_transaction_id directly. The id can no longer be
+    replayed onto another family; removing the column from members' reads
+    tightens RLS and needs a release boundary.
+  - Low-battery pushes stay owner-only (they would be noise without a
+    per-viewer opt-in).
+  - Android parity: viewer leave, care team, plan line, "I'm on it", and
+    Live Activity equivalents. The backend is shared and ready.
+  - A "Checked in late" / "Tom was on it" line in History for claimed
+    requests (History function).
+
+  Not compiled (no Xcode, no swiftc, no deno). The tree-sitter Swift grammar
+  parses every changed Swift file cleanly. Two spots were restructured to
+  avoid its known gaps (`if let x = try await`, and `?? true)` inside an
+  assertion); both forms are valid Swift. No new Swift files, so no pbxproj
+  changes. EscalationActivityAttributes.swift is already in both the app and
+  widget targets. SQL was run on a local Postgres 16. TypeScript was checked
+  with tsc --strict.
+
+  Review pass (same working tree, adversarial, no compiler):
+  - 00062 §7 (new): release_claims_for_departed_member() + AFTER trigger
+    family_members_release_claims_on_leave. A co-caregiver who said "I'm on
+    it" and then left (or was removed) kept the claim, so the family kept
+    waiting on someone who no longer gets the alerts. Their claims on
+    pending/missed requests and on the last 24h of alerts are released.
+    Verified on local PG16 (00001-00062 fresh apply + 00062 replay): claim,
+    takeover refused (v1 and v2), leave_family clears both claims.
+  - escalation-tick step 3: the co-caregiver who holds the claim is no longer
+    told "<their own name> is on it"; they get the plain page.
+  - AppDelegate: the `route(for:)` doc comment had been split off onto the new
+    dashboardAlertTypes constant; moved back.

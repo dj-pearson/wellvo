@@ -170,3 +170,15 @@ export function notificationAction(type: string, _subtype?: string): Notificatio
 }
 
 export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Pure ranking for findFamilyByOriginalTransaction (tested). */
+export function pickBilledFamily<T extends { billing_user_id?: string | null; billing_verified_at?: string | null }>(
+  rows: T[],
+  payerUserId: string | null,
+): T | null {
+  if (payerUserId) {
+    const byPayer = rows.find((f) => f.billing_user_id === payerUserId);
+    if (byPayer) return byPayer;
+  }
+  return rows.find((f) => !!f.billing_verified_at) ?? rows[0] ?? null;
+}

@@ -175,6 +175,7 @@ struct DashboardView: View {
                         receivers: viewModel.receiverCards,
                         currentUserId: viewModel.currentUserId,
                         isOwner: isOwner,
+                        acknowledgingIds: viewModel.acknowledgingAlertIds,
                         onDismiss: { alert in
                             Task { await viewModel.dismissAlert(alert) }
                         },
@@ -207,7 +208,15 @@ struct DashboardView: View {
                         },
                         familyId: viewModel.family?.id,
                         handledBy: handledBy(for: card),
-                        settingsMember: isOwner ? viewModel.receiverMembers[card.id] : nil
+                        settingsMember: isOwner ? viewModel.receiverMembers[card.id] : nil,
+                        ownerName: viewModel.ownerName,
+                        ownerPhone: viewModel.ownerPhone,
+                        currentUserId: viewModel.currentUserId,
+                        canReleaseAnyClaim: isOwner,
+                        isClaiming: viewModel.claimingCardIds.contains(card.id),
+                        onClaim: { release in
+                            Task { await viewModel.claimRequest(for: card.id, release: release) }
+                        }
                     )
                     .id(card.id)
                     .transition(.asymmetric(
@@ -265,12 +274,16 @@ struct DashboardView: View {
     }
 
     /// Who has claimed today's urgent alert for this receiver, if anyone, so a
-    /// "needs help" card can say it's being handled.
+    /// "needs help" card can say it's being handled — "You're handling this"
+    /// to the person who claimed it (the alert row above already says "you").
     private func handledBy(for card: ReceiverStatusCard) -> String? {
-        guard card.status == .needsHelp else { return nil }
-        return viewModel.alerts.first(where: {
-            $0.receiverId == card.id && DashboardViewModel.isUrgent($0) && $0.isAcknowledged
-        })?.acknowledgedByName
+        guard card.status == .needsHelp,
+              let claimed = viewModel.alerts.first(where: {
+                  $0.receiverId == card.id && DashboardViewModel.isUrgent($0) && $0.isAcknowledged
+              })
+        else { return nil }
+        let mine = claimed.acknowledgedBy != nil && claimed.acknowledgedBy == viewModel.currentUserId
+        return DashboardViewModel.handlingLine(name: claimed.acknowledgedByName, isMine: mine)
     }
 
     /// Match a Live Activity stand-down to a receiver who is actually
@@ -310,7 +323,17 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        if isOwner {
+        if viewModel.familyMissing && !isOwner {
+            // Removed from the family (or it was deleted): don't promise that
+            // people will appear. The role is re-resolved right away, which
+            // routes to the get-started screen.
+            EmptyStateView(
+                systemImage: "person.crop.circle.badge.xmark",
+                title: "You're No Longer in a Family",
+                message: "You've been removed from the family, or it was closed, so you won't get its alerts. If that's a mistake, ask the family's owner to invite you again."
+            )
+            .onAppear { appState.roleRefreshRequest += 1 }
+        } else if isOwner {
             EmptyStateView(
                 systemImage: "person.badge.plus",
                 title: "Add Your First Family Member",
@@ -643,11 +666,22 @@ struct ReceiverStatusCardView: View {
     /// US-IOS016: family the receiver belongs to, so the card can open the
     /// shared care-notes timeline. Nil hides the notes affordance.
     var familyId: UUID? = nil
-    /// A caregiver who claimed today's urgent alert ("I've got this").
+    /// "Tom is handling this" / "You're handling this" once today's urgent alert
+    /// is claimed ("I've got this").
     var handledBy: String? = nil
     /// Owner only: the receiver's membership row, which opens their schedule
     /// & alerts from the card. Nil hides the link (viewers).
     var settingsMember: FamilyMember? = nil
+    /// The family owner, for a co-caregiver's card: who was alerted before
+    /// them, and who to ask for a check-in or to stop alerts.
+    var ownerName: String? = nil
+    var ownerPhone: String? = nil
+    /// "I'm on it" for the unanswered request (owner and co-caregivers), so
+    /// the family doesn't all call at once. `canReleaseAnyClaim` is the owner.
+    var currentUserId: UUID? = nil
+    var canReleaseAnyClaim: Bool = false
+    var isClaiming: Bool = false
+    var onClaim: ((Bool) -> Void)? = nil
 
     /// Transient state for the "Check on" button so a send gives visible and
     /// haptic feedback and the button can't be mashed into duplicates.
@@ -748,8 +782,11 @@ struct ReceiverStatusCardView: View {
 
             escalationSection
 
-            if !card.escalationEnabled && !isReadOnly {
-                Label("Escalation is off — you won't be alerted if \(card.name) doesn't answer.",
+            // Co-caregivers see it too (their schedule now comes from
+            // family_receiver_schedules): they rely on being paged, and
+            // nobody is paged for this receiver.
+            if !card.escalationEnabled {
+                Label(DashboardViewModel.escalationOffText(name: card.name, isViewer: isReadOnly, ownerName: ownerName),
                       systemImage: "bell.slash")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -762,6 +799,10 @@ struct ReceiverStatusCardView: View {
             // One-tap reach the receiver directly — useful for any caregiver
             // (owner or viewer) when a check-in looks off.
             ContactQuickActions(name: card.name, phone: card.phone)
+
+            if isReadOnly && answerOutstanding {
+                askOwnerRow
+            }
 
             // Shared care notes / timeline (owner + viewers). US-IOS016.
             if let familyId {
@@ -823,7 +864,7 @@ struct ReceiverStatusCardView: View {
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(ReceiverCheckInStatus.needsHelp.color(increasedContrast: contrast == .increased))
             if let handledBy {
-                Label("\(handledBy) is handling this", systemImage: "checkmark.shield.fill")
+                Label(handledBy, systemImage: "checkmark.shield.fill")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -927,6 +968,10 @@ struct ReceiverStatusCardView: View {
                                      ? ReceiverCheckInStatus.missed.color(increasedContrast: contrast == .increased)
                                      : ReceiverCheckInStatus.pending.color(increasedContrast: contrast == .increased))
 
+                if card.requestId != nil, let onClaim {
+                    claimRow(onClaim: onClaim)
+                }
+
                 if !isReadOnly, onStandDown != nil {
                     Button {
                         showStandDownConfirm = true
@@ -963,17 +1008,80 @@ struct ReceiverStatusCardView: View {
     }
 
     private var escalationText: String {
-        if card.status == .missed {
-            return "\(card.name) didn't answer — all caregivers were alerted."
+        DashboardViewModel.escalationText(
+            name: card.name,
+            status: card.status,
+            step: card.escalationStep,
+            nextEscalationAt: card.nextEscalationAt,
+            reminderIntervalMinutes: card.reminderIntervalMinutes,
+            isViewer: isReadOnly,
+            ownerName: ownerName
+        )
+    }
+
+    /// "I'm on it" / "Tom is on it (10:42 AM)" for a missed or escalating
+    /// check-in — the same coordination "I've got this" gives help requests.
+    @ViewBuilder
+    private func claimRow(onClaim: @escaping (Bool) -> Void) -> some View {
+        if card.claimedBy != nil {
+            let mine = card.claimedBy == currentUserId
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.shield.fill")
+                    .foregroundStyle(DailyOKColor.green600)
+                    .accessibilityHidden(true)
+                Text(DashboardViewModel.claimLine(name: card.claimedByName, at: card.claimedAt, isMine: mine))
+                    .font(.caption.weight(.semibold))
+                Spacer()
+                if mine || canReleaseAnyClaim {
+                    Button("Release") { onClaim(true) }
+                        .font(.caption.weight(.semibold))
+                        .buttonStyle(.bordered)
+                        .tint(DailyOKColor.green700)
+                        .frame(minHeight: 44)
+                        .disabled(isClaiming)
+                        .accessibilityHint("Lets other caregivers know you're no longer handling this.")
+                }
+            }
+        } else {
+            Button {
+                onClaim(false)
+            } label: {
+                HStack(spacing: 8) {
+                    if isClaiming {
+                        ProgressView().controlSize(.small).tint(.white)
+                    } else {
+                        Image(systemName: "hand.raised.fill")
+                    }
+                    Text("I'm on it")
+                }
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(DailyOKColor.green700)
+            .disabled(isClaiming)
+            .accessibilityHint("Lets the other caregivers know you're reaching \(card.name), so they don't all call at once.")
         }
-        let next = card.nextEscalationAt.map { " at \($0.formatted(date: .omitted, time: .shortened))" } ?? ""
-        switch card.escalationStep {
-        case 1:
-            return "Reminder re-sent to \(card.name). You'll be alerted\(next) if there's still no answer."
-        case 2:
-            return "You've been alerted. Other caregivers will be alerted\(next) if there's still no answer."
-        default:
-            return "All caregivers have been alerted. \(card.name) still hasn't answered."
+    }
+
+    /// A co-caregiver can call the receiver but can't send a check-in or stop
+    /// the alerts. Say who can, one tap from a message to them.
+    @ViewBuilder
+    private var askOwnerRow: some View {
+        let owner = ownerName ?? String(localized: "the family owner")
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Only \(owner) can send \(card.name) a check-in or stop the alerts.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if let ownerName, let number = ContactQuickActions.dialableNumber(ownerPhone),
+               let sms = URL(string: "sms:\(number)") {
+                Link(destination: sms) {
+                    Label("Text \(ownerName)", systemImage: "message.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(minHeight: 44)
+                }
+                .accessibilityHint("Opens Messages to \(ownerName)")
+            }
         }
     }
 
@@ -1111,6 +1219,9 @@ struct AlertsBannerView: View {
     var currentUserId: UUID? = nil
     /// Only the owner can clear alerts (RLS); viewers never see the X.
     var isOwner: Bool = true
+    /// Alerts with a claim / release on its way: the button shows progress and
+    /// can't be tapped again.
+    var acknowledgingIds: Set<UUID> = []
     let onDismiss: (DailyOKAlert) -> Void
     /// US-IOS013: acknowledge (false) / release (true) so co-caregivers can
     /// coordinate. Optional so existing call sites that don't pass it still work.
@@ -1204,7 +1315,9 @@ struct AlertsBannerView: View {
                 .tint(Color(red: 0.72, green: 0.0, blue: 0.0))
             }
 
-            if let onAcknowledge {
+            // Informational alerts ("Tom left the family") have nothing to
+            // take on.
+            if let onAcknowledge, DashboardViewModel.isClaimable(alert) {
                 acknowledgementRow(for: alert, onAcknowledge: onAcknowledge)
             }
         }
@@ -1239,19 +1352,29 @@ struct AlertsBannerView: View {
                         .buttonStyle(.bordered)
                         .tint(DailyOKColor.green700)
                         .frame(minHeight: 44)
+                        .disabled(acknowledgingIds.contains(alert.id))
                         .accessibilityHint("Lets other caregivers know you're no longer handling this.")
                 }
             }
         } else {
+            let inFlight = acknowledgingIds.contains(alert.id)
             Button {
                 onAcknowledge(alert, false)
             } label: {
-                Label("I've got this", systemImage: "hand.raised.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                HStack(spacing: 8) {
+                    if inFlight {
+                        ProgressView().controlSize(.small).tint(.white)
+                    } else {
+                        Image(systemName: "hand.raised.fill")
+                    }
+                    Text("I've got this")
+                }
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
             }
             .buttonStyle(.borderedProminent)
             .tint(DailyOKColor.green700)
+            .disabled(inFlight)
             .accessibilityHint("Lets other caregivers know you're handling this so they don't all respond at once.")
         }
     }
