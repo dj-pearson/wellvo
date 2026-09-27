@@ -149,20 +149,28 @@ enum EdgeFunctionsClient {
 
     /// Invoke an edge function with a heterogeneous JSON body (numbers stay
     /// numbers). Use for location/battery payloads — see `JSONValue`.
+    ///
+    /// `timeout` bounds each attempt (URLRequest.timeoutInterval). nil keeps
+    /// the session default (60 s). Check-ins pass a short one: on one bar a
+    /// 60 s wait per attempt, three attempts, kept "I'm OK" spinning for about
+    /// three minutes before the offline queue took over, and a Lock Screen tap
+    /// could run out of background time first.
     static func invoke<T: Decodable>(
         _ name: String,
-        json: [String: JSONValue]
+        json: [String: JSONValue],
+        timeout: TimeInterval? = nil
     ) async throws -> T {
-        let data = try await rawInvoke(name, httpBody: try encoder.encode(json))
+        let data = try await rawInvoke(name, httpBody: try encoder.encode(json), timeout: timeout)
         return try decoder.decode(T.self, from: data)
     }
 
     /// Invoke an edge function with a heterogeneous JSON body, ignoring the response.
     static func invoke(
         _ name: String,
-        json: [String: JSONValue]
+        json: [String: JSONValue],
+        timeout: TimeInterval? = nil
     ) async throws {
-        _ = try await rawInvoke(name, httpBody: try encoder.encode(json))
+        _ = try await rawInvoke(name, httpBody: try encoder.encode(json), timeout: timeout)
     }
 
     #if DEBUG
@@ -178,7 +186,7 @@ enum EdgeFunctionsClient {
     static var testTransport: (@Sendable (_ name: String, _ httpBody: Data?) async throws -> Data)?
     #endif
 
-    private static func rawInvoke(_ name: String, httpBody: Data?) async throws -> Data {
+    private static func rawInvoke(_ name: String, httpBody: Data?, timeout: TimeInterval? = nil) async throws -> Data {
         #if DEBUG
         if let testTransport {
             return try await testTransport(name, httpBody)
@@ -191,6 +199,7 @@ enum EdgeFunctionsClient {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        if let timeout { request.timeoutInterval = timeout }
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(Configuration.supabaseAnonKey, forHTTPHeaderField: "apikey")
         // Let the backend enforce MIN_SUPPORTED_IOS_APP_VERSION (force-update).

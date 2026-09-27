@@ -39,6 +39,22 @@ struct HealthSharingView: View {
                     }
                 }
 
+                // What actually happened, not just the switch position:
+                // HealthKit never says "denied", so after "Don't Allow" the
+                // toggle read "on" while nothing was shared.
+                if let status = statusText {
+                    Section {
+                        Label {
+                            Text(status)
+                                .font(.subheadline)
+                        } icon: {
+                            Image(systemName: statusIcon)
+                                .foregroundStyle(statusIconColor)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+
                 Section("What your family sees") {
                     bullet("figure.walk", "Just a yes/no: whether you've moved around today.")
                     bullet("checkmark.shield.fill", "Your steps, workouts, and any other health details never leave your phone.")
@@ -68,6 +84,34 @@ struct HealthSharingView: View {
                 Text("Daily OK needs permission to read your step count. You can grant it in the Health app under Sharing → Apps.")
             }
         }
+    }
+
+    private var statusText: String? {
+        if health.revokePending && !health.isSharingEnabled {
+            return String(localized: "Turned off. What you shared will be removed as soon as you're back online.")
+        }
+        guard health.isSharingEnabled else { return nil }
+        switch health.lastReport {
+        case .shared:
+            return String(localized: "On. Today's activity has been shared with your family.")
+        case .noData:
+            return String(localized: "No step data yet, so nothing has been shared. If you tapped “Don't Allow”, open the Health app → Sharing → Apps → Daily OK and allow Steps.")
+        case .uploadFailed:
+            return String(localized: "Couldn't send today's activity yet. It will try again the next time you open Daily OK.")
+        case .unknown:
+            return nil
+        }
+    }
+
+    private var statusIcon: String {
+        switch health.lastReport {
+        case .shared where health.isSharingEnabled: return "checkmark.circle.fill"
+        default: return "exclamationmark.circle.fill"
+        }
+    }
+
+    private var statusIconColor: Color {
+        (health.lastReport == .shared && health.isSharingEnabled) ? DailyOKColor.green700 : DailyOKColor.gold
     }
 
     private func bullet(_ icon: String, _ text: String) -> some View {

@@ -351,6 +351,17 @@ actor FamilyService {
         }
     }
 
+    /// A receiver or co-caregiver leaves the family (00061 leave_family): the
+    /// membership ends, pending check-ins stand down, and the owner's
+    /// dashboard gets a "left the family" alert. Throws when the server
+    /// predates the function (`isMissingFunction`) — the caller then says to
+    /// ask the owner instead.
+    func leaveFamily(familyId: UUID) async throws {
+        try await supabase
+            .rpc("leave_family", params: ["p_family_id": familyId.uuidString])
+            .execute()
+    }
+
     /// PostgREST "function not found" (PGRST202) or Postgres 42883.
     nonisolated static func isMissingFunction(_ error: Error) -> Bool {
         let text = "\(error) \(error.localizedDescription)"

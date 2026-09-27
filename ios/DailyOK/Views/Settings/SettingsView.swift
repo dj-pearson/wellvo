@@ -782,15 +782,52 @@ private struct DeletingAccountView: View {
     }
 }
 
+/// The family a receiver can leave from Account & Privacy.
+struct ReceiverLeaveContext: Equatable {
+    let familyId: UUID
+    let familyName: String?
+    let ownerName: String?
+}
+
 /// Account and privacy for people who are checked on. Their home screen has
 /// only a menu, so this opens as a sheet from it.
 struct ReceiverAccountSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var appState: AppState
+    /// nil hides "Leave family" (family not loaded yet).
+    var leave: ReceiverLeaveContext? = nil
+    @State private var showLeaveConfirm = false
+    @State private var isLeaving = false
+    @State private var leaveError: String?
+
+    private var ownerLabel: String { leave?.ownerName ?? String(localized: "your family") }
 
     var body: some View {
         NavigationStack {
             List {
                 AccountHeaderSection()
+                if let leave {
+                    Section {
+                        Button(role: .destructive) {
+                            showLeaveConfirm = true
+                        } label: {
+                            HStack {
+                                Label(leave.ownerName.map { String(localized: "Leave \($0)'s family") }
+                                      ?? String(localized: "Leave this family"),
+                                      systemImage: "person.crop.circle.badge.minus")
+                                if isLeaving { Spacer(); ProgressView() }
+                            }
+                        }
+                        .disabled(isLeaving)
+                        if let leaveError {
+                            Text(leaveError)
+                                .font(.footnote)
+                                .foregroundStyle(.primary)
+                        }
+                    } footer: {
+                        Text("Stops your daily check-ins with this family. \(ownerLabel.capitalizedFirstLetter) will be told you left. Your account stays; you can be invited again.")
+                    }
+                }
                 AccountDataSections(role: .receiver)
                 AboutSection()
             }
@@ -801,7 +838,46 @@ struct ReceiverAccountSheet: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .alert(String(localized: "Leave \(leave?.familyName ?? String(localized: "this family"))?"),
+                   isPresented: $showLeaveConfirm) {
+                Button("Leave", role: .destructive) { Task { await leaveFamily() } }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("You'll stop getting check-in reminders, and \(ownerLabel) will no longer be alerted about your check-ins. \(ownerLabel.capitalizedFirstLetter) will see that you left.")
+            }
         }
+    }
+
+    private func leaveFamily() async {
+        guard let leave, !isLeaving else { return }
+        isLeaving = true
+        leaveError = nil
+        defer { isLeaving = false }
+        do {
+            try await FamilyService.shared.leaveFamily(familyId: leave.familyId)
+            // Nothing to check in to any more: the widget, Siri and the watch
+            // must not keep offering "I'm OK" for this family.
+            SharedCheckInPublisher.clear()
+            await PushNotificationService.shared.cancelLocalCheckinFallback()
+            DailyOKHaptics.success()
+            dismiss()
+            // Re-resolve the role: with no membership left this routes to the
+            // get-started choice.
+            appState.roleRefreshRequest += 1
+        } catch where FamilyService.isMissingFunction(error) {
+            leaveError = String(localized: "Leaving from the app isn't available yet. Ask \(ownerLabel) to remove you from the family.")
+        } catch {
+            leaveError = OfflineCheckInService.isConnectivityError(error)
+                ? String(localized: "Couldn't leave — you're offline. Try again when you're connected.")
+                : String(localized: "Couldn't leave right now. Please try again, or ask \(ownerLabel) to remove you.")
+        }
+    }
+}
+
+private extension String {
+    var capitalizedFirstLetter: String {
+        guard let first else { return self }
+        return first.uppercased() + dropFirst()
     }
 }
 

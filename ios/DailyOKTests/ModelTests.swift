@@ -573,3 +573,130 @@ final class ModelTests: XCTestCase {
         XCTAssertNil(ReceiverSettingsForm.resumeDate(for: .untilResumed, now: now, chosenDay: now, receiverCalendar: receiverCal))
     }
 }
+
+// MARK: - Receiver home: help, failures, undo (receiver-home deep dive)
+
+final class ReceiverHomeLogicTests: XCTestCase {
+
+    func testHelpKindsMapToTheWire() {
+        XCTAssertEqual(ReceiverHelpKind.needHelp.responseType, .needHelp)
+        XCTAssertNil(ReceiverHelpKind.needHelp.kidResponseType)
+        XCTAssertEqual(ReceiverHelpKind.callMe.responseType, .callMe)
+        XCTAssertEqual(ReceiverHelpKind.sos.responseType, .ok)
+        XCTAssertEqual(ReceiverHelpKind.sos.kidResponseType, .sos)
+        XCTAssertEqual(ReceiverHelpKind.pickMeUp.kidResponseType, .pickingMeUp)
+        XCTAssertEqual(ReceiverHelpKind.stayLonger.kidResponseType, .canStayLonger)
+        XCTAssertTrue(ReceiverHelpKind.needHelp.isUrgent)
+        XCTAssertTrue(ReceiverHelpKind.sos.isUrgent)
+        XCTAssertFalse(ReceiverHelpKind.pickMeUp.isUrgent)
+    }
+
+    func testHelpRowsAreHelpSignals() {
+        func checkIn(_ response: CheckInResponseType?, kid: String? = nil) -> CheckIn {
+            CheckIn(id: UUID(), receiverId: UUID(), familyId: UUID(), checkedInAt: Date(),
+                    source: .app, responseType: response, kidResponseType: kid)
+        }
+        XCTAssertTrue(checkIn(.needHelp).isHelpSignal)
+        XCTAssertTrue(checkIn(.callMe).isHelpSignal)
+        XCTAssertTrue(checkIn(.ok, kid: "sos").isHelpSignal)
+        XCTAssertFalse(checkIn(.ok).isHelpSignal)
+        XCTAssertFalse(checkIn(nil).isHelpSignal)
+        XCTAssertFalse(checkIn(.ok, kid: "picking_me_up").isHelpSignal)
+        XCTAssertEqual(ReceiverHelpKind.from(checkIn: checkIn(.ok, kid: "sos")), .sos)
+        XCTAssertNil(ReceiverHelpKind.from(checkIn: checkIn(.ok, kid: "can_stay_longer")))
+    }
+
+    func testCheckInDecodesSlotKeyAndToleratesItsAbsence() throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let base = """
+        {"id":"\(UUID().uuidString)","receiver_id":"\(UUID().uuidString)","family_id":"\(UUID().uuidString)",
+         "checked_in_at":"2026-06-10T08:00:00Z","source":"app"
+        """
+        let withSlot = try decoder.decode(CheckIn.self, from: Data((base + #","slot_key":"08:00"}"#).utf8))
+        XCTAssertEqual(withSlot.slotKey, "08:00")
+        let without = try decoder.decode(CheckIn.self, from: Data((base + "}").utf8))
+        XCTAssertNil(without.slotKey)
+    }
+
+    func testHelpStatusPrefersTheServerAndFallsBackToTheRow() {
+        let open = OpenHelpRequest(alertId: UUID(), type: "need_help", createdAt: Date(timeIntervalSince1970: 1_000),
+                                   acknowledgedAt: Date(timeIntervalSince1970: 1_100), acknowledgedByName: "Tom")
+        let fromServer = ReceiverViewModel.deriveHelpStatus(open: open, rowKind: .needHelp, rpcAvailable: true)
+        XCTAssertEqual(fromServer?.kind, .needHelp)
+        XCTAssertEqual(fromServer?.acknowledgedBy, "Tom")
+        XCTAssertEqual(fromServer?.sentAt, Date(timeIntervalSince1970: 1_000))
+        // A kid SOS is stored as a need_help alert.
+        XCTAssertEqual(ReceiverViewModel.deriveHelpStatus(open: open, rowKind: .sos, rpcAvailable: true)?.kind, .sos)
+        // "User" placeholder isn't a name.
+        let placeholder = OpenHelpRequest(alertId: nil, type: "call_me", createdAt: nil, acknowledgedAt: nil, acknowledgedByName: "User")
+        XCTAssertNil(ReceiverViewModel.deriveHelpStatus(open: placeholder, rowKind: nil, rpcAvailable: true)?.acknowledgedBy)
+        // Server knows of none: no card, even if the row was a help request.
+        XCTAssertNil(ReceiverViewModel.deriveHelpStatus(open: nil, rowKind: .needHelp, rpcAvailable: true))
+        // Server predates the function: the row is all we have.
+        let fallback = ReceiverViewModel.deriveHelpStatus(open: nil, rowKind: .callMe, rpcAvailable: false)
+        XCTAssertEqual(fallback?.kind, .callMe)
+        XCTAssertNil(fallback?.sentAt)
+    }
+
+    func testCheckInFailuresAreWordsNotJSON() {
+        let removed = ReceiverViewModel.checkInFailure(
+            EdgeFunctionsClient.HTTPError(status: 403, body: #"{"error":"Invalid receiver or family"}"#), ownerName: "Sarah")
+        XCTAssertEqual(removed.recovery, CheckInRecovery.none)
+        XCTAssertTrue(removed.message.contains("Sarah"))
+        XCTAssertFalse(removed.message.contains("{"))
+
+        let server = ReceiverViewModel.checkInFailure(
+            EdgeFunctionsClient.HTTPError(status: 500, body: #"{"error":"Failed to record check-in"}"#), ownerName: nil)
+        XCTAssertEqual(server.recovery, .retry)
+        XCTAssertFalse(server.message.contains("Edge function"))
+
+        let signedOut = ReceiverViewModel.checkInFailure(CheckInError.notAuthenticated, ownerName: nil)
+        XCTAssertEqual(signedOut.recovery, .signIn)
+
+        let wrapped = ReceiverViewModel.checkInFailure(
+            DailyOKError.network(EdgeFunctionsClient.HTTPError(status: 401, body: "")), ownerName: nil)
+        XCTAssertEqual(wrapped.recovery, .signIn)
+    }
+
+    func testUndoFailures() {
+        let late = ReceiverViewModel.undoFailure(
+            EdgeFunctionsClient.HTTPError(status: 409, body: #"{"error":"undo_window_expired","grace_seconds":180}"#), ownerName: nil)
+        XCTAssertTrue(late.windowClosed)
+        XCTAssertTrue(late.message.hasPrefix("It's too late to undo. Your family"))
+        let urgent = ReceiverViewModel.undoFailure(
+            EdgeFunctionsClient.HTTPError(status: 409, body: #"{"error":"urgent_not_undoable"}"#), ownerName: "Sarah")
+        XCTAssertTrue(urgent.windowClosed)
+        XCTAssertTrue(urgent.message.contains("call Sarah"))
+        let offline = ReceiverViewModel.undoFailure(URLError(.notConnectedToInternet), ownerName: nil)
+        XCTAssertFalse(offline.windowClosed)
+    }
+
+    func testSnoozeFailures() {
+        struct RPCError: LocalizedError { let errorDescription: String? }
+        let limit = ReceiverViewModel.snoozeFailure(RPCError(errorDescription: "Snooze limit reached"))
+        XCTAssertTrue(limit.reload)
+        XCTAssertFalse(limit.armFallback)
+        let answered = ReceiverViewModel.snoozeFailure(RPCError(errorDescription: "Only a pending check-in can be snoozed"))
+        XCTAssertTrue(answered.reload)
+        XCTAssertFalse(answered.armFallback)
+        let offline = ReceiverViewModel.snoozeFailure(URLError(.notConnectedToInternet))
+        XCTAssertTrue(offline.armFallback)
+        XCTAssertFalse(offline.reload)
+    }
+
+    func testServerUnavailableIsQueueableButA500IsNot() {
+        XCTAssertTrue(OfflineCheckInService.isServerUnavailable(EdgeFunctionsClient.HTTPError(status: 502, body: "")))
+        XCTAssertTrue(OfflineCheckInService.isServerUnavailable(EdgeFunctionsClient.HTTPError(status: 503, body: "")))
+        XCTAssertTrue(OfflineCheckInService.isServerUnavailable(
+            DailyOKError.network(EdgeFunctionsClient.HTTPError(status: 504, body: ""))))
+        XCTAssertFalse(OfflineCheckInService.isServerUnavailable(EdgeFunctionsClient.HTTPError(status: 500, body: "")))
+        XCTAssertFalse(OfflineCheckInService.isServerUnavailable(URLError(.timedOut)))
+    }
+
+    func testTelURLKeepsDigitsAndPlus() {
+        XCTAssertEqual(ReceiverHomeView.telURL("+1 (555) 123-4567")?.absoluteString, "tel:+15551234567")
+        XCTAssertNil(ReceiverHomeView.telURL(nil))
+        XCTAssertNil(ReceiverHomeView.telURL("n/a"))
+    }
+}

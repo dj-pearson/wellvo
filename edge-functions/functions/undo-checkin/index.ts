@@ -2,6 +2,7 @@ import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID } from "../../shared/validation.ts";
 import { UNDO_GRACE_SECONDS } from "../../shared/config.ts";
+import { isUndoableRow } from "../../shared/checkin-followup.ts";
 
 // How long a request reopened by Undo waits before escalation resumes: long
 // enough to check in again properly, short enough that a real miss still
@@ -65,7 +66,7 @@ export async function handleUndoCheckin(req: Request, auth: AuthResult): Promise
   // receiver+family.
   let query = supabaseAdmin
     .from("checkins")
-    .select("id, checked_in_at")
+    .select("id, checked_in_at, response_type, kid_response_type")
     .eq("receiver_id", receiverId)
     .eq("family_id", familyId);
   if (checkinId) {
@@ -88,6 +89,15 @@ export async function handleUndoCheckin(req: Request, auth: AuthResult): Promise
       { error: "undo_window_expired", grace_seconds: UNDO_GRACE_SECONDS },
       409,
     );
+  }
+
+  // A help request, call-me or SOS has already paged the family. Undo would
+  // delete the alert from their dashboard and history while the push stands,
+  // and reopen the request as if nothing had been asked. Refused with a new
+  // error code on the status undo already uses for "too late" (409), which
+  // every shipped client treats as a failed undo.
+  if (!isUndoableRow(checkIn as { response_type?: string | null; kid_response_type?: string | null })) {
+    return json({ error: "urgent_not_undoable" }, 409);
   }
 
   // 1) Remove any alerts created from this check-in (urgent / kid responses).

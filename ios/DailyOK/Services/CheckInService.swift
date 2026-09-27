@@ -41,10 +41,22 @@ actor CheckInService {
         // Use the edge function which handles location, response type, and alerts
         let result: CheckInResponse = try await EdgeFunctionsClient.invoke(
             "process-checkin-response",
-            json: body
+            json: body,
+            timeout: Self.foregroundAttemptTimeout
         )
         return result.checkin
     }
+
+    /// Per-attempt timeout for a check-in made with the app on screen. Three
+    /// attempts (NetworkRetry) stay under a minute before the offline queue
+    /// takes over. The request is idempotent server-side (per-day/slot dedup;
+    /// a repeated help signal within two minutes is one alert), so a timeout
+    /// the server actually answered is harmless to retry.
+    static let foregroundAttemptTimeout: TimeInterval = 15
+    /// Per-attempt timeout for a Lock Screen action, which runs on ~30 s of
+    /// background time: three 8 s attempts plus backoff fit inside it, so the
+    /// offline-queue fallback still gets to run.
+    static let backgroundAttemptTimeout: TimeInterval = 8
 
     /// Build the `process-checkin-response` request body. Extracted as a pure
     /// function so the wire encoding — numeric fields as JSON numbers (US-IOS078),
@@ -151,7 +163,8 @@ actor CheckInService {
             try await NetworkRetry.execute {
                 try await EdgeFunctionsClient.invoke(
                     "process-checkin-response",
-                    json: body
+                    json: body,
+                    timeout: Self.backgroundAttemptTimeout
                 )
             }
         } catch {
@@ -293,6 +306,65 @@ actor CheckInService {
         return candidate
     }
 
+    /// Every check-in the receiver has made today (receiver's zone), newest
+    /// first. A receiver with several windows a day, or an owner's "check on
+    /// them now" after the morning check-in, needs more than "is there a row
+    /// today" to know whether another answer is owed.
+    func todayCheckIns(receiverId: UUID, familyId: UUID, timezone: String? = nil) async throws -> [CheckIn] {
+        let calendar = Calendar.forTimezone(timezone)
+        let startOfDay = calendar.startOfDay(for: Date())
+        let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? startOfDay.addingTimeInterval(86_400)
+        let formatter = ISO8601DateFormatter()
+        let rows: [CheckIn] = try await supabase
+            .from("checkins")
+            .select()
+            .eq("receiver_id", value: receiverId.uuidString)
+            .eq("family_id", value: familyId.uuidString)
+            .gte("checked_in_at", value: formatter.string(from: startOfDay))
+            .lt("checked_in_at", value: formatter.string(from: startOfTomorrow))
+            .order("checked_in_at", ascending: false)
+            .limit(20)
+            .execute()
+            .value
+        // Same defensive window check as todayCheckInStatus.
+        return rows.filter { $0.checkedInAt >= startOfDay && $0.checkedInAt < startOfTomorrow }
+    }
+
+    private struct FamilyParam: Encodable {
+        let p_family_id: String
+    }
+
+    /// The caller's own latest help / call-me request in the last 12 hours and
+    /// who has taken it on (00061). nil when there is none; throws when the
+    /// server predates the function.
+    func myOpenHelpRequest(familyId: UUID) async throws -> OpenHelpRequest? {
+        let result: OpenHelpRequest? = try await supabase
+            .rpc("my_open_help_request", params: FamilyParam(p_family_id: familyId.uuidString))
+            .execute()
+            .value
+        return result
+    }
+
+    private struct DisplayPrefsParams: Encodable {
+        let p_family_id: String
+        let p_simple_mode: Bool?
+        let p_audio_confirmation: Bool?
+    }
+
+    /// A receiver's own Simple Mode / Spoken Confirmation (00061). Returns
+    /// what the server stored. The receiver can't PATCH receiver_settings
+    /// (RLS: owners only) — that write matched 0 rows and looked like success.
+    func setMyDisplayPrefs(familyId: UUID, simpleMode: Bool? = nil, audioConfirmation: Bool? = nil) async throws -> ReceiverDisplayPrefs {
+        try await supabase
+            .rpc("set_my_receiver_display_prefs", params: DisplayPrefsParams(
+                p_family_id: familyId.uuidString,
+                p_simple_mode: simpleMode,
+                p_audio_confirmation: audioConfirmation
+            ))
+            .execute()
+            .value
+    }
+
     /// Fetch check-in history for a receiver over the last `days` days.
     func checkInHistory(receiverId: UUID, familyId: UUID, days: Int = 30) async throws -> [CheckIn] {
         let fromDate = Calendar.current.date(byAdding: .day, value: -days, to: Date())
@@ -377,6 +449,34 @@ actor CheckInService {
 /// `family_receiver_schedules` (00057) parameters.
 private struct FamilyScheduleParams: Encodable {
     let p_family_id: String
+}
+
+/// `my_open_help_request` (00061).
+struct OpenHelpRequest: Decodable, Equatable {
+    let alertId: UUID?
+    let type: String?
+    let createdAt: Date?
+    let acknowledgedAt: Date?
+    let acknowledgedByName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case alertId = "alert_id"
+        case createdAt = "created_at"
+        case acknowledgedAt = "acknowledged_at"
+        case acknowledgedByName = "acknowledged_by_name"
+    }
+}
+
+/// `set_my_receiver_display_prefs` (00061).
+struct ReceiverDisplayPrefs: Decodable, Equatable {
+    let simpleMode: Bool
+    let audioConfirmationEnabled: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case simpleMode = "simple_mode"
+        case audioConfirmationEnabled = "audio_confirmation_enabled"
+    }
 }
 
 /// `on-demand-checkin` response. Every field is optional: older servers send

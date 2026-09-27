@@ -149,9 +149,12 @@ actor PushNotificationService {
 
         let content = UNMutableNotificationContent()
         content.title = isKidMode ? "Don't forget! 👋" : "Reminder: Check in"
+        // Worded so it stays true when the receiver already answered from the
+        // widget or Control Center, which can't cancel this app-owned reminder
+        // (known Phase 3 gap).
         content.body = isKidMode
             ? "Tap to let your family know you're OK."
-            : "You haven't checked in yet. Tap to let your family know you're OK."
+            : "If you haven't checked in yet, tap to let your family know you're OK."
         content.sound = .default
         content.categoryIdentifier = "CHECKIN_REQUEST"
 
@@ -177,7 +180,7 @@ actor PushNotificationService {
         let content = UNMutableNotificationContent()
         content.title = urgent ? "Your response didn't send" : "Check-in didn't go through"
         content.body = urgent
-            ? "You appear to be offline, so your family wasn't notified. Open Daily OK to try again, or reach them another way."
+            ? "Your family wasn't notified. Open Daily OK to try again, or call them now."
             : "You appear to be offline and we couldn't save your check-in. Please open Daily OK and try again."
         content.sound = .default
         // nil trigger = deliver immediately.

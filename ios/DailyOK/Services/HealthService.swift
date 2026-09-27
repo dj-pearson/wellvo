@@ -25,12 +25,30 @@ final class HealthService: ObservableObject {
 
     @Published private(set) var isSharingEnabled: Bool
 
+    /// What the last report found, so the sheet can say "nothing shared yet"
+    /// instead of showing "on" while nothing reaches the family. HealthKit
+    /// never reveals a read denial: after "Don't Allow" the step query simply
+    /// returns no data.
+    enum ReportStatus: Equatable {
+        case unknown
+        case shared
+        case noData
+        case uploadFailed
+    }
+    @Published private(set) var lastReport: ReportStatus = .unknown
+
+    /// A turn-off whose server delete didn't go through (e.g. offline). The
+    /// sheet promises what was shared is removed, so it is retried until it is.
+    private let pendingRevokeKey = "health_sharing_revoke_pending"
+    @Published private(set) var revokePending: Bool
+
     #if canImport(HealthKit)
     private let store = HKHealthStore()
     #endif
 
     private init() {
         isSharingEnabled = UserDefaults.standard.bool(forKey: optInKey)
+        revokePending = UserDefaults.standard.bool(forKey: "health_sharing_revoke_pending")
     }
 
     /// True only on devices that actually expose HealthKit data.
@@ -59,12 +77,15 @@ final class HealthService: ObservableObject {
             }
             isSharingEnabled = true
             UserDefaults.standard.set(true, forKey: optInKey)
+            setRevokePending(false)
             await reportTodayIfEnabled()
             return true
         } else {
             isSharingEnabled = false
+            lastReport = .unknown
             UserDefaults.standard.set(false, forKey: optInKey)
-            await revokeSharedSignals()
+            let removed = await revokeSharedSignals()
+            setRevokePending(!removed)
             return true
         }
     }
@@ -91,18 +112,34 @@ final class HealthService: ObservableObject {
     /// Compute today's "active" boolean from step count and upsert it. Safe to
     /// call often (e.g., on foreground / after a check-in); no-op when sharing
     /// is off or HealthKit data is unavailable.
-    func reportTodayIfEnabled() async {
+    ///
+    /// `timezone` is the receiver's account zone (users.timezone): "today" and
+    /// signal_date are that day, the one the dashboard buckets by, not the
+    /// device's. Also retries a turn-off that couldn't reach the server.
+    func reportTodayIfEnabled(timezone: String? = nil) async {
+        if revokePending, !isSharingEnabled {
+            setRevokePending(!(await revokeSharedSignals()))
+        }
         guard isSharingEnabled, isHealthDataAvailable else { return }
-        guard let active = await todayActive() else { return }
-        await upload(active: active)
+        let calendar = Calendar.forTimezone(timezone)
+        guard let active = await todayActive(calendar: calendar) else {
+            lastReport = .noData
+            return
+        }
+        lastReport = await upload(active: active, calendar: calendar) ? .shared : .uploadFailed
+    }
+
+    private func setRevokePending(_ pending: Bool) {
+        revokePending = pending
+        UserDefaults.standard.set(pending, forKey: pendingRevokeKey)
     }
 
     #if canImport(HealthKit)
     /// Sum today's steps and reduce to a boolean. Returns nil when no data /
     /// query fails so we never upload a misleading "inactive".
-    private func todayActive() async -> Bool? {
+    private func todayActive(calendar: Calendar) async -> Bool? {
         guard let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount) else { return nil }
-        let startOfDay = Calendar.current.startOfDay(for: Date())
+        let startOfDay = calendar.startOfDay(for: Date())
         let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: Date(), options: .strictStartDate)
 
         return await withCheckedContinuation { continuation in
@@ -122,7 +159,7 @@ final class HealthService: ObservableObject {
         }
     }
     #else
-    private func todayActive() async -> Bool? { nil }
+    private func todayActive(calendar: Calendar) async -> Bool? { nil }
     #endif
 
     private struct WellnessUpsert: Encodable {
@@ -133,21 +170,19 @@ final class HealthService: ObservableObject {
         let source: String
     }
 
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.calendar = Calendar(identifier: .gregorian)
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
-
-    private func upload(active: Bool) async {
+    /// Returns whether the signal was stored.
+    private func upload(active: Bool, calendar: Calendar) async -> Bool {
         guard let session = try? await SupabaseService.shared.client.auth.session,
-              let family = try? await FamilyService.shared.getFamily() else { return }
+              let family = try? await FamilyService.shared.getFamily() else { return false }
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
         let payload = WellnessUpsert(
             receiver_id: session.user.id.uuidString,
             family_id: family.id.uuidString,
-            signal_date: Self.dateFormatter.string(from: Date()),
+            signal_date: formatter.string(from: Date()),
             active: active,
             source: "healthkit"
         )
@@ -156,24 +191,29 @@ final class HealthService: ObservableObject {
                 .from("wellness_signals")
                 .upsert(payload, onConflict: "receiver_id,family_id,signal_date")
                 .execute()
+            return true
         } catch {
             // Best-effort; passive signal is non-critical — but log so a
             // persistently-failing upload is diagnosable.
             Log.general.error("Wellness signal upload failed: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 
-    /// Remove everything we've shared (full revoke).
-    private func revokeSharedSignals() async {
-        guard let session = try? await SupabaseService.shared.client.auth.session else { return }
+    /// Remove everything we've shared (full revoke). Returns whether the
+    /// server delete went through.
+    private func revokeSharedSignals() async -> Bool {
+        guard let session = try? await SupabaseService.shared.client.auth.session else { return false }
         do {
             try await SupabaseService.shared.client
                 .from("wellness_signals")
                 .delete()
                 .eq("receiver_id", value: session.user.id.uuidString)
                 .execute()
+            return true
         } catch {
             Log.general.error("Wellness signal revoke failed: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 }

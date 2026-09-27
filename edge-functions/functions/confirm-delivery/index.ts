@@ -25,7 +25,7 @@ export async function handleConfirmDelivery(req: Request, auth: AuthResult): Pro
 
   // Confirm by notification_log_id (preferred)
   if (body.notification_log_id) {
-    const { error } = await supabaseAdmin
+    let byIdQuery = supabaseAdmin
       .from("notification_log")
       .update({
         status: "delivered",
@@ -34,6 +34,14 @@ export async function handleConfirmDelivery(req: Request, auth: AuthResult): Pro
         next_retry_at: null,
       })
       .eq("id", body.notification_log_id);
+    // Only your own notification. Without this any signed-in user holding a
+    // log id (they travel in push payloads) could stop its retries and make
+    // the owner's delivery status read "delivered". A mismatch updates
+    // nothing and answers exactly as before.
+    if (!auth.isServiceRole && auth.userId) {
+      byIdQuery = byIdQuery.eq("user_id", auth.userId);
+    }
+    const { error } = await byIdQuery;
 
     if (error) {
       return new Response(

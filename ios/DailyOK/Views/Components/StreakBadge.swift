@@ -8,6 +8,9 @@ import SwiftUI
 /// gradient fill + an orbiting sparkle that loops while the milestone is held.
 struct StreakChip: View {
     let streakDays: Int
+    /// "7 days in a row" instead of a bare "7" next to the flame — on the
+    /// receiver's own home, a lone number didn't say what it counted.
+    var showsDayLabel = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
@@ -26,6 +29,10 @@ struct StreakChip: View {
         contrast == .increased
             ? Color(red: 0.44, green: 0.13, blue: 0.04)
             : Color(red: 0.604, green: 0.204, blue: 0.071)
+    }
+
+    private var countText: String {
+        showsDayLabel ? String(localized: "\(streakDays) days in a row") : "\(streakDays)"
     }
 
     private static let milestones: Set<Int> = [7, 14, 30, 60, 100, 180, 365]
@@ -47,7 +54,7 @@ struct StreakChip: View {
             Image(systemName: "flame.fill")
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(flameColor)
-            Text("\(streakDays)")
+            Text(countText)
                 .font(.caption.weight(.bold))
                 .foregroundStyle(scheme == .dark ? DailyOKColor.goldLight : numberColorLight)
                 .contentTransition(.numericText(value: Double(streakDays)))
@@ -70,7 +77,7 @@ struct StreakChip: View {
             Image(systemName: "flame.fill")
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.white)
-            Text("\(streakDays)")
+            Text(countText)
                 .font(.caption.weight(.bold))
                 .foregroundStyle(.white)
                 .contentTransition(.numericText(value: Double(streakDays)))

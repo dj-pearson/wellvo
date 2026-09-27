@@ -9,6 +9,9 @@ import SwiftUI
 /// static checkmark without the ring or confetti animation.
 struct CelebrationOverlay: View {
     @Binding var isVisible: Bool
+    /// What VoiceOver hears. A bare "Success" didn't say what succeeded or
+    /// that the family was told.
+    var message: String = String(localized: "Success")
     var onComplete: () -> Void = {}
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -60,7 +63,7 @@ struct CelebrationOverlay: View {
                 }
                 .accessibilityElement()
                 .accessibilityAddTraits(.isStaticText)
-                .accessibilityLabel("Success")
+                .accessibilityLabel(message)
                 .onAppear {
                     if reduceMotion {
                         // Honor the documented contract: a static reveal, no
@@ -72,7 +75,8 @@ struct CelebrationOverlay: View {
                         opacity = 1.0
                     } else {
                         confettiPieces = ConfettiPiece.spawn(count: 36)
-                        withAnimation(DailyOKMotion.bouncySpring) {
+                        // Ease-out, not a spring: no overshoot/bounce (craft floor).
+                        withAnimation(.easeOut(duration: DailyOKMotion.durationShort + 0.1)) {
                             scale = 1.0
                             opacity = 1.0
                         }
@@ -84,7 +88,7 @@ struct CelebrationOverlay: View {
                         }
                     }
                     // Announce for VoiceOver users, who may never have the element focused.
-                    UIAccessibility.post(notification: .announcement, argument: String(localized: "Success"))
+                    UIAccessibility.post(notification: .announcement, argument: message)
 
                     // Cancellable auto-dismiss: bail if the overlay was hidden early
                     // so we don't mutate state or call onComplete on a torn-down view.

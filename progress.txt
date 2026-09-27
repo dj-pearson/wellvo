@@ -6414,3 +6414,258 @@ DEFERRED
     the same number between preview and Join could be joined instead of the one shown. New optional
     `family_id` request field on /auto-join (additive; older builds don't send it) restricts the match to
     the previewed family; iOS sends it on Join.
+
+================================================================================
+2026-09-27 — iOS function deep dive: Receiver home (I'm OK, mood, need help / call me, snooze, undo, simple mode, audio confirmation, health sharing, receiver settings/account, offline queue, location, heartbeat)
+================================================================================
+
+What the receiver home must guarantee: one tap says "I'm OK" and the family
+hears it — or the receiver is told plainly that it was saved on the phone or
+did not go through, and what to do. A request for help ALWAYS reaches the
+family (owner and co-caregivers), whatever was sent earlier that day, and is
+never queued for silent later delivery; the receiver sees that it was sent and
+whether someone has it. The screen never says "all set" while the family is
+still waiting (a later window, an owner's "check on them now"), never offers
+Undo on a help request, and never shows raw server text. Settings the receiver
+changes actually save. Phase 3's one-tap reliability is unchanged.
+
+Four reviewer passes (UI/UX, break-it, spoof, product). Every claim was checked
+against the code; SQL against a local Postgres 16 with 00001–00061 applied.
+All were confirmed except as noted under DECIDED.
+
+Branch: worked in the existing claude/ios-app-deep-dive-cm3nu0 working tree,
+as the orchestrator asked. Nothing was committed.
+
+FIXED
+
+  - CRITICAL: help after the day's check-in was dropped. process-checkin-
+    response answered a day (or slot) that already had a row with that row
+    BEFORE looking at response_type, so "I Need Help" / "Call Me" (notification,
+    watch, fallback reminder), a kid SOS and pickup/stay-longer after a morning
+    "I'm OK" returned 200: no alert, no push, the request closed as answered.
+    Now a follow-up signal on an existing row (and on the 23505 race winner)
+    upgrades the row one way only (ok → call_me → need_help; kid
+    can_stay_longer → picking_me_up → sos; never downgraded), raises the alert
+    ("Mom is asking for help", data.followup: true) and pages the family. A
+    repeat of the same signal on the same row within 2 minutes (a client retry
+    after a timeout) is one alert. Response shape unchanged; the answered row
+    is the upgraded one. Logic in edge-functions/shared/checkin-followup.ts.
+  - HIGH: help reached only the owner's phone. Urgent and kid-reply pushes now
+    go to the owner and every active co-caregiver (viewer), de-duplicated.
+  - HIGH: Undo could erase a help request (deleted the alert from every
+    dashboard and reopened the request) — undo-checkin now answers 409
+    {error:"urgent_not_undoable"} for need_help / call_me / sos rows; iOS
+    never offers Undo on them (nor reopens the window on reload).
+  - HIGH: no way to ask for help from the app. The home screen now has "Need
+    help?" in every state and mode: "I need help" and "Ask Sarah to call me"
+    (standard / Simple Mode, larger in Simple Mode); SOS, "Pick me up", "Can I
+    stay longer?" and call-me in kid mode. Urgent sends are confirmed ("Send a
+    help alert to Sarah?"), go out live through CheckInService (never the
+    queue), carry battery and — if location is already allowed — an
+    approximate location with a 4 s cap. Failure says "Not sent — … Call Sarah
+    instead" with Try Again and a Call button. "Call Sarah" (tel:, when the
+    owner's phone is on file) and "In an emergency, call 911" (US/CA; local
+    wording elsewhere) are always there.
+  - HIGH: after a help request the screen said "You're all set!" with confetti
+    and Undo. A help card now replaces it: "We told Sarah you need help", sent
+    time, "Tom is on it (3:14 PM)" once a caregiver claims it
+    (my_open_help_request, 00061), Call Sarah, and "Tapped this by mistake?
+    Call Sarah…". Falls back to the row when the server predates the RPC.
+  - HIGH: Simple Mode / Spoken Confirmation never saved (RLS: receivers may only
+    READ receiver_settings; the PATCH matched 0 rows, 204, success haptic, and
+    the next load reverted it — the launch-time "Turn On Simple Mode" offer
+    too). New set_my_receiver_display_prefs RPC (those two columns, caller's
+    own active receiver row only). iOS adopts what the server stored, rolls the
+    toggle back and says why on failure, success haptic only when confirmed.
+  - HIGH: multi-window receivers and "check on them now" after a morning
+    check-in. Any row today meant "You're all set!", no button, pending request
+    not loaded, fallback cancelled, widget "done". Now today's rows and every
+    pending request are loaded; owesAnotherAnswer() brings the button back when
+    a request was raised after the last check-in, or the current window of a
+    multi-window day is unanswered and within 60 min ("You checked in at 8:02
+    AM. Your family is asking again."). The widget snapshot says "done" only
+    when nothing is owed. The in-app tap's slot key uses the receiver's account
+    zone (was the device zone).
+  - HIGH: raw server text on failure and a Try Again that could never work.
+    Check-in failures are plain words: 403 → "You're no longer part of this
+    family's check-ins. Ask Sarah to invite you again." (no retry); signed out
+    / 401 → "Sign In Again" instead of Try Again; 5xx → "Couldn't reach Daily
+    OK. Try again in a minute, or call Sarah." Undo: 409 → "It's too late to
+    undo…", urgent → "A help request can't be undone…". Snooze: limit / not
+    pending / offline each have their own copy.
+  - MEDIUM: 502/503/504 after retries (the single edge container restarting
+    during a deploy) are now queued like offline (NetworkError.serverUnavailable)
+    with "Daily OK couldn't be reached just now… will be sent automatically" and
+    a sync retry after 60 s. A plain 500 is still an error (a refusal, not an
+    outage).
+  - MEDIUM: no request timeout (60 s × 3 attempts ≈ 3 min of spinner; a Lock
+    Screen action could run out of background time before the queue fallback).
+    Check-ins now use 15 s per attempt in the app and 8 s for notification
+    actions (EdgeFunctionsClient json invoke gained an optional `timeout`).
+  - MEDIUM: snooze. The banner stayed up after snoozing, each extra tap spent a
+    snooze for no extra time, an arbitrary one of several pending requests was
+    snoozed, a failure armed a reminder even when already answered, and the
+    next foreground replaced the 15-minute reminder with tomorrow's. Now every
+    actively pending request is snoozed, the banner and button hide, "We'll
+    remind you at 3:45 PM. Your family won't be alerted before then." shows
+    (and is announced), "(2 left)" on the button, the fallback follows
+    snoozed_until on every refresh, and "not pending" reloads instead.
+  - MEDIUM: Undo raced the post-check-in reload (loadStatus returned the
+    in-flight load, which could restore "all set" or skip the reopened request).
+    loadStatus(force:) makes the running load do one more pass; undo and the
+    didCheckIn / sync / watch observers use it. Undo is offered only for a row
+    this tap created (answering a later request returns the morning row).
+    Successful undo says "Check-in undone. Tap "I'm OK" when you're ready."
+  - MEDIUM: VoiceOver heard "Success" or nothing (Simple Mode / offline). The
+    outcome is announced ("Checked in. Your family has been notified." / "Saved
+    on this phone…"); the overlay's label says the same; snooze, undo, help and
+    error messages are announced.
+  - MEDIUM: contrast. Main button white-on-green400→600 (1.7–3.3:1) → green700→
+    green800 (kid: green700→teal-700), Simple Mode one flat green700, highlight
+    toned down / removed; Try Again green700; warning/offline text primary with
+    a gold icon; error text primary with a red icon.
+  - MEDIUM: offline kid headline said "Your parents know you're OK!" when
+    nothing was sent. Offline: "Saved — we'll send it when you have signal"
+    with a clock icon and "If it's urgent, call Sarah"; kid online copy is
+    "Your family knows you're OK!".
+  - MEDIUM: sign-out warning didn't say the family keeps being alerted; it now
+    does and points to Leave family.
+  - MEDIUM: Activity Sharing looked on while nothing was shared (HealthKit hides
+    a read denial) and "removed" wasn't true offline. The sheet shows what the
+    last report did (shared / no step data — with where to allow it / upload
+    failed); a failed revoke is retried on the next foreground until it goes
+    through; "active today" is reported on every foreground, bucketed in the
+    receiver's account zone.
+  - MEDIUM: location. Routine "I'm OK" rows no longer store coordinates when
+    the family has location off (the notification path attached a fix whenever
+    the app was on screen; every member can read check-ins). Help / SOS /
+    pickup keep it. New receiver-facing Location Sharing sheet (menu) that
+    explains what is shared and asks for When-In-Use only.
+  - LOW: confirm-delivery's notification_log_id branch now scoped to the
+    caller's own rows (a mismatch is a silent no-op, same response).
+  - LOW: AppDelegate: an urgent notification response the server refused now
+    tells the receiver it didn't send (only offline did).
+  - LOW: dead tap before the family loads → disabled button with "Connecting
+    to your family…"; "Next check-in" skips a window already answered (7:00
+    check-in for an 8:00 window says tomorrow); Simple Mode turned on while the
+    button pulses stops the pulse; button clamped to the screen width at AX
+    sizes with the halo outside the tap area; label 1.2× in Simple Mode.
+  - LOW: craft: "(s)" plural, bounce symbol effect, spring checkmark and the
+    overlay's bouncy spring replaced by ease-out; streak chip reads "7 days in
+    a row" on the receiver home; status card no longer stacks a stroke on the
+    glass card's own border+shadow; new cards use 16 pt radius.
+  - LOW: the local fallback reminder now reads "If you haven't checked in yet,
+    tap…" — true even after a widget / Control Center check-in (known gap).
+
+ADDED
+
+  - Leave family (carry-over): leave_family RPC and "Leave Sarah's family" in
+    Account & Privacy with a confirmation naming who is told. Deactivates the
+    membership (00058 trigger stands pending requests down), turns the
+    schedule off, adds a member_left alert to the owner's dashboard, clears the
+    widget/Siri/watch snapshot, and re-routes (roleRefreshRequest). An older
+    server says "ask Sarah to remove you".
+  - Simple Mode mood: three full-width text choices (Good / Okay / Not so
+    good). Simple Mode hid mood entirely.
+  - Pending banner names who and when: "Sarah is checking on you" (on-demand)
+    / "Time for your check-in", "Asked at 3:12 PM".
+
+BACKEND (additive, CLAUDE.md §A/§B)
+
+  - 00061_receiver_home_integrity.sql: set_my_receiver_display_prefs,
+    leave_family, my_open_help_request, is_active_receiver_of (new functions);
+    checkins.received_at (nullable; existing rows NULL, new rows now(), a
+    client insert can't choose it); client-INSERT guards on checkin_requests
+    (active receiver of that family; escalation step/clock/snooze start fresh;
+    requested_by = caller — no shipped client inserts), location_updates
+    (active receiver; client distance_from_home discarded — no shipped client
+    inserts) and wellness_signals (active receiver; date within a day). No
+    policy added/removed/changed. Applied on Postgres 16 after 00001–00060 and
+    replayed; exercised as `authenticated`: the receiver PATCH is UPDATE 0
+    (bug reproduced), the RPC saves, owner/stranger refused, leave works and is
+    idempotent, forged request/location/wellness writes refused or normalised.
+  - process-checkin-response: follow-up signals, co-caregiver pages, location
+    dropped for routine OK when tracking is off. Same request/response shape.
+  - undo-checkin: new 409 code urgent_not_undoable (shipped clients already
+    treat 409 as a failed undo). confirm-delivery: own rows only.
+  - shared/checkin-followup.ts (+ _test.ts, 7 tests; run under Node 22 with a
+    Deno.test shim: 7/7). Touched edge files type-check with tsc --strict
+    (supabase/jose/sentry stubbed).
+
+TESTS
+
+  - DailyOKTests/ScheduleResolverTests.swift: owesAnotherAnswer (owner asks
+    again, older/stood-down requests, nothing today, second window lead,
+    day-level row answers nearest window), nextUnansweredCheckIn (skip answered
+    window; next unanswered of three).
+  - DailyOKTests/ModelTests.swift: ReceiverHomeLogicTests — HelpKind wire
+    mapping, CheckIn.isHelpSignal / HelpKind.from, slot_key decode with and
+    without, deriveHelpStatus (server / SOS / placeholder name / none / older
+    server), check-in failure copy and recovery (403, 500, signed out, wrapped
+    401), undo failure copy, snooze failure routing, 502/503/504 queueable vs
+    500, tel: URL.
+
+DECIDED
+
+  - undo-checkin refusing urgent rows is a new refusal on an existing endpoint.
+    Taken because the alternative silently erases a help request everyone was
+    paged about; older builds show their existing undo-failed text.
+  - A follow-up upgrades the day's row rather than inserting a second one: the
+    00053 unique index is per local day and slot, and History / the dashboard
+    already read helpKind from the row.
+  - Viewers get urgent pages; routine "Checked in ✓" stays owner-only.
+
+DEFERRED
+
+  - Re-alerting an unacknowledged help request and SMS for help requests
+    (escalation-tick pass + alerts.reminded_at). Needs the escalation function's
+    own review; pages now reach every caregiver at least once.
+  - Push for "left the family" (the alert row shows on the dashboard; a push
+    needs an edge route since the RPC can't send one).
+  - "Sent late" marker in History / PDF from checkins.received_at (History
+    function; the column now exists).
+  - Kid mode as a real invite choice (receiver_mode on invite-receiver) and a
+    guided first "I'm OK" at the end of receiver setup — both live in the
+    invite / onboarding functions.
+  - Location on the in-app "I'm OK" when the family has location on: a fix
+    would add seconds to the one-tap path Phase 3 made reliable. Help requests
+    carry it.
+  - HKObserverQuery background delivery (needs the HealthKit background
+    entitlement).
+  - Receivers reading other receivers' GPS rows: still deferred (carry-over).
+    Routine OK rows no longer store coordinates when location is off, which
+    narrows it additively.
+  - Android kid SOS via direct PATCH raises no alert (needs an AFTER UPDATE
+    trigger + service route); iOS sends SOS through the edge function.
+  - Widget / Control Center check-in still can't cancel the app's fallback
+    reminder; the reminder's wording now stays true.
+  - "I'm OK now" that notifies the owner after a mistaken help request, kid
+    place chips (location_label), and a "want Sarah to call you?" follow-up
+    after a Scared / Not so good mood.
+  - Siri "I'm OK" from a locked phone: deliberate Phase 3 trade-off, unchanged.
+  - escalation-tick membership check before pushing to receiver_id (the new
+    INSERT guard covers client-made requests; 00058 stands down departed ones).
+
+  Not compiled (no Xcode, no swiftc, no deno). The tree-sitter Swift grammar
+  parses every changed Swift file except its known gaps (`if let x = try?
+  await`, pre-existing SettingsView/EdgeFunctionsClient spots identical at
+  HEAD). SQL was run on a local Postgres 16. TypeScript was checked with tsc
+  --strict and the new pure module's tests run under Node 22. No new Swift
+  files (no pbxproj changes).
+
+  Review pass (same session, before commit):
+  - Compile fix: the new receiver `enum HelpKind` redeclared the owner
+    dashboard's `HelpKind` (DashboardViewModel.swift, used by HistoryTimeline).
+    Renamed the receiver one to `ReceiverHelpKind` (ReceiverViewModel,
+    ReceiverHomeView, ReceiverHomeLogicTests).
+  - 00061 regression fix: its re-definition of
+    guard_checkin_requests_client_write() was based on 00051 and dropped the
+    stood_down_at / stood_down_by pinning 00055 added, so a client PATCH could
+    again set a stand-down. Both are pinned on UPDATE again and cleared on a
+    client INSERT. Verified on the local Postgres 16 (authenticated owner
+    UPDATE/INSERT leave stood_down_at NULL).
+  - Simple Mode: after "Not so good" the card said "Feeling tired" (the stored
+    mood's label); it now repeats the picker's words.
+  - A failed setting change while the help card is up was never shown (only
+    the hidden status card displayed it); now shown under the help card.
+  - Doc comment for ReceiverAccountSheet moved back onto it.

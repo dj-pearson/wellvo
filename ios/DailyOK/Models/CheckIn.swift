@@ -206,6 +206,9 @@ struct CheckIn: Codable, Identifiable {
     let distanceFromHomeMeters: Double?
     let locationLabel: String?
     let kidResponseType: String?
+    /// Which scheduled window this row answered ("HH:mm", US-IOS048). nil for
+    /// day-level check-ins, and on rows decoded from older payloads.
+    let slotKey: String?
 
     enum CodingKeys: String, CodingKey {
         case id, mood, source, latitude, longitude
@@ -218,6 +221,14 @@ struct CheckIn: Codable, Identifiable {
         case distanceFromHomeMeters = "distance_from_home_meters"
         case locationLabel = "location_label"
         case kidResponseType = "kid_response_type"
+        case slotKey = "slot_key"
+    }
+
+    /// A help request, call-me or kid SOS: it paged the family, so it is not
+    /// "all set" and can't be undone (undo-checkin refuses it since 00061's
+    /// edge change).
+    var isHelpSignal: Bool {
+        responseType == .needHelp || responseType == .callMe || kidResponseType == KidResponseType.sos.rawValue
     }
 
     // Explicit memberwise initializer with defaults for the optional fields.
@@ -239,7 +250,8 @@ struct CheckIn: Codable, Identifiable {
         locationAccuracyMeters: Double? = nil,
         distanceFromHomeMeters: Double? = nil,
         locationLabel: String? = nil,
-        kidResponseType: String? = nil
+        kidResponseType: String? = nil,
+        slotKey: String? = nil
     ) {
         self.id = id
         self.receiverId = receiverId
@@ -255,6 +267,7 @@ struct CheckIn: Codable, Identifiable {
         self.distanceFromHomeMeters = distanceFromHomeMeters
         self.locationLabel = locationLabel
         self.kidResponseType = kidResponseType
+        self.slotKey = slotKey
     }
 }
 

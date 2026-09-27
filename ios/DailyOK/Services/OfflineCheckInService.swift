@@ -182,6 +182,22 @@ final class OfflineCheckInService: ObservableObject {
                     )
                     throw NetworkError.offline
                 }
+                // The server was down behind its proxy for every retry (a
+                // deploy restarts the single edge container). Queue it like an
+                // offline tap: replay is safe (per-day/slot dedup, occurred_at
+                // keeps the real time). A plain 500 is not queued — that is
+                // the server refusing, and retrying later would say "saved"
+                // for a check-in that may never land.
+                if Self.isServerUnavailable(error) {
+                    try queueCheckIn(
+                        familyId: familyId,
+                        receiverId: receiverId,
+                        mood: mood,
+                        source: source,
+                        slotKey: slotKey
+                    )
+                    throw NetworkError.serverUnavailable
+                }
                 throw error
             }
         } else {
@@ -247,7 +263,7 @@ final class OfflineCheckInService: ObservableObject {
     /// True when the error represents a loss of connectivity (as opposed to a
     /// server/auth/client error). Used to decide whether to optimistically queue
     /// a check-in for later sync.
-    static func isConnectivityError(_ error: Error) -> Bool {
+    nonisolated static func isConnectivityError(_ error: Error) -> Bool {
         if error is NetworkError { return true }
         // `respondToCheckIn` (and other callers) re-wrap thrown errors as
         // `DailyOKError.network(_)` / `.unknown(_)` before they reach here, so a
@@ -278,6 +294,20 @@ final class OfflineCheckInService: ObservableObject {
         default:
             return false
         }
+    }
+
+    /// 502 / 503 / 504 after retries: the proxy answered but the edge server
+    /// behind it didn't. Pure for testability.
+    nonisolated static func isServerUnavailable(_ error: Error) -> Bool {
+        var candidate = error
+        if let appError = error as? DailyOKError {
+            switch appError {
+            case .network(let inner), .unknown(let inner): candidate = inner
+            default: break
+            }
+        }
+        guard let http = candidate as? EdgeFunctionsClient.HTTPError else { return false }
+        return [502, 503, 504].contains(http.status)
     }
 
     // MARK: - Sync Queued Check-Ins

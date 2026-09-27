@@ -5,6 +5,7 @@ import { sendFCMNotification, buildFCMAlertPayload } from "../../shared/fcm.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID, isValidTimezone, validateLocationFields, sanitizeDisplayName, truncateString, coerceNumericFields } from "../../shared/validation.ts";
 import { localDateString, localDayBoundsUTC, resolveOccurredAt, formatOccurredAt } from "../../shared/checkin-time.ts";
+import { followUpUpgrade, isKidInfoSignal, isRepeatOfRecentAlert, isUrgentSignal, FOLLOW_UP_REPEAT_WINDOW_MS } from "../../shared/checkin-followup.ts";
 
 function haversineDistance(
   lat1: number, lon1: number,
@@ -185,6 +186,11 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
   // every live check-in as a backfill, so it never closed the pending request
   // and the owner was escalated for a check-in that had happened.
   const isBackfill = localDateString(receiverTz) !== localDateString(receiverTz, occurredAt);
+  // Kid SOS counts as need_help for alerting. Decided before the dedup lookup
+  // so a follow-up signal on an already-answered day is still delivered.
+  const kidResponseType = body.kid_response_type ?? null;
+  const isUrgent = isUrgentSignal(responseType, kidResponseType);
+  const isKidInfoResponse = isKidInfoSignal(kidResponseType);
   // Dedup within the receiver's local day. When a slot_key is supplied, dedup
   // per slot so multiple windows/day stay distinct; otherwise fall back to the
   // legacy day-level dedup. `order + limit(1)` (instead of maybeSingle over the
@@ -205,12 +211,25 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
     .maybeSingle();
 
   if (existingCheckIn) {
-    // Already checked in today — return existing check-in (not an error)
-    // Still mark pending requests as checked_in below
-    return markRequestsAndRespond(receiverId, familyId, existingCheckIn, isBackfill);
+    // Already checked in today (or this window): no second row. But a help
+    // request, call-me, SOS or kid quick reply sent after that check-in is
+    // new information and still has to reach the family. It used to return
+    // here with the earlier row, so "I need help" at 3 PM after "I'm OK" at
+    // 9 AM answered 200 and nobody was told.
+    let answered: Record<string, unknown> = existingCheckIn;
+    if (isUrgent || isKidInfoResponse) {
+      answered = await applyFollowUp(existingCheckIn, responseType, kidResponseType);
+      await notifyCaregiversOfSignal({
+        receiverId, familyId, checkIn: answered, responseType, kidResponseType,
+        latitude: body.latitude, longitude: body.longitude, locationLabel: body.location_label,
+        distanceFromHome: null, isBackfill, receiverTz, occurredAt, isFollowUp: true,
+      });
+    }
+    return markRequestsAndRespond(receiverId, familyId, answered, isBackfill);
   }
 
-  // Calculate distance from home if location is provided
+  // Receiver settings: home point for the distance, and whether the family
+  // turned location on at all.
   let distanceFromHome: number | null = null;
   if (body.latitude != null && body.longitude != null) {
     const { data: settings } = await supabaseAdmin
@@ -224,6 +243,16 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
         body.latitude, body.longitude,
         settings.home_latitude, settings.home_longitude
       );
+    }
+    // Location off for this receiver: a routine "I'm OK" does not store where
+    // they were. The iOS notification path attached a fix whenever the app was
+    // on screen, whatever the family had chosen, and every family member can
+    // read check-in rows. A help request, SOS or pickup keeps it — there the
+    // location is the point.
+    if (settings && settings.location_tracking_enabled === false && !isUrgent && !isKidInfoResponse) {
+      delete body.latitude;
+      delete body.longitude;
+      delete body.location_accuracy_meters;
     }
   }
 
@@ -287,7 +316,18 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
       : winnerQuery.is("slot_key", null);
     const { data: winner } = await winnerQuery.limit(1).maybeSingle();
     if (winner) {
-      return markRequestsAndRespond(receiverId, familyId, winner, isBackfill);
+      // Same rule as the lookup above: the race must not swallow a help
+      // request either.
+      let answered: Record<string, unknown> = winner;
+      if (isUrgent || isKidInfoResponse) {
+        answered = await applyFollowUp(winner, responseType, kidResponseType);
+        await notifyCaregiversOfSignal({
+          receiverId, familyId, checkIn: answered, responseType, kidResponseType,
+          latitude: body.latitude, longitude: body.longitude, locationLabel: body.location_label,
+          distanceFromHome, isBackfill, receiverTz, occurredAt, isFollowUp: true,
+        });
+      }
+      return markRequestsAndRespond(receiverId, familyId, answered, isBackfill);
     }
   }
 
@@ -306,188 +346,13 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
       .eq("id", receiverId);
   }
 
-  // Treat kid SOS the same as need_help for escalation purposes
-  const isUrgent = responseType === "need_help" || responseType === "call_me" || body.kid_response_type === "sos";
-  const isKidInfoResponse = body.kid_response_type === "picking_me_up" || body.kid_response_type === "can_stay_longer";
-
-  // Handle urgent response types — create alerts and notify owner immediately
+  // Handle urgent response types — create alerts and notify caregivers now
   if (isUrgent || isKidInfoResponse) {
-    const { data: family } = await supabaseAdmin
-      .from("families")
-      .select("owner_id")
-      .eq("id", familyId)
-      .single();
-
-    const { data: receiver } = await supabaseAdmin
-      .from("users")
-      .select("display_name")
-      .eq("id", receiverId)
-      .single();
-
-    const displayName = sanitizeDisplayName(receiver?.display_name || "A family member");
-
-    if (isUrgent) {
-      const effectiveType = body.kid_response_type === "sos" ? "need_help" : responseType;
-      // A late-delivered help request still has to reach the owner — they may
-      // not know about it at all — so it keeps its urgency. What changes is
-      // that it says when, rather than implying it just happened.
-      const whenSuffix = isBackfill
-        ? ` This was sent on ${formatOccurredAt(receiverTz, occurredAt.toISOString(), true)}; their phone was offline until now.`
-        : "";
-      const alertTitle = effectiveType === "need_help" ? "Help Requested" : "Call Requested";
-      const alertMessage = (effectiveType === "need_help"
-        ? `${displayName} checked in but indicated they need help.`
-        : `${displayName} checked in and is asking you to call them.`) + whenSuffix;
-
-      // Create urgent alert
-      await supabaseAdmin.from("alerts").insert({
-        family_id: familyId,
-        receiver_id: receiverId,
-        type: effectiveType,
-        title: alertTitle,
-        message: alertMessage,
-        data: {
-          checkin_id: checkIn.id,
-          latitude: body.latitude,
-          longitude: body.longitude,
-          distance_from_home_meters: distanceFromHome != null ? Math.round(distanceFromHome) : null,
-          kid_response_type: body.kid_response_type,
-        },
-      });
-
-      // Send urgent push to owner
-      if (family?.owner_id) {
-        const { data: ownerTokens } = await supabaseAdmin
-          .from("push_tokens")
-          .select("token, platform")
-          .eq("user_id", family.owner_id)
-          .eq("is_active", true);
-
-        if (ownerTokens?.length) {
-          const urgentPayload = {
-            aps: {
-              alert: { title: alertTitle, body: alertMessage },
-              sound: "urgent.caf",
-              category: "URGENT_ALERT",
-              "interruption-level": "critical" as const,
-              "thread-id": `urgent-${familyId}`,
-            },
-            checkin_id: checkIn.id,
-            receiver_id: receiverId,
-            type: effectiveType,
-          };
-
-          const fcmData: Record<string, string> = {
-            checkin_id: String(checkIn.id),
-            receiver_id: receiverId!,
-            type: effectiveType,
-            notification_type: "urgent_alert",
-          };
-
-          const results = await Promise.all(
-            ownerTokens.map((t: { token: string; platform: string }) => {
-              if (t.platform === "android") {
-                return sendFCMNotification(t.token, buildFCMAlertPayload(alertTitle, alertMessage, fcmData));
-              }
-              return sendPushNotification(t.token, urgentPayload, { priority: 10 });
-            })
-          );
-
-          for (let i = 0; i < results.length; i++) {
-            const isInvalid =
-              results[i].statusCode === 410 ||
-              results[i].reason === "NOT_FOUND" ||
-              results[i].reason === "UNREGISTERED";
-            if (isInvalid) {
-              await supabaseAdmin
-                .from("push_tokens")
-                .update({ is_active: false })
-                .eq("token", ownerTokens[i].token);
-              console.log(`Deactivated invalid ${ownerTokens[i].platform} token for user ${family.owner_id}`);
-            }
-          }
-        }
-      }
-    } else if (isKidInfoResponse) {
-      // Non-urgent kid responses — notify owner so they see it in their dashboard
-      const kidLabel = body.kid_response_type === "picking_me_up" ? "Pickup Requested" : "Wants to Stay Longer";
-      // Same rule as the urgent path: a late-delivered request says when it
-      // was sent, so "pick me up" from two days ago does not read as now.
-      const kidMessage = (body.kid_response_type === "picking_me_up"
-        ? `${displayName} is asking to be picked up.`
-        : `${displayName} is asking if they can stay longer.`)
-        + (isBackfill ? ` Sent on ${formatOccurredAt(receiverTz, occurredAt.toISOString(), true)}, delivered late.` : "");
-
-      // Create non-urgent alert for owner dashboard
-      await supabaseAdmin.from("alerts").insert({
-        family_id: familyId,
-        receiver_id: receiverId,
-        type: body.kid_response_type,
-        title: kidLabel,
-        message: kidMessage,
-        data: {
-          checkin_id: checkIn.id,
-          latitude: body.latitude,
-          longitude: body.longitude,
-          location_label: body.location_label,
-          kid_response_type: body.kid_response_type,
-        },
-      });
-
-      // Send non-urgent push to owner
-      if (family?.owner_id) {
-        const { data: ownerTokens } = await supabaseAdmin
-          .from("push_tokens")
-          .select("token, platform")
-          .eq("user_id", family.owner_id)
-          .eq("is_active", true);
-
-        if (ownerTokens?.length) {
-          const infoPayload = {
-            aps: {
-              alert: { title: kidLabel, body: kidMessage },
-              sound: "default",
-              category: "KID_RESPONSE",
-              "thread-id": `kid-${familyId}`,
-              "interruption-level": "active" as const,
-            },
-            checkin_id: checkIn.id,
-            receiver_id: receiverId,
-            type: body.kid_response_type,
-          };
-
-          const fcmData: Record<string, string> = {
-            checkin_id: String(checkIn.id),
-            receiver_id: receiverId!,
-            type: body.kid_response_type || "",
-            notification_type: "kid_response",
-          };
-
-          const results = await Promise.all(
-            ownerTokens.map((t: { token: string; platform: string }) => {
-              if (t.platform === "android") {
-                return sendFCMNotification(t.token, buildFCMAlertPayload(kidLabel, kidMessage, fcmData));
-              }
-              return sendPushNotification(t.token, infoPayload, { priority: 5 });
-            })
-          );
-
-          for (let i = 0; i < results.length; i++) {
-            const isInvalid =
-              results[i].statusCode === 410 ||
-              results[i].reason === "NOT_FOUND" ||
-              results[i].reason === "UNREGISTERED";
-            if (isInvalid) {
-              await supabaseAdmin
-                .from("push_tokens")
-                .update({ is_active: false })
-                .eq("token", ownerTokens[i].token);
-              console.log(`Deactivated invalid ${ownerTokens[i].platform} token for user ${family.owner_id}`);
-            }
-          }
-        }
-      }
-    }
+    await notifyCaregiversOfSignal({
+      receiverId, familyId, checkIn, responseType, kidResponseType,
+      latitude: body.latitude, longitude: body.longitude, locationLabel: body.location_label,
+      distanceFromHome, isBackfill, receiverTz, occurredAt, isFollowUp: false,
+    });
   } else {
     // Routine "I'm OK" — send the owner a confirmation push so they get peace of
     // mind even when the app is closed (the realtime dashboard only updates a
@@ -619,4 +484,227 @@ async function markRequestsAndRespond(
     JSON.stringify({ success: true, checkin: checkIn, backfilled: isBackfill }),
     { headers: { "Content-Type": "application/json" } }
   );
+}
+
+/**
+ * Record a follow-up signal on an existing check-in row, only ever upward
+ * (ok → call_me → need_help; kid can_stay_longer → picking_me_up → sos), so
+ * the owner's dashboard and History show that the day needed help. Service
+ * role, so the client-write guard (00057) does not apply. Returns the row as
+ * stored; on a failed update, the original row (the alert still goes out).
+ */
+async function applyFollowUp(
+  row: Record<string, unknown>,
+  responseType: string,
+  kidResponseType: string | null,
+): Promise<Record<string, unknown>> {
+  const changes = followUpUpgrade(
+    { response_type: row.response_type as string | null, kid_response_type: row.kid_response_type as string | null },
+    responseType,
+    kidResponseType,
+  );
+  if (Object.keys(changes).length === 0) return row;
+  const { data: updated, error } = await supabaseAdmin
+    .from("checkins")
+    .update(changes)
+    .eq("id", row.id as string)
+    .select()
+    .maybeSingle();
+  if (error || !updated) {
+    console.error(`Follow-up upgrade failed for check-in ${row.id}: ${error?.message ?? "no row"}`);
+    return row;
+  }
+  return updated;
+}
+
+interface SignalContext {
+  receiverId: string;
+  familyId: string;
+  checkIn: Record<string, unknown>;
+  responseType: string;
+  kidResponseType: string | null;
+  latitude?: number;
+  longitude?: number;
+  locationLabel?: string;
+  distanceFromHome: number | null;
+  isBackfill: boolean;
+  receiverTz: string;
+  occurredAt: Date;
+  /** The row already existed: this signal came after that day's check-in. */
+  isFollowUp: boolean;
+}
+
+/**
+ * Alert row + push for a help request, call-me, SOS or kid quick reply.
+ * Goes to the owner and every active co-caregiver (viewer): a help request
+ * used to reach the owner's phone only, so a family with a sibling on the
+ * account got a weaker response to "I need help" than to a missed check-in
+ * (escalation-tick pages viewers).
+ */
+async function notifyCaregiversOfSignal(ctx: SignalContext): Promise<void> {
+  const { receiverId, familyId, checkIn, responseType, kidResponseType, isBackfill, receiverTz, occurredAt } = ctx;
+  const isUrgent = isUrgentSignal(responseType, kidResponseType);
+  const effectiveType = isUrgent
+    ? (kidResponseType === "sos" ? "need_help" : responseType)
+    : (kidResponseType as string);
+
+  // A follow-up repeated within a couple of minutes is the client retrying a
+  // request the server already answered (a timeout after the push went out):
+  // one alert, one page.
+  if (ctx.isFollowUp) {
+    const since = new Date(Date.now() - FOLLOW_UP_REPEAT_WINDOW_MS).toISOString();
+    const { data: recent } = await supabaseAdmin
+      .from("alerts")
+      .select("created_at")
+      .eq("family_id", familyId)
+      .eq("receiver_id", receiverId)
+      .eq("type", effectiveType)
+      .eq("data->>checkin_id", String(checkIn.id))
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (isRepeatOfRecentAlert(recent?.created_at as string | undefined)) return;
+  }
+
+  const { data: family } = await supabaseAdmin
+    .from("families")
+    .select("owner_id")
+    .eq("id", familyId)
+    .single();
+
+  const { data: receiver } = await supabaseAdmin
+    .from("users")
+    .select("display_name")
+    .eq("id", receiverId)
+    .single();
+
+  const displayName = sanitizeDisplayName(receiver?.display_name || "A family member");
+  const sentOn = formatOccurredAt(receiverTz, occurredAt.toISOString(), true);
+
+  let title: string;
+  let message: string;
+  if (isUrgent) {
+    // A late-delivered help request still has to reach the owner — they may
+    // not know about it at all — so it keeps its urgency. What changes is
+    // that it says when, rather than implying it just happened.
+    const whenSuffix = isBackfill
+      ? ` This was sent on ${sentOn}; their phone was offline until now.`
+      : "";
+    title = effectiveType === "need_help" ? "Help Requested" : "Call Requested";
+    if (ctx.isFollowUp) {
+      message = (effectiveType === "need_help"
+        ? `${displayName} is asking for help.`
+        : `${displayName} is asking you to call them.`) + whenSuffix;
+    } else {
+      message = (effectiveType === "need_help"
+        ? `${displayName} checked in but indicated they need help.`
+        : `${displayName} checked in and is asking you to call them.`) + whenSuffix;
+    }
+  } else {
+    // Same rule as the urgent path: a late-delivered request says when it
+    // was sent, so "pick me up" from two days ago does not read as now.
+    title = kidResponseType === "picking_me_up" ? "Pickup Requested" : "Wants to Stay Longer";
+    message = (kidResponseType === "picking_me_up"
+      ? `${displayName} is asking to be picked up.`
+      : `${displayName} is asking if they can stay longer.`)
+      + (isBackfill ? ` Sent on ${sentOn}, delivered late.` : "");
+  }
+
+  await supabaseAdmin.from("alerts").insert({
+    family_id: familyId,
+    receiver_id: receiverId,
+    type: effectiveType,
+    title,
+    message,
+    data: {
+      checkin_id: checkIn.id,
+      latitude: ctx.latitude,
+      longitude: ctx.longitude,
+      distance_from_home_meters: ctx.distanceFromHome != null ? Math.round(ctx.distanceFromHome) : null,
+      location_label: ctx.locationLabel,
+      kid_response_type: kidResponseType,
+      // New keys; readers ignore what they don't know.
+      followup: ctx.isFollowUp,
+      requested_at: occurredAt.toISOString(),
+    },
+  });
+
+  // Owner first, then active co-caregivers. De-duplicated: an owner who also
+  // holds a viewer row is paged once.
+  const recipients: string[] = [];
+  if (family?.owner_id) recipients.push(family.owner_id as string);
+  const { data: viewers } = await supabaseAdmin
+    .from("family_members")
+    .select("user_id")
+    .eq("family_id", familyId)
+    .eq("role", "viewer")
+    .eq("status", "active");
+  for (const v of viewers ?? []) {
+    const id = v.user_id as string | null;
+    if (id && id !== receiverId && !recipients.includes(id)) recipients.push(id);
+  }
+  if (recipients.length === 0) return;
+
+  const { data: tokens } = await supabaseAdmin
+    .from("push_tokens")
+    .select("token, platform, user_id")
+    .in("user_id", recipients)
+    .eq("is_active", true);
+  if (!tokens?.length) return;
+
+  const apnsPayload = isUrgent
+    ? {
+      aps: {
+        alert: { title, body: message },
+        sound: "urgent.caf",
+        category: "URGENT_ALERT",
+        "interruption-level": "critical" as const,
+        "thread-id": `urgent-${familyId}`,
+      },
+      checkin_id: checkIn.id,
+      receiver_id: receiverId,
+      type: effectiveType,
+    }
+    : {
+      aps: {
+        alert: { title, body: message },
+        sound: "default",
+        category: "KID_RESPONSE",
+        "thread-id": `kid-${familyId}`,
+        "interruption-level": "active" as const,
+      },
+      checkin_id: checkIn.id,
+      receiver_id: receiverId,
+      type: kidResponseType,
+    };
+  const fcmData: Record<string, string> = {
+    checkin_id: String(checkIn.id),
+    receiver_id: receiverId,
+    type: effectiveType || "",
+    notification_type: isUrgent ? "urgent_alert" : "kid_response",
+  };
+
+  const results = await Promise.all(
+    tokens.map((t: { token: string; platform: string }) => {
+      if (t.platform === "android") {
+        return sendFCMNotification(t.token, buildFCMAlertPayload(title, message, fcmData));
+      }
+      return sendPushNotification(t.token, apnsPayload, { priority: isUrgent ? 10 : 5 });
+    })
+  );
+
+  for (let i = 0; i < results.length; i++) {
+    const isInvalid =
+      results[i].statusCode === 410 ||
+      results[i].reason === "NOT_FOUND" ||
+      results[i].reason === "UNREGISTERED";
+    if (isInvalid) {
+      await supabaseAdmin
+        .from("push_tokens")
+        .update({ is_active: false })
+        .eq("token", tokens[i].token);
+      console.log(`Deactivated invalid ${tokens[i].platform} token for user ${tokens[i].user_id}`);
+    }
+  }
 }

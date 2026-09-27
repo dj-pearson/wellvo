@@ -77,11 +77,16 @@ enum NetworkRetry {
 enum NetworkError: LocalizedError {
     case maxRetriesExceeded
     case offline
+    /// Online, but the server was unreachable behind its proxy (502/503/504,
+    /// e.g. the edge container restarting during a deploy) after every retry.
+    /// The check-in was queued, as for offline.
+    case serverUnavailable
 
     var errorDescription: String? {
         switch self {
         case .maxRetriesExceeded: return "Network request failed after multiple attempts."
         case .offline: return "You appear to be offline. Your check-in will be sent when you reconnect."
+        case .serverUnavailable: return "Daily OK couldn't be reached. Your check-in is saved and will be sent automatically."
         }
     }
 }

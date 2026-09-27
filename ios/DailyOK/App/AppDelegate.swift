@@ -393,16 +393,17 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                     // their check-in landed.
                     await PushNotificationService.shared.presentCheckInResponseFailed(urgent: false)
                 }
-            } else if connectivity {
-                // Offline urgent response (need help / call me). We deliberately
-                // do NOT queue an urgent signal for silent later delivery — it
-                // must reach the owner live — but the receiver must know it
-                // didn't send so they can retry or reach out another way.
+            } else if responseType != .ok {
+                // Urgent response (need help / call me) that didn't go through,
+                // offline or refused. We deliberately do NOT queue an urgent
+                // signal for silent later delivery — it must reach the owner
+                // live — but the receiver must always know it didn't send so
+                // they can retry or reach out another way. (Only connectivity
+                // failures used to say so; a server refusal was silent.)
                 await PushNotificationService.shared.presentCheckInResponseFailed(urgent: true)
             }
-            // A non-connectivity error means the server received and rejected
-            // the request (e.g. already resolved) — no phantom-success risk,
-            // so no extra alert.
+            // A plain "I'm OK" the server refused (e.g. already resolved) has no
+            // phantom-success risk, so no extra alert.
         }
     }
 
