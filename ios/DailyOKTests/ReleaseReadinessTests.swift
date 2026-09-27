@@ -205,4 +205,30 @@ final class ReleaseReadinessTests: XCTestCase {
             )
         }
     }
+
+    // MARK: - Force-update floor (GET /app-config)
+
+    func testVersionCompareMatchesServer() {
+        XCTAssertGreaterThan(ForceUpdateState.compareVersions("1.0.10", "1.0.9"), 0)
+        XCTAssertEqual(ForceUpdateState.compareVersions("1.0", "1.0.0"), 0)
+        XCTAssertLessThan(ForceUpdateState.compareVersions("1.0.6", "1.0.7"), 0)
+        XCTAssertEqual(ForceUpdateState.compareVersions("junk", "0.0.0"), 0)
+    }
+
+    func testFloorIsDormantUntilRaised() {
+        XCTAssertFalse(ForceUpdateState.isBelowMinimum(current: "1.0.0", minimum: "0.0.0"))
+        XCTAssertFalse(ForceUpdateState.isBelowMinimum(current: "1.0.0", minimum: nil))
+        XCTAssertFalse(ForceUpdateState.isBelowMinimum(current: "1.0.0", minimum: ""))
+        XCTAssertTrue(ForceUpdateState.isBelowMinimum(current: "1.0.9", minimum: "1.0.10"))
+        XCTAssertFalse(ForceUpdateState.isBelowMinimum(current: "1.0.10", minimum: "1.0.10"))
+    }
+
+    func testAppConfigDecodesServerShapeAndToleratesMissingKeys() throws {
+        let full = Data(#"{"min_ios_version":"1.0.10","min_android_version":"1.0.1","update_url_ios":"https://apps.apple.com/x","update_url_android":"https://play.google.com/x","extra":1}"#.utf8)
+        let config = try JSONDecoder().decode(ForceUpdateState.AppConfig.self, from: full)
+        XCTAssertEqual(config.min_ios_version, "1.0.10")
+        XCTAssertEqual(config.update_url_ios, "https://apps.apple.com/x")
+        let empty = try JSONDecoder().decode(ForceUpdateState.AppConfig.self, from: Data("{}".utf8))
+        XCTAssertNil(empty.min_ios_version)
+    }
 }

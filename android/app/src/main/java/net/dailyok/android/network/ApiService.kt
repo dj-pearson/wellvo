@@ -160,6 +160,16 @@ data class AutoJoinResult(
 
 private val json = Json { ignoreUnknownKeys = true }
 
+/**
+ * Sent with every edge call so the server can enforce
+ * MIN_SUPPORTED_ANDROID_APP_VERSION (426 force-update). Builds without these
+ * headers are never gated (the server fails open).
+ */
+private val clientHeaders: Headers = Headers.build {
+    append("X-App-Version", net.dailyok.android.BuildConfig.VERSION_NAME)
+    append("X-App-Platform", "android")
+}
+
 @Singleton
 class ApiService @Inject constructor(
     private val supabase: SupabaseClient
@@ -172,13 +182,15 @@ class ApiService @Inject constructor(
             try {
                 val response = supabase.functions.invoke(
                     function = functionName,
-                    body = body
+                    body = body,
+                    headers = clientHeaders
                 )
                 val statusCode = response.status.value
                 val responseBody = response.body<String>()
 
                 when {
                     statusCode in 200..299 -> responseBody
+                    statusCode == 426 -> throw updateRequired(responseBody)
                     statusCode == 401 || statusCode == 403 -> throw DailyOKError.Auth()
                     statusCode == 404 -> throw DailyOKError.NotFound()
                     statusCode in 500..599 -> throw DailyOKError.ServerError()
@@ -202,7 +214,17 @@ class ApiService @Inject constructor(
         }
     }
 
+    /**
+     * 426: this build is below MIN_SUPPORTED_ANDROID_APP_VERSION. Latches the
+     * app-wide blocking update screen; never retried.
+     */
+    private fun updateRequired(body: String?): DailyOKError {
+        ForceUpdateState.triggerFromResponse(body)
+        return DailyOKError.Rejected(426, "Please update Daily OK to keep using it.")
+    }
+
     private fun rejection(status: Int, body: String): DailyOKError {
+        if (status == 426) return updateRequired(body)
         val serverMessage = runCatching {
             json.parseToJsonElement(body).jsonObject["error"]?.jsonPrimitive?.contentOrNull
         }.getOrNull()

@@ -177,6 +177,10 @@ struct DailyOKApp: App {
         case .active:
             let checkBiometric = biometricCheckDue
             biometricCheckDue = false
+            // Version floor (GET /app-config): on launch and each foreground,
+            // signed in or not, throttled inside. Independent of the ordered
+            // work below — it needs no session and must not wait behind it.
+            Task { await ForceUpdateState.shared.refreshFromServer() }
             // Run foreground work as a single ordered task instead of six
             // concurrent Tasks all competing for the first connection on resume.
             // Auth-critical work first, then sync/push, then best-effort work.

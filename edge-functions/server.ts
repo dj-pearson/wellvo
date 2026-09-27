@@ -24,7 +24,7 @@ const PORT = parseInt(Deno.env.get("PORT") || "9000"); // Optional, defaults to 
 import { verifyRequest, type AuthResult } from "./shared/auth.ts";
 import { checkRateLimit, checkServiceRoleRateLimit } from "./shared/rate-limiter.ts";
 import { logInfo, logError, withRequestLogging } from "./shared/logger.ts";
-import { isBelowMinimum, forceUpdatePayload } from "./shared/config.ts";
+import { isBelowMinimum, forceUpdatePayload, appConfigPayload } from "./shared/config.ts";
 import { initSentry } from "./shared/sentry.ts";
 import { recordPeerAddress } from "./shared/client-ip.ts";
 
@@ -131,7 +131,7 @@ function corsHeaders(req?: Request): Record<string, string> {
   if (!origin || origin === ALLOWED_ORIGIN) {
     return {
       "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, X-App-Version, X-App-Platform",
     };
   }
@@ -196,6 +196,22 @@ async function handler(req: Request): Promise<Response> {
     return jsonWithCors({ status: "ok", service: "dailyok-edge-functions" }, 200, req);
   }
 
+  // Version floors + store links (no auth). The apps read this at launch and
+  // on foreground so a below-floor build blocks with an update screen even
+  // when it would otherwise only talk to PostgREST, and it works before
+  // sign-in. Always 200 here — including for a below-floor caller — because
+  // this is how the client learns it is below the floor.
+  if (path === "/app-config") {
+    if (req.method !== "GET" && req.method !== "POST" && req.method !== "OPTIONS") {
+      return jsonWithCors({ error: "Method not allowed" }, 405, req);
+    }
+    if (req.method !== "OPTIONS") {
+      // Unlimited like /health: static, cheap, and one shared bucket for an
+      // unauthenticated route would let one noisy caller blank it for all.
+      return jsonWithCors(appConfigPayload(), 200, req, { "Cache-Control": "public, max-age=300" });
+    }
+  }
+
   // Enforce request body size limit for POST requests
   if (req.method === "POST") {
     const contentLength = req.headers.get("Content-Length");
@@ -221,6 +237,23 @@ async function handler(req: Request): Promise<Response> {
   const secretEnvVar = webhookSecretRoutes[path];
   const appleSigned = appleSignedRoutes.has(path);
   const playNotification = playNotificationRoutes.has(path);
+
+  // Force-update gate: a client build below the platform floor (CLAUDE.md
+  // MIN_SUPPORTED_*_APP_VERSION) gets 426 {error:"update_required",
+  // update_url, ...} instead of being served. Checked before auth so a stale
+  // token on a retired build still reads "update", not "signed out". Only the
+  // apps send X-App-Version, so service-role / pg_cron / webhook traffic is
+  // never gated. Fails open when the header is absent: builds that predate it
+  // can't be identified here — the database-level lockdown in
+  // supabase/pending-migrations/ is what cuts those off.
+  if (!secretEnvVar && !appleSigned && !playNotification) {
+    const clientVersion = req.headers.get("X-App-Version");
+    const clientPlatform = req.headers.get("X-App-Platform");
+    if (isBelowMinimum(clientPlatform, clientVersion)) {
+      logInfo("Rejecting below-floor client build", { path, platform: clientPlatform ?? "ios", version: clientVersion ?? "" });
+      return jsonWithCors(forceUpdatePayload(clientPlatform), 426, req);
+    }
+  }
   if (appleSigned || playNotification) {
     // Not a user and not the service role: the handler verifies the payload.
     // Its own rate-limit bucket: sharing the service-role counters would let
@@ -265,23 +298,6 @@ async function handler(req: Request): Promise<Response> {
       return jsonWithCors({ error: "Too many requests" }, 429, req, {
         "Retry-After": String(rateLimitResult.retryAfterSeconds),
       });
-    }
-  }
-
-  // Force-update gate: a client build below the platform floor (CLAUDE.md
-  // MIN_SUPPORTED_*_APP_VERSION) is told to update with a 426 instead of being
-  // served. Only applies to authenticated client (JWT) traffic — never service
-  // role or webhook calls. Fails open when the version header is absent (older
-  // builds) or the floor is disabled, so nothing breaks until a floor is set.
-  if (!auth.isServiceRole && !secretEnvVar && !appleSigned && !playNotification) {
-    const clientVersion = req.headers.get("X-App-Version");
-    const clientPlatform = req.headers.get("X-App-Platform");
-    if (isBelowMinimum(clientPlatform, clientVersion)) {
-      logInfo("Rejecting below-floor client build", {
-        path,
-        userId: auth.userId,
-      });
-      return jsonWithCors(forceUpdatePayload(clientPlatform), 426, req);
     }
   }
 

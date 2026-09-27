@@ -36,6 +36,8 @@ import net.dailyok.android.ui.navigation.toModelRole
 import net.dailyok.android.ui.navigation.toNavRole
 import net.dailyok.android.ui.navigation.DailyOKNavHost
 import net.dailyok.android.ui.theme.DailyOKTheme
+import net.dailyok.android.network.ForceUpdateState
+import net.dailyok.android.ui.screens.update.ForceUpdateScreen
 import net.dailyok.android.viewmodels.AuthViewModel
 
 @AndroidEntryPoint
@@ -80,14 +82,36 @@ class MainActivity : ComponentActivity() {
         handleTextIntent(intent)
         setContent {
             DailyOKTheme {
-                DailyOKApp(
-                    notificationContext = notificationContext,
-                    onNotificationHandled = { notificationContext = null },
-                    deepLinkInviteToken = pendingInviteToken,
-                    onDeepLinkHandled = { pendingInviteToken = null },
-                    onAuthReady = { isAuthReady = true }
-                )
+                // Below MIN_SUPPORTED_ANDROID_APP_VERSION (GET /app-config or a
+                // 426): only the update screen, never the app behind it.
+                val updateRequired by ForceUpdateState.required.collectAsState()
+                val updateUrl by ForceUpdateState.updateUrl.collectAsState()
+                if (updateRequired) {
+                    // The splash waits on auth, which the app below would report.
+                    androidx.compose.runtime.LaunchedEffect(Unit) { isAuthReady = true }
+                    ForceUpdateScreen(updateUrl = updateUrl)
+                } else {
+                    DailyOKApp(
+                        notificationContext = notificationContext,
+                        onNotificationHandled = { notificationContext = null },
+                        deepLinkInviteToken = pendingInviteToken,
+                        onDeepLinkHandled = { pendingInviteToken = null },
+                        onAuthReady = { isAuthReady = true }
+                    )
+                }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Version floor on launch and every return to the app (throttled
+        // inside; fails open when offline or the server predates the route).
+        lifecycleScope.launch {
+            ForceUpdateState.refreshFromServer(
+                edgeFunctionsUrl = BuildConfig.EDGE_FUNCTIONS_URL,
+                appVersion = BuildConfig.VERSION_NAME
+            )
         }
     }
 

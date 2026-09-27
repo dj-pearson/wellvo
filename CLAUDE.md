@@ -180,7 +180,7 @@ MIN_SUPPORTED_IOS_APP_VERSION       // bump only when force-update is shipped
 MIN_SUPPORTED_ANDROID_APP_VERSION   // bump only when force-update is shipped
 ```
 
-(Currently these are not defined as constants. Follow-up: add to `edge-functions/shared/config.ts` and have the auth/checkin endpoints reject older builds with a force-update payload. Until that exists, treat the *oldest store-approved build* as the floor.)
+(Defined in `edge-functions/shared/config.ts`, set by the env vars of the same name. The default `"0.0.0"` means no floor. Apps send `X-App-Version` / `X-App-Platform` and read `GET /app-config` at launch and on foreground. A build below its floor gets a blocking update screen, and every edge call it makes returns `426 {error:"update_required", update_url}`. Builds that predate the header can't be gated at the edge. For them, the enforcement is the staged SQL in `supabase/pending-migrations/`, applied only after the floors are raised; see its README. Until a floor is raised, treat the *oldest store-approved build* as the floor.)
 
 The multi-release deprecation flow applies to **every** persistent shape below:
 

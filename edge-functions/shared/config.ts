@@ -75,6 +75,22 @@ export function forceUpdatePayload(platform: string | null | undefined): Record<
 }
 
 /**
+ * Public body of GET /app-config (no auth). The apps compare their own version
+ * with the floor for their platform at launch / foreground and show the
+ * blocking update screen themselves, so the gate reaches builds whose traffic
+ * is mostly PostgREST (never an edge call that could return 426). "0.0.0"
+ * means no floor. Additive contract: new keys only.
+ */
+export function appConfigPayload(): Record<string, unknown> {
+  return {
+    min_ios_version: MIN_SUPPORTED_IOS_APP_VERSION,
+    min_android_version: MIN_SUPPORTED_ANDROID_APP_VERSION,
+    update_url_ios: IOS_APP_STORE_URL,
+    update_url_android: ANDROID_STORE_URL,
+  };
+}
+
+/**
  * How long after a check-in a receiver may undo an accidental tap (US-IOS048).
  * Kept short so an undo can't silently erase a check-in the owner has already
  * acted on. Env-overridable for tuning without a deploy.
