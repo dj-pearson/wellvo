@@ -7318,3 +7318,34 @@ powers, SMS via the phone's Messages composer
   builds; Android Stop alerts has no confirm step; 00064 number unused.
   Not compiled (no Xcode/Gradle/deno). Non-UI Kotlin compiled with kotlinc
   2.1 against supabase-kt 3.1.1; SQL tested on local Postgres 16.
+
+================================================================================
+2026-09-27 — Final decisions: phone sign-in retired, force-update gate,
+member data privacy (step 1), Android Stop-alerts confirm
+================================================================================
+
+  Decisions: drop phone sign-in (no server SMS / A2P); build the force-update
+  gate now; fix member data exposure in two steps; kid mode / custom
+  schedules / multi-window stay FREE (no code).
+
+  - Phone sign-in removed (iOS Apple + email; Android Google + email).
+    Phone-only accounts still signed in are prompted to add an email (email
+    change OTP); signed-out ones go through support. 00066 copies the
+    invite's phone to the joiner's profile so Call/Text keep working.
+  - Force-update: X-App-Version headers, GET /app-config, 426
+    update_required for builds below MIN_SUPPORTED_*_APP_VERSION (env,
+    default 0.0.0). iOS ForceUpdateView wired at launch/foreground; Android
+    ForceUpdateScreen.
+  - Privacy step 1: explicit column lists everywhere (no users(*) or
+    select=*); 00067 adds family_contact_numbers + get_my_profile RPCs.
+  - Staged (supabase/pending-migrations/, not run by CI):
+      client_access_lockdown_final.sql  — final check-in insert revoke,
+        v1 transfer revoke.
+      member_column_privileges.sql      — hide users.email/phone/
+        is_system_admin/digest_last_sent_at and families.billing_*.
+    Apply only after MIN_SUPPORTED_* versions include this release (README).
+  - Android Stop alerts confirmation (owner vs co-caregiver copy); help card
+    "Text <owner>".
+
+  Not compiled (no Xcode/Gradle/deno). SQL, incl. both staged files, tested
+  on a scratch Postgres 16.
