@@ -7284,3 +7284,37 @@ DEFERRED
     markCheckedIn always stamp today (a stale earlier-day stamp hid today's).
   - LiveActivityTokenService.deactivateAll no longer takes the NSLock inside
     an async function (noasync warning, an error in Swift 6).
+
+================================================================================
+2026-09-27 — Deep-dive follow-ups: DB lockdown, Android parity, co-caregiver
+powers, SMS via the phone's Messages composer
+================================================================================
+
+  User decisions: co-caregivers may stop alerts and send check-ins; no
+  server SMS (A2P 10DLC) — use the phone's pre-filled Messages composer;
+  close direct-DB holes now where no shipped client uses them.
+
+  - 00063 (lockdown): receivers read only their own check-ins (no family GPS);
+    client INSERT on checkin_requests and UPDATE on checkin_requests revoked;
+    checkins UPDATE limited to mood/location_label/kid_response_type; alerts
+    UPDATE limited to is_read; has_apple_identity self-only; care notes must
+    name a family receiver. Direct checkins INSERT kept on 5 columns because
+    iOS 1.0.3–1.0.6 replay offline check-ins that way; a trigger resolves the
+    receiver's pending requests for those inserts. Revoke fully once
+    MIN_SUPPORTED_IOS_APP_VERSION >= 1.0.7.
+  - Co-caregiver powers: cancel-escalation / on-demand-checkin accept active
+    viewers (resolveCaregiverActor); care team told; iOS + Android buttons.
+  - SMS: SMS_ENABLED (default false) gates all server texting; "Text <name>"
+    opens MFMessageComposeViewController / ACTION_SENDTO pre-filled; copy
+    fixed in apps, website, blog generator (00065). Phone sign-in OTP still
+    goes through Supabase Auth SMS — separate decision.
+  - Android parity: kid SOS/help via process-checkin-response; co-caregiver
+    invites; join consent preview; transfer v2; viewer Leave/claim; Google
+    Play verification (GOOGLE_PLAY_SERVICE_ACCOUNT_JSON, optional
+    GOOGLE_PLAY_PACKAGE_NAME, GOOGLE_PLAY_RTDN_TOKEN) + /google-play-notifications.
+
+  Still open: families.billing_* and users(*) readable via select=* (needs
+  explicit column lists shipped first); v1 transfer accepts receivers for old
+  builds; Android Stop alerts has no confirm step; 00064 number unused.
+  Not compiled (no Xcode/Gradle/deno). Non-UI Kotlin compiled with kotlinc
+  2.1 against supabase-kt 3.1.1; SQL tested on local Postgres 16.
