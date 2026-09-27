@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import net.dailyok.android.network.ApiService
 import net.dailyok.android.network.DailyOKError
+import net.dailyok.android.network.JoinPreviewOutcome
+import net.dailyok.android.network.JoinPreviews
 import androidx.compose.runtime.Immutable
 import javax.inject.Inject
 import kotlin.math.min
@@ -26,7 +28,9 @@ data class PairingCodeUiState(
     val familyId: String? = null,
     val role: String? = null,
     val failedAttempts: Int = 0,
-    val isLockedOut: Boolean = false
+    val isLockedOut: Boolean = false,
+    /** The family behind the code, waiting for "Join". Nothing is joined yet. */
+    val consent: net.dailyok.android.network.JoinPreview? = null
 )
 
 @HiltViewModel
@@ -75,46 +79,37 @@ class PairingCodeViewModel @Inject constructor(
             }
 
             try {
-                val response = apiService.redeemCode(code)
-
-                if (response.error != null) {
-                    val newAttempts = _uiState.value.failedAttempts + 1
-                    if (newAttempts >= 10) {
-                        lockoutEndTimeMs = System.currentTimeMillis() + 15 * 60 * 1000
+                // Ask first (redeem-code `preview`, edge pass 6): show whose
+                // family this is, and as what, before joining it.
+                when (val outcome = JoinPreviews.interpret(apiService.previewCode(code))) {
+                    is JoinPreviewOutcome.AskFirst -> {
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            failedAttempts = newAttempts,
-                            isLockedOut = true,
-                            errorMessage = "Too many failed attempts. Try again in 15 minutes."
+                            failedAttempts = 0,
+                            consent = outcome.preview
                         )
-                    } else {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            failedAttempts = newAttempts,
-                            errorMessage = "${response.error} (${10 - newAttempts} attempts remaining)"
-                        )
+                        return@launch
                     }
-                    return@launch
-                }
-
-                // Success — reset attempts
-                if (response.alreadyMember == true || response.success == true) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        success = true,
-                        failedAttempts = 0,
-                        familyName = response.name,
-                        checkinTime = response.checkinTime,
-                        familyId = response.familyId,
-                        role = response.role
-                    )
-                } else {
-                    val newAttempts = _uiState.value.failedAttempts + 1
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        failedAttempts = newAttempts,
-                        errorMessage = "Invalid or expired pairing code. (${10 - newAttempts} attempts remaining)"
-                    )
+                    is JoinPreviewOutcome.AlreadyJoined -> {
+                        // Already in this family, or a server without
+                        // `preview` that joined at once: nothing to ask.
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            success = true,
+                            failedAttempts = 0,
+                            familyId = outcome.familyId,
+                            role = outcome.role
+                        )
+                        return@launch
+                    }
+                    is JoinPreviewOutcome.NoInvite -> {
+                        // Never join without having shown the family.
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            errorMessage = "Invalid or expired code. Please check and try again."
+                        )
+                        return@launch
+                    }
                 }
             } catch (e: DailyOKError) {
                 _uiState.value = _uiState.value.copy(
@@ -123,5 +118,47 @@ class PairingCodeViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    /** "Join" on the consent card: redeem the code for real. */
+    fun confirmJoin() {
+        val code = _uiState.value.code
+        val preview = _uiState.value.consent ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            try {
+                val response = apiService.redeemCode(code)
+                if (response.success == true || response.alreadyMember == true) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        success = true,
+                        consent = null,
+                        familyName = response.name ?: preview.presentableOwner?.let { "$it's family" },
+                        checkinTime = response.checkinTime,
+                        familyId = response.familyId,
+                        role = response.role
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        consent = null,
+                        errorMessage = response.error ?: "Couldn't join with this code. Please try again."
+                    )
+                }
+            } catch (e: DailyOKError) {
+                // e.g. the code was used or expired in the meantime, or the
+                // family is full: back to the code entry with the reason.
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    consent = null,
+                    errorMessage = e.localizedMessage
+                )
+            }
+        }
+    }
+
+    /** "Not now": nothing was joined; back to the code entry. */
+    fun declineJoin() {
+        _uiState.value = _uiState.value.copy(consent = null, code = "", errorMessage = null)
     }
 }

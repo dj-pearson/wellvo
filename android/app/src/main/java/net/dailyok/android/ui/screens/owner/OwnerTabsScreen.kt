@@ -51,7 +51,11 @@ private val ownerTabs = listOf(
 )
 
 @Composable
-fun OwnerTabsScreen(userId: String = "") {
+fun OwnerTabsScreen(
+    userId: String = "",
+    /** This user's role changed (ownership handed to a co-caregiver): re-route. */
+    onRoleChanged: () -> Unit = {}
+) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     Scaffold(
@@ -105,7 +109,8 @@ fun OwnerTabsScreen(userId: String = "") {
                     FamilyScreen(
                         viewModel = familyViewModel,
                         userId = userId,
-                        modifier = Modifier.padding(innerPadding)
+                        modifier = Modifier.padding(innerPadding),
+                        onOwnershipTransferred = onRoleChanged
                     )
                 }
                 else -> {

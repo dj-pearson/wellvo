@@ -23,6 +23,7 @@ import {
 } from "./app-store-jws.ts";
 import { APPLE_BUNDLE_ID, lookUpTransaction } from "./app-store-server-api.ts";
 import { decideApply, pickBilledFamily, type TierInfo } from "./subscription-policy.ts";
+import type { PlayVerdict } from "./google-play.ts";
 
 export interface BillingFamily {
   id: string;
@@ -174,6 +175,40 @@ export async function bindReceipt(args: {
   return "ok";
 }
 
+/**
+ * Bind a VERIFIED Google Play subscription (keyed by playSubscriptionKey, a
+ * hash of the purchase token) to one Daily OK account, like bindReceipt.
+ * A plan change (new token linked to the old) keeps the old binding's owner.
+ */
+export async function bindPlayReceipt(args: {
+  key: string;
+  linkedKey?: string | null;
+  userId: string;
+  familyId: string | null;
+  verdict: PlayVerdict;
+}): Promise<BindResult> {
+  const { key, userId, familyId, verdict } = args;
+  const existing = await receiptOwner(key) ?? (args.linkedKey ? await receiptOwner(args.linkedKey) : null);
+  if (existing && existing !== userId) return "bound_to_other_user";
+
+  const { error } = await supabaseAdmin.from("subscription_receipts").upsert({
+    original_transaction_id: key,
+    platform: "android",
+    user_id: userId,
+    family_id: familyId,
+    product_id: verdict.productId,
+    expires_at: verdict.expiresAt ? verdict.expiresAt.toISOString() : null,
+    revoked_at: null,
+    environment: verdict.isTest ? "Sandbox" : "Production",
+    last_transaction_id: verdict.orderId,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "original_transaction_id" });
+  if (error && !isMissingColumn(error) && error.code !== "42P01") {
+    logWarn("subscription_receipts upsert failed", { code: error.code });
+  }
+  return "ok";
+}
+
 export type AppleClaim =
   | { kind: "verified"; tx: AppStoreTransaction }
   | { kind: "invalid"; reason: string }
@@ -223,6 +258,8 @@ export async function applyEntitlement(args: {
   platform: "ios" | "android";
   verified: boolean;
   now?: Date;
+  /** Google Play: the subscription this purchase replaces (see decideApply). */
+  replacesTransactionId?: string | null;
 }): Promise<{ applied: true } | { applied: false; reason: string }> {
   const now = args.now ?? new Date();
   const ownerTakeover = args.payerUserId === args.family.owner_id &&
@@ -232,6 +269,7 @@ export async function applyEntitlement(args: {
     expiresAt: args.expiresAt,
     originalTransactionId: args.originalTransactionId,
     ownerTakeover,
+    replacesTransactionId: args.replacesTransactionId ?? null,
   }, now);
   if (!decision.apply) {
     logInfo("Subscription update not applied", { familyId: args.family.id, reason: decision.reason });

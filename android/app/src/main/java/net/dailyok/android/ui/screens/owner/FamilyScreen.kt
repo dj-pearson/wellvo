@@ -89,9 +89,14 @@ private val StatusDeactivated = Color(0xFF9CA3AF)
 fun FamilyScreen(
     viewModel: FamilyViewModel,
     userId: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Ownership went to a co-caregiver: this user is a co-caregiver now. */
+    onOwnershipTransferred: () -> Unit = {}
 ) {
     val family by viewModel.family.collectAsState()
+    val viewerSeats by viewModel.viewerSeats.collectAsState()
+    val ownershipTransferred by viewModel.ownershipTransferred.collectAsState()
+    var showCoCaregiverSheet by remember { mutableStateOf(false) }
     val members by viewModel.members.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
@@ -117,6 +122,13 @@ fun FamilyScreen(
         successMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearSuccessMessage()
+        }
+    }
+
+    LaunchedEffect(ownershipTransferred) {
+        if (ownershipTransferred) {
+            viewModel.onOwnershipTransferHandled()
+            onOwnershipTransferred()
         }
     }
 
@@ -186,6 +198,14 @@ fun FamilyScreen(
                                     tier = fam.subscriptionTier
                                 )
                             }
+                            // Co-caregivers: their own invite and their own
+                            // seat limit, separate from people to check on.
+                            item {
+                                CoCaregiverCard(
+                                    seats = viewerSeats,
+                                    onInvite = { showCoCaregiverSheet = true }
+                                )
+                            }
                         }
 
                         if (members.isEmpty()) {
@@ -246,13 +266,13 @@ fun FamilyScreen(
             onDismissRequest = { memberToTransfer = null },
             title = { Text("Transfer Ownership") },
             text = {
-                Text("Are you sure you want to transfer ownership to ${member.user?.displayName ?: "this member"}? You will become a Viewer and lose control of settings and billing.")
+                Text("Make ${member.user?.displayName ?: "this co-caregiver"} the owner of this family? You'll stay in the family as a co-caregiver: you keep seeing check-ins and alerts, but they manage members, schedules and settings. If you pay for the plan, it keeps covering the family until you cancel it.")
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         dailyokHaptics.warning()
-                        viewModel.transferOwnership(member.id, member.user?.displayName ?: "Member")
+                        viewModel.transferOwnership(member)
                         memberToTransfer = null
                     }
                 ) {
@@ -263,6 +283,16 @@ fun FamilyScreen(
                 TextButton(onClick = { memberToTransfer = null }) {
                     Text("Cancel")
                 }
+            }
+        )
+    }
+
+    if (showCoCaregiverSheet) {
+        InviteCoCaregiverSheet(
+            viewModel = viewModel,
+            onDismiss = {
+                showCoCaregiverSheet = false
+                viewModel.resetInviteState()
             }
         )
     }
@@ -411,7 +441,11 @@ private fun MemberCard(
                             UserRole.Viewer -> StatusDeactivated
                         }
                         Text(
-                            text = member.role.name,
+                            text = when (member.role) {
+                                UserRole.Owner -> "Owner"
+                                UserRole.Receiver -> "Checks in"
+                                UserRole.Viewer -> "Co-caregiver"
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White,
                             modifier = Modifier
@@ -440,9 +474,11 @@ private fun MemberCard(
                             expanded = showContextMenu,
                             onDismissRequest = { showContextMenu = false }
                         ) {
-                            if (member.status == MemberStatus.Active) {
+                            // Only an active co-caregiver can take over: a
+                            // receiver is the person being checked on.
+                            if (net.dailyok.android.viewmodels.FamilySeats.canReceiveOwnership(member)) {
                                 DropdownMenuItem(
-                                    text = { Text("Transfer Ownership") },
+                                    text = { Text("Make owner") },
                                     leadingIcon = {
                                         Icon(Icons.Default.SwapHoriz, contentDescription = null)
                                     },
@@ -738,6 +774,198 @@ private fun InviteReceiverSheet(
                 }
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+/** Co-caregiver seats and the "Invite co-caregiver" button. */
+@Composable
+private fun CoCaregiverCard(
+    seats: net.dailyok.android.viewmodels.FamilySeats.Seats,
+    onInvite: () -> Unit
+) {
+    Card(
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Co-caregivers",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "They see check-ins and get the same alerts you do. They're never asked to check in.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = net.dailyok.android.viewmodels.FamilySeats.seatsLine(seats),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            androidx.compose.material3.OutlinedButton(
+                onClick = onInvite,
+                enabled = !seats.isFull,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.People, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Invite co-caregiver")
+            }
+            if (seats.isFull) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = net.dailyok.android.viewmodels.FamilySeats.fullMessage(seats),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Invite a co-caregiver: a name and the number they'll sign in with. No
+ * check-in time; they get alerts, not check-ins.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun InviteCoCaregiverSheet(
+    viewModel: FamilyViewModel,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var phoneInteracted by remember { mutableStateOf(false) }
+
+    val isInviting by viewModel.isInviting.collectAsState()
+    val inviteSuccess by viewModel.inviteSuccess.collectAsState()
+    val inviteError by viewModel.inviteError.collectAsState()
+    val inviteToSend by viewModel.inviteToSend.collectAsState()
+    val inviteContext = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(inviteToSend) {
+        inviteToSend?.let {
+            net.dailyok.android.util.InviteShare.open(inviteContext, it)
+            viewModel.onInviteHandedOff()
+        }
+    }
+
+    val phoneValid = isValidPhone(phone)
+    val canSend = name.isNotBlank() && phoneValid && !isInviting
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            if (!inviteSuccess) {
+                Text(
+                    text = "Invite a co-caregiver",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Someone who helps you look after the people you check on — a sibling, a partner, a neighbour. They'll see check-ins and get alerts if one is missed or someone asks for help.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = {
+                        phone = it
+                        phoneInteracted = true
+                    },
+                    label = { Text("Phone Number") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    isError = phoneInteracted && phone.isNotEmpty() && !phoneValid,
+                    supportingText = {
+                        if (phoneInteracted && phone.isNotEmpty() && !phoneValid) {
+                            Text("Enter a valid US phone number", color = MaterialTheme.colorScheme.error)
+                        } else {
+                            Text("Use the number they'll sign into the app with")
+                        }
+                    }
+                )
+                inviteError?.let { error ->
+                    Card(
+                        shape = MaterialTheme.shapes.small,
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+                androidx.compose.material3.Button(
+                    onClick = { if (canSend) viewModel.inviteCoCaregiver(name.trim(), phone.trim()) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = canSend,
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    if (isInviting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Sending...")
+                    } else {
+                        Text("Send Invitation")
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = Color(0xFF22C55E)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Invite ready",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Your messages app opened with the invite for $phone. Once $name joins, you'll both be told if a check-in is missed.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                    Text("Done")
+                }
+            }
             Spacer(modifier = Modifier.height(16.dp))
         }
     }

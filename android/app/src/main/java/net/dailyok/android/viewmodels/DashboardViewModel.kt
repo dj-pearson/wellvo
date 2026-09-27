@@ -29,6 +29,7 @@ import net.dailyok.android.data.models.UserRole
 import net.dailyok.android.data.models.DailyOKAlert
 import net.dailyok.android.data.models.emoji
 import net.dailyok.android.services.AnalyticsService
+import net.dailyok.android.services.CaregiverActionsService
 import net.dailyok.android.services.CheckInService
 import net.dailyok.android.services.FamilyService
 import net.dailyok.android.network.DailyOKError
@@ -62,7 +63,19 @@ data class ReceiverStatusCard(
     val hasNotificationsEnabled: Boolean,
     val checkedInTime: String?,
     val locationLabel: String?,
-    val kidResponseType: String?
+    val kidResponseType: String?,
+    /** The unanswered check-in request, if any (pending or missed). */
+    val requestId: String? = null,
+    /** Alerts are still going out for it: offer "Stop alerts". */
+    val canStopAlerts: Boolean = false,
+    /** Overdue or missed: offer "I'm on it". */
+    val canClaim: Boolean = false,
+    /** "You're on it" / "Tom is on it", or null. */
+    val claimLine: String? = null,
+    /** The current user holds the claim (offer "Release"). */
+    val claimedByMe: Boolean = false,
+    /** A caregiver stopped the alerts for today's request. */
+    val alertsStopped: Boolean = false
 )
 
 @Immutable
@@ -84,7 +97,8 @@ class DashboardViewModel @Inject constructor(
     private val supabase: SupabaseClient,
     private val checkInService: CheckInService,
     private val familyService: FamilyService,
-    private val analyticsService: AnalyticsService
+    private val analyticsService: AnalyticsService,
+    private val caregiverActions: CaregiverActionsService
 ) : ViewModel() {
 
     private val _family = MutableStateFlow<Family?>(null)
@@ -147,6 +161,14 @@ class DashboardViewModel @Inject constructor(
                     checkInService.familyCheckInHistory(fetchedFamily.id, 30)
                 } catch (_: Exception) { emptyList() }
 
+                // Unanswered requests (pending / missed) with escalation and
+                // claim state. Co-caregivers can read these (00055 policy).
+                val openRequests = try {
+                    caregiverActions.openRequests(fetchedFamily.id)
+                } catch (_: Exception) { emptyList() }
+                val requestByReceiver = openRequests.groupBy { it.receiverId }
+                    .mapValues { (_, rows) -> rows.maxByOrNull { CareStatus.parseInstant(it.createdAt) ?: java.time.Instant.EPOCH } }
+
                 val allTokens = try {
                     checkNotificationStatusBatch(receivers.map { it.userId })
                 } catch (_: Exception) { emptySet() }
@@ -176,13 +198,21 @@ class DashboardViewModel @Inject constructor(
                         windowDays = 7
                     )
 
+                    val latestCheckInAt = (history.map { it.checkedInAt } + listOfNotNull(todayCheckIn?.checkedInAt))
+                        .maxByOrNull { CareStatus.parseInstant(it) ?: java.time.Instant.EPOCH }
+                    val care = CareStatus.resolve(requestByReceiver[receiver.userId], latestCheckInAt)
+
                     ReceiverStatusCard(
                         id = receiver.userId,
                         memberId = receiver.id,
                         name = receiver.user?.displayName ?: "Unknown",
                         avatarUrl = receiver.user?.avatarUrl,
-                        status = if (todayCheckIn != null) ReceiverCheckInStatus.CheckedIn
-                                 else ReceiverCheckInStatus.Pending,
+                        status = when {
+                            care.request != null && care.isMissed -> ReceiverCheckInStatus.Missed
+                            care.request != null -> ReceiverCheckInStatus.Pending
+                            todayCheckIn != null -> ReceiverCheckInStatus.CheckedIn
+                            else -> ReceiverCheckInStatus.Pending
+                        },
                         lastCheckIn = todayCheckIn?.checkedInAt ?: history.firstOrNull()?.checkedInAt,
                         streak = streak,
                         consistencyPercent = consistency,
@@ -190,7 +220,13 @@ class DashboardViewModel @Inject constructor(
                         hasNotificationsEnabled = receiver.userId in allTokens,
                         checkedInTime = todayCheckIn?.checkedInAt,
                         locationLabel = todayCheckIn?.locationLabel,
-                        kidResponseType = todayCheckIn?.kidResponseType
+                        kidResponseType = todayCheckIn?.kidResponseType,
+                        requestId = care.request?.id,
+                        canStopAlerts = care.canStopAlerts,
+                        canClaim = care.canClaim,
+                        claimLine = CareStatus.claimLine(care.request, userId),
+                        claimedByMe = care.request?.claimedBy != null && care.request.claimedBy == userId,
+                        alertsStopped = care.stoodDown
                     )
                 }
 
@@ -234,6 +270,104 @@ class DashboardViewModel @Inject constructor(
         _successMessage.value = null
     }
 
+    /** Receivers / alerts with a caregiver action in flight (one at a time each). */
+    private val _actingOn = MutableStateFlow<Set<String>>(emptySet())
+    val actingOn: StateFlow<Set<String>> = _actingOn.asStateFlow()
+
+    private suspend fun <T> acting(key: String, block: suspend () -> T): T? {
+        if (key in _actingOn.value) return null
+        _actingOn.value = _actingOn.value + key
+        return try {
+            block()
+        } finally {
+            _actingOn.value = _actingOn.value - key
+        }
+    }
+
+    /**
+     * "Stop alerts": the caregiver reached the receiver another way. Ends the
+     * escalation without recording a check-in (cancel-escalation). Offered to
+     * co-caregivers as well as the owner; a server that still limits this to
+     * the owner answers 403 and its message is shown.
+     */
+    fun stopAlerts(receiverId: String) {
+        val familyId = _family.value?.id ?: return
+        val name = _receiverCards.value.find { it.id == receiverId }?.name ?: "them"
+        viewModelScope.launch {
+            try {
+                acting("stop:$receiverId") {
+                    caregiverActions.stopAlerts(familyId = familyId, receiverId = receiverId)
+                    _successMessage.value = "Alerts stopped for $name. Their check-in stays open until they answer."
+                    currentUserId?.let { loadDashboard(it) }
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Couldn't stop the alerts. Please try again."
+            }
+        }
+    }
+
+    /**
+     * "I'm on it" for a missed / overdue check-in (claim_checkin_request,
+     * 00062), or [release] it. The other caregivers see who is on it through
+     * the realtime subscription on checkin_requests.
+     */
+    fun claimCheckIn(receiverId: String, release: Boolean) {
+        val card = _receiverCards.value.find { it.id == receiverId } ?: return
+        val requestId = card.requestId ?: return
+        viewModelScope.launch {
+            try {
+                acting("claim:$receiverId") {
+                    val row = caregiverActions.claimRequest(requestId, release)
+                    val me = currentUserId
+                    when {
+                        !release && row?.claimedBy != null && row.claimedBy != me ->
+                            _errorMessage.value = "${row.claimedByName ?: "Another caregiver"} is already on it."
+                        !release && row?.claimedBy == null ->
+                            Unit // answered or stood down meanwhile; the reload shows it
+                        release -> _successMessage.value = "Released. Other caregivers can take this on."
+                        else -> _successMessage.value = "You're on it for ${card.name}. Other caregivers can see that."
+                    }
+                    me?.let { loadDashboard(it) }
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = if (CaregiverActionsService.isMissingFunction(e)) {
+                    "Saying \"I'm on it\" isn't available yet. Call or text the other caregivers instead."
+                } else {
+                    e.message ?: "Couldn't update. Please try again."
+                }
+            }
+        }
+    }
+
+    /**
+     * "I'm on it" for a help alert, or [release] it (acknowledge_alert_v2).
+     * If another caregiver got there first, says so instead of overwriting.
+     */
+    fun acknowledgeAlert(alert: DailyOKAlert, release: Boolean) {
+        viewModelScope.launch {
+            try {
+                acting("alert:${alert.id}") {
+                    val claim = caregiverActions.acknowledgeAlert(alert.id, release)
+                    if (claim != null) {
+                        _alerts.value = _alerts.value.map {
+                            if (it.id == claim.id) it.copy(
+                                acknowledgedBy = claim.acknowledgedBy,
+                                acknowledgedAt = claim.acknowledgedAt,
+                                acknowledgedByName = claim.acknowledgedByName
+                            ) else it
+                        }
+                        val me = currentUserId
+                        if (!release && claim.acknowledgedBy != null && claim.acknowledgedBy != me) {
+                            _errorMessage.value = "${claim.acknowledgedByName ?: "Another caregiver"} is already handling this."
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Couldn't update. Please try again."
+            }
+        }
+    }
+
     fun dismissAlert(alert: DailyOKAlert) {
         viewModelScope.launch {
             try {
@@ -273,15 +407,15 @@ class DashboardViewModel @Inject constructor(
             // covers urgent / pattern banners.
             val checkinsFlow = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
                 table = "checkins"
-                filter = "family_id=eq.$familyId"
+                filter("family_id", io.github.jan.supabase.postgrest.query.filter.FilterOperator.EQ, familyId)
             }
             val requestsFlow = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
                 table = "checkin_requests"
-                filter = "family_id=eq.$familyId"
+                filter("family_id", io.github.jan.supabase.postgrest.query.filter.FilterOperator.EQ, familyId)
             }
             val alertsFlow = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
                 table = "alerts"
-                filter = "family_id=eq.$familyId"
+                filter("family_id", io.github.jan.supabase.postgrest.query.filter.FilterOperator.EQ, familyId)
             }
 
             val reload: () -> Unit = {

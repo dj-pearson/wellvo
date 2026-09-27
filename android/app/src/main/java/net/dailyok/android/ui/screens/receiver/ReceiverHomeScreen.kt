@@ -100,6 +100,8 @@ fun ReceiverHomeScreen(
     var menuExpanded by remember { mutableStateOf(false) }
     var showSignOutConfirmation by remember { mutableStateOf(false) }
     var showCelebration by remember { mutableStateOf(false) }
+    /** An urgent help kind waiting for the receiver's confirmation. */
+    var pendingHelp by remember { mutableStateOf<net.dailyok.android.viewmodels.ReceiverHelpKind?>(null) }
 
     // Track previous state to detect transitions
     var wasCheckedIn by remember { mutableStateOf(state.hasCheckedInToday) }
@@ -289,9 +291,55 @@ fun ReceiverHomeScreen(
             )
         }
 
+        // Help is always one tap (plus a confirmation) away, before or after
+        // the day's check-in — except while a post-check-in step is open.
+        val postCheckInStepOpen = state.showMoodSelector || state.showLocationSelector || state.showKidResponseButtons
+        if (!state.isLoading && state.familyId != null && !postCheckInStepOpen) {
+            HelpActions(
+                isKidMode = state.isKidMode,
+                isSending = state.isSendingHelp,
+                sentMessage = state.helpSentMessage,
+                failureMessage = state.helpFailureMessage,
+                onRequest = { kind -> pendingHelp = kind },
+                onDismissMessage = viewModel::clearHelpMessages,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 16.dp, vertical = 24.dp)
+            )
+        }
+
         CelebrationOverlay(
             visible = showCelebration,
             onComplete = { showCelebration = false }
+        )
+    }
+
+    pendingHelp?.let { kind ->
+        net.dailyok.android.ui.components.GlassAlertDialog(
+            onDismissRequest = { pendingHelp = null },
+            title = {
+                Text(
+                    if (kind == net.dailyok.android.viewmodels.ReceiverHelpKind.CallMe) "Ask your family to call you?"
+                    else "Send a help alert to your family?"
+                )
+            },
+            text = {
+                Text(
+                    if (kind == net.dailyok.android.viewmodels.ReceiverHelpKind.CallMe)
+                        "Everyone who looks after you gets an alert asking them to call."
+                    else
+                        "Everyone who looks after you gets an urgent alert right away. In an emergency, call 911."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingHelp = null
+                    viewModel.sendHelp(kind)
+                }) { Text("Send", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingHelp = null }) { Text("Cancel") }
+            }
         )
     }
 
@@ -619,5 +667,90 @@ private fun formatCheckInTime(isoTimestamp: String): String {
         return "%d:%02d %s".format(displayHour, minute, amPm)
     } catch (_: Exception) {
         return isoTimestamp
+    }
+}
+
+/**
+ * "I need help" / "Ask family to call me" (or SOS in kid mode), and what
+ * happened to the last one. Urgent kinds are confirmed by the caller before
+ * they are sent; a failure is shown with "call instead", never queued.
+ */
+@Composable
+private fun HelpActions(
+    isKidMode: Boolean,
+    isSending: Boolean,
+    sentMessage: String?,
+    failureMessage: String?,
+    onRequest: (net.dailyok.android.viewmodels.ReceiverHelpKind) -> Unit,
+    onDismissMessage: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        val message = failureMessage ?: sentMessage
+        if (message != null) {
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                style = DailyOKGlassStyle.Thin,
+                shape = RoundedCornerShape(DailyOKGlass.RadiusMedium),
+                elevation = DailyOKElevation.level2,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp)
+            ) {
+                androidx.compose.foundation.layout.Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (failureMessage != null) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = onDismissMessage) { Text("OK") }
+                }
+            }
+        }
+
+        val kinds = if (isKidMode) {
+            listOf(net.dailyok.android.viewmodels.ReceiverHelpKind.Sos)
+        } else {
+            listOf(
+                net.dailyok.android.viewmodels.ReceiverHelpKind.NeedHelp,
+                net.dailyok.android.viewmodels.ReceiverHelpKind.CallMe
+            )
+        }
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            kinds.forEach { kind ->
+                androidx.compose.material3.OutlinedButton(
+                    onClick = { onRequest(kind) },
+                    enabled = !isSending,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = when (kind) {
+                            net.dailyok.android.viewmodels.ReceiverHelpKind.NeedHelp -> "I need help"
+                            net.dailyok.android.viewmodels.ReceiverHelpKind.CallMe -> "Ask family to call me"
+                            else -> "SOS"
+                        },
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+        if (isSending) {
+            Text(
+                text = "Sending…",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

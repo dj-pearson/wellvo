@@ -48,7 +48,11 @@ private val viewerTabs = listOf(
 )
 
 @Composable
-fun ViewerTabsScreen(userId: String = "") {
+fun ViewerTabsScreen(
+    userId: String = "",
+    /** This user left the family: re-route. */
+    onRoleChanged: () -> Unit = {}
+) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     Scaffold(
@@ -103,7 +107,8 @@ fun ViewerTabsScreen(userId: String = "") {
                     ViewerSettingsScreen(
                         viewModel = settingsViewModel,
                         userId = userId,
-                        modifier = Modifier.padding(innerPadding)
+                        modifier = Modifier.padding(innerPadding),
+                        onLeftFamily = onRoleChanged
                     )
                 }
             }

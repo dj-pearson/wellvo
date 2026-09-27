@@ -66,6 +66,38 @@ class SettingsViewModel @Inject constructor(
 
     private var familyId: String? = null
 
+    private val _isLeaving = MutableStateFlow(false)
+    val isLeaving: StateFlow<Boolean> = _isLeaving.asStateFlow()
+
+    /** Set once this co-caregiver has left; the screen re-routes the app. */
+    private val _leftFamily = MutableStateFlow(false)
+    val leftFamily: StateFlow<Boolean> = _leftFamily.asStateFlow()
+
+    fun onLeftFamilyHandled() {
+        _leftFamily.value = false
+    }
+
+    /**
+     * A co-caregiver leaves the family (leave_family, 00061). Their claims
+     * are released (00062) and the owner is told. The owner can't leave (the
+     * server refuses): they transfer the family first.
+     */
+    fun leaveFamily(userId: String) {
+        if (_isLeaving.value) return
+        viewModelScope.launch {
+            _isLeaving.value = true
+            try {
+                val id = familyId ?: familyService.getFamily(userId)?.id
+                    ?: throw DailyOKError.Unknown("You're not in a family.")
+                familyService.leaveFamily(id)
+                _leftFamily.value = true
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Couldn't leave the family. Please try again."
+            }
+            _isLeaving.value = false
+        }
+    }
+
     fun loadSettings(userId: String) {
         viewModelScope.launch {
             _isLoading.value = true

@@ -37,7 +37,9 @@ data class CheckInResponseRequest(
      * from the offline queue (US-IOS147). Null for a live check-in, where the
      * server's now() is the same instant.
      */
-    val occurredAt: String? = null
+    val occurredAt: String? = null,
+    /** Where a kid says they are ("school", "friends_house"); shown with a help alert. */
+    val locationLabel: String? = null
 )
 
 @Serializable
@@ -72,7 +74,13 @@ data class InviteReceiverRequest(
     val displayName: String,
     val receiverMode: String = "standard",
     /** "HH:mm", 24-hour. */
-    val checkinTime: String? = null
+    val checkinTime: String? = null,
+    /**
+     * "receiver" (someone to check on; the default and all older builds send)
+     * or "viewer" (a co-caregiver: alerts, no check-ins). Optional server
+     * field on invite-receiver (edge pass 4).
+     */
+    val role: String = "receiver"
 )
 
 /** What invite-receiver returns on create: everything the owner sends. */
@@ -84,7 +92,18 @@ data class InviteResponse(
     @kotlinx.serialization.SerialName("pairing_code")
     val pairingCode: String? = null,
     @kotlinx.serialization.SerialName("invite_message")
-    val inviteMessage: String? = null
+    val inviteMessage: String? = null,
+    /**
+     * The role the server stored. Absent from a server that predates
+     * co-caregiver invites, which made a receiver invite whatever was asked.
+     */
+    val role: String? = null
+)
+
+@Serializable
+data class CancelEscalationRequest(
+    val receiverId: String,
+    val familyId: String
 )
 
 /** A successful join (accept / redeem-code). */
@@ -123,13 +142,20 @@ data class AutoJoinResponse(
     val familyId: String? = null,
     val role: String? = null,
     @kotlinx.serialization.SerialName("checkin_time")
-    val checkinTime: String? = null
+    val checkinTime: String? = null,
+    /** Why nothing was joined ("limit_reached", "no_matching_invite", …). */
+    val reason: String? = null
 )
 
 data class AutoJoinResult(
     val familyId: String,
     val role: String,
-    val checkinTime: String?
+    val checkinTime: String?,
+    /**
+     * Set when this is an invite waiting for the person's "Join" (auto-join
+     * preview), not a join that already happened.
+     */
+    val preview: JoinPreview? = null
 )
 
 private val json = Json { ignoreUnknownKeys = true }
@@ -213,6 +239,7 @@ class ApiService @Inject constructor(
             // dashboard reads "checked in today" for someone who has not
             // touched their phone in three days.
             request.occurredAt?.let { put("occurred_at", it) }
+            request.locationLabel?.let { put("location_label", it) }
         })
     }
 
@@ -254,8 +281,12 @@ class ApiService @Inject constructor(
             put("name", request.displayName)
             put("display_name", request.displayName)
             put("receiver_mode", request.receiverMode)
-            request.checkinTime?.let { put("checkin_time", it) }
+            // A co-caregiver has no schedule (the server drops one anyway).
+            if (request.role != "viewer") request.checkinTime?.let { put("checkin_time", it) }
             put("timezone", java.time.ZoneId.systemDefault().id)
+            // Sent only for a co-caregiver, so a receiver invite is byte for
+            // byte the request older servers have always had.
+            if (request.role == "viewer") put("role", "viewer")
         })
         return json.decodeFromString<InviteResponse>(responseBody)
     }
@@ -278,11 +309,63 @@ class ApiService @Inject constructor(
         return json.decodeFromString<RedeemCodeResponse>(responseBody)
     }
 
-    suspend fun autoJoin(): AutoJoinResponse {
+    /**
+     * Join the family whose invite matches this account's verified phone.
+     * [familyId] (optional server field) pins the join to the family the user
+     * was just shown in the preview, so "Join" can't land in a different
+     * family that invited the same number in between.
+     */
+    suspend fun autoJoin(familyId: String? = null): AutoJoinResponse {
         val responseBody = invokeFunction("auto-join", buildJsonObject {
             put("timezone", java.time.ZoneId.systemDefault().id)
+            familyId?.let { put("family_id", it) }
         })
         return json.decodeFromString<AutoJoinResponse>(responseBody)
+    }
+
+    // --- Ask before joining (optional `preview: true`, edge pass 6) ---------
+    // A server without `preview` ignores it and joins at once. Its answer then
+    // has no `preview: true`, and JoinPreviews.interpret reports AlreadyJoined.
+
+    /** Describe the family behind an invite link without joining it. */
+    suspend fun previewInvite(token: String): JoinPreview {
+        val responseBody = invokeFunction("invite-receiver", buildJsonObject {
+            put("action", "accept")
+            put("token", token)
+            put("preview", true)
+            put("timezone", java.time.ZoneId.systemDefault().id)
+        })
+        return json.decodeFromString<JoinPreview>(responseBody)
+    }
+
+    /** Describe the family behind a 6-digit setup code without joining it. */
+    suspend fun previewCode(code: String): JoinPreview {
+        val responseBody = invokeFunction("redeem-code", buildJsonObject {
+            put("code", code)
+            put("preview", true)
+            put("timezone", java.time.ZoneId.systemDefault().id)
+        })
+        return json.decodeFromString<JoinPreview>(responseBody)
+    }
+
+    /** Describe the family whose invite matches this phone, without joining it. */
+    suspend fun previewAutoJoin(): JoinPreview {
+        val responseBody = invokeFunction("auto-join", buildJsonObject {
+            put("preview", true)
+            put("timezone", java.time.ZoneId.systemDefault().id)
+        })
+        return json.decodeFromString<JoinPreview>(responseBody)
+    }
+
+    /**
+     * Stop the escalation for a receiver's open check-in without recording a
+     * check-in (the caregiver reached them another way).
+     */
+    suspend fun cancelEscalation(request: CancelEscalationRequest): String {
+        return invokeFunction("cancel-escalation", buildJsonObject {
+            put("receiver_id", request.receiverId)
+            put("family_id", request.familyId)
+        })
     }
 
     fun checkAutoJoinResult(response: AutoJoinResponse): AutoJoinResult? {

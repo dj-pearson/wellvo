@@ -48,7 +48,11 @@ fun DailyOKNavHost(
     onChooseOwnerSetup: () -> Unit = {},
     onBackToChoice: () -> Unit = {},
     onRetryMembership: () -> Unit = {},
-    onSignOut: () -> Unit = {}
+    onSignOut: () -> Unit = {},
+    /** Ownership handed over, or left the family: ask the server for the role again. */
+    onMembershipChanged: () -> Unit = {},
+    /** An invite matching this user's phone, waiting for them to say "Join". */
+    pendingAutoJoin: net.dailyok.android.network.AutoJoinResult? = null
 ) {
     val transitionDuration = 300
 
@@ -109,14 +113,14 @@ fun DailyOKNavHost(
         }
         composable(Route.OwnerTabs.route) {
             val userId = (authState as? AuthState.Authenticated)?.user?.id ?: ""
-            OwnerTabsScreen(userId = userId)
+            OwnerTabsScreen(userId = userId, onRoleChanged = onMembershipChanged)
         }
         composable(Route.ReceiverHome.route) {
             ReceiverHomeScreen()
         }
         composable(Route.ViewerTabs.route) {
             val userId = (authState as? AuthState.Authenticated)?.user?.id ?: ""
-            ViewerTabsScreen(userId = userId)
+            ViewerTabsScreen(userId = userId, onRoleChanged = onMembershipChanged)
         }
         composable(Route.PairingCode.route) {
             BackHandler { onBackToChoice() }
@@ -127,6 +131,7 @@ fun DailyOKNavHost(
         composable(Route.ReceiverOnboarding.route) {
             ReceiverOnboardingScreen(
                 inviteToken = pendingInviteToken,
+                autoJoin = pendingAutoJoin,
                 onComplete = onJoinedResolveRole,
                 onCancel = onJoinCancelled
             )

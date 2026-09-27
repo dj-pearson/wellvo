@@ -110,7 +110,9 @@ class FamilyService @Inject constructor(
         name: String,
         phone: String,
         checkinTime: String,
-        receiverMode: String = "standard"
+        receiverMode: String = "standard",
+        /** "receiver" or "viewer" (co-caregiver). */
+        role: String = "receiver"
     ): net.dailyok.android.util.InviteToSend {
         try {
             val response = apiService.inviteReceiver(
@@ -119,9 +121,16 @@ class FamilyService @Inject constructor(
                     phone = phone,
                     displayName = name,
                     receiverMode = receiverMode,
-                    checkinTime = checkinTime
+                    checkinTime = checkinTime,
+                    role = role
                 )
             )
+            if (role == "viewer" && response.role != "viewer") {
+                // A server without co-caregiver invites made a receiver
+                // invite instead. Sending it would sign this person up for
+                // daily check-ins, so don't.
+                throw DailyOKError.Unknown("Co-caregiver invites aren't available yet. Please try again later.")
+            }
             return net.dailyok.android.util.InviteToSend(
                 phone = phone,
                 message = net.dailyok.android.util.InviteShare.message(
@@ -184,39 +193,54 @@ class FamilyService @Inject constructor(
         }
     }
 
-    suspend fun transferOwnership(memberId: String, familyId: String) {
+    /**
+     * Hand the family to an active co-caregiver, in one transaction on the
+     * server: transfer_family_ownership_v2 (00058) refuses a receiver and
+     * keeps the caller in the family as a co-caregiver. Only a server without
+     * v2 falls back to the 00045 function (asked the same thing; the app only
+     * offers co-caregivers).
+     *
+     * This replaces three separate client writes, which set families.owner_id
+     * to the *membership row id* (not a user id) and could stop half way.
+     */
+    suspend fun transferOwnership(newOwnerUserId: String, familyId: String) {
+        if (supabase.auth.currentUserOrNull()?.id == null) throw DailyOKError.Auth("Not signed in.")
+        val params = buildJsonObject {
+            put("p_family_id", familyId)
+            put("p_new_owner_user_id", newOwnerUserId)
+        }
         try {
-            val currentUserId = supabase.auth.currentUserOrNull()?.id
-                ?: throw DailyOKError.Auth("Not signed in.")
-
-            // Update the target member to owner
-            supabase.postgrest.from("family_members")
-                .update(buildJsonObject {
-                    put("role", "owner")
-                }) {
-                    filter { eq("id", memberId) }
-                }
-
-            // Update current user to viewer
-            supabase.postgrest.from("family_members")
-                .update(buildJsonObject {
-                    put("role", "viewer")
-                }) {
-                    filter { eq("user_id", currentUserId) }
-                    filter { eq("family_id", familyId) }
-                }
-
-            // Update family owner_id
-            supabase.postgrest.from("families")
-                .update(buildJsonObject {
-                    put("owner_id", memberId)
-                }) {
-                    filter { eq("id", familyId) }
-                }
+            try {
+                supabase.postgrest.rpc("transfer_family_ownership_v2", params)
+            } catch (e: Exception) {
+                if (!CaregiverActionsService.isMissingFunction(e)) throw e
+                supabase.postgrest.rpc("transfer_family_ownership", params)
+            }
         } catch (e: DailyOKError) {
             throw e
         } catch (e: Exception) {
-            throw DailyOKError.Unknown(e.message ?: "Failed to transfer ownership.")
+            throw DailyOKError.Unknown(serverMessage(e) ?: "Couldn't transfer ownership. Please try again.")
         }
     }
+
+    /**
+     * A co-caregiver (or receiver) leaves the family (leave_family, 00061):
+     * membership ends, their "I'm on it" claims are released (00062) and the
+     * owner gets a "left the family" notice. The owner can't leave; they
+     * transfer the family first.
+     */
+    suspend fun leaveFamily(familyId: String) {
+        try {
+            supabase.postgrest.rpc("leave_family", buildJsonObject { put("p_family_id", familyId) })
+        } catch (e: Exception) {
+            if (CaregiverActionsService.isMissingFunction(e)) {
+                throw DailyOKError.Unknown("Leaving isn't available yet. Ask the family owner to remove you.")
+            }
+            throw DailyOKError.Unknown(serverMessage(e) ?: "Couldn't leave the family. Please try again.")
+        }
+    }
+
+    /** The Postgres exception text (e.g. "Ownership can only go to a co-caregiver"), if any. */
+    private fun serverMessage(e: Exception): String? =
+        (e as? io.github.jan.supabase.exceptions.RestException)?.error?.takeIf { it.isNotBlank() }
 }
