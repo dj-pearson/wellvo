@@ -51,32 +51,54 @@
 --        DailyOKNavHost.kt never routes a receiver to.
 --
 -- ─── 2. Direct client writes that bypass the edge functions ─────────────────
--- a) INSERT on checkins. The only legitimate path is process-checkin-response
---    (service role). 00057/00061/00062 clamped and role-checked client inserts;
---    they are now refused outright: the INSERT policy is dropped and INSERT is
---    revoked from anon/authenticated.
+-- a) INSERT on checkins. Shipped iOS builds 1.0.3-1.0.6 (commits ed50381
+--    .. 95fc15b, released via release/1.0.6 = 06e48dd on main) replay their
+--    offline queue by POSTing /rest/v1/checkins directly
+--    (Services/OfflineCheckInService.swift, OfflineCheckInInsert:
+--    receiver_id, family_id, checked_in_at, mood, source) and 00057 was
+--    written to keep that working. MIN_SUPPORTED_IOS_APP_VERSION is still
+--    0.0.0 (edge-functions/shared/config.ts), so the direct insert can NOT be
+--    removed yet: those receivers' queued check-ins would never land and
+--    their families would be escalated for a check-in that happened.
+--    Instead the policy "Receivers can insert own checkins" stays and INSERT
+--    is narrowed to exactly those five columns. A direct insert can no longer
+--    set response_type ('need_help'/'call_me'), kid_response_type ('sos'),
+--    coordinates, location_label, local_date, scheduled_for or slot_key; the
+--    00057/00061/00062 guard still clamps checked_in_at and requires an
+--    active receiver. Revoke the remaining columns once
+--    MIN_SUPPORTED_IOS_APP_VERSION >= 1.0.7 (95fc15b moved offline replay to
+--    process-checkin-response).
 -- b) INSERT on checkin_requests ("Owners can create requests"): owners could
 --    raise unlimited requests (push/SMS amplification). Requests come from
 --    send-checkin / dispatch_scheduled_checkins (service role, pg_cron). Policy
---    dropped, INSERT revoked.
+--    dropped, INSERT revoked. No revision of ios/ or android/ inserts them.
 -- c) UPDATE on checkin_requests ("Receivers can resolve own requests"): a
 --    receiver could mark a request answered without a check-in, silencing its
 --    escalation. Answering, snoozing, claiming and standing down go through
 --    process-checkin-response / snooze_checkin_request / claim_checkin_request
 --    / cancel-escalation. Policy dropped, UPDATE revoked.
+--    The one client writer ever shipped is the same iOS 1.0.3-1.0.6 offline
+--    replay (c163a02 added the policy for it): after its direct check-in
+--    insert it PATCHes that receiver's pending requests to checked_in, inside
+--    `try?`, so the refusal is silent. To keep the result it relied on, a
+--    client-role check-in insert now resolves those pending requests
+--    server-side (trg_checkins_client_insert_resolve, SECURITY DEFINER, the
+--    same update process-checkin-response makes). A receiver can therefore
+--    only clear a request by actually recording a check-in.
 -- d) UPDATE on checkins: the 00057+ guard pins most columns, but scheduled_for
 --    and local_date (part of the 00053 one-per-day unique index) were still
 --    writable. UPDATE is now granted only on the three columns clients set
 --    after a check-in: mood, location_label, kid_response_type (the Android
 --    kid SOS PATCH writes kid_response_type and keeps working).
--- Proof: `git log -p -- ios android` contains no .insert/.upsert on
--- `checkins` or `checkin_requests` and no update of `checkin_requests` in any
--- revision. The only client updates of `checkins` ever written are
+-- Proof (`git log --all -p -- ios android`): apart from the iOS offline
+-- replay above, no revision inserts into checkins or checkin_requests or
+-- updates checkin_requests. The only client updates of `checkins` ever
+-- written are
 --   iOS  ViewModels/ReceiverViewModel.swift setMood: .update(["mood": …])
 --   Android viewmodels/ReceiverViewModel.kt submitMood / submitLocationLabel /
 --        submitKidResponse: mood, location_label, kid_response_type.
--- Check-ins (online, offline sync, widget, watch, NSE, Siri) go through the
--- process-checkin-response edge function. iOS HealthService.swift upserts
+-- Current builds send every check-in (online, offline sync, widget, watch,
+-- NSE, Siri) through process-checkin-response. iOS HealthService.swift upserts
 -- wellness_signals, a different table, untouched here. The Android helpers
 -- insertRow/upsertRow in network/SupabaseExtensions.kt have no callers.
 --
@@ -133,6 +155,9 @@
 --   break it the same way as families above.
 -- * Receivers' UPDATE of mood / location_label / kid_response_type on their
 --   own checkins: used by both apps (item 2d), kept.
+-- * Receivers' direct INSERT of their own check-in (receiver_id, family_id,
+--   checked_in_at, mood, source only): iOS 1.0.3-1.0.6 offline replay (item
+--   2a). Revoke once MIN_SUPPORTED_IOS_APP_VERSION >= 1.0.7.
 -- * Owners' DELETE on alerts ("Owners can delete family alerts") and on
 --   checkin_requests ("Owners can delete family requests"): no revision of
 --   ios/ or android/ deletes these rows, but neither was on the deferred
@@ -146,11 +171,14 @@
 -- ─── VERIFICATION ────────────────────────────────────────────────────────────
 --   SELECT policyname, cmd FROM pg_policies
 --    WHERE tablename IN ('checkins','checkin_requests')
---    ORDER BY 1;  -- no INSERT policies; no "Receivers can resolve own requests"
+--    ORDER BY 1;  -- INSERT only "Receivers can insert own checkins";
+--                 -- no "Owners can create requests" / "Receivers can resolve own requests"
 --   SELECT qual FROM pg_policies WHERE tablename = 'checkins'
 --    AND policyname = 'Family owners and viewers can read family checkins';
 --                                            -- is_active_caregiver_of(family_id)
 --   SELECT has_table_privilege('authenticated','checkins','INSERT'),          -- f
+--          has_column_privilege('authenticated','checkins','source','INSERT'), -- t
+--          has_column_privilege('authenticated','checkins','response_type','INSERT'), -- f
 --          has_table_privilege('authenticated','checkin_requests','INSERT'),  -- f
 --          has_table_privilege('authenticated','checkin_requests','UPDATE'),  -- f
 --          has_table_privilege('authenticated','alerts','UPDATE'),            -- f
@@ -169,15 +197,47 @@ CREATE POLICY "Family owners and viewers can read family checkins"
     ON checkins FOR SELECT
     USING (is_active_caregiver_of(family_id));
 
--- 2a/2b. No direct client inserts of check-ins or check-in requests.
-DROP POLICY IF EXISTS "Receivers can insert own checkins" ON checkins;
-DROP POLICY IF EXISTS "Owners can create requests" ON checkin_requests;
+-- 2a. Direct check-in inserts: only the columns iOS 1.0.3-1.0.6 offline
+-- replay sends. The policy "Receivers can insert own checkins" is kept.
 REVOKE INSERT ON checkins FROM anon, authenticated;
+GRANT INSERT (receiver_id, family_id, checked_in_at, mood, source)
+    ON checkins TO authenticated;
+
+-- 2b. No direct client inserts of check-in requests.
+DROP POLICY IF EXISTS "Owners can create requests" ON checkin_requests;
 REVOKE INSERT ON checkin_requests FROM anon, authenticated;
 
 -- 2c. No direct client updates of check-in requests.
 DROP POLICY IF EXISTS "Receivers can resolve own requests" ON checkin_requests;
 REVOKE UPDATE ON checkin_requests FROM anon, authenticated;
+
+-- A client-role check-in insert (old iOS offline replay) resolves that
+-- receiver's pending requests, as process-checkin-response does for its own
+-- inserts. Service-role inserts are skipped (the edge function does it).
+CREATE OR REPLACE FUNCTION resolve_requests_on_client_checkin()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    UPDATE checkin_requests
+       SET status = 'checked_in',
+           responded_at = NOW()
+     WHERE receiver_id = NEW.receiver_id
+       AND family_id = NEW.family_id
+       AND status = 'pending';
+    RETURN NULL;
+END;
+$$;
+REVOKE ALL ON FUNCTION resolve_requests_on_client_checkin() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_checkins_client_insert_resolve ON checkins;
+CREATE TRIGGER trg_checkins_client_insert_resolve
+    AFTER INSERT ON checkins
+    FOR EACH ROW
+    WHEN (is_client_role())
+    EXECUTE FUNCTION resolve_requests_on_client_checkin();
 
 -- 2d. Check-in updates: only the post-check-in annotations. The RLS policy
 -- "Receivers can update own checkins" and the 00057+ guard still apply.
