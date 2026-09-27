@@ -190,6 +190,8 @@ struct ContentView: View {
         }
         appState.lastRoleResolvedAt = Date()
 
+        Self.tearDownSharedState(for: role)
+
         if let role {
             appState.currentUserRole = role
             // Already a member: drop any stale invite/auto-join deep link so it
@@ -233,6 +235,25 @@ struct ContentView: View {
             }
         }
         appState.roleResolution = .resolved
+    }
+
+    /// Glanceable state that belongs to a role this user no longer has.
+    ///
+    /// Resolving a removed member to "no family" (or a receiver to co-caregiver
+    /// after a hand-over) only changed the screen: the receiver snapshot kept
+    /// the widget, Control Center, Siri and the watch offering "I'm OK" for
+    /// the old family, and the owner widget and Live Activities kept the old
+    /// family's names. Each clear is a no-op when there is nothing to clear.
+    @MainActor
+    static func tearDownSharedState(for role: UserRole?) {
+        if role != .receiver, SharedCheckInStore.load() != nil {
+            SharedCheckInPublisher.clearSnapshot()
+            Task { await PushNotificationService.shared.cancelLocalCheckinFallback() }
+        }
+        if role != .owner, role != .viewer, SharedOwnerStore.load() != nil {
+            SharedOwnerPublisher.clear()
+            EscalationActivityManager.endAll()
+        }
     }
 
     /// Re-ask the server on foreground once the last answer is 15 minutes old,

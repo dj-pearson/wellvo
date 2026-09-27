@@ -6966,3 +6966,321 @@ DEFERRED
     told "<their own name> is on it"; they get the plain page.
   - AppDelegate: the `route(for:)` doc comment had been split off onto the new
     dashboardAlertTypes constant; moved back.
+
+================================================================================
+2026-09-27 — iOS function deep dive: Extensions & system surfaces: widgets, Control Center check-in, App Intents/Shortcuts, Apple Watch app + complications, Notification Service extension, push notification actions, Live Activity
+================================================================================
+
+What these surfaces must guarantee:
+  - A tap from the widget, Control Center, Siri, the watch or a Lock Screen
+    action reaches the same process-checkin-response path the app uses.
+    Otherwise the tap is saved and sent later with the time it was made, or
+    the receiver is told plainly that it didn't send.
+  - A help request is never saved for silent later delivery. It goes out
+    live or the receiver is told to call.
+  - No surface says "You're all set" while the family is asking again, after
+    a help request, for a tap that was only saved, or on a day the server
+    has nothing for (measured in the receiver's zone).
+  - Nothing on a device outlives the membership, the role or the session
+    that produced it, and nothing acts as someone else.
+  - No surface forks the Supabase session. With refresh-token rotation, a
+    fork signs the receiver out everywhere.
+
+Four reviewer passes (UI/UX, break-it, spoof, product). Every claim was checked
+against the code. The line numbers in several findings were wrong, but the
+substance held except as noted under DECIDED. supabase-swift's session storage
+was read from the package source (SessionStorage / SessionManager / Session):
+the SDK reads the stored session on every access with no in-memory cache, and
+encodes it with a plain JSONEncoder (camelCase keys, expiresAt in Unix
+seconds).
+
+Branch: worked in the existing claude/ios-app-deep-dive-cm3nu0 working tree,
+as the orchestrator asked. Nothing was committed.
+
+FIXED
+
+  - CRITICAL: the Supabase refresh-token chain was forked. The NSE (on almost
+    every check-in push) and the widget / Control Center / Siri / watch
+    (SharedCheckInClient) refreshed the mirrored session and wrote the rotated
+    pair only to the shared Keychain item. The SDK never reads that item, so
+    the app kept presenting the spent refresh token. GoTrue reuse detection
+    then revokes the session family, signing the receiver out of the app, the
+    widget and the watch at once. Worse, the app's publish,
+    syncAccessTokenToExtension and republish wrote the older SDK pair back
+    over the newer one. Fixes:
+      * SupabaseSessionStorage.retrieve adopts a newer same-user pair from the
+        shared item into the stored session. SessionTokenReconciler (pure,
+        tested) patches the JSON by key, handles camelCase and snake_case,
+        and refuses older pairs, other users (JWT sub) and unknown data.
+      * Every app-side mirror uses SharedKeychain.saveTokensIfNotOlder, so an
+        older pair never overwrites a newer one for the same user
+        (SharedAuthTokens.shouldReplace, tested).
+      * The watch sends the pairs it rotates back to the phone
+        (SharedCheckInClient.tokensRotated → transferUserInfo
+        "rotated_tokens"). The phone adopts them into the SDK session
+        (SupabaseSessionStorage.adopt) and, when the gate allows, the shared
+        item.
+  - HIGH: the watch re-applied stale context tokens. applyContext runs on
+    every launch and restored a refresh token the watch had already spent.
+    Context tokens are now applied only when they are not older.
+  - CRITICAL (product): the phone marked TODAY done for any watch notify,
+    including a tap only queued offline and a marker flushed from an earlier
+    day. It then synced "done" back to the watch, which refused the real
+    check-in because of its short-circuit. The watch now reports
+    {sent, answered_at, type} only for a check-in that reached the server,
+    and only a today one. The phone runs the full ReceiverCheckInAftermath
+    (which cancels the fallback reminder and clears banners) only for a sent
+    report that answers today in the receiver's zone (WatchCheckInReport,
+    tested). The legacy bare notify only reloads an open home screen. The
+    watch's "already done today" short-circuit is gone; the server dedups.
+  - HIGH: widget / Control Center / Siri taps had no offline path, no
+    feedback and no 502–504 handling, and could take up to about 2 min of
+    30 s requests. Now:
+      * transport errors and 502/503/504 (SharedCheckInError.isQueueable)
+        save the tap in an App Group queue (ExtensionCheckInQueue, stamped
+        with receiver/family/source/slot);
+      * OfflineCheckInService.syncPendingCheckIns adopts that queue into its
+        own queue (new queueCheckIn(at:)), which replays with occurred_at;
+      * the widget shows "Saved on this iPhone" with "Send now";
+      * a refusal is written to the snapshot and shown as "Didn't send" with
+        the reason, opening the app;
+      * the intent uses 8 s per request with a ~20 s deadline, and the 401
+        refresh-and-retry is skipped past the deadline.
+  - HIGH: watch "I Need Help" / "Call Me" failed silently. On transport or
+    locked it was queued for later with no word; on anything else the catch
+    was empty. It now follows the phone rule: live only. On any failure the
+    watch plays .failure and posts "Your help request didn't send — Not sent.
+    Call Sarah now." Success plays .success and reports the help to the
+    phone.
+  - HIGH: after a help request every glanceable surface said "You're all
+    set!". SharedCheckInState gains helpKind/helpAt (optional). They are set
+    by SharedCheckInClient for urgent types, by ReceiverViewModel.sendHelp,
+    by the Lock Screen help actions and by the publisher (from helpStatus).
+    The widget (all families), the watch app and the complication show
+    "Help requested / We told Sarah you need help · Sent 3:12 PM" in orange.
+  - HIGH: removed or lapsed receivers kept a live "I'm OK" everywhere and got
+    "error 403. Please try again". Now:
+      * 403 → SharedCheckInError.notInFamily ("You're no longer part of this
+        family's check-ins…"), which clears the snapshot (tokens kept) so
+        every surface falls back to "Open Daily OK";
+      * 426 → "Please update Daily OK";
+      * the watch drops its queue on 403 instead of showing "Saved" for a
+        week, and says why;
+      * ReceiverViewModel treats getFamily() == nil with a live session as
+        removed: it clears the snapshot and the fallback reminder, and
+        explains;
+      * ContentView.resolveRole tears down state for a role the user no
+        longer has: the receiver snapshot, the owner widget snapshot and Live
+        Activities.
+  - HIGH: the owner widget hid who needs help. The Lock Screen accessory now
+    leads with "Mom needs help" / "Mom asked you to call" / "Sam sent an SOS"
+    / "No answer from Dad" (SharedOwnerState.headline, tested). The small
+    widget shows the status in words and has a combined VoiceOver label.
+  - HIGH: after "check on them now", glanceable surfaces kept saying "all set"
+    and the watch button refused to send. The NSE stamps latestRequestAt /
+    latestRequestSlotKey on the App Group snapshot for CHECKIN_REQUEST pushes
+    (patching the JSON by key, since the target compiles standalone) and
+    reloads widgets. The watch does the same from willPresent and the
+    long-look controller. isCheckedIn is false while a request newer than the
+    last check-in is outstanding today; the widget says "Your family is
+    asking again".
+  - HIGH: extension check-ins sent no slot_key, so an evening answer was
+    folded into the morning row. SharedCheckInClient now sends the owed
+    window (the latest request's slot_key while it is unanswered), or the
+    marker's slot on replay.
+  - MEDIUM (security): biometric withholding was undone on every launch
+    (including background launches) and on every .tokenRefreshed, which on
+    resume fires before the Face ID prompt. New SharedTokenGate: while
+    biometric lock is on, app-side mirroring (publish, syncAccessTokenTo-
+    Extension, adopt) happens only after an unlock in this process. It opens
+    when the lock is off or can't be enforced (no Face ID enrolled), and when
+    the setting is changed from inside the unlocked app.
+  - MEDIUM (security): with biometric lock on, the Lock Screen "I'm OK" and
+    "Remind me" actions now use .authenticationRequired. Categories are
+    re-registered when the setting changes (NotificationCategories.register).
+    Help actions never require unlock (next item).
+  - MEDIUM: "I Need Help" / "Call Me" on the Lock Screen needed the phone
+    unlocked (.foreground), and "I'm OK" did not. Both now run in the
+    background through the existing live-only path. Success posts "We told
+    Sarah you need help" and failure posts the existing "didn't send" alert.
+    Order is now OK, I Need Help, Call Me, Remind me.
+  - MEDIUM: known gap (1). The widget / Control Center / Siri intent now
+    withdraws the pending local fallback reminder and delivered
+    CHECKIN_REQUEST banners (CheckInAftermathLite; an extension addresses
+    its containing app's notification center). A delivered watch check-in
+    runs the full aftermath on the phone. The reminder text stays "If you
+    haven't checked in yet…" as a fallback.
+  - MEDIUM: the owner widget dropped stood-down, help kind, zone and claim.
+    SharedOwnerReceiver gains optional stoodDown / helpKind / timeZoneId /
+    claimedByName, filled by the publisher. A stood-down miss reads "Alerts
+    stopped" (neutral), is not "needs attention", and never outranks a live
+    escalation. SOS ranks first. Rows add "· Tom is on it". Day scoping and
+    times use the receiver's zone, with the zone abbreviation when it differs
+    from the viewer's. There is a midnight entry per receiver zone.
+  - MEDIUM: the receiver snapshot is day-scoped in the receiver's account
+    zone (timeZoneId), which the server files by. This covers the widget,
+    watch, complication, SharedCheckInClient's "answers today" and the
+    midnight timeline entries.
+  - MEDIUM: CheckInIntent's free-text "Source" (Shortcuts editor) with any
+    unknown value 500'd every check-in against the checkin_source ENUM. The
+    client normalises it (CheckInSurface, tested), and the server does too
+    (shared/checkin-source.ts, tolerant, never stricter; 3/3 tests under
+    Node 22 with a Deno.test shim).
+  - MEDIUM: the watch offline queue was not tied to a user and survived
+    sign-out. OfflineCheckInMarker gains optional receiverId / familyId /
+    source / slotKey, and older queues still decode. Markers are stamped at
+    enqueue. Foreign markers are dropped at flush, on reload and when the
+    snapshot changes person. The queue is cleared on an empty context
+    (sign-out, Leave). An unstamped legacy marker is still sent, because it
+    could only have been made on this device before the update.
+  - MEDIUM: the watch told VoiceOver users "Your family has been notified" for
+    a tap only saved on the watch, and played the success haptic. It now
+    says "Saved on your watch. It will send when your watch or iPhone is
+    connected." and plays a click. The complication has a Saved state (from
+    the watch queue) and a Help sent state.
+  - MEDIUM: removed or re-roled members' owner widget and Live Activities
+    (ContentView teardown, above). Live Activity tokens survived sign-out,
+    and the push-to-start observer stayed bound to the previous user.
+    LiveActivityTokenService.deactivateAll now runs before the revoke (with
+    the push token) and reset() runs in clearSharedSession.
+  - LOW: on the watch, "locked" told people to unlock "this device". The copy
+    is now "Unlock Daily OK on your iPhone, then try again", and the watch
+    app queues on locked like the notification path did.
+  - LOW: extension copy exposed HTTP codes. All codes are now plain words
+    matching the in-app mapping, with "call Sarah" when the owner is known
+    (snapshot ownerName).
+  - LOW: Lock Screen receiver widgets had no signed-out branch and offered a
+    dead "Tap to check in". They now read "Open Daily OK". Siri no longer
+    tells a signed-in owner to "sign in first".
+  - LOW: the owner widget's "Pending" was plain .yellow text. The status
+    words are now primary/secondary, and pending icons are orange. Names and
+    statuses are .privacySensitive() (StandBy / Lock Screen). The empty state
+    distinguishes "Add someone to check on" from "Open Daily OK to see your
+    family".
+  - LOW: the owner widget polled the same App Group bytes every 5 minutes.
+    It now refreshes every 15 minutes while someone needs attention and 30
+    otherwise; the app reloads timelines on every write.
+  - LOW: the viewer Live Activity's bare "Open" now reads "See who's on it".
+
+ADDED
+
+  - Receiver widget states: help requested, saved (Send now), didn't send,
+    "Due at 9:00 AM" / "Your family is asking again", and "Next: tomorrow
+    9:00 AM" under "You're all set". .invalidatableContent() gives a pending
+    look while the intent runs.
+  - Watch "Need help?" on every signed-in screen. It confirms first ("I need
+    help" / "Ask Sarah to call me"), sends live only, and says "Not sent.
+    Call Sarah now." on failure.
+  - Siri / Shortcuts "How's my family on Daily OK" (FamilyStatusIntent). It
+    reads the owner widget snapshot, leads with whoever needs the owner and
+    says how old the snapshot is. It requires authentication, so it can't
+    speak from a locked phone. Tested (FamilyStatusSpeech).
+
+BACKEND (additive, CLAUDE.md §B)
+
+  - process-checkin-response: source → normalizeCheckinSource (new
+    shared/checkin-source.ts + _test.ts). Unknown values are recorded as
+    "app" instead of 500. Same request/response shape, and known values are
+    unchanged. No migration was needed. Touched edge files type-check with
+    tsc --strict (stubs; only the known stub-caused sentry.ts error).
+
+TESTS
+
+  - ModelTests.swift:
+      * ExtensionSurfaceLogicTests: asked-again, owed slot key, receiver-zone
+        doneness, help day-scoping, failure cleared by a later check-in,
+        older and NSE-patched snapshots decode, status → error mapping, no
+        HTTP codes in copy, source normalisation, watch report
+        (legacy/unsent ignored, today only), snapshotHelpKind;
+      * SharedSessionTokenTests: JWT subject, no older-over-newer,
+        other-user writes, reconciler adopts newer (both encodings) and
+        refuses older, same, foreign and unrecognised data.
+  - OfflineMarkerPolicyTests.swift (OfflineMarkerIdentityTests): belongs,
+    legacy kept, partition, old queue decodes, round trip.
+  - SharedOwnerStateTests.swift:
+      * SharedOwnerWidgetTruthTests: stood down, yesterday's stand-down,
+        ranking, SOS first, Lock Screen headline, receiver zone, zone
+        abbreviation, needsAttention, old snapshot decodes;
+      * FamilyStatusSpeechTests.
+
+DECIDED
+
+  - The watch notification path no longer queues urgent responses (it did on
+    transport or locked). This matches the phone and the in-app rule from
+    pass 7: live or "call now". Plain "I'm OK" still queues.
+  - A 403 clears the snapshot but keeps the tokens. The account is still
+    signed in, and the NSE still confirms delivery.
+  - Legacy unstamped markers are treated as the current person's. The
+    alternative silently drops real check-ins from before the update. The
+    queue is now cleared on sign-out, so a new unstamped marker can't cross a
+    hand-over.
+  - Help actions on the Lock Screen run without unlock even with biometric
+    lock on. Availability of a help request outranks the lock; routine
+    OK/snooze follow the lock.
+  - The reviewer claim that the watch notification handler lived at
+    WatchNotificationController.swift:145-174 had the wrong lines (the file
+    is 91 lines), but the behaviour was as described.
+
+DEFERRED
+
+  - Live Activity for help requests (need help / call me / SOS), step and
+    claim text, "update" pushes from escalation-tick and use of the stored
+    push-to-start tokens. Needs server-built content-state, and ActivityKit's
+    date decoding (Unix vs reference-date seconds) must be checked on a
+    device first. A help request still ends a running "Overdue" activity.
+    That is intended for the miss, but there is no help activity yet.
+  - Updating the owner widget while the app is closed: mutable-content plus
+    receiver_id/status on caregiver pushes, and an NSE patch of the owner
+    snapshot. This changes NSE behaviour for every caregiver push; it belongs
+    with the Live Activity push work.
+  - Delivery confirmation that doesn't need the session (a per-request
+    delivery_token accepted by confirm-delivery). Until then, receivers with
+    biometric lock on still get the 00012 retry buzzes, because the NSE has
+    no tokens while locked.
+  - A private first keychain-access-group for the main app (entitlement
+    change plus a one-time item migration). There is no exploit through
+    current code; it can't be verified without a device.
+  - Siri "I need help" intent. Voice false-trigger risk, and the
+    requestConfirmation flow needs on-device validation. The watch got a
+    confirmed help button instead, and the Lock Screen help actions no
+    longer need unlock.
+  - A "Need help" link on the systemMedium widget (needs a dailyok://help
+    route into the in-app confirmation).
+  - Having the watch ask the phone for fresh tokens (sendMessage) instead of
+    refreshing itself; the rotated pair is handed back instead.
+  - Checking GOTRUE_SECURITY_REFRESH_TOKEN_REUSE_INTERVAL and rotation
+    settings on the self-hosted GoTrue.
+  - NSFileCoordinator for App Group snapshot writes (carry-over).
+  - Android parity: widget offline queue, help state and owner widget truth.
+
+  Not compiled (no Xcode, no swiftc, no deno). The tree-sitter Swift grammar
+  parses every changed Swift file. Its only errors are the known pre-existing
+  gaps: #Predicate in OfflineCheckInService, plus spots in AuthViewModel,
+  ReceiverViewModel and SettingsView that are identical at HEAD. No new Swift
+  files. pbxproj: OfflineCheckInMarker.swift (existing file ref F1S0000A) was
+  added to the widget extension (B5S0000A) and watch complication (B6S0000A)
+  Sources phases, which CheckInIntent's queue and the complication's Saved
+  state need. The NSE imports WidgetKit (system framework, autolinked).
+  TypeScript was checked with tsc --strict. The new edge test runs under
+  Node 22: 3/3.
+
+  Adversarial review of the extensions pass (same working tree, not compiled):
+  - SupabaseSessionStorage.adopt (watch-rotated tokens -> app session) used the
+    key "supabase.auth.token", but SupabaseClient passes its own default
+    "sb-<first host label>-auth-token" (supabase-swift v2.55.2
+    SupabaseClient.swift defaultStorageKey), so the hand-back was a silent
+    no-op. It now tries the derived key, then the bare AuthClient default.
+  - SharedTokenGate: with the gate closed, mirrorTokens now clears a pair left
+    in the shared item (fresh background launch after the last process was
+    killed while unlocked). Otherwise an SDK refresh in that process left a
+    spent refresh token for the NSE / widget, which trips reuse detection.
+  - "Saved, not sent" vs "all set": the app marks a QUEUED tap done (so nothing
+    re-prompts) and publish(savedOffline:) sets pendingSendSince, but the
+    widget ranked done above saved and gated pendingSend on !done, so a queued
+    notification / in-app / fallback-reminder tap read "You're all set!".
+    markCheckedIn / ReceiverCheckInAftermath.record take savedOffline; the
+    widget, watch app and complication rank saved above done; a background
+    sync that empties both queues clears the flag. recordPendingSend and
+    markCheckedIn always stamp today (a stale earlier-day stamp hid today's).
+  - LiveActivityTokenService.deactivateAll no longer takes the NSLock inside
+    an async function (noasync warning, an error in Swift 6).

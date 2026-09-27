@@ -19,7 +19,7 @@ import Foundation
 /// was made, and sending that moment as `occurred_at` (US-IOS147) so the server
 /// files it under the day it belongs to rather than the day it arrives.
 enum WatchOfflineQueue {
-    private static let markersKey = "watch_pending_checkins"
+    private static let markersKey = OfflineMarkerStore.watchKey
     /// The single-slot keys this replaces. Read once, migrated, then removed —
     /// an upgrade must not drop a check-in that is already waiting.
     private static let legacyKey = "watch_pending_checkin"
@@ -56,10 +56,23 @@ enum WatchOfflineQueue {
 
     // MARK: - Writing
 
-    /// Queue a pending response for now.
-    static func enqueue(type: String = "ok") {
-        let marker = OfflineCheckInMarker(at: Date(), type: type)
-        save(OfflineMarkerPolicy.enqueue(loadRaw(), adding: marker))
+    /// Queue a pending response for now, stamped with whose tap it is so it
+    /// can never be sent as someone else's check-in after a hand-over.
+    static func enqueue(type: String = "ok", state: SharedCheckInState? = SharedCheckInStore.load()) {
+        let marker = OfflineCheckInMarker(
+            at: Date(), type: type,
+            receiverId: state?.receiverId, familyId: state?.familyId,
+            source: "watch", slotKey: state?.owedSlotKey()
+        )
+        save(OfflineMarkerPolicy.enqueue(loadRaw(), adding: marker, calendar: state?.receiverCalendar ?? .current))
+    }
+
+    /// Drop every marker that isn't `receiverId`'s. Returns what's left.
+    @discardableResult
+    static func dropForeign(keeping receiverId: String) -> [OfflineCheckInMarker] {
+        let split = OfflineMarkerPolicy.partition(pending, for: receiverId)
+        if !split.foreign.isEmpty { save(split.mine) }
+        return split.mine
     }
 
     /// Remove a marker that has been sent.
@@ -85,17 +98,12 @@ enum WatchOfflineQueue {
 
     // MARK: - Storage
 
-    private static let encoder = JSONEncoder()
-    private static let decoder = JSONDecoder()
-
     private static func loadRaw() -> [OfflineCheckInMarker] {
         guard let defaults = SharedAppGroup.defaults else { return [] }
 
-        var markers: [OfflineCheckInMarker] = []
-        if let data = defaults.data(forKey: markersKey),
-           let decoded = try? decoder.decode([OfflineCheckInMarker].self, from: data) {
-            markers = decoded
-        }
+        // Same key and encoding the complication reads through
+        // OfflineMarkerStore.
+        var markers = OfflineMarkerStore.load(key: markersKey)
 
         // One-time migration from the single slot. Done on read rather than at
         // launch so it cannot be missed by a surface that never runs launch code
@@ -115,12 +123,6 @@ enum WatchOfflineQueue {
     }
 
     private static func save(_ markers: [OfflineCheckInMarker]) {
-        guard let defaults = SharedAppGroup.defaults else { return }
-        guard !markers.isEmpty else {
-            defaults.removeObject(forKey: markersKey)
-            return
-        }
-        guard let data = try? encoder.encode(markers) else { return }
-        defaults.set(data, forKey: markersKey)
+        OfflineMarkerStore.save(markers, key: markersKey)
     }
 }

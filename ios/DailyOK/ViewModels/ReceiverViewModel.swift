@@ -261,7 +261,21 @@ final class ReceiverViewModel: ObservableObject {
     }
 
     private func performLoadStatus() async {
-        guard let family = try? await FamilyService.shared.getFamily() else {
+        let family: Family
+        do {
+            guard let found = try await FamilyService.shared.getFamily() else {
+                // getFamily answers nil both without a session and — with one
+                // — when the server has no active membership. Only the second
+                // is "removed": check the session is really there first.
+                if (try? await SupabaseService.shared.client.auth.session) != nil {
+                    await handleNoLongerInFamily()
+                } else {
+                    loadCachedStatus()
+                }
+                return
+            }
+            family = found
+        } catch {
             // Offline (or the lookup failed): keep the check-in button working.
             // Without a familyId, performCheckIn returned silently — the button
             // did nothing on every offline cold launch, defeating the queue.
@@ -394,8 +408,42 @@ final class ReceiverViewModel: ObservableObject {
             hasCheckedInToday: hasCheckedInToday,
             lastCheckInAt: lastCheckIn?.checkedInAt,
             nextCheckInAt: nextCheckInTime,
-            displayName: nil
+            displayName: nil,
+            // So the watch can say "Call Sarah", every surface measures "today"
+            // in the zone the server files by, and a help request reads as
+            // "Help requested" rather than "You're all set".
+            ownerName: ownerName,
+            timeZoneId: receiverTimezone,
+            helpKind: helpStatus.flatMap { Self.snapshotHelpKind($0.kind) },
+            helpAt: helpStatus?.sentAt,
+            savedOffline: checkInSavedOffline
         )
+    }
+
+    /// The snapshot's wire value for a help card, nil for non-urgent kid
+    /// replies. Pure.
+    nonisolated static func snapshotHelpKind(_ kind: ReceiverHelpKind) -> String? {
+        switch kind {
+        case .needHelp: return "need_help"
+        case .callMe: return "call_me"
+        case .sos: return "sos"
+        case .pickMeUp, .stayLonger: return nil
+        }
+    }
+
+    /// The server has no active membership for this signed-in receiver: the
+    /// owner removed them, or the family went away. The widget, Control
+    /// Center, Siri and the watch used to keep offering "I'm OK" for it
+    /// indefinitely (every tap a confusing "error 403"), because only sign-out
+    /// and Leave cleared the snapshot. Clear it, stop the local reminder, and
+    /// say so; ContentView's role check routes them on.
+    private func handleNoLongerInFamily() async {
+        SharedCheckInPublisher.clearSnapshot()
+        await PushNotificationService.shared.cancelLocalCheckinFallback()
+        familyId = nil
+        hasCheckedInToday = false
+        pendingRequests = []
+        errorMessage = String(localized: "You're no longer part of a family's check-ins. If that's a mistake, ask the person who invited you to add you again.")
     }
 
     /// Offline fallback for `performLoadStatus`: the family and today's status
@@ -982,7 +1030,7 @@ final class ReceiverViewModel: ObservableObject {
                 // error, not "family notified", and nothing to undo yet.
                 markSavedOffline(serverBusy: false)
             }
-            await ReceiverCheckInAftermath.record(at: checkIn?.checkedInAt ?? Date())
+            await ReceiverCheckInAftermath.record(at: checkIn?.checkedInAt ?? Date(), savedOffline: checkIn == nil)
         } catch let error as NetworkError {
             // Queued: no connectivity, or the server unreachable behind its proxy.
             hasCheckedInToday = true
@@ -994,7 +1042,7 @@ final class ReceiverViewModel: ObservableObject {
             } else {
                 markSavedOffline(serverBusy: false)
             }
-            await ReceiverCheckInAftermath.record(at: Date())
+            await ReceiverCheckInAftermath.record(at: Date(), savedOffline: true)
         } catch {
             // Real failure (auth, server refusal): do NOT flip the UI to
             // "checked in" — otherwise the receiver sees "you're all set"
@@ -1101,7 +1149,12 @@ final class ReceiverViewModel: ObservableObject {
                 noticeMessage = kind.sentMessage(owner: ownerName)
                 DailyOKHaptics.success()
             }
-            await ReceiverCheckInAftermath.record(at: row.checkedInAt)
+            // The widget, watch and complication say "Help requested", not
+            // "You're all set".
+            await ReceiverCheckInAftermath.record(
+                at: row.checkedInAt,
+                helpKind: kind.isUrgent ? Self.snapshotHelpKind(kind) : nil
+            )
         } catch {
             helpFailure = HelpFailure(kind: kind, message: Self.helpFailureMessage(error, ownerName: ownerName))
             DailyOKHaptics.error()

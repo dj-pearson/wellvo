@@ -28,9 +28,51 @@ struct SharedCheckInState: Codable, Equatable {
     var lastCheckInAt: Date?
     var nextCheckInAt: Date?
     var updatedAt: Date
+
+    // MARK: Added in the extensions pass. Every one is optional with a nil
+    // default, so a snapshot written by an older build still decodes (the
+    // synthesized Codable uses decodeIfPresent for optionals) and the
+    // memberwise initialiser keeps its old shape.
+
+    /// The family owner's first name, for "Call Sarah" on the watch and the
+    /// "didn't send" copy. nil → "your family".
+    var ownerName: String? = nil
+    /// The receiver's account zone (users.timezone). The server files check-ins
+    /// by it, so "today" on every glanceable surface must use it too. nil → the
+    /// device zone, which is what every build before this used.
+    var timeZoneId: String? = nil
+    /// Today's help signal, if the receiver asked for help: "need_help",
+    /// "call_me" or "sos". A help request is not "You're all set".
+    var helpKind: String? = nil
+    var helpAt: Date? = nil
+    /// When the latest check-in request reached this device (written by the
+    /// Notification Service Extension on the phone and by the notification
+    /// controller on the watch). A request newer than the last check-in means
+    /// the family is asking again, so "all set" must give way to the button.
+    var latestRequestAt: Date? = nil
+    /// The "HH:mm" window that request is for, sent back as slot_key so an
+    /// evening answer from the widget or watch is filed under the evening.
+    var latestRequestSlotKey: String? = nil
+    /// A tap from the widget / Control Center / Siri that couldn't reach the
+    /// server and is saved on this phone, waiting for the app to send it.
+    var pendingSendSince: Date? = nil
+    /// The last refusal a glanceable surface should own up to ("Didn't send —
+    /// open Daily OK"), and when. Cleared by the next success.
+    var lastFailureMessage: String? = nil
+    var lastFailureAt: Date? = nil
 }
 
 extension SharedCheckInState {
+    /// The calendar "today" is measured in: the receiver's account zone when the
+    /// phone published one, else the device's.
+    var receiverCalendar: Calendar {
+        var cal = Calendar.current
+        if let id = timeZoneId, let zone = TimeZone(identifier: id) {
+            cal.timeZone = zone
+        }
+        return cal
+    }
+
     /// Whether today's check-in is actually done *as of `now`*, derived from the
     /// check-in's calendar day rather than trusting the persisted
     /// `hasCheckedInToday` flag on its own.
@@ -42,13 +84,55 @@ extension SharedCheckInState {
     /// watch-only user would otherwise be shown a stale "all set" and have a
     /// real new-day check-in silently short-circuited (a false-escalation risk).
     ///
-    /// Uses the device-local calendar; the phone remains the source of truth and
-    /// rewrites the snapshot with its own timezone-correct status whenever it
-    /// runs. The flag is still required so the phone can authoritatively mark
-    /// "not done" even when `lastCheckInAt` happens to land today.
-    func isCheckedIn(asOf now: Date = Date(), calendar: Calendar = .current) -> Bool {
+    /// Two more ways "done" stops being true without the phone app running:
+    ///  - the family asked again (a check-in request that arrived after the
+    ///    last check-in — an owner's "check on them now", or a later window);
+    ///  - the day is measured in the receiver's account zone, which is what the
+    ///    server files by, not the device's.
+    ///
+    /// `calendar` overrides the zone (tests); nil uses `receiverCalendar`.
+    func isCheckedIn(asOf now: Date = Date(), calendar: Calendar? = nil) -> Bool {
+        let cal = calendar ?? receiverCalendar
         guard hasCheckedInToday, let last = lastCheckInAt else { return false }
-        return calendar.isDate(last, inSameDayAs: now)
+        guard cal.isDate(last, inSameDayAs: now) else { return false }
+        if let asked = latestRequestAt, asked > last, asked <= now, cal.isDate(asked, inSameDayAs: now) {
+            return false
+        }
+        return true
+    }
+
+    /// Today's help signal, day-scoped the same way. nil when none today.
+    func helpRequested(asOf now: Date = Date(), calendar: Calendar? = nil) -> String? {
+        let cal = calendar ?? receiverCalendar
+        guard let helpKind, let helpAt, cal.isDate(helpAt, inSameDayAs: now) else { return nil }
+        return helpKind
+    }
+
+    /// A tap saved on this device for today that hasn't reached the server.
+    func hasPendingSend(asOf now: Date = Date(), calendar: Calendar? = nil) -> Bool {
+        let cal = calendar ?? receiverCalendar
+        guard let pendingSendSince else { return false }
+        return cal.isDate(pendingSendSince, inSameDayAs: now)
+    }
+
+    /// A refusal to show, only while it is today's news and nothing has landed
+    /// since.
+    func failureMessage(asOf now: Date = Date(), calendar: Calendar? = nil) -> String? {
+        let cal = calendar ?? receiverCalendar
+        guard let message = lastFailureMessage, let at = lastFailureAt,
+              cal.isDate(at, inSameDayAs: now) else { return nil }
+        if let last = lastCheckInAt, last >= at { return nil }
+        return message
+    }
+
+    /// The slot key to send with a live check-in: the window the latest request
+    /// asked about, while that request is still unanswered today.
+    func owedSlotKey(asOf now: Date = Date(), calendar: Calendar? = nil) -> String? {
+        let cal = calendar ?? receiverCalendar
+        guard let key = latestRequestSlotKey, !key.isEmpty,
+              let asked = latestRequestAt, cal.isDate(asked, inSameDayAs: now) else { return nil }
+        if let last = lastCheckInAt, last >= asked { return nil }
+        return key
     }
 }
 

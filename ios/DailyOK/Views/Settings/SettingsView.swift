@@ -552,6 +552,12 @@ struct AppLockSection: View {
         }
         await BiometricService.shared.setEnabled(newValue)
         if newValue { await BiometricService.shared.setSkipped(false) }
+        // Changed from inside the unlocked app: this session has shown
+        // presence, so the widget / Siri / watch keep their tokens until the
+        // next background. The Lock Screen "I'm OK" / snooze actions follow
+        // the setting (authentication required while it is on).
+        SharedTokenGate.markUnlocked()
+        NotificationCategories.register()
         isOn = newValue
         DailyOKHaptics.success()
     }

@@ -161,3 +161,48 @@ final class OfflineMarkerPolicyTests: XCTestCase {
         )
     }
 }
+
+/// Extensions pass: a queued tap belongs to the person who made it. A watch or
+/// phone handed to the next family member used to send the previous person's
+/// queued taps — including "I need help" — as the new person's check-ins.
+final class OfflineMarkerIdentityTests: XCTestCase {
+
+    private let at = Date(timeIntervalSince1970: 1_780_000_000)
+
+    func testAStampedMarkerBelongsOnlyToItsOwner() {
+        let marker = OfflineCheckInMarker(at: at, type: "ok", receiverId: "aaa", familyId: "f1")
+        XCTAssertTrue(OfflineMarkerPolicy.belongs(marker, to: "aaa"))
+        XCTAssertTrue(OfflineMarkerPolicy.belongs(marker, to: "AAA"))
+        XCTAssertFalse(OfflineMarkerPolicy.belongs(marker, to: "bbb"))
+    }
+
+    /// Written before markers were stamped: still sent (it could only have come
+    /// from this device's own receiver), never silently thrown away.
+    func testALegacyUnstampedMarkerIsKept() {
+        XCTAssertTrue(OfflineMarkerPolicy.belongs(OfflineCheckInMarker(at: at, type: "ok"), to: "anyone"))
+    }
+
+    func testPartitionSeparatesSomeoneElsesTaps() {
+        let mine = OfflineCheckInMarker(at: at, type: "ok", receiverId: "aaa")
+        let theirs = OfflineCheckInMarker(at: at.addingTimeInterval(-86_400), type: "need_help", receiverId: "bbb")
+        let legacy = OfflineCheckInMarker(at: at.addingTimeInterval(-2 * 86_400), type: "ok")
+        let split = OfflineMarkerPolicy.partition([mine, theirs, legacy], for: "aaa")
+        XCTAssertEqual(split.mine, [mine, legacy])
+        XCTAssertEqual(split.foreign, [theirs])
+    }
+
+    /// A queue written by an older build (no identity, source or slot) decodes.
+    func testAnOlderQueueStillDecodes() throws {
+        let json = "[{\"at\": 800000000, \"type\": \"ok\"}]"
+        let decoded = try JSONDecoder().decode([OfflineCheckInMarker].self, from: Data(json.utf8))
+        XCTAssertEqual(decoded.count, 1)
+        XCTAssertNil(decoded[0].receiverId)
+        XCTAssertNil(decoded[0].slotKey)
+    }
+
+    func testIdentityAndSlotRoundTrip() throws {
+        let marker = OfflineCheckInMarker(at: at, type: "ok", receiverId: "aaa", familyId: "f1", source: "widget", slotKey: "18:00")
+        let data = try JSONEncoder().encode([marker])
+        XCTAssertEqual(try JSONDecoder().decode([OfflineCheckInMarker].self, from: data), [marker])
+    }
+}

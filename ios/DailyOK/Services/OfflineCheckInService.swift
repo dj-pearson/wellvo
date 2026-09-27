@@ -3,6 +3,7 @@ import SwiftData
 import Network
 import Supabase
 import os
+import WidgetKit
 
 /// Manages offline check-in queuing and syncing.
 /// When the device is offline, check-ins are persisted to SwiftData.
@@ -43,7 +44,8 @@ final class OfflineCheckInService: ObservableObject {
         receiverId: UUID,
         mood: Mood?,
         source: CheckInSource,
-        slotKey: String? = nil
+        slotKey: String? = nil,
+        at tappedAt: Date = Date()
     ) throws {
         // Never treat an unpersisted check-in as "queued, will sync". If the
         // SwiftData store failed to initialize (disk full, migration error), the
@@ -78,13 +80,17 @@ final class OfflineCheckInService: ObservableObject {
         // Optional-to-optional equality against a captured value is awkward to
         // express in a SwiftData predicate, and the fetch is already narrowed to
         // one receiver's unsynced rows for today — at most a handful.
-        let startOfDay = Calendar.current.startOfDay(for: Date())
+        // The day the tap was made — today for a live tap, possibly earlier
+        // for one adopted from the widget's queue.
+        let startOfDay = Calendar.current.startOfDay(for: tappedAt)
+        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) ?? tappedAt.addingTimeInterval(86_400)
         let dedupDescriptor = FetchDescriptor<OfflineCheckIn>(
             predicate: #Predicate { row in
                 row.familyId == familyId &&
                 row.receiverId == receiverId &&
                 !row.synced &&
-                row.createdAt >= startOfDay
+                row.createdAt >= startOfDay &&
+                row.createdAt < endOfDay
             }
         )
         if let sameDay = try? context.fetch(dedupDescriptor),
@@ -97,6 +103,7 @@ final class OfflineCheckInService: ObservableObject {
             receiverId: receiverId,
             mood: mood,
             source: source,
+            createdAt: tappedAt,
             slotKey: slotKey
         )
         context.insert(offlineCheckIn)
@@ -107,6 +114,38 @@ final class OfflineCheckInService: ObservableObject {
         } catch {
             Log.offline.error("Failed to queue check-in: \(error.localizedDescription, privacy: .public)")
             throw DailyOKError.unknown(error)
+        }
+    }
+
+    /// Move the widget / Control Center / Siri queue (App Group,
+    /// ExtensionCheckInQueue) into this SwiftData queue. Only this user's taps:
+    /// a marker stamped for someone else is dropped, never sent as theirs. A
+    /// marker is removed only once it is safely queued here.
+    func adoptExtensionCheckIns(currentUserId: UUID) {
+        let markers = ExtensionCheckInQueue.pending
+        guard !markers.isEmpty else { return }
+        let split = OfflineMarkerPolicy.partition(markers, for: currentUserId.uuidString)
+        split.foreign.forEach(ExtensionCheckInQueue.remove)
+        for marker in split.mine {
+            guard marker.type == "ok",
+                  let familyString = marker.familyId, let familyId = UUID(uuidString: familyString) else {
+                // Unusable (no family, or an urgent type that is never queued).
+                ExtensionCheckInQueue.remove(marker)
+                continue
+            }
+            do {
+                try queueCheckIn(
+                    familyId: familyId,
+                    receiverId: currentUserId,
+                    mood: nil,
+                    source: marker.source.flatMap(CheckInSource.init(rawValue:)) ?? .widget,
+                    slotKey: marker.slotKey,
+                    at: marker.at
+                )
+                ExtensionCheckInQueue.remove(marker)
+            } catch {
+                Log.offline.error("Couldn't adopt a saved widget check-in: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
@@ -325,6 +364,11 @@ final class OfflineCheckInService: ObservableObject {
         guard let session = try? await SupabaseService.shared.client.auth.session else { return }
         let currentUserId = session.user.id
 
+        // Taps the widget / Control Center / Siri saved while offline join this
+        // queue first, so they replay through the same path with the time they
+        // were made.
+        adoptExtensionCheckIns(currentUserId: currentUserId)
+
         let descriptor = FetchDescriptor<OfflineCheckIn>(
             predicate: #Predicate { !$0.synced },
             sortBy: [SortDescriptor(\.createdAt)]
@@ -408,6 +452,16 @@ final class OfflineCheckInService: ObservableObject {
         }
 
         updatePendingCount()
+
+        // Everything queued has gone: the glanceable "Saved, not sent yet"
+        // (pendingSendSince, set when a tap was queued) is no longer true. The
+        // next status load republishes from server truth either way; this
+        // covers a background sync with no home screen to reload.
+        if syncedAny, pendingCount == 0, ExtensionCheckInQueue.pending.isEmpty {
+            SharedCheckInStore.update { $0.pendingSendSince = nil }
+            WidgetCenter.shared.reloadAllTimelines()
+            PhoneWatchSync.shared.sync()
+        }
 
         // Let any view model observing sync completion (e.g. ReceiverHomeView,
         // DashboardView) re-query status so the UI reflects the synced rows

@@ -12,7 +12,14 @@ enum SharedOwnerPublisher {
                 name: card.name,
                 status: statusString(card.status),
                 lastCheckInAt: card.lastCheckIn,
-                statusDate: now
+                statusDate: now,
+                // What the dashboard shows and the widget used to drop: a miss
+                // the owner already handled, which kind of help, whose clock
+                // "today" runs on, and who is on it.
+                stoodDown: card.stoodDown ? true : nil,
+                helpKind: card.helpKind.map(helpKindString),
+                timeZoneId: card.timezone,
+                claimedByName: card.claimedByName
             )
         }
         SharedOwnerStore.save(SharedOwnerState(receivers: receivers, updatedAt: now))
@@ -22,6 +29,14 @@ enum SharedOwnerPublisher {
     static func clear() {
         SharedOwnerStore.clear()
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    static func helpKindString(_ kind: HelpKind) -> String {
+        switch kind {
+        case .needHelp: return "need_help"
+        case .callMe: return "call_me"
+        case .sos: return "sos"
+        }
     }
 
     private static func statusString(_ status: ReceiverCheckInStatus) -> String {

@@ -149,9 +149,11 @@ actor PushNotificationService {
 
         let content = UNMutableNotificationContent()
         content.title = isKidMode ? "Don't forget! 👋" : "Reminder: Check in"
-        // Worded so it stays true when the receiver already answered from the
-        // widget or Control Center, which can't cancel this app-owned reminder
-        // (known Phase 3 gap).
+        // Worded so it stays true if the receiver already answered somewhere
+        // that couldn't withdraw it. The widget / Control Center / Siri intent
+        // (CheckInAftermathLite) and a delivered watch check-in
+        // (ReceiverCheckInAftermath via the watch report) now remove it; the
+        // wording is the belt for a removal that didn't take.
         content.body = isKidMode
             ? "Tap to let your family know you're OK."
             : "If you haven't checked in yet, tap to let your family know you're OK."
@@ -168,6 +170,21 @@ actor PushNotificationService {
     func cancelLocalCheckinFallback() {
         UNUserNotificationCenter.current()
             .removePendingNotificationRequests(withIdentifiers: [Self.fallbackReminderId])
+    }
+
+    /// Confirm a help / call-me request sent from a Lock Screen action. The
+    /// action runs in the background now (no unlock), so without this the
+    /// receiver saw nothing at all after asking for help.
+    func presentHelpSent(callMe: Bool, ownerName: String?) async {
+        let who = ownerName ?? String(localized: "your family")
+        let content = UNMutableNotificationContent()
+        content.title = callMe
+            ? String(localized: "We asked \(who) to call you")
+            : String(localized: "We told \(who) you need help")
+        content.body = String(localized: "If you can, call them too. In an emergency, call your local emergency number.")
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: "help-request-sent", content: content, trigger: nil)
+        try? await UNUserNotificationCenter.current().add(request)
     }
 
     /// Immediately alert the receiver that a notification check-in response

@@ -1,6 +1,7 @@
 import UserNotifications
 import Foundation
 import Security
+import WidgetKit
 
 /// Notification Service Extension that intercepts push notifications before display.
 /// This runs even when the app is in the background or killed, allowing us to:
@@ -25,6 +26,14 @@ class NotificationService: UNNotificationServiceExtension {
 
         // Confirm delivery to the server
         let userInfo = request.content.userInfo
+        if request.content.categoryIdentifier == "CHECKIN_REQUEST",
+           userInfo["checkin_request_id"] is String {
+            // The family is asking. Tell the widget / Control Center / Siri
+            // snapshot, so "You're all set" from a morning check-in gives way to
+            // the button for an owner's "check on them now" or a later window
+            // — the app only corrected it when opened.
+            Self.recordCheckInRequest(slotKey: userInfo["slot_key"] as? String)
+        }
         if let checkinRequestId = userInfo["checkin_request_id"] as? String {
             confirmDelivery(checkinRequestId: checkinRequestId) {
                 contentHandler(bestAttemptContent)
@@ -40,6 +49,33 @@ class NotificationService: UNNotificationServiceExtension {
         if let contentHandler = contentHandler, let bestAttemptContent = bestAttemptContent {
             contentHandler(bestAttemptContent)
         }
+    }
+
+    // MARK: - Glanceable snapshot
+
+    /// Stamp `latestRequestAt` / `latestRequestSlotKey` onto the App Group
+    /// check-in snapshot (SharedCheckInState) and reload the widgets.
+    ///
+    /// This target compiles standalone (no Shared/SharedCheckInState.swift), so
+    /// it patches the JSON by key rather than decoding the struct: unknown keys
+    /// survive untouched, and a snapshot that isn't there (owner's phone,
+    /// signed out) is left alone. Keys and date format must match
+    /// SharedCheckInState / SharedCheckInStore (ISO-8601 dates).
+    static func recordCheckInRequest(slotKey: String?, at date: Date = Date()) {
+        guard let defaults = UserDefaults(suiteName: "group.com.wellvo.ios"),
+              let data = defaults.data(forKey: "shared_checkin_state"),
+              var object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        object["latestRequestAt"] = formatter.string(from: date)
+        if let slotKey, !slotKey.isEmpty {
+            object["latestRequestSlotKey"] = slotKey
+        } else {
+            object.removeValue(forKey: "latestRequestSlotKey")
+        }
+        guard let patched = try? JSONSerialization.data(withJSONObject: object) else { return }
+        defaults.set(patched, forKey: "shared_checkin_state")
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     // MARK: - Delivery Confirmation

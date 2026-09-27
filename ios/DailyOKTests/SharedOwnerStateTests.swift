@@ -158,3 +158,137 @@ final class SharedOwnerStateTests: XCTestCase {
         XCTAssertEqual(state.mostRelevant(asOf: date("2026-03-10 09:00"), calendar: calendar)?.name, "Mom")
     }
 }
+
+/// Extensions pass: the owner widget now carries what the dashboard shows —
+/// stood down, which kind of help, the receiver's zone, who is on it.
+final class SharedOwnerWidgetTruthTests: XCTestCase {
+
+    private var chicago: Calendar {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "America/Chicago")!
+        return cal
+    }
+
+    private func date(_ value: String, zone: String = "America/Chicago") -> Date {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone(identifier: zone)
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter.date(from: value)!
+    }
+
+    func testAStoodDownMissReadsAsAlertsStoppedNotMissed() {
+        let r = SharedOwnerReceiver(id: "1", name: "Dad", status: "missed", lastCheckInAt: nil,
+                                    statusDate: date("2026-03-10 09:40"), stoodDown: true)
+        XCTAssertEqual(r.status(asOf: date("2026-03-10 10:00"), calendar: chicago), "stood_down")
+        XCTAssertEqual(r.label(forStatus: "stood_down"), "Alerts stopped")
+    }
+
+    /// Yesterday's stand-down says nothing about today.
+    func testYesterdaysStandDownIsNotCarriedOver() {
+        let r = SharedOwnerReceiver(id: "1", name: "Dad", status: "missed", lastCheckInAt: nil,
+                                    statusDate: date("2026-03-09 09:40"), stoodDown: true)
+        XCTAssertEqual(r.status(asOf: date("2026-03-10 08:00"), calendar: chicago), "pending")
+    }
+
+    func testAStoodDownMissNoLongerOutranksAnEscalatingOne() {
+        let state = SharedOwnerState(
+            receivers: [
+                SharedOwnerReceiver(id: "1", name: "Dad", status: "missed", lastCheckInAt: nil,
+                                    statusDate: date("2026-03-10 09:40"), stoodDown: true),
+                SharedOwnerReceiver(id: "2", name: "Mom", status: "pending", lastCheckInAt: nil,
+                                    statusDate: date("2026-03-10 09:40")),
+            ],
+            updatedAt: date("2026-03-10 09:40")
+        )
+        XCTAssertEqual(state.mostRelevant(asOf: date("2026-03-10 10:00"), calendar: chicago)?.name, "Mom")
+    }
+
+    func testAnSOSOutranksOtherHelpRequests() {
+        let state = SharedOwnerState(
+            receivers: [
+                SharedOwnerReceiver(id: "1", name: "Mom", status: "needs_help", lastCheckInAt: date("2026-03-10 08:00"), helpKind: "call_me"),
+                SharedOwnerReceiver(id: "2", name: "Sam", status: "needs_help", lastCheckInAt: date("2026-03-10 08:05"), helpKind: "sos"),
+            ],
+            updatedAt: date("2026-03-10 08:05")
+        )
+        XCTAssertEqual(state.mostRelevant(asOf: date("2026-03-10 09:00"), calendar: chicago)?.name, "Sam")
+    }
+
+    /// The Lock Screen used to say "2 of 3 checked in" on the morning Mom asked
+    /// for help.
+    func testTheLockScreenHeadlineNamesWhoNeedsHelp() {
+        let now = date("2026-03-10 09:00")
+        func state(_ r: SharedOwnerReceiver) -> SharedOwnerState {
+            SharedOwnerState(receivers: [r], updatedAt: now)
+        }
+        XCTAssertEqual(state(SharedOwnerReceiver(id: "1", name: "Mom", status: "needs_help", lastCheckInAt: now, helpKind: "need_help"))
+            .headline(asOf: now, calendar: chicago), "Mom needs help")
+        XCTAssertEqual(state(SharedOwnerReceiver(id: "1", name: "Mom", status: "needs_help", lastCheckInAt: now, helpKind: "call_me"))
+            .headline(asOf: now, calendar: chicago), "Mom asked you to call")
+        XCTAssertEqual(state(SharedOwnerReceiver(id: "1", name: "Dad", status: "missed", lastCheckInAt: nil))
+            .headline(asOf: now, calendar: chicago), "No answer from Dad")
+        XCTAssertNil(state(SharedOwnerReceiver(id: "1", name: "Dad", status: "checked_in", lastCheckInAt: now))
+            .headline(asOf: now, calendar: chicago))
+    }
+
+    /// Owner in New York, Dad in Los Angeles: Dad's 11 PM Monday check-in is
+    /// 2 AM Tuesday in New York. On Tuesday morning it must not read as
+    /// Tuesday's check-in.
+    func testDayScopingUsesTheReceiversZone() {
+        let r = SharedOwnerReceiver(id: "1", name: "Dad", status: "checked_in",
+                                    lastCheckInAt: date("2026-03-09 23:00", zone: "America/Los_Angeles"),
+                                    timeZoneId: "America/Los_Angeles")
+        let tuesdayMorningNY = date("2026-03-10 08:00", zone: "America/New_York")
+        XCTAssertEqual(r.status(asOf: tuesdayMorningNY), "pending")
+        XCTAssertNil(r.lastCheckIn(asOf: tuesdayMorningNY))
+    }
+
+    func testTimesCarryTheZoneWhenItDiffersFromTheViewers() {
+        let r = SharedOwnerReceiver(id: "1", name: "Dad", status: "checked_in",
+                                    lastCheckInAt: nil, timeZoneId: "America/Los_Angeles")
+        let at = date("2026-07-10 08:15", zone: "America/Los_Angeles")
+        let inNY = r.timeText(at, viewerZone: TimeZone(identifier: "America/New_York")!)
+        let inLA = r.timeText(at, viewerZone: TimeZone(identifier: "America/Los_Angeles")!)
+        XCTAssertTrue(inNY.hasSuffix(TimeZone(identifier: "America/Los_Angeles")!.abbreviation(for: at)!))
+        XCTAssertFalse(inLA.contains(TimeZone(identifier: "America/Los_Angeles")!.abbreviation(for: at)!))
+    }
+
+    func testAStoodDownReceiverDoesNotNeedAttention() {
+        let now = date("2026-03-10 10:00")
+        let state = SharedOwnerState(
+            receivers: [SharedOwnerReceiver(id: "1", name: "Dad", status: "missed", lastCheckInAt: nil,
+                                            statusDate: now, stoodDown: true)],
+            updatedAt: now
+        )
+        XCTAssertFalse(state.needsAttention(asOf: now, calendar: chicago))
+    }
+
+    /// A snapshot written before these fields existed still decodes.
+    func testAnOlderSnapshotStillDecodes() throws {
+        let json = "{\"receivers\":[{\"id\":\"1\",\"name\":\"Mom\",\"status\":\"missed\"}],\"updatedAt\":\"2026-03-10T14:00:00Z\"}"
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let state = try decoder.decode(SharedOwnerState.self, from: Data(json.utf8))
+        XCTAssertNil(state.receivers[0].stoodDown)
+        XCTAssertNil(state.receivers[0].timeZoneId)
+    }
+}
+
+final class FamilyStatusSpeechTests: XCTestCase {
+    func testSiriLeadsWithWhoNeedsHelpAndSaysHowOldTheSnapshotIs() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let utc = TimeZone(identifier: "UTC")!
+        let state = SharedOwnerState(
+            receivers: [
+                SharedOwnerReceiver(id: "1", name: "Dad", status: "checked_in", lastCheckInAt: now.addingTimeInterval(-600), timeZoneId: "UTC"),
+                SharedOwnerReceiver(id: "2", name: "Mom", status: "needs_help", lastCheckInAt: now.addingTimeInterval(-300), helpKind: "call_me", timeZoneId: "UTC"),
+            ],
+            updatedAt: now.addingTimeInterval(-2 * 3600)
+        )
+        let speech = FamilyStatusSpeech.summary(state, now: now, viewerZone: utc)
+        XCTAssertTrue(speech.hasPrefix("Mom asked you to call."), speech)
+        XCTAssertTrue(speech.contains("Dad checked in at"), speech)
+        XCTAssertTrue(speech.contains("2 hours ago"), speech)
+    }
+}

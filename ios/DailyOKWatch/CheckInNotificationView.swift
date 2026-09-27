@@ -15,6 +15,9 @@ final class CheckInNotificationController: WKUserNotificationHostingController<C
 
     override func didReceive(_ notification: UNNotification) {
         let content = notification.request.content
+        // The family is asking: the watch app and complication must stop
+        // saying "all set" until this is answered.
+        WatchNotificationController.recordCheckInRequest(content)
         // The server puts the family / sender context in the notification title;
         // fall back to the signed-in receiver's name from the shared snapshot.
         if !content.title.isEmpty {

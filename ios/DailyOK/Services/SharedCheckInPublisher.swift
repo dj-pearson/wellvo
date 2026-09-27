@@ -16,14 +16,19 @@ enum SharedCheckInPublisher {
         hasCheckedInToday: Bool,
         lastCheckInAt: Date?,
         nextCheckInAt: Date?,
-        displayName: String?
+        displayName: String?,
+        ownerName: String? = nil,
+        timeZoneId: String? = nil,
+        helpKind: String? = nil,
+        helpAt: Date? = nil,
+        savedOffline: Bool = false
     ) async {
         guard let session = try? await SupabaseService.shared.client.auth.session else {
             clear()
             return
         }
 
-        let state = SharedCheckInState(
+        var state = SharedCheckInState(
             receiverId: session.user.id.uuidString.lowercased(),
             familyId: familyId.uuidString.lowercased(),
             displayName: displayName,
@@ -36,27 +41,49 @@ enum SharedCheckInPublisher {
             nextCheckInAt: nextCheckInAt,
             updatedAt: Date()
         )
+        state.ownerName = ownerName
+        state.timeZoneId = timeZoneId
+        state.helpKind = helpKind
+        state.helpAt = helpKind == nil ? nil : (helpAt ?? lastCheckInAt ?? Date())
+        // Server truth replaces the NSE's "asked again" stamp: this load already
+        // accounted for every pending request (owesAnotherAnswer).
+        state.pendingSendSince = savedOffline ? Date() : nil
         SharedCheckInStore.save(state)
         // Secrets go to the encrypted Keychain, never the App Group plist.
-        SharedKeychain.saveTokens(SharedAuthTokens(
+        mirrorTokens(from: session)
+        WidgetCenter.shared.reloadAllTimelines()
+        PhoneWatchSync.shared.sync()
+    }
+
+    /// Mirror the SDK session to the shared Keychain — unless biometric lock is
+    /// withholding it (SharedTokenGate), or the shared item already holds a
+    /// NEWER pair another surface rotated (writing ours over it would hand
+    /// every surface a spent refresh token; see SharedAuthTokens.shouldReplace).
+    static func mirrorTokens(from session: Session) {
+        guard SharedTokenGate.mayMirror else {
+            // Gate closed means the shared item should be empty. It can still
+            // hold a pair at a fresh (often background) launch if the previous
+            // process was killed while unlocked — and once the SDK refreshes
+            // here, that pair's refresh token is spent. Left in place, the NSE /
+            // widget would present it and trip GoTrue's reuse detection, which
+            // revokes the whole session. Withheld is the intended state anyway.
+            if SharedKeychain.loadTokens() != nil { SharedKeychain.clearTokens() }
+            return
+        }
+        SharedKeychain.saveTokensIfNotOlder(SharedAuthTokens(
             accessToken: session.accessToken,
             refreshToken: session.refreshToken,
             expiresAt: Date(timeIntervalSince1970: session.expiresAt)
         ))
-        WidgetCenter.shared.reloadAllTimelines()
-        PhoneWatchSync.shared.sync()
     }
 
     /// Re-mirror just the session tokens to the shared Keychain (and the watch)
     /// without rebuilding the whole snapshot — used after a biometric unlock to
     /// restore out-of-process check-in once the user has proven presence.
     static func republishTokensFromSession() async {
+        SharedTokenGate.markUnlocked()
         guard let session = try? await SupabaseService.shared.client.auth.session else { return }
-        SharedKeychain.saveTokens(SharedAuthTokens(
-            accessToken: session.accessToken,
-            refreshToken: session.refreshToken,
-            expiresAt: Date(timeIntervalSince1970: session.expiresAt)
-        ))
+        mirrorTokens(from: session)
         WidgetCenter.shared.reloadAllTimelines()
         PhoneWatchSync.shared.sync()
     }
@@ -66,6 +93,7 @@ enum SharedCheckInPublisher {
     /// tap can't act as the user until biometric auth succeeds. Non-secret
     /// glanceable state is left in place. Reversed by `republishTokensFromSession()`.
     static func withholdTokens() {
+        SharedTokenGate.markWithheld()
         SharedKeychain.clearTokens()
         WidgetCenter.shared.reloadAllTimelines()
         PhoneWatchSync.shared.sync()
@@ -73,11 +101,33 @@ enum SharedCheckInPublisher {
 
     /// Optimistically mark today's check-in done (e.g. right after an in-app tap)
     /// without rebuilding the whole snapshot.
-    static func markCheckedIn(at date: Date) {
+    /// `savedOffline`: the tap is queued on this phone, not yet on the server.
+    /// The widget and watch then say "Saved, not sent yet" rather than
+    /// "You're all set" (pendingSendSince outranks the done flag there).
+    static func markCheckedIn(at date: Date, helpKind: String? = nil, savedOffline: Bool = false) {
         SharedCheckInStore.update {
             $0.hasCheckedInToday = true
             $0.lastCheckInAt = date
+            $0.pendingSendSince = savedOffline ? date : nil
+            $0.lastFailureMessage = nil
+            $0.lastFailureAt = nil
+            if let helpKind {
+                $0.helpKind = helpKind
+                $0.helpAt = date
+            }
         }
+        WidgetCenter.shared.reloadAllTimelines()
+        PhoneWatchSync.shared.sync()
+    }
+
+    /// Nothing to check in to any more (removed from the family, or a
+    /// different role now): drop the snapshot so the widget, Siri, Control
+    /// Center and the watch stop offering "I'm OK" for it. Leaves the tokens:
+    /// the account is still signed in and the NSE still confirms delivery.
+    static func clearSnapshot() {
+        guard SharedCheckInStore.load() != nil else { return }
+        SharedCheckInStore.clear()
+        ExtensionCheckInQueue.clear()
         WidgetCenter.shared.reloadAllTimelines()
         PhoneWatchSync.shared.sync()
     }
@@ -98,8 +148,43 @@ enum SharedCheckInPublisher {
     static func clear() {
         SharedCheckInStore.clear()
         SharedKeychain.clearTokens()
+        // The next person to sign in on this phone must not inherit this
+        // one's saved widget taps.
+        ExtensionCheckInQueue.clear()
         WidgetCenter.shared.reloadAllTimelines()
         PhoneWatchSync.shared.sync()
+    }
+}
+
+/// Whether the app may put the session tokens where the widget, Control
+/// Center, Siri and the watch can use them.
+///
+/// Biometric lock withholds them while the app is backgrounded, so a found or
+/// handed-off phone can't check in as the receiver before Face ID. Three paths
+/// quietly put them back: the launch-time `syncAccessTokenToExtension`
+/// (including background launches from a notification action, WatchConnectivity
+/// or a Live Activity token update), the SDK's `.tokenRefreshed` event (which
+/// fires on resume BEFORE the Face ID prompt) and a receiver status publish.
+/// Every app-side write now asks this first.
+///
+/// Open when biometric lock is off; otherwise only once the user has unlocked
+/// in this process. Per-process on purpose: a fresh launch starts locked.
+enum SharedTokenGate {
+    private static let lock = NSLock()
+    private static var unlockedThisProcess = false
+
+    static var mayMirror: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return !BiometricService.isEnabledPreference || unlockedThisProcess
+    }
+
+    /// Presence proven (Face ID / passcode), or biometric lock can't apply.
+    static func markUnlocked() {
+        lock.lock(); unlockedThisProcess = true; lock.unlock()
+    }
+
+    static func markWithheld() {
+        lock.lock(); unlockedThisProcess = false; lock.unlock()
     }
 }
 
@@ -116,8 +201,9 @@ enum ReceiverCheckInAftermath {
     static let didCheckIn = Notification.Name("ReceiverCheckInAftermath.didCheckIn")
 
     @MainActor
-    static func record(at date: Date) async {
-        SharedCheckInPublisher.markCheckedIn(at: date)
+    static func record(at date: Date, helpKind: String? = nil, savedOffline: Bool = false) async {
+        SharedCheckInPublisher.markCheckedIn(at: date, helpKind: helpKind, savedOffline: savedOffline)
+        ExtensionCheckInQueue.clearToday()
         await PushNotificationService.shared.cancelLocalCheckinFallback()
         await removeDeliveredCheckInRequests()
         NotificationCenter.default.post(name: didCheckIn, object: nil)

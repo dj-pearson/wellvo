@@ -61,7 +61,30 @@ final class PhoneWatchSync: NSObject, WCSessionDelegate {
 
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
         if userInfo["watch_checked_in"] != nil {
-            NotificationCenter.default.post(name: PhoneWatchSync.didReceiveWatchCheckIn, object: nil)
+            // The whole report travels on: the observer decides whether it
+            // answered today (AppDelegate / WatchCheckInReport).
+            NotificationCenter.default.post(
+                name: PhoneWatchSync.didReceiveWatchCheckIn, object: nil, userInfo: userInfo
+            )
+        }
+        if let data = userInfo["rotated_tokens"] as? Data, !data.isEmpty {
+            adoptRotatedTokens(data)
+        }
+    }
+
+    /// The watch refreshed the session on its own and spent the refresh token
+    /// the phone was holding. Take the new pair: into the app's own session
+    /// (so the SDK's next refresh presents a live token, not a spent one that
+    /// would get the whole session revoked) and, unless biometric lock is
+    /// withholding it, into the shared item for the widget and extension.
+    /// Both writes refuse a pair that isn't newer or isn't this user's.
+    private func adoptRotatedTokens(_ data: Data) {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let tokens = try? decoder.decode(SharedAuthTokens.self, from: data) else { return }
+        SupabaseSessionStorage.adopt(tokens)
+        if SharedTokenGate.mayMirror {
+            SharedKeychain.saveTokensIfNotOlder(tokens)
         }
     }
 }

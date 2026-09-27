@@ -34,7 +34,12 @@ struct SignOutDependencies {
     @MainActor
     static var live: SignOutDependencies {
         SignOutDependencies(
-            deactivatePushToken: { await PushNotificationService.shared.deactivateCurrentDeviceToken() },
+            deactivatePushToken: {
+                await PushNotificationService.shared.deactivateCurrentDeviceToken()
+                // Same reason, Live Activity tokens: before the revoke, while
+                // the session can still say whose rows they are.
+                await LiveActivityTokenService.shared.deactivateAll()
+            },
             revokeServerSession: { try await AuthService.shared.signOut() },
             resetBiometric: { await BiometricService.shared.reset() },
             stopHeartbeat: { HeartbeatService.shared.stop() },
@@ -47,6 +52,7 @@ struct SignOutDependencies {
                 // session on a shared, handed-down or sold phone.
                 SharedOwnerPublisher.clear()
                 EscalationActivityManager.endAll()
+                LiveActivityTokenService.shared.reset()
             }
         )
     }
@@ -794,7 +800,15 @@ final class AuthViewModel: ObservableObject {
     func checkBiometricOnResume() async {
         guard authState == .authenticated else { return }
         let biometric = BiometricService.shared
-        guard await biometric.isEnabled, await biometric.isBiometricAvailable() else { return }
+        guard await biometric.isEnabled, await biometric.isBiometricAvailable() else {
+            // Lock is off, or can't be enforced on this device (no Face ID
+            // enrolled): nothing to withhold behind. Open the gate and put the
+            // tokens back so the widget, Siri and the watch work.
+            if !SharedTokenGate.mayMirror {
+                await SharedCheckInPublisher.republishTokensFromSession()
+            }
+            return
+        }
 
         biometricLocked = true
         // Withhold the mirrored session from every out-of-process surface while
@@ -824,6 +838,10 @@ final class AuthViewModel: ObservableObject {
 
     func enableBiometric() async {
         await BiometricService.shared.setEnabled(true)
+        // Turned on from inside the unlocked app: presence is already shown
+        // for this session.
+        SharedTokenGate.markUnlocked()
+        NotificationCategories.register()
         showBiometricPrompt = false
     }
 

@@ -5,23 +5,51 @@ enum SharedCheckInError: LocalizedError {
     case locked
     case sessionExpired
     case badConfiguration
+    /// 403: the server no longer counts this person as an active receiver of
+    /// that family (removed by the owner, left, or a stale snapshot).
+    case notInFamily
+    /// 426: this build is older than the server supports.
+    case updateRequired
+    /// 502 / 503 / 504: the single edge container restarting (a deploy) or a
+    /// proxy timeout. An outage, not a refusal — queued like offline, the same
+    /// call the app makes (NetworkError.serverUnavailable, pass 7).
+    case serverUnavailable(Int)
     case server(Int, String)
     case transport(Error)
 
-    var errorDescription: String? {
+    /// Worth saving and sending later rather than reporting as a refusal.
+    var isQueueable: Bool {
+        switch self {
+        case .transport, .serverUnavailable: return true
+        default: return false
+        }
+    }
+
+    var errorDescription: String? { message(ownerName: nil) }
+
+    /// Plain words — never an HTTP code — matching the in-app mapping
+    /// (ReceiverViewModel.checkInFailure).
+    func message(ownerName: String?) -> String {
+        let family = ownerName ?? "your family"
         switch self {
         case .notSignedIn:
             return "Open Daily OK on your iPhone and sign in first."
         case .locked:
-            return "Daily OK is locked. Open the app on this device to unlock, then try again."
+            #if os(watchOS)
+            return "Unlock Daily OK on your iPhone, then try again."
+            #else
+            return "Daily OK is locked. Open the app to unlock, then try again."
+            #endif
         case .sessionExpired:
-            return "Your session expired. Open Daily OK on your iPhone to sign back in."
+            return "You've been signed out. Open Daily OK on your iPhone to sign back in."
         case .badConfiguration:
             return "Daily OK isn't set up yet. Open the app once to finish setup."
-        case .server(let code, _):
-            return "The check-in didn't go through (error \(code)). Please try again."
-        case .transport:
-            return "Couldn't reach Daily OK. Check your connection and try again."
+        case .notInFamily:
+            return "You're no longer part of this family's check-ins. Open Daily OK on your iPhone to see why."
+        case .updateRequired:
+            return "Please update Daily OK to keep checking in."
+        case .serverUnavailable, .server, .transport:
+            return "Couldn't reach Daily OK. Try again in a minute, or call \(family)."
         }
     }
 }
@@ -40,13 +68,22 @@ enum SharedCheckInClient {
     ///   - occurredAt: the moment the receiver actually tapped, for a check-in
     ///     being flushed from an offline queue. Omitted for a live check-in,
     ///     where the server's `now()` is the same instant (US-IOS147).
+    ///   - slotKey: the window a queued tap answered. A live tap works it out
+    ///     from the latest check-in request instead.
+    ///   - timeout: per request. Widgets, Control Center and Siri get a short
+    ///     budget from the system; 30 s per request (refresh → POST → 401 →
+    ///     refresh → POST) could outlive it and lose the tap with nothing
+    ///     saved. The whole call also stops retrying past ~2.5× this.
     @discardableResult
     static func checkIn(
         responseType: String = "ok",
         source: String = "app",
         batteryLevel: Double? = nil,
-        occurredAt: Date? = nil
+        occurredAt: Date? = nil,
+        slotKey: String? = nil,
+        timeout: TimeInterval = 15
     ) async throws -> SharedCheckInState {
+        let deadline = Date().addingTimeInterval(timeout * 2.5)
         guard var state = SharedCheckInStore.load() else { throw SharedCheckInError.notSignedIn }
         // The session secrets live in the Keychain, not the snapshot plist. With
         // a snapshot present but no tokens, the user IS signed in but biometric
@@ -56,7 +93,7 @@ enum SharedCheckInClient {
         guard var tokens = SharedKeychain.loadTokens() else { throw SharedCheckInError.locked }
 
         if tokens.isAccessTokenExpired {
-            tokens = try await refreshSession(state, tokens: tokens)
+            tokens = try await refreshSession(state, tokens: tokens, timeout: timeout)
         }
 
         // `[String: Any]`, not `[String: String]`, so numeric fields go on the
@@ -84,15 +121,37 @@ enum SharedCheckInClient {
         if let occurredAt {
             body["occurred_at"] = iso8601UTC.string(from: occurredAt)
         }
+        // Which window this answers. Without it the server dedups day-level: an
+        // evening answer from the widget or watch found the morning row, added
+        // nothing, and History counted the day as incomplete.
+        if let slot = slotKey ?? (occurredAt == nil ? state.owedSlotKey() : nil) {
+            body["slot_key"] = slot
+        }
 
         do {
-            try await postCheckIn(state: state, accessToken: tokens.accessToken, body: body)
-        } catch SharedCheckInError.server(let code, _) where code == 401 {
-            // Token may have expired between the check and the request — refresh
-            // once and retry so a wrist/widget tap isn't lost (which would leave
-            // the request pending and falsely escalate to the owner).
-            tokens = try await refreshSession(state, tokens: tokens)
-            try await postCheckIn(state: state, accessToken: tokens.accessToken, body: body)
+            do {
+                try await postCheckIn(state: state, accessToken: tokens.accessToken, body: body, timeout: timeout)
+            } catch SharedCheckInError.server(let code, _) where code == 401 {
+                // Token may have expired between the check and the request —
+                // refresh once and retry so a wrist/widget tap isn't lost (which
+                // would leave the request pending and falsely escalate to the
+                // owner). Not past the deadline, though: a surface the system is
+                // about to kill is better off saving the tap than starting a
+                // refresh it can't finish.
+                guard Date() < deadline else { throw SharedCheckInError.transport(URLError(.timedOut)) }
+                tokens = try await refreshSession(state, tokens: tokens, timeout: timeout)
+                try await postCheckIn(state: state, accessToken: tokens.accessToken, body: body, timeout: timeout)
+            }
+        } catch SharedCheckInError.notInFamily {
+            // Removed by the owner, or left: nothing on this device should keep
+            // offering "I'm OK" for this family. Drop the snapshot so every
+            // glanceable surface falls back to "Open Daily OK". The tokens stay
+            // — the account is still valid, and the app re-publishes if the
+            // person is added back.
+            if SharedCheckInStore.load()?.familyId == state.familyId {
+                SharedCheckInStore.clear()
+            }
+            throw SharedCheckInError.notInFamily
         }
 
         // Merge the done-state onto the FRESHEST snapshot (re-loaded inside
@@ -110,14 +169,26 @@ enum SharedCheckInClient {
         // face and the widget for a day the receiver has not answered — the
         // false reassurance US-IOS147 exists to remove, arriving through the
         // glanceable surfaces instead of the dashboard.
-        let answersToday = occurredAt.map { Calendar.current.isDateInToday($0) } ?? true
+        let calendar = state.receiverCalendar
+        let answersToday = occurredAt.map { calendar.isDate($0, inSameDayAs: now) } ?? true
         guard answersToday else {
             return SharedCheckInStore.load() ?? state
         }
 
+        let isHelp = responseType != "ok"
         SharedCheckInStore.update { snapshot in
             snapshot.hasCheckedInToday = true
             snapshot.lastCheckInAt = now
+            // "Help requested", not "You're all set", on every glanceable
+            // surface. A plain OK after a help request doesn't clear it: the
+            // server never downgrades a help row either.
+            if isHelp {
+                snapshot.helpKind = responseType
+                snapshot.helpAt = now
+            }
+            snapshot.pendingSendSince = nil
+            snapshot.lastFailureMessage = nil
+            snapshot.lastFailureAt = nil
             // Drop a now-past reload anchor so a stale `nextCheckInAt` from a
             // prior config can't delay the new-day flip on glanceable surfaces;
             // the phone rewrites the real next time on its next `loadStatus`.
@@ -133,7 +204,36 @@ enum SharedCheckInClient {
         state.hasCheckedInToday = true
         state.lastCheckInAt = now
         state.updatedAt = now
+        if isHelp {
+            state.helpKind = responseType
+            state.helpAt = now
+        }
         return state
+    }
+
+    /// Posted (in-process) after this client rotated the session tokens. The
+    /// watch listens and hands the new pair back to the phone, so the phone
+    /// doesn't later spend the refresh token the watch already used.
+    static let tokensRotated = Notification.Name("SharedCheckInClient.tokensRotated")
+
+    /// Record a refusal on the snapshot so the widget can say "Didn't send"
+    /// instead of silently showing the same button again.
+    static func recordFailure(_ message: String, at date: Date = Date()) {
+        SharedCheckInStore.update { snapshot in
+            snapshot.lastFailureMessage = message
+            snapshot.lastFailureAt = date
+        }
+    }
+
+    /// Record that a tap was saved on this device and will be sent later.
+    static func recordPendingSend(at date: Date = Date()) {
+        SharedCheckInStore.update { snapshot in
+            // Always today's stamp: a leftover from an earlier day would be
+            // day-scoped away (hasPendingSend) and hide today's saved tap.
+            snapshot.pendingSendSince = date
+            snapshot.lastFailureMessage = nil
+            snapshot.lastFailureAt = nil
+        }
     }
 
     /// RFC 3339 in UTC, which is what the edge function's `Date.parse` accepts
@@ -147,13 +247,13 @@ enum SharedCheckInClient {
 
     // MARK: - Networking
 
-    private static func postCheckIn(state: SharedCheckInState, accessToken: String, body: [String: Any]) async throws {
+    private static func postCheckIn(state: SharedCheckInState, accessToken: String, body: [String: Any], timeout: TimeInterval) async throws {
         guard let url = URL(string: "\(state.edgeFunctionsURL)/process-checkin-response") else {
             throw SharedCheckInError.badConfiguration
         }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
-        req.timeoutInterval = 30
+        req.timeoutInterval = timeout
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(state.anonKey, forHTTPHeaderField: "apikey")
         req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
@@ -171,19 +271,29 @@ enum SharedCheckInClient {
             throw SharedCheckInError.server(-1, "No HTTP response")
         }
         guard (200..<300).contains(http.statusCode) else {
-            throw SharedCheckInError.server(http.statusCode, String(data: data, encoding: .utf8) ?? "")
+            throw mapStatus(http.statusCode, body: String(data: data, encoding: .utf8) ?? "")
+        }
+    }
+
+    /// Status → error. Pure, for tests.
+    static func mapStatus(_ status: Int, body: String) -> SharedCheckInError {
+        switch status {
+        case 403: return .notInFamily
+        case 426: return .updateRequired
+        case 502, 503, 504: return .serverUnavailable(status)
+        default: return .server(status, body)
         }
     }
 
     /// Refresh the Supabase access token using the refresh token and persist the
     /// rotated tokens back to the shared Keychain.
-    private static func refreshSession(_ state: SharedCheckInState, tokens: SharedAuthTokens) async throws -> SharedAuthTokens {
+    private static func refreshSession(_ state: SharedCheckInState, tokens: SharedAuthTokens, timeout: TimeInterval) async throws -> SharedAuthTokens {
         guard let url = URL(string: "\(state.supabaseURL)/auth/v1/token?grant_type=refresh_token") else {
             throw SharedCheckInError.sessionExpired
         }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
-        req.timeoutInterval = 30
+        req.timeoutInterval = timeout
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(state.anonKey, forHTTPHeaderField: "apikey")
         req.httpBody = try JSONSerialization.data(withJSONObject: ["refresh_token": tokens.refreshToken])
@@ -196,6 +306,10 @@ enum SharedCheckInClient {
             throw SharedCheckInError.transport(error)
         }
 
+        if let http = response as? HTTPURLResponse, [502, 503, 504].contains(http.statusCode) {
+            // Auth is behind the same proxy: an outage, not a dead session.
+            throw SharedCheckInError.serverUnavailable(http.statusCode)
+        }
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             // The refresh may have failed because a SIBLING surface (main app,
             // widget, another App Intent) refreshed concurrently and rotated this
@@ -227,6 +341,7 @@ enum SharedCheckInClient {
             expiresAt: Date().addingTimeInterval(TimeInterval(token.expires_in))
         )
         SharedKeychain.saveTokens(updated)
+        NotificationCenter.default.post(name: tokensRotated, object: nil)
         return updated
     }
 }

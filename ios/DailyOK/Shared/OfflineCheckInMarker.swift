@@ -13,6 +13,18 @@ struct OfflineCheckInMarker: Equatable, Codable {
     var at: Date
     /// `ok` / `need_help` / `call_me`.
     var type: String
+    /// Whose tap this is. Optional so a queue written by an older build still
+    /// decodes; nil means "from before markers were stamped" (see
+    /// `OfflineMarkerPolicy.belongs`). Without it a watch or phone handed to
+    /// the next family member sent the previous person's queued taps as the
+    /// new person's check-ins.
+    var receiverId: String? = nil
+    var familyId: String? = nil
+    /// The surface that took the tap ("widget" / "control" / "siri" / "watch"),
+    /// replayed as the check-in's source.
+    var source: String? = nil
+    /// The "HH:mm" window the tap answered, when known.
+    var slotKey: String? = nil
 }
 
 /// Pure rules for a queue of pending check-ins.
@@ -88,5 +100,103 @@ enum OfflineMarkerPolicy {
         calendar: Calendar = .current
     ) -> Bool {
         markers.contains { calendar.isDate($0.at, inSameDayAs: date) }
+    }
+
+    /// Whether a marker may be sent as `receiverId`.
+    ///
+    /// A stamped marker belongs only to the person who made it. An unstamped
+    /// one was written by a build that didn't stamp; it is treated as the
+    /// current person's, because the only way to have one is to have tapped on
+    /// this device before updating — and the queue is now cleared on sign-out,
+    /// so a hand-over can no longer leave one behind.
+    static func belongs(_ marker: OfflineCheckInMarker, to receiverId: String) -> Bool {
+        guard let owner = marker.receiverId else { return true }
+        return owner.lowercased() == receiverId.lowercased()
+    }
+
+    /// Split a queue into what may be sent for `receiverId` and what must be
+    /// dropped (another person's taps).
+    static func partition(
+        _ markers: [OfflineCheckInMarker],
+        for receiverId: String
+    ) -> (mine: [OfflineCheckInMarker], foreign: [OfflineCheckInMarker]) {
+        var mine: [OfflineCheckInMarker] = []
+        var foreign: [OfflineCheckInMarker] = []
+        for marker in markers {
+            if belongs(marker, to: receiverId) { mine.append(marker) } else { foreign.append(marker) }
+        }
+        return (mine, foreign)
+    }
+}
+
+/// App Group persistence for marker queues. Shared so the watch app, the watch
+/// complication, the phone's widget / Control Center / Siri intent and the
+/// phone app all read the same bytes the same way.
+enum OfflineMarkerStore {
+    /// The watch's queue of wrist taps (WatchOfflineQueue).
+    static let watchKey = "watch_pending_checkins"
+    /// The phone's queue of widget / Control Center / Siri taps that couldn't
+    /// reach the server. Drained by the app (OfflineCheckInService).
+    static let extensionKey = "extension_pending_checkins"
+
+    private static let encoder = JSONEncoder()
+    private static let decoder = JSONDecoder()
+
+    static func load(key: String) -> [OfflineCheckInMarker] {
+        guard let data = SharedAppGroup.defaults?.data(forKey: key),
+              let decoded = try? decoder.decode([OfflineCheckInMarker].self, from: data) else { return [] }
+        return decoded
+    }
+
+    static func save(_ markers: [OfflineCheckInMarker], key: String) {
+        guard let defaults = SharedAppGroup.defaults else { return }
+        guard !markers.isEmpty else {
+            defaults.removeObject(forKey: key)
+            return
+        }
+        guard let data = try? encoder.encode(markers) else { return }
+        defaults.set(data, forKey: key)
+    }
+}
+
+/// Plain "I'm OK" taps from the phone's widget, Control Center control or Siri
+/// that couldn't reach the server (offline, or the edge container restarting).
+///
+/// Before this they were simply lost: the intent returned a dialog nobody sees
+/// from a widget button, nothing was saved, and the family was escalated for a
+/// check-in the receiver believed they had made. The app moves these into its
+/// own offline queue (which replays with `occurred_at`) on every sync.
+///
+/// Help requests are never queued here — like every other surface, an urgent
+/// signal goes out live or the receiver is told it didn't send.
+enum ExtensionCheckInQueue {
+    static var pending: [OfflineCheckInMarker] {
+        OfflineMarkerPolicy.prune(OfflineMarkerStore.load(key: OfflineMarkerStore.extensionKey))
+    }
+
+    static func enqueue(_ marker: OfflineCheckInMarker, calendar: Calendar = .current) {
+        let current = OfflineMarkerStore.load(key: OfflineMarkerStore.extensionKey)
+        OfflineMarkerStore.save(
+            OfflineMarkerPolicy.enqueue(current, adding: marker, calendar: calendar),
+            key: OfflineMarkerStore.extensionKey
+        )
+    }
+
+    static func remove(_ marker: OfflineCheckInMarker) {
+        let current = OfflineMarkerStore.load(key: OfflineMarkerStore.extensionKey)
+        OfflineMarkerStore.save(current.filter { $0 != marker }, key: OfflineMarkerStore.extensionKey)
+    }
+
+    /// A live check-in settled today; earlier days stay queued.
+    static func clearToday(calendar: Calendar = .current, now: Date = Date()) {
+        let current = OfflineMarkerStore.load(key: OfflineMarkerStore.extensionKey)
+        OfflineMarkerStore.save(
+            current.filter { !calendar.isDate($0.at, inSameDayAs: now) },
+            key: OfflineMarkerStore.extensionKey
+        )
+    }
+
+    static func clear() {
+        OfflineMarkerStore.save([], key: OfflineMarkerStore.extensionKey)
     }
 }

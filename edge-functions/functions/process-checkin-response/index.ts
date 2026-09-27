@@ -7,6 +7,7 @@ import { isValidUUID, isValidTimezone, validateLocationFields, sanitizeDisplayNa
 import { localDateString, localDayBoundsUTC, resolveOccurredAt, formatOccurredAt } from "../../shared/checkin-time.ts";
 import { notifyEscalationResolved, requestsResolvedByCheckIn } from "../../shared/caregiver-alerts.ts";
 import { followUpUpgrade, isKidInfoSignal, isRepeatOfRecentAlert, isUrgentSignal, FOLLOW_UP_REPEAT_WINDOW_MS } from "../../shared/checkin-followup.ts";
+import { normalizeCheckinSource } from "../../shared/checkin-source.ts";
 
 function haversineDistance(
   lat1: number, lon1: number,
@@ -53,7 +54,9 @@ export async function handleProcessCheckinResponse(req: Request, auth: AuthResul
   const requestId = body.checkin_request_id;
   let receiverId = body.receiver_id;
   let familyId = body.family_id;
-  const source = body.source || "app";
+  // An unknown source used to fail the ENUM insert with a 500 (see
+  // shared/checkin-source.ts). Tolerant, not stricter: known values unchanged.
+  const source = normalizeCheckinSource(body.source);
   const responseType = body.response_type || "ok";
 
   // Validate UUID formats

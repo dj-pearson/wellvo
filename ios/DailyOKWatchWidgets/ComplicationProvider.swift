@@ -9,15 +9,32 @@ struct ComplicationEntry: TimelineEntry {
     let isSignedIn: Bool
     let hasCheckedInToday: Bool
     let lastCheckInAt: Date?
+    /// A wrist tap saved on the watch, not yet sent. The watch app said
+    /// "saved" while the face kept showing the amber "Check in" ring.
+    var isQueued: Bool = false
+    /// Today's help request, shown as "Help sent" rather than "Checked in".
+    var helpKind: String? = nil
 
     static func from(_ state: SharedCheckInState?, date: Date = Date()) -> ComplicationEntry {
-        ComplicationEntry(
+        let queued: Bool = {
+            guard let state else { return false }
+            let mine = OfflineMarkerPolicy.partition(
+                OfflineMarkerStore.load(key: OfflineMarkerStore.watchKey), for: state.receiverId
+            ).mine
+            return OfflineMarkerPolicy.hasMarker(mine, onSameDayAs: date, calendar: state.receiverCalendar)
+        }()
+        let done = state?.isCheckedIn(asOf: date) ?? false
+        return ComplicationEntry(
             date: date,
             isSignedIn: state != nil,
             // Day-scoped so the complication flips back to "Check in" at a new
             // day even if the phone hasn't synced a fresh snapshot.
-            hasCheckedInToday: state?.isCheckedIn(asOf: date) ?? false,
-            lastCheckInAt: state?.lastCheckInAt
+            hasCheckedInToday: done,
+            lastCheckInAt: state?.lastCheckInAt,
+            // The phone's own saved-not-sent flag counts whatever `done` says:
+            // the app marks a queued tap done so nothing re-prompts.
+            isQueued: (!done && queued) || (state?.hasPendingSend(asOf: date) ?? false),
+            helpKind: state?.helpRequested(asOf: date)
         )
     }
 
@@ -43,7 +60,7 @@ struct ComplicationProvider: TimelineProvider {
         // get a refresh slot for a while. The old single-entry timeline kept
         // showing a stale green "all set" past midnight until the ~15-min refresh
         // landed, so a receiver glancing at the wrist could skip a real check-in.
-        let cal = Calendar.current
+        let cal = state?.receiverCalendar ?? Calendar.current
         if let nextMidnight = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now)) {
             entries.append(ComplicationEntry.from(state, date: nextMidnight))
         }

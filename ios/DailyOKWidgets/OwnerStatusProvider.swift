@@ -33,24 +33,25 @@ struct OwnerStatusProvider: TimelineProvider {
         // the entry's date, so the second entry shows an un-answered new day
         // even though the snapshot behind it has not changed — which it will
         // not, until the owner next opens the app.
+        //
+        // One entry per distinct midnight: each receiver's day turns over in
+        // their own zone (a parent in another state rolls over hours apart).
         var entries = [OwnerStatusEntry(date: now, state: state)]
-        if let midnight = Calendar.current.nextDate(
-            after: now,
-            matching: DateComponents(hour: 0, minute: 0, second: 0),
-            matchingPolicy: .nextTime
-        ) {
+        let calendars = [Calendar.current] + (state?.receivers.map(\.receiverCalendar) ?? [])
+        let midnights = Set(calendars.compactMap {
+            $0.nextDate(after: now, matching: DateComponents(hour: 0, minute: 0, second: 0), matchingPolicy: .nextTime)
+        })
+        for midnight in midnights.sorted().prefix(4) {
             entries.append(OwnerStatusEntry(date: midnight, state: state))
         }
 
-        // Refresh sooner while a receiver is missed/pending so the owner widget
-        // doesn't lag an active escalation by up to 15 minutes; back off to 15
-        // minutes once everyone's checked in (US-IOS107). Evaluated day-scoped,
-        // so a stale "checked in" no longer reads as "nothing to watch".
-        let needsAttention = state?.receivers.contains {
-            let status = $0.status(asOf: now)
-            return status == "missed" || status == "pending"
-        } ?? false
-        let refreshIn: TimeInterval = needsAttention ? 5 * 60 : 15 * 60
+        // The snapshot changes only when the app writes it, and the app reloads
+        // every timeline when it does, so polling it every 5 minutes re-read
+        // identical bytes and spent WidgetKit's daily budget — the budget the
+        // reloads that matter draw on. 15 minutes while someone needs attention
+        // (keeps the "Updated … ago" footnote honest), 30 otherwise.
+        let needsAttention = state?.needsAttention(asOf: now) ?? false
+        let refreshIn: TimeInterval = needsAttention ? 15 * 60 : 30 * 60
         completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(refreshIn))))
     }
 }

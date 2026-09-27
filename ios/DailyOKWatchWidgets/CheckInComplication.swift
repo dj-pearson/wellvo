@@ -22,22 +22,35 @@ struct CheckInComplication: Widget {
 
 private let brandGreen = Color(red: 0.133, green: 0.773, blue: 0.369)
 private let brandAmber = Color(red: 0.96, green: 0.62, blue: 0.04)
+private let brandOrange = Color(red: 0.95, green: 0.45, blue: 0.10)
 
 struct ComplicationView: View {
     @Environment(\.widgetFamily) private var family
     let entry: ComplicationEntry
 
     private var icon: String {
-        entry.hasCheckedInToday ? "checkmark.circle.fill" : "circle.dashed"
+        if entry.helpKind != nil { return "exclamationmark.bubble.fill" }
+        // Saved-not-sent outranks done: a queued tap is not "all set".
+        if entry.isQueued { return "clock.badge.checkmark" }
+        return entry.hasCheckedInToday ? "checkmark.circle.fill" : "circle.dashed"
     }
     private var text: String {
         guard entry.isSignedIn else { return "Sign in" }
+        if entry.helpKind != nil { return "Help sent" }
+        if entry.isQueued { return "Saved" }
         return entry.hasCheckedInToday ? "Checked in" : "Check in"
     }
-    /// Green when done, open amber when a check-in is due.
+    /// Green when done (or saved), orange for a help request, open amber when
+    /// a check-in is due.
     private var tint: Color {
         guard entry.isSignedIn else { return .secondary }
-        return entry.hasCheckedInToday ? brandGreen : brandAmber
+        if entry.helpKind != nil { return brandOrange }
+        return (entry.hasCheckedInToday || entry.isQueued) ? brandGreen : brandAmber
+    }
+    private var headline: String {
+        if entry.helpKind != nil { return entry.helpKind == "call_me" ? "Call requested" : "Help requested" }
+        if entry.isQueued { return "Saved, not sent" }
+        return entry.hasCheckedInToday ? "You're all set" : "Tap to check in"
     }
 
     var body: some View {
@@ -53,9 +66,12 @@ struct ComplicationView: View {
             HStack(spacing: 6) {
                 Image(systemName: icon).foregroundStyle(tint)
                 VStack(alignment: .leading) {
-                    Text(entry.hasCheckedInToday ? "You're all set" : "Tap to check in")
+                    Text(headline)
                         .font(.headline)
-                    if let at = entry.lastCheckInAt, entry.hasCheckedInToday {
+                    if entry.isQueued {
+                        Text("Sends when connected")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    } else if let at = entry.lastCheckInAt, entry.hasCheckedInToday {
                         Text(at.formatted(date: .omitted, time: .shortened))
                             .font(.caption2).foregroundStyle(.secondary)
                     }

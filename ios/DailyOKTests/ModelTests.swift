@@ -700,3 +700,251 @@ final class ReceiverHomeLogicTests: XCTestCase {
         XCTAssertNil(ReceiverHomeView.telURL("n/a"))
     }
 }
+
+/// Extensions pass (widget, Control Center, Siri, watch, NSE): the pure rules
+/// behind every glanceable surface and the shared session.
+final class ExtensionSurfaceLogicTests: XCTestCase {
+
+    private func utc(_ value: String, zone: String = "UTC") -> Date {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone(identifier: zone)
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter.date(from: value)!
+    }
+
+    private func state(
+        lastCheckInAt: Date?, hasCheckedInToday: Bool = true, zone: String? = nil
+    ) -> SharedCheckInState {
+        var s = SharedCheckInState(
+            receiverId: "r", familyId: "f", displayName: nil, isKidMode: false,
+            supabaseURL: "https://x", anonKey: "k", edgeFunctionsURL: "https://e",
+            hasCheckedInToday: hasCheckedInToday, lastCheckInAt: lastCheckInAt,
+            nextCheckInAt: nil, updatedAt: Date()
+        )
+        s.timeZoneId = zone
+        return s
+    }
+
+    // MARK: "Asked again" — the family's request after the last check-in
+
+    func testARequestAfterTheLastCheckInBringsTheButtonBack() {
+        var s = state(lastCheckInAt: utc("2026-03-10 08:00"), zone: "UTC")
+        s.latestRequestAt = utc("2026-03-10 15:00")
+        XCTAssertFalse(s.isCheckedIn(asOf: utc("2026-03-10 15:05")))
+    }
+
+    func testARequestTheCheckInAlreadyAnsweredChangesNothing() {
+        var s = state(lastCheckInAt: utc("2026-03-10 09:05"), zone: "UTC")
+        s.latestRequestAt = utc("2026-03-10 09:00")
+        XCTAssertTrue(s.isCheckedIn(asOf: utc("2026-03-10 12:00")))
+    }
+
+    func testOwedSlotKeyOnlyWhileTheRequestIsUnanswered() {
+        var s = state(lastCheckInAt: utc("2026-03-10 08:00"), zone: "UTC")
+        s.latestRequestAt = utc("2026-03-10 18:00")
+        s.latestRequestSlotKey = "18:00"
+        XCTAssertEqual(s.owedSlotKey(asOf: utc("2026-03-10 18:10")), "18:00")
+        s.lastCheckInAt = utc("2026-03-10 18:12")
+        XCTAssertNil(s.owedSlotKey(asOf: utc("2026-03-10 18:15")))
+    }
+
+    // MARK: Receiver's zone
+
+    /// The server files by the account zone. A receiver whose phone is set to
+    /// another zone was shown "all set" (and had the watch refuse the tap) on a
+    /// day the server had nothing for.
+    func testDoneIsMeasuredInTheReceiversZone() {
+        // 11 PM Monday in Los Angeles is Tuesday in UTC.
+        let s = state(lastCheckInAt: utc("2026-03-09 23:00", zone: "America/Los_Angeles"), zone: "America/Los_Angeles")
+        XCTAssertTrue(s.isCheckedIn(asOf: utc("2026-03-09 23:30", zone: "America/Los_Angeles")))
+        XCTAssertFalse(s.isCheckedIn(asOf: utc("2026-03-10 07:00", zone: "America/Los_Angeles")))
+    }
+
+    // MARK: Help, saved, failed
+
+    func testHelpIsTodaysOnly() {
+        var s = state(lastCheckInAt: utc("2026-03-10 08:00"), zone: "UTC")
+        s.helpKind = "need_help"
+        s.helpAt = utc("2026-03-10 08:00")
+        XCTAssertEqual(s.helpRequested(asOf: utc("2026-03-10 20:00")), "need_help")
+        XCTAssertNil(s.helpRequested(asOf: utc("2026-03-11 08:00")))
+    }
+
+    func testAFailureIsClearedByALaterCheckIn() {
+        var s = state(lastCheckInAt: utc("2026-03-10 07:00"), zone: "UTC")
+        s.lastFailureMessage = "You've been signed out."
+        s.lastFailureAt = utc("2026-03-10 08:00")
+        XCTAssertEqual(s.failureMessage(asOf: utc("2026-03-10 08:30")), "You've been signed out.")
+        s.lastCheckInAt = utc("2026-03-10 09:00")
+        XCTAssertNil(s.failureMessage(asOf: utc("2026-03-10 09:30")))
+    }
+
+    /// A snapshot from an older build decodes; one patched by the Notification
+    /// Service Extension (by key, as JSON) decodes with the request time.
+    func testOlderAndNSEPatchedSnapshotsDecode() throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let old = #"{"receiverId":"r","familyId":"f","isKidMode":false,"supabaseURL":"s","anonKey":"k","edgeFunctionsURL":"e","hasCheckedInToday":true,"updatedAt":"2026-03-10T08:00:00Z"}"#
+        let decodedOld = try decoder.decode(SharedCheckInState.self, from: Data(old.utf8))
+        XCTAssertNil(decodedOld.latestRequestAt)
+        XCTAssertNil(decodedOld.timeZoneId)
+
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(old.utf8)) as? [String: Any])
+        object["latestRequestAt"] = "2026-03-10T15:00:00Z"
+        object["latestRequestSlotKey"] = "15:00"
+        let patched = try decoder.decode(
+            SharedCheckInState.self, from: JSONSerialization.data(withJSONObject: object)
+        )
+        XCTAssertEqual(patched.latestRequestAt, utc("2026-03-10 15:00"))
+        XCTAssertEqual(patched.latestRequestSlotKey, "15:00")
+    }
+
+    // MARK: Errors the extensions show
+
+    func testStatusMapping() {
+        if case .notInFamily = SharedCheckInClient.mapStatus(403, body: "") {} else { XCTFail("403") }
+        if case .updateRequired = SharedCheckInClient.mapStatus(426, body: "") {} else { XCTFail("426") }
+        for code in [502, 503, 504] {
+            XCTAssertTrue(SharedCheckInClient.mapStatus(code, body: "").isQueueable, "\(code) is an outage")
+        }
+        XCTAssertFalse(SharedCheckInClient.mapStatus(500, body: "").isQueueable)
+        XCTAssertTrue(SharedCheckInError.transport(URLError(.notConnectedToInternet)).isQueueable)
+        XCTAssertFalse(SharedCheckInError.locked.isQueueable)
+    }
+
+    /// "error 403, please try again" meant nothing and was wrong.
+    func testExtensionCopyNeverShowsAnHTTPCode() {
+        for error in [SharedCheckInClient.mapStatus(500, body: "x"), .serverUnavailable(503), .notInFamily, .updateRequired] {
+            let text = error.message(ownerName: "Sarah")
+            XCTAssertFalse(text.contains("error"), text)
+            XCTAssertFalse(text.contains("50"), text)
+            XCTAssertFalse(text.contains("403"), text)
+        }
+        XCTAssertTrue(SharedCheckInClient.mapStatus(500, body: "").message(ownerName: "Sarah").contains("call Sarah"))
+    }
+
+    func testShortcutSourceIsNormalised() {
+        XCTAssertEqual(CheckInSurface.normalized("widget"), "widget")
+        XCTAssertEqual(CheckInSurface.normalized(" Control "), "control")
+        XCTAssertEqual(CheckInSurface.normalized("my morning shortcut"), "app")
+        XCTAssertEqual(CheckInSurface.normalized(""), "app")
+    }
+
+    // MARK: Watch → phone report
+
+    /// The bare legacy notify was also sent for a queued tap: it no longer
+    /// marks today done.
+    func testALegacyOrUnsentWatchReportIsIgnored() {
+        XCTAssertNil(WatchCheckInReport(userInfo: ["watch_checked_in": true]))
+        XCTAssertNil(WatchCheckInReport(userInfo: ["watch_checked_in": true, "sent": false, "answered_at": 1.0]))
+    }
+
+    func testOnlyATodayReportAnswersToday() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let now = utc("2026-03-10 09:00")
+        let today = WatchCheckInReport(userInfo: [
+            "watch_checked_in": true, "sent": true,
+            "answered_at": utc("2026-03-10 08:59").timeIntervalSince1970, "type": "ok",
+        ])
+        XCTAssertEqual(today?.answersToday(now: now, calendar: cal), true)
+        let flushedFromYesterday = WatchCheckInReport(answeredAt: utc("2026-03-09 23:55"), type: "ok")
+        XCTAssertFalse(flushedFromYesterday.answersToday(now: now, calendar: cal))
+        let weird = WatchCheckInReport(userInfo: ["sent": true, "answered_at": 1.0, "type": "bogus"])
+        XCTAssertEqual(weird?.type, "ok")
+    }
+
+    func testSnapshotHelpKindForReceiverHelp() {
+        XCTAssertEqual(ReceiverViewModel.snapshotHelpKind(.needHelp), "need_help")
+        XCTAssertEqual(ReceiverViewModel.snapshotHelpKind(.callMe), "call_me")
+        XCTAssertEqual(ReceiverViewModel.snapshotHelpKind(.sos), "sos")
+        XCTAssertNil(ReceiverViewModel.snapshotHelpKind(.pickMeUp))
+    }
+}
+
+/// The shared session: which token pair wins when several surfaces refresh.
+final class SharedSessionTokenTests: XCTestCase {
+
+    /// An unsigned JWT with the given subject — the payload is all these read.
+    private func jwt(sub: String) -> String {
+        let payload = try! JSONSerialization.data(withJSONObject: ["sub": sub])
+        let b64 = payload.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        return "eyJhbGciOiJIUzI1NiJ9.\(b64).sig"
+    }
+
+    private let userA = "11111111-1111-1111-1111-111111111111"
+    private let userB = "22222222-2222-2222-2222-222222222222"
+
+    private func tokens(_ user: String, refresh: String, expiresIn: TimeInterval) -> SharedAuthTokens {
+        SharedAuthTokens(accessToken: jwt(sub: user), refreshToken: refresh,
+                         expiresAt: Date(timeIntervalSince1970: 1_800_000_000 + expiresIn))
+    }
+
+    func testSubjectIsReadFromTheAccessToken() {
+        XCTAssertEqual(tokens(userA, refresh: "r", expiresIn: 0).subject, userA)
+        XCTAssertNil(SharedAuthTokens.jwtSubject("not-a-jwt"))
+    }
+
+    func testAnOlderPairNeverOverwritesANewerOneForTheSameUser() {
+        let newer = tokens(userA, refresh: "r2", expiresIn: 3600)
+        let older = tokens(userA, refresh: "r1", expiresIn: 0)
+        XCTAssertFalse(SharedAuthTokens.shouldReplace(existing: newer, with: older))
+        XCTAssertTrue(SharedAuthTokens.shouldReplace(existing: older, with: newer))
+    }
+
+    func testADifferentUserOrNothingStoredIsAlwaysWritten() {
+        XCTAssertTrue(SharedAuthTokens.shouldReplace(existing: nil, with: tokens(userA, refresh: "r", expiresIn: 0)))
+        XCTAssertTrue(SharedAuthTokens.shouldReplace(
+            existing: tokens(userA, refresh: "r2", expiresIn: 3600),
+            with: tokens(userB, refresh: "r9", expiresIn: 0)
+        ))
+    }
+
+    // MARK: SessionTokenReconciler — the SDK adopts what an extension rotated
+
+    private func storedSession(_ user: String, refresh: String, expiresAt: TimeInterval, snake: Bool = false) -> Data {
+        let object: [String: Any] = snake
+            ? ["access_token": jwt(sub: user), "refresh_token": refresh, "expires_at": expiresAt,
+               "expires_in": 3600, "token_type": "bearer", "user": ["id": user]]
+            : ["accessToken": jwt(sub: user), "refreshToken": refresh, "expiresAt": expiresAt,
+               "expiresIn": 3600, "tokenType": "bearer", "user": ["id": user]]
+        return try! JSONSerialization.data(withJSONObject: object)
+    }
+
+    func testANewerSharedPairIsAdopted() throws {
+        let stored = storedSession(userA, refresh: "r1", expiresAt: 1_800_000_000)
+        let shared = tokens(userA, refresh: "r2", expiresIn: 3600)
+        let patched = try XCTUnwrap(SessionTokenReconciler.adopt(shared, into: stored))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: patched) as? [String: Any])
+        XCTAssertEqual(object["refreshToken"] as? String, "r2")
+        XCTAssertEqual((object["expiresAt"] as? NSNumber)?.doubleValue, shared.expiresAt.timeIntervalSince1970)
+        XCTAssertEqual(object["tokenType"] as? String, "bearer", "everything else is untouched")
+    }
+
+    func testTheOlderSnakeCaseEncodingIsHandledToo() throws {
+        let stored = storedSession(userA, refresh: "r1", expiresAt: 1_800_000_000, snake: true)
+        let patched = try XCTUnwrap(SessionTokenReconciler.adopt(tokens(userA, refresh: "r2", expiresIn: 60), into: stored))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: patched) as? [String: Any])
+        XCTAssertEqual(object["refresh_token"] as? String, "r2")
+    }
+
+    func testAnOlderOrSamePairIsNotAdopted() {
+        let stored = storedSession(userA, refresh: "r2", expiresAt: 1_800_003_600)
+        XCTAssertNil(SessionTokenReconciler.adopt(tokens(userA, refresh: "r1", expiresIn: 0), into: stored))
+        XCTAssertNil(SessionTokenReconciler.adopt(tokens(userA, refresh: "r2", expiresIn: 7200), into: stored))
+    }
+
+    /// A stale pair for someone else must never become this session.
+    func testAnotherUsersPairIsNeverAdopted() {
+        let stored = storedSession(userA, refresh: "r1", expiresAt: 1_800_000_000)
+        XCTAssertNil(SessionTokenReconciler.adopt(tokens(userB, refresh: "r9", expiresIn: 3600), into: stored))
+    }
+
+    func testUnrecognisedDataIsLeftAlone() {
+        XCTAssertNil(SessionTokenReconciler.adopt(tokens(userA, refresh: "r2", expiresIn: 3600), into: Data("first".utf8)))
+    }
+}

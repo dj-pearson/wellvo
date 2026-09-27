@@ -22,6 +22,8 @@ final class LiveActivityTokenService: @unchecked Sendable {
     /// activity.id → most recent hex push token, used to deactivate on end.
     private var lastTokenHex: [String: String] = [:]
     private var pushToStartTask: Task<Void, Never>?
+    /// The last push-to-start token uploaded, so sign-out can deactivate it.
+    private var startTokenHex: String?
 
     private static func hex(_ data: Data) -> String {
         data.map { String(format: "%02x", $0) }.joined()
@@ -83,9 +85,11 @@ final class LiveActivityTokenService: @unchecked Sendable {
             lock.unlock()
             return
         }
-        pushToStartTask = Task {
+        pushToStartTask = Task { [weak self] in
             for await tokenData in Activity<EscalationActivityAttributes>.pushToStartTokenUpdates {
-                await Self.uploadStartToken(pushToken: Self.hex(tokenData))
+                let hex = Self.hex(tokenData)
+                self?.setStartToken(hex)
+                await Self.uploadStartToken(pushToken: hex)
             }
         }
         lock.unlock()
@@ -98,6 +102,48 @@ final class LiveActivityTokenService: @unchecked Sendable {
         lastTokenHex[activityId] = nil
         lock.unlock()
         tasks?.forEach { $0.cancel() }
+    }
+
+    /// Sign-out, step one (while the session still identifies whose rows they
+    /// are): deactivate every Live Activity token this device registered, so
+    /// the server can't later push the outgoing user's family — names and
+    /// all — onto the next person's Lock Screen. The ended activities'
+    /// own deactivate calls ran after the session was revoked, and failed.
+    func deactivateAll() async {
+        for hex in registeredTokens() {
+            await Self.deactivate(pushToken: hex)
+        }
+    }
+
+    /// Sign-out, step two: stop observing. The push-to-start observer used to
+    /// survive, so after the next sign-in in the same process it returned early
+    /// and the start token stayed registered to the previous user.
+    func reset() {
+        lock.lock()
+        let tasks = observers.values.flatMap { $0 }
+        observers.removeAll()
+        lastTokenHex.removeAll()
+        let startTask = pushToStartTask
+        pushToStartTask = nil
+        startTokenHex = nil
+        lock.unlock()
+        tasks.forEach { $0.cancel() }
+        startTask?.cancel()
+    }
+
+    /// Every token this device registered. Synchronous so the lock is never
+    /// taken from an async context (NSLock is `noasync`).
+    private func registeredTokens() -> Set<String> {
+        lock.lock(); defer { lock.unlock() }
+        var tokens = Set(lastTokenHex.values)
+        if let startTokenHex { tokens.insert(startTokenHex) }
+        return tokens
+    }
+
+    private func setStartToken(_ hex: String) {
+        lock.lock()
+        startTokenHex = hex
+        lock.unlock()
     }
 
     private func setLastToken(_ hex: String, for id: String) {

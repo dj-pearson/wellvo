@@ -17,7 +17,7 @@ private func standDownURL(receiverId: String, familyId: String) -> URL {
 private let dashboardURL = URL(string: "dailyok://dashboard")!
 
 /// Only the owner can stand down. A co-caregiver's activity (canStandDown ==
-/// false) gets "Open" instead of a button that could only say "Only the owner
+/// false) gets "See who's on it" (the dashboard) instead of a button that could only say "Only the owner
 /// can stop alerts". Activities without the key (older builds) are owners'.
 private func canStandDown(_ context: ActivityViewContext<EscalationActivityAttributes>) -> Bool {
     context.attributes.canStandDown ?? true
@@ -68,8 +68,11 @@ struct EscalationLiveActivity: Widget {
                             Label("Stand down", systemImage: "hand.raised.fill").font(.caption)
                         }
                     } else {
+                        // A co-caregiver can't stand down; say where the
+                        // "I'm on it" and care-team actions are instead of a
+                        // bare "Open".
                         Link(destination: dashboardURL) {
-                            Label("Open", systemImage: "arrow.up.forward.app").font(.caption)
+                            Label("See who's on it", systemImage: "person.2.fill").font(.caption)
                         }
                     }
                 }
@@ -107,7 +110,7 @@ struct EscalationLiveActivity: Widget {
                             }
                         } else {
                             Link(destination: dashboardURL) {
-                                Label("Open", systemImage: "arrow.up.forward.app")
+                                Label("See who's on it", systemImage: "person.2.fill")
                             }
                         }
                     }

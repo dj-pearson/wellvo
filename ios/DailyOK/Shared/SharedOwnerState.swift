@@ -13,6 +13,26 @@ struct SharedOwnerReceiver: Codable, Identifiable, Equatable {
     /// When `status` was computed. Optional so snapshots written by older
     /// builds still decode. Used to day-scope "upcoming".
     var statusDate: Date? = nil
+    /// The owner stood the escalation down ("I reached her"). The dashboard
+    /// shows "Alerts stopped"; the widget kept showing red "Missed" and
+    /// featured this person over one still escalating. Optional: older
+    /// snapshots decode as not stood down.
+    var stoodDown: Bool? = nil
+    /// For "needs_help": "need_help" | "call_me" | "sos".
+    var helpKind: String? = nil
+    /// The receiver's zone. The server files check-ins by it and the dashboard
+    /// shows times in it; the widget used the owner's device zone, so Dad's
+    /// 11 PM Monday check-in in Los Angeles read as Tuesday's in New York.
+    var timeZoneId: String? = nil
+    /// "Tom is on it" — the co-caregiver who claimed today's alert.
+    var claimedByName: String? = nil
+
+    /// The calendar "today" means for this person.
+    var receiverCalendar: Calendar {
+        var cal = Calendar.current
+        if let id = timeZoneId, let zone = TimeZone(identifier: id) { cal.timeZone = zone }
+        return cal
+    }
 
     /// The status as it stands on `now`, rather than as it stood when the
     /// snapshot was written.
@@ -36,7 +56,14 @@ struct SharedOwnerReceiver: Codable, Identifiable, Equatable {
     /// "needs_help" is day-scoped the same way (it IS today's check-in, one
     /// that asked for help), and so is "upcoming": "not due yet" computed
     /// yesterday says nothing about today.
-    func status(asOf now: Date = Date(), calendar: Calendar = .current) -> String {
+    ///
+    /// "stood_down" (derived, never published): a missed/pending status the
+    /// owner stood down today. Neutral, not an alarm, and no longer the person
+    /// the widget features. Yesterday's stand-down says nothing about today.
+    ///
+    /// `calendar` overrides the zone (tests); nil uses the receiver's zone.
+    func status(asOf now: Date = Date(), calendar: Calendar? = nil) -> String {
+        let calendar = calendar ?? receiverCalendar
         switch status {
         case "checked_in", "needs_help":
             guard let lastCheckInAt, calendar.isDate(lastCheckInAt, inSameDayAs: now) else {
@@ -48,6 +75,14 @@ struct SharedOwnerReceiver: Codable, Identifiable, Equatable {
                 return "pending"
             }
             return status
+        case "missed", "pending", "no_data":
+            if stoodDown == true {
+                guard let statusDate, calendar.isDate(statusDate, inSameDayAs: now) else {
+                    return "pending"
+                }
+                return "stood_down"
+            }
+            return status
         default:
             return status
         }
@@ -55,9 +90,42 @@ struct SharedOwnerReceiver: Codable, Identifiable, Equatable {
 
     /// The check-in time, only when it belongs to `now`'s day — so a stale
     /// timestamp is never rendered as today's.
-    func lastCheckIn(asOf now: Date = Date(), calendar: Calendar = .current) -> Date? {
+    func lastCheckIn(asOf now: Date = Date(), calendar: Calendar? = nil) -> Date? {
+        let calendar = calendar ?? receiverCalendar
         guard let lastCheckInAt, calendar.isDate(lastCheckInAt, inSameDayAs: now) else { return nil }
         return lastCheckInAt
+    }
+
+    /// "8:15 AM" in the receiver's zone, with the zone's abbreviation when it
+    /// differs from the viewer's ("8:15 AM PDT") so it matches the dashboard.
+    func timeText(_ date: Date, viewerZone: TimeZone = .current) -> String {
+        let zone = receiverCalendar.timeZone
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        formatter.timeZone = zone
+        let time = formatter.string(from: date)
+        guard zone.secondsFromGMT(for: date) != viewerZone.secondsFromGMT(for: date),
+              let abbreviation = zone.abbreviation(for: date) else { return time }
+        return "\(time) \(abbreviation)"
+    }
+
+    /// Words for a status, for the widget's rows and VoiceOver.
+    func label(forStatus status: String) -> String {
+        switch status {
+        case "checked_in": return "Checked in"
+        case "pending": return "Pending"
+        case "missed": return "Missed"
+        case "stood_down": return "Alerts stopped"
+        case "needs_help":
+            switch helpKind {
+            case "call_me": return "Asked you to call"
+            case "sos": return "Sent SOS"
+            default: return "Needs help"
+            }
+        case "upcoming": return "Not due yet"
+        default: return "No check-in yet"
+        }
     }
 }
 
@@ -69,19 +137,46 @@ struct SharedOwnerState: Codable, Equatable {
 
     /// Day-scoped, for the reason on `SharedOwnerReceiver.status(asOf:)`: "3 of
     /// 3 checked in" carried over from yesterday is worse than no widget.
-    func checkedInCount(asOf now: Date = Date(), calendar: Calendar = .current) -> Int {
+    func checkedInCount(asOf now: Date = Date(), calendar: Calendar? = nil) -> Int {
         receivers.filter { $0.status(asOf: now, calendar: calendar) == "checked_in" }.count
     }
 
-    /// The receiver an owner most wants to see first: one who asked for help,
-    /// else a missed one, else a pending one, else the first. Ordered on the
-    /// day-scoped status so a stale "checked in" cannot outrank someone who
-    /// genuinely has not answered.
-    func mostRelevant(asOf now: Date = Date(), calendar: Calendar = .current) -> SharedOwnerReceiver? {
-        receivers.first(where: { $0.status(asOf: now, calendar: calendar) == "needs_help" })
+    /// The receiver an owner most wants to see first: an SOS, else one who
+    /// asked for help, else a missed one (not stood down), else a pending one,
+    /// else the first. Ordered on the day-scoped status so a stale "checked in"
+    /// cannot outrank someone who genuinely has not answered, and a miss the
+    /// owner already handled cannot outrank one still escalating.
+    func mostRelevant(asOf now: Date = Date(), calendar: Calendar? = nil) -> SharedOwnerReceiver? {
+        receivers.first(where: { $0.status(asOf: now, calendar: calendar) == "needs_help" && $0.helpKind == "sos" })
+            ?? receivers.first(where: { $0.status(asOf: now, calendar: calendar) == "needs_help" })
             ?? receivers.first(where: { $0.status(asOf: now, calendar: calendar) == "missed" })
             ?? receivers.first(where: { $0.status(asOf: now, calendar: calendar) == "pending" })
             ?? receivers.first
+    }
+
+    /// Whether anything on the widget still wants the owner's attention.
+    func needsAttention(asOf now: Date = Date(), calendar: Calendar? = nil) -> Bool {
+        receivers.contains {
+            let status = $0.status(asOf: now, calendar: calendar)
+            return status == "missed" || status == "pending" || status == "needs_help"
+        }
+    }
+
+    /// The Lock Screen headline: who needs the owner, by name, or nil when the
+    /// count says it all. "2 of 3 checked in" read the same on a slow morning
+    /// and on the morning Mom asked for help.
+    func headline(asOf now: Date = Date(), calendar: Calendar? = nil) -> String? {
+        guard let r = mostRelevant(asOf: now, calendar: calendar) else { return nil }
+        switch r.status(asOf: now, calendar: calendar) {
+        case "needs_help":
+            switch r.helpKind {
+            case "call_me": return "\(r.name) asked you to call"
+            case "sos": return "\(r.name) sent an SOS"
+            default: return "\(r.name) needs help"
+            }
+        case "missed": return "No answer from \(r.name)"
+        default: return nil
+        }
     }
 }
 

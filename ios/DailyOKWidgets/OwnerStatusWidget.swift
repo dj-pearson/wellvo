@@ -21,18 +21,26 @@ struct OwnerStatusWidget: Widget {
 private func color(for status: String) -> Color {
     switch status {
     case "checked_in": return .green
-    case "pending": return .yellow
+    // Orange, not yellow: plain yellow is close to unreadable on a light
+    // widget background (the app switched to deep amber for the same reason).
+    case "pending": return .orange
     case "missed", "needs_help": return .red
     default: return .gray
     }
 }
 
-private func icon(for status: String) -> String {
+private func icon(for status: String, helpKind: String? = nil) -> String {
     switch status {
     case "checked_in": return "checkmark.circle.fill"
     case "pending": return "clock.fill"
     case "missed": return "exclamationmark.circle.fill"
-    case "needs_help": return "exclamationmark.bubble.fill"
+    case "stood_down": return "hand.raised.fill"
+    case "needs_help":
+        switch helpKind {
+        case "call_me": return "phone.arrow.down.left.fill"
+        case "sos": return "sos"
+        default: return "exclamationmark.bubble.fill"
+        }
     case "upcoming": return "calendar.badge.clock"
     default: return "minus.circle.fill"
     }
@@ -65,14 +73,26 @@ struct OwnerStatusView: View {
         "\(s.checkedInCount(asOf: now)) of \(s.total) checked in"
     }
 
+    /// Lock Screen: who needs the owner, by name, when someone does. The count
+    /// alone read the same on a slow morning and on the morning Mom asked for
+    /// help. Names are privacy-sensitive: redacted when the owner hides widget
+    /// data on the locked Lock Screen.
     @ViewBuilder private func accessory(_ s: SharedOwnerState) -> some View {
+        let headline = s.headline(asOf: now)
         HStack(spacing: 6) {
-            Image(systemName: s.checkedInCount(asOf: now) == s.total ? "checkmark.circle.fill" : "person.2.fill")
+            Image(systemName: headline != nil
+                  ? "exclamationmark.circle.fill"
+                  : (s.checkedInCount(asOf: now) == s.total ? "checkmark.circle.fill" : "person.2.fill"))
             VStack(alignment: .leading) {
-                Text("Family check-ins").font(.headline)
+                if let headline {
+                    Text(headline).font(.headline).lineLimit(2).privacySensitive()
+                } else {
+                    Text("Family check-ins").font(.headline)
+                }
                 Text(summaryText(s)).font(.caption2).foregroundStyle(.secondary)
             }
         }
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder private func small(_ s: SharedOwnerState) -> some View {
@@ -80,14 +100,37 @@ struct OwnerStatusView: View {
             Text(summaryText(s)).font(.caption).fontWeight(.semibold)
             if let r = s.mostRelevant(asOf: now) {
                 let status = r.status(asOf: now)
-                HStack(spacing: 6) {
-                    Image(systemName: icon(for: status)).foregroundStyle(color(for: status))
-                    Text(r.name).font(.subheadline).lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Image(systemName: icon(for: status, helpKind: r.helpKind)).foregroundStyle(color(for: status))
+                        Text(r.name).font(.subheadline).lineLimit(1)
+                    }
+                    // The status in words, not just a coloured symbol: VoiceOver
+                    // users and anyone who can't tell red from orange got only
+                    // "Mom" here.
+                    Text(rowDetail(r, status: status))
+                        .font(.caption2).foregroundStyle(.secondary).lineLimit(2)
                 }
+                .privacySensitive()
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(r.name), \(rowDetail(r, status: status)). \(summaryText(s)).")
             }
             Spacer(minLength: 0)
             ageFootnote(s)
         }
+    }
+
+    /// "Checked in 8:15 AM", "Asked you to call · Tom is on it", "Alerts
+    /// stopped", "Pending"…
+    private func rowDetail(_ r: SharedOwnerReceiver, status: String) -> String {
+        var text = r.label(forStatus: status)
+        if status == "checked_in", let at = r.lastCheckIn(asOf: now) {
+            text = "Checked in \(r.timeText(at))"
+        }
+        if (status == "needs_help" || status == "missed"), let who = r.claimedByName, !who.isEmpty {
+            text += " · \(who) is on it"
+        }
+        return text
     }
 
     @ViewBuilder private func list(_ s: SharedOwnerState) -> some View {
@@ -96,19 +139,27 @@ struct OwnerStatusView: View {
             ForEach(s.receivers.prefix(family == .systemLarge ? 8 : 3)) { r in
                 let status = r.status(asOf: now)
                 HStack(spacing: 8) {
-                    Image(systemName: icon(for: status)).foregroundStyle(color(for: status))
+                    Image(systemName: icon(for: status, helpKind: r.helpKind)).foregroundStyle(color(for: status))
                     Text(r.name).font(.subheadline).lineLimit(1)
                     Spacer()
                     // A bare time — "8:15 AM" — reads as today. Only show it
                     // when it IS today; otherwise the status word carries the
-                    // truth.
+                    // truth. The word is in the primary/secondary text colour:
+                    // the icon carries the colour.
                     if status == "checked_in", let at = r.lastCheckIn(asOf: now) {
-                        Text(at.formatted(date: .omitted, time: .shortened))
+                        Text(r.timeText(at))
                             .font(.caption2).foregroundStyle(.secondary)
                     } else {
-                        Text(label(for: status)).font(.caption2).foregroundStyle(color(for: status))
+                        Text(rowDetail(r, status: status))
+                            .font(.caption2)
+                            .fontWeight(status == "needs_help" || status == "missed" ? .semibold : .regular)
+                            .foregroundStyle(status == "needs_help" || status == "missed" ? .primary : .secondary)
+                            .lineLimit(1)
                     }
                 }
+                .privacySensitive()
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(r.name), \(rowDetail(r, status: status))")
             }
             Spacer(minLength: 0)
             ageFootnote(s)
@@ -124,21 +175,22 @@ struct OwnerStatusView: View {
         }
     }
 
-    private func label(for status: String) -> String {
-        switch status {
-        case "pending": return "Pending"
-        case "missed": return "Missed"
-        case "needs_help": return "Needs help"
-        case "upcoming": return "Not due yet"
-        case "no_data": return "—"
-        default: return ""
-        }
-    }
-
-    private var empty: some View {
+    /// Two different situations used to share a bare "Open Daily OK": nobody
+    /// to check on yet, and no family on this phone (signed out, or this is
+    /// the receiver's phone).
+    @ViewBuilder private var empty: some View {
+        let noReceivers = entry.state != nil
         VStack(spacing: 6) {
             Image(systemName: "person.2.fill").font(.title3).foregroundStyle(.secondary)
-            Text("Open Daily OK").font(.caption).fontWeight(.semibold)
+            Text(noReceivers ? "Add someone to check on" : "Open Daily OK")
+                .font(.caption).fontWeight(.semibold).multilineTextAlignment(.center)
+            if !noReceivers {
+                Text("to see your family").font(.caption2).foregroundStyle(.secondary)
+            }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(noReceivers
+            ? "Daily OK. Nobody to check on yet. Open the app to add someone."
+            : "Daily OK. Open the app to see your family's check-ins.")
     }
 }

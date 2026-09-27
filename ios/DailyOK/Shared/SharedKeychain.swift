@@ -15,6 +15,44 @@ struct SharedAuthTokens: Codable, Equatable {
     var isAccessTokenExpired: Bool {
         Date() >= expiresAt.addingTimeInterval(-60)
     }
+
+    /// The user the access token was issued to (the JWT `sub` claim), read
+    /// without verifying the signature — used only to make sure two token
+    /// pairs belong to the same person before one replaces the other.
+    var subject: String? { Self.jwtSubject(accessToken) }
+
+    static func jwtSubject(_ jwt: String) -> String? {
+        let parts = jwt.split(separator: ".")
+        guard parts.count >= 2 else { return nil }
+        var payload = String(parts[1])
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        while payload.count % 4 != 0 { payload += "=" }
+        guard let data = Data(base64Encoded: payload),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let sub = object["sub"] as? String, !sub.isEmpty else { return nil }
+        return sub.lowercased()
+    }
+
+    /// Whether `candidate` should overwrite `existing`.
+    ///
+    /// Supabase rotates the refresh token on every use, and the app, the
+    /// Notification Service Extension, the widget / Control Center / Siri
+    /// intent and the watch can each refresh. A surface that writes an OLDER
+    /// pair over a newer one hands every other surface a refresh token that
+    /// has already been spent — and GoTrue's reuse detection answers a spent
+    /// token by revoking the whole session, signing the receiver out of the
+    /// app, the widget and the watch at once.
+    ///
+    /// So a pair for the same person with a later expiry is never replaced by
+    /// one with an earlier expiry. Anything else (nothing stored, a different
+    /// person, the same refresh token, or a newer candidate) is written.
+    static func shouldReplace(existing: SharedAuthTokens?, with candidate: SharedAuthTokens) -> Bool {
+        guard let existing else { return true }
+        guard existing.refreshToken != candidate.refreshToken else { return true }
+        guard let a = existing.subject, let b = candidate.subject, a == b else { return true }
+        return candidate.expiresAt >= existing.expiresAt
+    }
 }
 
 /// Keychain-backed store for the mirrored Supabase session, shared between the
@@ -96,6 +134,16 @@ enum SharedKeychain {
     static func saveTokens(_ tokens: SharedAuthTokens) -> Bool {
         guard let data = try? encoder.encode(tokens) else { return false }
         return set(account: tokensAccount, data: data)
+    }
+
+    /// Save `tokens` unless the Keychain already holds a NEWER pair for the
+    /// same person (see `SharedAuthTokens.shouldReplace`). Returns whether it
+    /// wrote. Use this for every write whose tokens came from somewhere other
+    /// than a refresh this process just made.
+    @discardableResult
+    static func saveTokensIfNotOlder(_ tokens: SharedAuthTokens) -> Bool {
+        guard SharedAuthTokens.shouldReplace(existing: loadTokens(), with: tokens) else { return false }
+        return saveTokens(tokens)
     }
 
     static func loadTokens() -> SharedAuthTokens? {

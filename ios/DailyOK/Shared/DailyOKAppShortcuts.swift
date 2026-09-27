@@ -18,5 +18,15 @@ struct DailyOKAppShortcuts: AppShortcutsProvider {
             shortTitle: "Check In",
             systemImageName: "checkmark.circle.fill"
         )
+        AppShortcut(
+            intent: FamilyStatusIntent(),
+            phrases: [
+                "How's my family on \(.applicationName)",
+                "Who checked in on \(.applicationName)",
+                "\(.applicationName) family status",
+            ],
+            shortTitle: "Family Check-ins",
+            systemImageName: "person.2.fill"
+        )
     }
 }

@@ -64,10 +64,11 @@ final class SupabaseService {
         sharedDefaults?.removeObject(forKey: "supabase_access_token")
         KeychainService.delete(key: "supabase_access_token")
 
-        SharedKeychain.saveTokens(SharedAuthTokens(
-            accessToken: session.accessToken,
-            refreshToken: session.refreshToken,
-            expiresAt: Date(timeIntervalSince1970: session.expiresAt)
-        ))
+        // Gated and never older-over-newer: this runs at every launch
+        // (including background launches) and on every `.tokenRefreshed`, which
+        // on resume fires before the Face ID prompt. It used to put the tokens
+        // straight back for the widget / Siri / watch while biometric lock was
+        // meant to be withholding them.
+        SharedCheckInPublisher.mirrorTokens(from: session)
     }
 }

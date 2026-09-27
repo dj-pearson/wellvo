@@ -39,7 +39,7 @@ enum NotificationRoute: Equatable {
     }
 
     /// Map a `UNNotificationResponse.actionIdentifier` to a route. Mirrors the
-    /// categories registered in `registerNotificationCategories()`.
+    /// categories registered in `NotificationCategories.register()`.
     static func route(for actionIdentifier: String) -> NotificationRoute {
         switch actionIdentifier {
         case "CHECKIN_OK_ACTION": return .checkIn(.ok)
@@ -71,7 +71,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
-        registerNotificationCategories()
+        NotificationCategories.register()
         // Heartbeat is started/stopped with the authenticated session lifecycle
         // (see AuthViewModel.checkSession / signOut and the scene background
         // handler) rather than unconditionally at launch, so a signed-out user
@@ -88,12 +88,29 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         // (US-IOS082). On notify, optimistically mark today done (this also
         // reloads all widget timelines + re-syncs the watch) and broadcast a
         // refresh so a foregrounded receiver view reloads its status.
+        //
+        // Only a report of a check-in that REACHED THE SERVER and answered
+        // TODAY marks today done — and then through the full aftermath, so the
+        // fallback reminder is cancelled and the "please check in" banners are
+        // cleared, as for any other surface. The bare notify this replaces was
+        // also sent for a tap merely queued on the watch, or a marker from an
+        // earlier day being flushed, and marked today done on the phone, the
+        // widget and (synced back) the watch — which then refused the real
+        // check-in. Anything else just asks an open home screen to reload.
         NotificationCenter.default.addObserver(
             forName: PhoneWatchSync.didReceiveWatchCheckIn,
             object: nil,
             queue: .main
-        ) { _ in
-            SharedCheckInPublisher.markCheckedIn(at: Date())
+        ) { note in
+            let report = WatchCheckInReport(userInfo: note.userInfo ?? [:])
+            let calendar = SharedCheckInStore.load()?.receiverCalendar ?? .current
+            guard let report, report.answersToday(calendar: calendar) else { return }
+            Task { @MainActor in
+                await ReceiverCheckInAftermath.record(
+                    at: report.answeredAt,
+                    helpKind: report.type == "ok" ? nil : report.type
+                )
+            }
         }
 
         // Sync access token to shared App Group for Notification Service Extension
@@ -212,93 +229,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     }
 
     // MARK: - Private
-
-    private func registerNotificationCategories() {
-        // Background: one tap on the Lock Screen checks in without opening the
-        // app. It used to be `.foreground`, which opened the app on a home screen
-        // still showing "I'm OK" while the check-in was in flight, so receivers
-        // tapped twice. The session is readable while locked
-        // (AfterFirstUnlock), so no unlock is needed either.
-        let okAction = UNNotificationAction(
-            identifier: "CHECKIN_OK_ACTION",
-            title: "I'm OK ✓",
-            options: []
-        )
-
-        let needHelpAction = UNNotificationAction(
-            identifier: "CHECKIN_NEED_HELP_ACTION",
-            title: "I Need Help",
-            options: [.foreground, .destructive]
-        )
-
-        let callMeAction = UNNotificationAction(
-            identifier: "CHECKIN_CALL_ME_ACTION",
-            title: "Call Me",
-            options: [.foreground]
-        )
-
-        // Background snooze — defers escalation without opening the app.
-        let snoozeAction = UNNotificationAction(
-            identifier: "CHECKIN_SNOOZE_ACTION",
-            title: "Remind me in 15 min",
-            options: []
-        )
-
-        let checkinCategory = UNNotificationCategory(
-            identifier: "CHECKIN_REQUEST",
-            actions: [okAction, snoozeAction, needHelpAction, callMeAction],
-            intentIdentifiers: [],
-            options: [.customDismissAction]
-        )
-
-        // Urgent alert category for owners (call me / need help alerts)
-        let callNowAction = UNNotificationAction(
-            identifier: "CALL_RECEIVER_ACTION",
-            title: "Call Now",
-            options: [.foreground]
-        )
-
-        let urgentAlertCategory = UNNotificationCategory(
-            identifier: "URGENT_ALERT",
-            actions: [callNowAction],
-            intentIdentifiers: [],
-            options: []
-        )
-
-        // Kid-mode responses to a parent: "pick me up", "can I stay longer".
-        // The server has always sent `category: "KID_RESPONSE"` and the app has
-        // never registered it, so the parent got a bare banner with no way to
-        // act — on a message whose whole point is that their child wants
-        // something now. The payload carries `receiver_id`, which is what
-        // CALL_RECEIVER_ACTION needs.
-        let kidResponseCategory = UNNotificationCategory(
-            identifier: "KID_RESPONSE",
-            actions: [callNowAction],
-            intentIdentifiers: [],
-            options: []
-        )
-
-        // Location/battery alert category for owners
-        let viewLocationAction = UNNotificationAction(
-            identifier: "VIEW_LOCATION_ACTION",
-            title: "View Details",
-            options: [.foreground]
-        )
-
-        let locationAlertCategory = UNNotificationCategory(
-            identifier: "LOCATION_ALERT",
-            actions: [viewLocationAction],
-            intentIdentifiers: [],
-            options: []
-        )
-
-        UNUserNotificationCenter.current().setNotificationCategories([
-            checkinCategory,
-            urgentAlertCategory,
-            kidResponseCategory,
-            locationAlertCategory,
-        ])
-    }
 
     private func handleCallReceiver(userInfo: [AnyHashable: Any]) {
         // Look up the receiver's phone number and initiate a call. The action
@@ -426,7 +356,14 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 location: location,
                 batteryLevel: battery
             )
-            await ReceiverCheckInAftermath.record(at: Date())
+            await ReceiverCheckInAftermath.record(at: Date(), helpKind: Self.helpKind(for: responseType))
+            if responseType != .ok {
+                // The help action no longer opens the app, so say it went.
+                await PushNotificationService.shared.presentHelpSent(
+                    callMe: responseType == .callMe,
+                    ownerName: SharedCheckInStore.load()?.ownerName
+                )
+            }
         } catch {
             Log.checkIn.error("Notification check-in response failed: \(error.localizedDescription, privacy: .public)")
             // Decide offline-vs-hard-error from the ERROR itself, not the
@@ -439,7 +376,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 // per-slot, per-day dedup on both the queue (US-IOS137) and the
                 // edge function keeps this from duplicating a phone check-in.
                 if await queueOfflineCheckIn(slotKey: slotKey) {
-                    await ReceiverCheckInAftermath.record(at: Date())
+                    await ReceiverCheckInAftermath.record(at: Date(), savedOffline: true)
                 } else {
                     // Couldn't even persist it — don't let the receiver believe
                     // their check-in landed.
@@ -456,6 +393,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             }
             // A plain "I'm OK" the server refused (e.g. already resolved) has no
             // phantom-success risk, so no extra alert.
+        }
+    }
+
+    /// The snapshot's wire value for a help response, nil for "I'm OK".
+    static func helpKind(for responseType: CheckInResponseType) -> String? {
+        switch responseType {
+        case .needHelp: return "need_help"
+        case .callMe: return "call_me"
+        case .ok: return nil
         }
     }
 
@@ -493,15 +439,16 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         }
         if responseType == .ok {
             do {
-                _ = try await OfflineCheckInService.shared.performCheckIn(
+                // nil = queued on this phone rather than sent.
+                let row = try await OfflineCheckInService.shared.performCheckIn(
                     familyId: familyId,
                     source: .notification,
                     slotKey: slotKey
                 )
-                await ReceiverCheckInAftermath.record(at: Date())
+                await ReceiverCheckInAftermath.record(at: row?.checkedInAt ?? Date(), savedOffline: row == nil)
             } catch is NetworkError {
                 // Queued for sync by performCheckIn.
-                await ReceiverCheckInAftermath.record(at: Date())
+                await ReceiverCheckInAftermath.record(at: Date(), savedOffline: true)
             } catch {
                 Log.checkIn.error("Fallback-reminder check-in failed: \(error.localizedDescription, privacy: .public)")
                 await PushNotificationService.shared.presentCheckInResponseFailed(urgent: false)
@@ -515,11 +462,149 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                     responseType: responseType,
                     slotKey: slotKey
                 )
-                await ReceiverCheckInAftermath.record(at: Date())
+                await ReceiverCheckInAftermath.record(at: Date(), helpKind: Self.helpKind(for: responseType))
+                await PushNotificationService.shared.presentHelpSent(
+                    callMe: responseType == .callMe,
+                    ownerName: SharedCheckInStore.load()?.ownerName
+                )
             } catch {
                 Log.checkIn.error("Fallback-reminder urgent response failed: \(error.localizedDescription, privacy: .public)")
                 await PushNotificationService.shared.presentCheckInResponseFailed(urgent: true)
             }
         }
+    }
+}
+
+/// The notification categories and their actions. Its own type so the
+/// check-in category can be re-registered when the biometric setting changes.
+enum NotificationCategories {
+    static func register() {
+        // Background: one tap on the Lock Screen checks in without opening the
+        // app. It used to be `.foreground`, which opened the app on a home screen
+        // still showing "I'm OK" while the check-in was in flight, so receivers
+        // tapped twice. The session is readable while locked (AfterFirstUnlock),
+        // so no unlock is needed either — unless the receiver turned on Face ID
+        // lock: then "I'm OK" and snooze ask for Face ID / passcode first, the
+        // same promise the widget, Control Center and Siri keep (tokens
+        // withheld while locked). Help actions never do; see below.
+        let biometricLock = BiometricService.isEnabledPreference
+        let routineOptions: UNNotificationActionOptions = biometricLock ? [.authenticationRequired] : []
+
+        let okAction = UNNotificationAction(
+            identifier: "CHECKIN_OK_ACTION",
+            title: "I'm OK ✓",
+            options: routineOptions
+        )
+
+        // Background too, with no unlock. A parent who has fallen — shaking
+        // hands, Face ID failing — had to unlock the phone before "I Need Help"
+        // was sent, while "I'm OK" needed nothing. The response goes out live
+        // through handleCheckInFromNotification, which tells the receiver both
+        // when it was sent and when it wasn't. Actions only appear on a long
+        // press of the notification, and the server folds a repeat within two
+        // minutes into one alert, so a pocket tap can't page the family twice.
+        let needHelpAction = UNNotificationAction(
+            identifier: "CHECKIN_NEED_HELP_ACTION",
+            title: "I Need Help",
+            options: [.destructive]
+        )
+
+        let callMeAction = UNNotificationAction(
+            identifier: "CHECKIN_CALL_ME_ACTION",
+            title: "Call Me",
+            options: []
+        )
+
+        // Background snooze — defers escalation without opening the app.
+        let snoozeAction = UNNotificationAction(
+            identifier: "CHECKIN_SNOOZE_ACTION",
+            title: "Remind me in 15 min",
+            options: routineOptions
+        )
+
+        // Help before "remind me": in distress, the second button is the one
+        // that should say "help".
+        let checkinCategory = UNNotificationCategory(
+            identifier: "CHECKIN_REQUEST",
+            actions: [okAction, needHelpAction, callMeAction, snoozeAction],
+            intentIdentifiers: [],
+            options: [.customDismissAction]
+        )
+        // Urgent alert category for owners (call me / need help alerts)
+        let callNowAction = UNNotificationAction(
+            identifier: "CALL_RECEIVER_ACTION",
+            title: "Call Now",
+            options: [.foreground]
+        )
+
+        let urgentAlertCategory = UNNotificationCategory(
+            identifier: "URGENT_ALERT",
+            actions: [callNowAction],
+            intentIdentifiers: [],
+            options: []
+        )
+
+        // Kid-mode responses to a parent: "pick me up", "can I stay longer".
+        // The server has always sent `category: "KID_RESPONSE"` and the app has
+        // never registered it, so the parent got a bare banner with no way to
+        // act — on a message whose whole point is that their child wants
+        // something now. The payload carries `receiver_id`, which is what
+        // CALL_RECEIVER_ACTION needs.
+        let kidResponseCategory = UNNotificationCategory(
+            identifier: "KID_RESPONSE",
+            actions: [callNowAction],
+            intentIdentifiers: [],
+            options: []
+        )
+
+        // Location/battery alert category for owners
+        let viewLocationAction = UNNotificationAction(
+            identifier: "VIEW_LOCATION_ACTION",
+            title: "View Details",
+            options: [.foreground]
+        )
+
+        let locationAlertCategory = UNNotificationCategory(
+            identifier: "LOCATION_ALERT",
+            actions: [viewLocationAction],
+            intentIdentifiers: [],
+            options: []
+        )
+
+        UNUserNotificationCenter.current().setNotificationCategories([
+            checkinCategory,
+            urgentAlertCategory,
+            kidResponseCategory,
+            locationAlertCategory,
+        ])
+    }
+}
+
+/// What the watch reported about a wrist check-in (PhoneWatchSync hand-off).
+/// Pure, for tests.
+struct WatchCheckInReport: Equatable {
+    let answeredAt: Date
+    let type: String
+
+    /// nil for anything that isn't a delivered check-in: the bare legacy
+    /// `["watch_checked_in": true]` (an older watch build also sent it for a
+    /// queued tap), or a report without a time.
+    init?(userInfo: [AnyHashable: Any]) {
+        guard (userInfo["sent"] as? Bool) == true,
+              let at = (userInfo["answered_at"] as? NSNumber)?.doubleValue else { return nil }
+        answeredAt = Date(timeIntervalSince1970: at)
+        let raw = (userInfo["type"] as? String) ?? "ok"
+        type = ["ok", "need_help", "call_me"].contains(raw) ? raw : "ok"
+    }
+
+    init(answeredAt: Date, type: String) {
+        self.answeredAt = answeredAt
+        self.type = type
+    }
+
+    /// Whether it answers today (in the receiver's zone), and isn't in the
+    /// future.
+    func answersToday(now: Date = Date(), calendar: Calendar) -> Bool {
+        answeredAt <= now.addingTimeInterval(60) && calendar.isDate(answeredAt, inSameDayAs: now)
     }
 }

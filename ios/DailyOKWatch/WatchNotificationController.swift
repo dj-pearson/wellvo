@@ -1,5 +1,6 @@
 import Foundation
 import UserNotifications
+import WatchKit
 import WidgetKit
 
 /// Handles the check-in reminder's action buttons on the watch. The iPhone
@@ -39,7 +40,38 @@ final class WatchNotificationController: NSObject, UNUserNotificationCenterDeleg
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        Self.recordCheckInRequest(notification.request.content)
         completionHandler([.banner, .sound])
+    }
+
+    /// The family is asking (again). Recorded on the watch's snapshot so the
+    /// app and complication stop saying "You're all set" for a request raised
+    /// after the last check-in — an owner's "check on them now" at 3 PM left
+    /// the watch showing "all set" with no button.
+    static func recordCheckInRequest(_ content: UNNotificationContent) {
+        guard content.categoryIdentifier == "CHECKIN_REQUEST",
+              content.userInfo["checkin_request_id"] is String else { return }
+        let slot = content.userInfo["slot_key"] as? String
+        SharedCheckInStore.update { state in
+            state.latestRequestAt = Date()
+            state.latestRequestSlotKey = slot
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+        DispatchQueue.main.async { WatchConnectivityProvider.shared.revision += 1 }
+    }
+
+    /// An urgent request from the wrist that didn't reach anyone. Said out
+    /// loud, on the wrist, straight away — the phone's rule
+    /// (presentCheckInResponseFailed(urgent: true)). It used to be queued with
+    /// no word to the receiver, or dropped with an empty `catch`.
+    private static func presentUrgentNotSent() {
+        DispatchQueue.main.async { WKInterfaceDevice.current().play(.failure) }
+        let content = UNMutableNotificationContent()
+        content.title = "Your help request didn't send"
+        content.body = WatchHelpCopy.notSent(ownerName: SharedCheckInStore.load()?.ownerName)
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: "watch-help-not-sent", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { _ in }
     }
 
     func userNotificationCenter(
@@ -58,34 +90,37 @@ final class WatchNotificationController: NSObject, UNUserNotificationCenterDeleg
         guard let type = responseType else { completionHandler(); return }
 
         Task {
+            let urgent = type != "ok"
             do {
                 try await SharedCheckInClient.checkIn(responseType: type, source: "watch")
                 WidgetCenter.shared.reloadAllTimelines()
-                WatchConnectivityProvider.shared.notifyPhoneOfCheckIn()
-            } catch SharedCheckInError.transport {
-                // Genuinely offline — queue the response (preserving its type) so
-                // it still syncs later. An urgent "I Need Help" / "Call Me" must
-                // never be silently dropped here (US-IOS119). Only queue on a
-                // transport error: a session-expired/not-signed-in failure would
-                // never flush, leaving an unflushable marker that falsely reads
-                // as "saved" (US-IOS090).
-                WatchOfflineQueue.enqueue(type: type)
+                WatchConnectivityProvider.shared.notifyPhoneOfCheckIn(at: Date(), type: type)
+                await MainActor.run { WKInterfaceDevice.current().play(.success) }
+            } catch SharedCheckInError.notInFamily {
+                WatchOfflineQueue.clear()
                 WidgetCenter.shared.reloadAllTimelines()
-            } catch SharedCheckInError.locked {
-                // The phone has biometric lock on and, while backgrounded,
-                // withheld the shared session tokens — so the wrist tap can't
-                // reach the server right now. This is NOT a terminal failure:
-                // when the owner next unlocks their phone it re-mirrors the
-                // tokens to the watch and the queued marker flushes. Dropping it
-                // here (the old bare `catch`) silently lost the check-in and
-                // falsely escalated the owner.
+                if urgent { Self.presentUrgentNotSent() }
+            } catch let error as SharedCheckInError where !urgent && (error.isQueueable || isLocked(error)) {
+                // Offline, Daily OK briefly unreachable, or the iPhone's
+                // biometric lock withheld the session: a plain "I'm OK" is saved
+                // and sent later (with the time it was made). Only these — a
+                // session-expired/not-signed-in failure would never flush,
+                // leaving a marker that falsely reads as "saved" (US-IOS090).
                 WatchOfflineQueue.enqueue(type: type)
                 WidgetCenter.shared.reloadAllTimelines()
             } catch {
-                // sessionExpired / notSignedIn / other — don't queue; the user
-                // must open the iPhone to restore the session.
+                // An urgent request is never saved for silent later delivery:
+                // it must reach the family now, or the receiver must know it
+                // didn't so they can call. A plain "I'm OK" the server refused
+                // has no phantom-success risk.
+                if urgent { Self.presentUrgentNotSent() }
             }
             completionHandler()
         }
     }
+}
+
+private func isLocked(_ error: SharedCheckInError) -> Bool {
+    if case .locked = error { return true }
+    return false
 }
