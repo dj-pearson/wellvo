@@ -23,7 +23,17 @@ final class OnboardingViewModel: ObservableObject {
     @Published var familyName = ""
     @Published var receiverName = ""
     @Published var receiverPhone = ""
-    @Published var checkinTime = Date()
+    /// 8:00 AM, like the first-receiver walkthrough and the server's default.
+    /// It used to start at "now", so an owner setting up at 11:47 PM who didn't
+    /// touch the picker scheduled their parent's reminder for 11:47 PM.
+    @Published var checkinTime = OnboardingViewModel.defaultCheckinTime
+    /// The owner's own name, asked for when the account has none (phone and
+    /// Apple sign-ups get the placeholder "User"). It is what the invitee sees:
+    /// "Sarah will see when you check in", not "User".
+    @Published var ownerName = ""
+    @Published var needsOwnerName = false
+    /// The first invite went out during onboarding.
+    @Published var didSendInvite = false
     @Published var isLoading = false
     @Published var errorMessage: String?
     /// True once the user has been asked for notification permission and denied it.
@@ -36,6 +46,29 @@ final class OnboardingViewModel: ObservableObject {
     @Published var pendingInvite: InviteDetails?
 
     var createdFamily: Family?
+
+    nonisolated static var defaultCheckinTime: Date {
+        Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
+    }
+
+    /// Ask for the owner's name only when the account has no real one.
+    func loadOwnerName() async {
+        let current = await FamilyService.shared.myDisplayName()
+        // Unknown (offline) is not "no name": don't ask, and so never
+        // overwrite a real name with a guess.
+        guard current.loaded else { return }
+        if let name = JoinPreview.presentableName(current.name) {
+            ownerName = name
+            needsOwnerName = false
+        } else {
+            needsOwnerName = true
+        }
+    }
+
+    var canCreateFamily: Bool {
+        !familyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && (!needsOwnerName || !ownerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    }
 
     func advance() {
         guard let nextStep = OnboardingStep(rawValue: currentStep.rawValue + 1) else { return }
@@ -59,17 +92,57 @@ final class OnboardingViewModel: ObservableObject {
         }
         familyName = trimmed
 
+        let trimmedOwner = ownerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if needsOwnerName {
+            guard !trimmedOwner.isEmpty else {
+                errorMessage = String(localized: "Please enter your name")
+                return
+            }
+            guard trimmedOwner.count <= 100 else {
+                errorMessage = String(localized: "Your name must be 100 characters or fewer")
+                return
+            }
+        }
+
         isLoading = true
         errorMessage = nil
 
         do {
-            createdFamily = try await FamilyService.shared.createFamily(name: familyName)
+            if needsOwnerName {
+                try await FamilyService.shared.updateMyDisplayName(trimmedOwner)
+                ownerName = trimmedOwner
+                needsOwnerName = false
+            }
+            if let existing = createdFamily {
+                // Back from Plans to this step: rename, never create a second
+                // family (the dashboard shows the first; invites would go to
+                // the second).
+                if existing.name != familyName {
+                    createdFamily = try await FamilyService.shared.renameFamily(id: existing.id, to: familyName)
+                }
+            } else {
+                // FamilyService.createFamily reuses a family this account
+                // already owns (a retry after a half-finished attempt).
+                createdFamily = try await FamilyService.shared.createFamily(name: familyName)
+            }
             advance()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = AuthService.isConnectivityError(error)
+                ? String(localized: "Couldn't reach Daily OK. Check your connection and try again.")
+                : String(localized: "Couldn't save your family. Please try again.")
         }
 
         isLoading = false
+    }
+
+    /// Onboarding is finished. When the first invite already went out, the
+    /// dashboard must not open "Add your first family member" over it (the
+    /// invitee hasn't joined yet, so the family still looks empty) — a second
+    /// invite to the same number would expire the text they already have.
+    func markFirstInviteHandled() {
+        guard didSendInvite, let userId = AuthService.shared.storedUserId else { return }
+        let key = "\(DashboardView.walkthroughAutoShownKey).\(userId.uuidString)"
+        UserDefaults.standard.set(true, forKey: key)
     }
 
     /// Valid when a name is present and the phone has at least 10 digits — drives
@@ -116,7 +189,7 @@ final class OnboardingViewModel: ObservableObject {
                 checkinTime: timeString
             )
         } catch {
-            errorMessage = edgeErrorMessage(error, fallback: error.localizedDescription)
+            errorMessage = edgeErrorMessage(error, fallback: String(localized: "Couldn't create the invite. Check your connection and try again."))
         }
 
         isLoading = false
@@ -128,6 +201,7 @@ final class OnboardingViewModel: ObservableObject {
     func handleInviteComposerFinish(sent: Bool) {
         if sent {
             errorMessage = nil
+            didSendInvite = true
             advance()
         } else {
             errorMessage = String(localized: "Message not sent. Tap Send Invite to try again.")

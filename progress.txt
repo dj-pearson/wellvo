@@ -6139,3 +6139,278 @@ DEFERRED
   the ex-owner's renewals still find no family (same as before); paywall shows "You're on X" even
   when the server answers applied:false (already_expired / higher_plan_active from a second
   Apple ID); DataRetention picker shows blank for values outside 90/180/365/730.
+
+2026-09-27 — iOS function deep dive: Auth & onboarding (sign in/up, Apple sign-in, password reset, owner onboarding, get-started choice, pairing code entry, receiver onboarding via invite link, first-receiver walkthrough, role routing)
+================================================================================
+
+What auth & onboarding must guarantee: a person can always get in (and back
+in after forgetting a password) and is never signed out just because they are
+offline. Nobody joins a family, or is watched by one, without first being told
+whose family it is and who will see their check-ins, and saying yes. Setup
+codes can't be found or guessed at scale. Every joiner (link, phone match or
+code) is asked for notification permission, because without it the daily
+reminder never arrives and every day reads as a missed check-in. An owner ends
+onboarding with exactly one family, a name the invitee will recognise, and an
+invite that the dashboard doesn't immediately ask them to send again. Routing
+never shows a member the wrong home, and never strands a new member on
+"How will you use it?".
+
+Four reviewer passes (UI/UX, break-it, spoof, product). Every claim was
+checked against the code; the supabase-swift behaviour against the vendored
+2.55.2 source; SQL against a local Postgres 16. All were confirmed except as
+noted under "Decided" below.
+
+Branch: worked in the existing claude/ios-app-deep-dive-cm3nu0 working tree,
+as the orchestrator asked. Nothing was committed.
+
+FIXED
+
+  - CRITICAL: pairing-code oracle. RLS lets any owner INSERT invite_tokens into
+    their own family, anyone can become an owner, and the 00058 client-insert
+    guard left pairing_code as sent. With the unique index on unused codes
+    (00016), `POST /rest/v1/invite_tokens [{…pairing_code:"000000"}, …]`
+    answered 23505 "Key (pairing_code)=(123456) already exists" for exactly
+    the codes another family's live invite held — unlimited, unthrottled, and
+    it made /redeem-code's lockout irrelevant. 00060 forces pairing_code NULL
+    on a client insert (no shipped client inserts invites; invite-receiver
+    runs as service_role). Reproduced before and verified closed after on
+    Postgres 16 with SET ROLE authenticated.
+  - CRITICAL: password reset never set the password. verifyOTP(.recovery)
+    emits .signedIn (AuthClient._verifyOTP), the listener ran checkSession,
+    authState went .authenticated, and ContentView replaced AuthView (and the
+    reset sheet on it) before "Choose a new password" could show.
+    checkSession now returns early while resetStage is .enterCode/.setPassword
+    (it also runs on every foreground). "Done"/"Close" on the confirmation
+    calls finishPasswordReset(), which signs them in. Cancelling after the
+    code signs the half-finished recovery session out, so the next launch
+    doesn't quietly sign in with a password that was never changed.
+  - HIGH: offline launch signed people out. currentSession() did
+    `try? await auth.session`, which refreshes an expired (~1 h) token over the
+    network; offline that threw, became nil, and checkSession treated it as
+    signed out (sign-in screen instead of I'm OK; the offline queue
+    unreachable). Now nil only when nothing is stored or the server refused
+    the refresh; a connectivity failure throws, and checkSession keeps the
+    user signed in when a session is stored and the failure is the network.
+    resolveRole and the role cache use the stored session's user id (no
+    refresh), so an offline cold start opens the cached role.
+  - HIGH: join consent. Links redeemed as ReceiverOnboardingView appeared,
+    phone matches redeemed during launch, codes on the sixth digit. Now all
+    three preview first (new optional `preview: true` on invite-receiver
+    accept, auto-join and redeem-code) and show "Join Sarah's family?", the
+    family name, who the invite is for, and "Sarah and Tom will see when you
+    check in each day, your phone's battery level, and your location if you
+    choose to share it". Only "Join" redeems. "This isn't me" / "Not the right
+    family" leaves nothing behind; a declined phone match is remembered per
+    user on this device so it doesn't reappear every launch. A server that
+    predates `preview` joins at once, and the app recognises that answer as a
+    join (same behaviour as before).
+  - HIGH: code joiners were never asked for notifications (the success button
+    went straight home; NotificationPermissionBanner only handled .denied).
+    After a code join the same permission step as the link path runs
+    (shared NotificationPermissionStepCard). The banner now also handles
+    .notDetermined with an "Allow Notifications" button (not dismissable while
+    undecided), which catches every path that skipped a permission step.
+  - HIGH: Back after a successful code join dropped the new member on "How
+    will you use it?" (re-entering the used code failed; the owner option made
+    them an owner). Back is hidden once joined.
+  - HIGH: owner onboarding made a second family when the owner went Back from
+    Plans and tapped Create again (invites went to the newest family, the
+    dashboard showed the earliest). The step now renames the family it made
+    ("Continue"), and FamilyService.createFamily reuses a family the account
+    already owns and adds a missing owner membership (the half-finished retry
+    case).
+  - HIGH: "Have a setup code?" did nothing visible (it set a @State no view
+    read, and the onChange that used it lived in a view torn down on sign-in).
+    Now AppState.setupCodeAfterSignIn shows "First, sign in… then we'll ask for
+    the 6-digit code" with "I don't have a code", and resolveRole opens the
+    code screen only once it knows there is no membership (an existing member
+    never gets it over their home).
+  - HIGH: email sign-in lockout was silent (no notice in the email section,
+    the button stayed enabled). The countdown now shows there, the button is
+    disabled, and a lockout running from a previous visit shows on appear.
+  - HIGH: AuthView couldn't scroll; at accessibility sizes or with the
+    keyboard up "Create Account" was unreachable. Now a ScrollView with a
+    minHeight container and interactive keyboard dismissal; the logo shrinks
+    and loses its glow at accessibility sizes.
+  - MEDIUM: connectivity failures counted as wrong credentials. Sending a
+    code, email sign-in/up and OTP verify now show "Couldn't reach Daily OK…"
+    for URLError-class failures without spending an attempt or adding to the
+    persisted lockout; a failed SMS send never counts. Failures older than an
+    hour decay instead of leaving someone one typo from a 5-minute lockout.
+  - MEDIUM: setup-code per-IP limit trusted client headers. New
+    shared/client-ip.ts: server.ts records Deno's socket peer; forwarding
+    headers are read only from a trusted proxy (private/loopback ranges or
+    TRUSTED_PROXY_CIDRS), the right-most X-Forwarded-For hop is what Traefik
+    saw, and CF-Connecting-IP is believed only when that hop is a Cloudflare
+    range (CLOUDFLARE_IP_RANGES overrides). A direct hit on :9000 is keyed on
+    its real address; a trusted proxy that forwarded nothing gives "unknown"
+    (per-user limit only) rather than one shared bucket for everyone.
+    /redeem-code also raises a Sentry alarm (never a block) when wrong codes
+    across all users pass 200 in an hour.
+  - MEDIUM: auto-join refused for a full plan was dropped (reason/message not
+    decoded), leaving the invitee on the choice screen. AutoJoinCheck.blocked
+    now shows the server's message on GetStartedChoiceView with Try Again.
+  - MEDIUM: a join whose answer was lost reported failure on retry (the invite
+    is used) and Cancel stranded a member. Failures now ask the server for the
+    role before calling it a failure; Cancel re-resolves the role
+    (AppState.roleRefreshRequest).
+  - MEDIUM: the first-receiver walkthrough auto-opened right after the owner
+    sent the first invite in onboarding (a pending invite isn't a member), and
+    a second send would expire the text already sent. Finishing onboarding
+    with a sent invite marks the per-user walkthrough flag.
+  - MEDIUM: walkthrough showed "Network error: Edge function error 403: {json}"
+    and accepted any non-empty phone; now edgeErrorMessage and 10+ digits.
+    Owner onboarding's invite error no longer falls back to raw text.
+  - MEDIUM: owner onboarding's check-in time defaulted to "now"; now 8:00 AM
+    (same as the walkthrough and the server), with "In their local time."
+  - MEDIUM: owners who signed in by phone/Apple were "User", so invitees saw
+    "Your family". The Create Family step asks "What should your family call
+    you?" when the account has no real name (never when the name couldn't be
+    read offline) and writes users.display_name.
+  - MEDIUM: reopening the code screen during a lockout showed disabled boxes
+    and nothing else; the message (with minutes, and "ask for a new code")
+    shows on appear. The server's attemptsRemaining is shown.
+  - LOW: an already-member answer mapped an owner typing their own code to
+    receiver (RedeemCodeResponse.joinedRole keeps owner; describeInvite reports
+    the member's real role).
+  - LOW: sign-out didn't reset isOnboarding / showPairingCodeEntry, so an
+    unexpected sign-out mid-onboarding sent the next account into "Name Your
+    Family". AppState.resetForSignOut() clears everything in progress.
+  - LOW: role never re-checked on foreground; now after 15 minutes when idle
+    (not mid-join/onboarding), keeping the cached-role-first behaviour.
+  - LOW: RoleLoadFailedView had no way out; Sign out (with confirmation).
+  - LOW: an invite link tapped by someone already in a family did nothing;
+    now an alert says why. A signed-out person who tapped a link sees "You've
+    been invited… sign in with the number the invite was sent to".
+  - LOW: auto-join matched a 10-digit (non-NANP) verified phone to a US
+    invite by adding "1" (Norway +47 9xxxxxxx ↔ +1 479…). Now E.164 digits
+    only; an invite typed as 10 digits without "+" is NANP
+    (shared/phone-match.ts).
+  - LOW: has_apple_identity(p_user_id) answers for any user. New
+    has_my_apple_identity() (00060); the app calls it first and falls back.
+  - LOW: the website's GA config reported the full /invite/<token>?code=…
+    URL; page_location is now "/invite" on invite pages.
+  - LOW: phone field unlabeled for VoiceOver and non-US numbers mangled
+    ("07700…" → "+07700…"): label, helper text, and a specific "start with +
+    and the country code" error. SegmentedCodeField's hidden field now spans
+    the boxes (VoiceOver touch exploration finds it) and the idle outline is
+    visible. Carousel honours Reduce Motion, scrolls at large text, and looks
+    up its copy in the string catalog.
+  - Copy/contrast: pairing screen is "Enter your setup code" (decorative icon
+    hidden, no iPad-only wording); walkthrough no longer promises "no codes to
+    type"; "Child or Teen" replaces "Teenager"; the complete step says what
+    happens when no invite was sent; primary buttons on these screens use
+    green700 behind white; warning text is primary-coloured with a gold icon;
+    "Forgot Password?" and link text use green700; lockout text uses the error
+    colour.
+
+ADDED
+
+  - JoinConsentCard and NotificationPermissionStepCard (in
+    ReceiverOnboardingView.swift, shared with PairingCodeEntryView).
+  - "Connecting you to your family…" progress while a link is checked;
+    returning from iOS Settings with notifications on advances the
+    notification step (receiver and owner onboarding).
+  - FamilyService: previewInvite, previewPairingCode, checkAutoJoin(preview:)
+    → AutoJoinCheck, renameFamily, updateMyDisplayName, myDisplayName;
+    JoinPreview / JoinStep / JoinPreviewResponse.
+
+BACKEND (additive, CLAUDE.md §A/§B)
+
+  - 00060_auth_onboarding_integrity.sql: guard_invite_tokens_client_write
+    (client INSERT → pairing_code NULL), has_my_apple_identity(). Applied on a
+    fresh Postgres 16 with 00001–00060; oracle reproduced on 00001–00059 and
+    gone with 00060.
+  - Optional request field `preview` on /invite-receiver (accept),
+    /redeem-code and /auto-join; the answer is {preview, family_id,
+    family_name, role, owner_name, invite_name, checkin_time, watchers,
+    already_member} and redeems nothing. A code preview goes through the same
+    lockout and attempt recording as a redeem. Shipped clients never send it.
+  - shared/join-family.ts describeInvite(); shared/client-ip.ts (server.ts
+    passes info.remoteAddr); shared/phone-match.ts.
+  - Optional env: TRUSTED_PROXY_CIDRS, CLOUDFLARE_IP_RANGES.
+
+TESTS
+
+  - DailyOKTests/AuthViewModelSignOutTests.swift gains AuthFlowTests: reset
+    stages that hold the session, checkSession not signing in mid-reset,
+    cancel after the code signs the recovery session out (and before it
+    doesn't), offline-launch keep/sign-out matrix, connectivity vs refusal
+    classification, failure decay, numbers needing a country code.
+  - DailyOKTests/InviteLinkTests.swift gains JoinPreviewTests (code preview
+    decode + copy, older-server join not mistaken for a preview, owner kept on
+    already_member, "User" placeholder fallback, link preview vs legacy join,
+    auto-join blocked/noMatch/preview/legacy, attemptsRemaining and lockout
+    copy) and JoinRoutingTests (declined phone match per user, sign-out reset,
+    foreground role re-check rule, 8:00 AM default and owner-name gating).
+  - edge-functions/shared/client-ip_test.ts (10) and phone-match_test.ts (4),
+    run under Node 22 after tsc transpile: 14/14 pass. Touched edge files
+    type-check with tsc --strict (supabase/sentry stubbed).
+
+DECIDED
+
+  - Older builds redeeming a co-caregiver invite are routed as receiver until
+    the next launch: accepted as self-healing (getCurrentUserRole reads
+    family_members.role; redeem_invite creates no receiver_settings for a
+    viewer). Rejecting old builds' viewer redemptions would tighten the API.
+    Revisit when MIN_SUPPORTED_IOS_APP_VERSION passes this build.
+  - "Stray duplicate families" already in the DB are not merged; new ones
+    can't be made by onboarding.
+
+DEFERRED
+
+  - Ops: bind the edge container to 127.0.0.1:9000 (or drop `ports:`; Traefik
+    and pg_cron use the Docker network) and firewall the origin to
+    Cloudflare. Not changed here because the live Coolify routing couldn't be
+    verified from this repo; client-ip.ts makes a direct hit harmless for the
+    rate limit either way.
+  - Shorter setup-code lifetime (e.g. 48–72 h, link stays 7 days). Needs a
+    nullable invite_tokens.pairing_code_expires_at plus "Get a new code" in
+    InviteDetailSheet; older builds would show a dead code in the Family tab.
+  - Co-caregiver code joins gated on a verified phone match or owner approval
+    (join_requests + push). Consent now protects the joiner; this protects
+    the family from a guessed viewer code.
+  - leave_family(p_family_id) RPC and a receiver-side "Leave family", plus a
+    server-side `decline` that expires a wrong-number invite and tells the
+    owner. "This isn't me" is local-only today.
+  - An owner-facing "Waiting for Mom to join" card on the dashboard (the
+    walkthrough no longer re-asks; the Family tab has Waiting to Join).
+  - find_open_invite_by_phone RPC so auto-join stops scanning every open
+    invite (PostgREST max-rows caps it near 1000), and phones_match_v2 with
+    the same E.164 rule for guard_users_client_write.
+  - Universal Links: no associated-domains entitlement and the AASA appID is a
+    placeholder; needs the capability on the com.wellvo.ios App ID and new
+    profiles (the dailyok:// button on the invite page works meanwhile).
+  - Editable display name in Settings; "Child" as a real receiver_mode on
+    invite-receiver create; a "Try it now: tap I'm OK" first check-in at the
+    end of receiver setup; permission state reported to the owner.
+  - White on green500 elsewhere in the app (Theme-wide token change).
+  - has_apple_identity(p_user_id) restricted to auth.uid() once the minimum
+    supported build uses has_my_apple_identity.
+  - A password-reset session left by an app kill during "Choose a new
+    password" still signs in on next launch (the code proved the address);
+    making that state durable needs a persisted flag.
+
+  Not compiled (no Xcode, no swiftc, no deno). The tree-sitter Swift grammar
+  parses every changed Swift file except its known gaps (`if let x = try
+  await` in AuthViewModel, the regex literal in AuthService, `#"…"#` raw
+  strings in InviteLinkTests). SQL was run on a local Postgres 16. TypeScript
+  was checked with tsc --strict and the new pure modules' tests run under
+  Node 22. The website change was not type-checked (no node_modules).
+
+[2026-09-27] Auth & onboarding — adversarial review of the working tree (not compiled: no Xcode/deno)
+  - FIX AuthService.normalizePhone: a number typed with "+" is now taken as written (E.164). A 10-digit
+    international number with its code (+47 912 34 567, which the new sign-in hint tells people to type)
+    was read as US and the OTP texted to +1 479-123-4567. Matches edge shared/phone-match.ts. Test added
+    (AuthFlowTests.testPhoneNormalization).
+  - FIX AuthViewModel: on .tokenRefreshed with no profile loaded (offline launch kept the stored session),
+    load it then, instead of waiting for the next foreground.
+  - Added explicit `import UserNotifications` to PairingCodeEntryView / OnboardingView (they compare
+    UNAuthorizationStatus cases).
+  - Verified: 00060 matches 00058's trigger body except the INSERT branch; no client inserts invite_tokens;
+    preview fields are optional and ignored by shipped builds; client-ip / phone-match behave as the tests say
+    (node strip-types run); every new Swift symbol referenced exists; no new files needing pbxproj entries.
+  - FIX auto-join "Join" re-matched server-side (newest invite for the number), so a second family inviting
+    the same number between preview and Join could be joined instead of the one shown. New optional
+    `family_id` request field on /auto-join (additive; older builds don't send it) restricts the match to
+    the previewed family; iOS sends it on Join.

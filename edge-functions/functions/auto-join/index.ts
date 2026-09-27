@@ -1,7 +1,8 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidTimezone } from "../../shared/validation.ts";
-import { LIMIT_REACHED_MESSAGE, redeemInvite } from "../../shared/join-family.ts";
+import { describeInvite, LIMIT_REACHED_MESSAGE, redeemInvite } from "../../shared/join-family.ts";
+import { verifiedPhoneMatchesInvite } from "../../shared/phone-match.ts";
 
 /**
  * Auto-join: matches an authenticated user's phone number to a pending invite.
@@ -24,11 +25,23 @@ export async function handleAutoJoin(
   }
 
   // Optional device timezone (additive field; shipped builds send no body).
+  // Optional `preview: true` (additive): describe the matched family without
+  // joining, so the app can ask "Join Sarah's family?" first. Builds that
+  // don't send it join at once, as before.
+  // Optional `family_id` (additive): join only an invite from the family the
+  // app just showed in its preview, so "Join" can never land somewhere else
+  // (e.g. a second family invited the same number in between).
   let timezone: string | null = null;
+  let preview = false;
+  let familyId: string | null = null;
   try {
     const body = await req.json();
     if (typeof body?.timezone === "string" && isValidTimezone(body.timezone)) {
       timezone = body.timezone;
+    }
+    preview = body?.preview === true;
+    if (typeof body?.family_id === "string" && body.family_id.length <= 64) {
+      familyId = body.family_id;
     }
   } catch {
     // No or non-JSON body — fine.
@@ -56,24 +69,16 @@ export async function handleAutoJoin(
     );
   }
 
-  return tryMatchPhone(userPhone, auth.userId, timezone);
+  return tryMatchPhone(userPhone, auth.userId, timezone, preview, familyId);
 }
 
 async function tryMatchPhone(
   phone: string,
   userId: string,
   timezone: string | null,
+  preview: boolean,
+  familyId: string | null,
 ): Promise<Response> {
-  // Normalize to digits-only for comparison
-  const normalized = phone.replace(/[^\d]/g, "");
-  // Try both with and without leading 1
-  const variants = [normalized];
-  if (normalized.startsWith("1") && normalized.length === 11) {
-    variants.push(normalized.slice(1));
-  } else if (normalized.length === 10) {
-    variants.push("1" + normalized);
-  }
-
   // Find a matching unused, non-expired invite
   // invite_tokens.phone is stored in various formats, so we normalize in the query
   const { data: invites, error: inviteError } = await supabaseAdmin
@@ -90,20 +95,24 @@ async function tryMatchPhone(
     );
   }
 
-  // Match by normalized phone
-  const invite = invites.find((inv: { phone: string | null }) => {
-    const invPhone = (inv.phone ?? "").replace(/[^\d]/g, "");
-    if (!invPhone) return false;
-    return variants.some(
-      (v) => v === invPhone || v === invPhone.replace(/^1/, ""),
-    );
-  });
+  // Match by E.164 digits
+  const invite = invites.find((inv: { phone: string | null; family_id: string }) =>
+    verifiedPhoneMatchesInvite(phone, inv.phone) && (familyId === null || inv.family_id === familyId)
+  );
 
   if (!invite) {
     return new Response(
       JSON.stringify({ matched: false, reason: "no_matching_invite" }),
       { headers: { "Content-Type": "application/json" } },
     );
+  }
+
+  if (preview) {
+    const described = await describeInvite(invite.id, userId);
+    if (!described) {
+      return json({ matched: false, reason: "no_matching_invite" });
+    }
+    return json({ matched: true, ...described });
   }
 
   const result = await redeemInvite(invite.id, userId, timezone, "phone");

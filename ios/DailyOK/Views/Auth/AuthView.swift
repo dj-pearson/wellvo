@@ -8,7 +8,7 @@ struct AuthView: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State private var isSignUp = false
     @State private var showEmailAuth = false
-    @State private var joinViaCode = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @FocusState private var focusedField: AuthField?
     @ScaledMetric(relativeTo: .largeTitle) private var logoSize: CGFloat = 80
 
@@ -19,110 +19,177 @@ struct AuthView: View {
             ZStack {
                 AmbientBackground(tone: .calm)
 
-                VStack(spacing: 24) {
-                    Spacer(minLength: 40)
-
-                    // Logo & Tagline
-                    VStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(DailyOKColor.green300.opacity(0.4))
-                                .frame(width: logoSize * 1.6, height: logoSize * 1.6)
-                                .blur(radius: 24)
-                            Image(systemName: "heart.circle.fill")
-                                .font(.system(size: logoSize))
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [DailyOKColor.green400, DailyOKColor.green600],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                                .accessibilityHidden(true)
-                        }
-
-                        Text("Daily OK")
-                            .font(.largeTitle.weight(.bold))
-                            .accessibilityAddTraits(.isHeader)
-
-                        Text("One tap. Total peace of mind.")
-                            .font(.title3)
-                            .foregroundStyle(.secondary)
+                // Scrolls, so the primary button is always reachable: at an
+                // accessibility text size, or on sign-up with the keyboard up,
+                // the fixed stack pushed "Create Account" off the screen. The
+                // minHeight keeps the roomy centred layout when it all fits.
+                GeometryReader { proxy in
+                    ScrollView {
+                        content
+                            .frame(minHeight: proxy.size.height)
                     }
-
-                    Spacer(minLength: 12)
-
-                    VStack(spacing: 16) {
-                        if showEmailAuth {
-                            emailAuthSection
-                        } else {
-                            phoneAuthSection
-                        }
-
-                        Button {
-                            if reduceMotion {
-                                showEmailAuth.toggle()
-                                authViewModel.errorMessage = nil
-                            } else {
-                                withAnimation(DailyOKMotion.smoothSpring) {
-                                    showEmailAuth.toggle()
-                                    authViewModel.errorMessage = nil
-                                }
-                            }
-                        } label: {
-                            Text(showEmailAuth ? "Sign in with phone number instead" : "Sign in with email instead")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        if let error = authViewModel.errorMessage {
-                            Text(error)
-                                .font(.caption)
-                                .foregroundStyle(DailyOKColor.error)
-                                .multilineTextAlignment(.center)
-                                .transition(.opacity)
-                        }
-                    }
-                    .padding(24)
-                    .glassCard(style: .regular, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level4)
-                    // Announce inline auth errors to VoiceOver when they appear
-                    // (US-IOS105).
-                    .announce(authViewModel.errorMessage) { $0 }
-
-                    Spacer()
-
-                    // iPad / alternate-device setup via pairing code
-                    Button {
-                        joinViaCode = true
-                    } label: {
-                        Label("Have a setup code?", systemImage: "number.square")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(DailyOKColor.green700)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .glassPill(style: .ultraThin)
-                    }
-                    .padding(.bottom, 16)
-                }
-                .padding(.horizontal, 24)
-                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: authViewModel.errorMessage)
-            }
-            .onChange(of: authViewModel.authState) { newState in
-                if newState == .authenticated, joinViaCode {
-                    appState.showPairingCodeEntry = true
-                    joinViaCode = false
+                    .scrollDismissesKeyboard(.interactively)
                 }
             }
+            .onAppear { authViewModel.refreshLockoutState() }
             // .done is included deliberately: leaving it out makes the sheet
             // dismiss itself the instant the password is set, so the user never
             // sees the confirmation and cannot tell success from a silent close.
             .sheet(isPresented: Binding(
                 get: { authViewModel.resetStage != .request },
-                set: { if !$0 { authViewModel.cancelPasswordReset() } }
+                set: { presented in
+                    guard !presented else { return }
+                    // Swiping the confirmation away finishes like "Done";
+                    // anywhere earlier it is a cancel.
+                    if authViewModel.resetStage == .done {
+                        Task { await authViewModel.finishPasswordReset() }
+                    } else {
+                        authViewModel.cancelPasswordReset()
+                    }
+                }
             )) {
                 PasswordResetSheet(authViewModel: authViewModel)
             }
         }
+    }
+
+    /// Logo glow shrinks at accessibility sizes so the form gets the room.
+    private var showsLogoGlow: Bool { !dynamicTypeSize.isAccessibilitySize }
+
+    private var content: some View {
+        VStack(spacing: 24) {
+            Spacer(minLength: dynamicTypeSize.isAccessibilitySize ? 12 : 40)
+
+            // Logo & Tagline
+            VStack(spacing: 12) {
+                ZStack {
+                    if showsLogoGlow {
+                        Circle()
+                            .fill(DailyOKColor.green300.opacity(0.4))
+                            .frame(width: logoSize * 1.6, height: logoSize * 1.6)
+                            .blur(radius: 24)
+                    }
+                    Image(systemName: "heart.circle.fill")
+                        .font(.system(size: dynamicTypeSize.isAccessibilitySize ? 56 : logoSize))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [DailyOKColor.green400, DailyOKColor.green600],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .accessibilityHidden(true)
+                }
+
+                Text("Daily OK")
+                    .font(.largeTitle.weight(.bold))
+                    .accessibilityAddTraits(.isHeader)
+
+                Text("One tap. Total peace of mind.")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            // Context the person arrived with: an invite link they tapped, or
+            // "Have a setup code?". Both only act after sign-in, so say so.
+            if appState.pendingInviteToken != nil {
+                contextNotice(
+                    icon: "envelope.open.fill",
+                    text: "You've been invited to Daily OK. Sign in with the phone number the invite was sent to, and we'll show you whose family it is before you join."
+                )
+            } else if appState.setupCodeAfterSignIn {
+                contextNotice(
+                    icon: "number.square",
+                    text: "First, sign in or create your account. Then we'll ask for the 6-digit code from your invite.",
+                    cancel: { appState.setupCodeAfterSignIn = false }
+                )
+            }
+
+            Spacer(minLength: 12)
+
+            VStack(spacing: 16) {
+                if showEmailAuth {
+                    emailAuthSection
+                } else {
+                    phoneAuthSection
+                }
+
+                Button {
+                    if reduceMotion {
+                        showEmailAuth.toggle()
+                        authViewModel.errorMessage = nil
+                    } else {
+                        withAnimation(DailyOKMotion.smoothSpring) {
+                            showEmailAuth.toggle()
+                            authViewModel.errorMessage = nil
+                        }
+                    }
+                } label: {
+                    Text(showEmailAuth ? "Sign in with phone number instead" : "Sign in with email instead")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let error = authViewModel.errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(DailyOKColor.error)
+                        .multilineTextAlignment(.center)
+                        .transition(.opacity)
+                }
+            }
+            .padding(24)
+            .glassCard(style: .regular, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level4)
+            // Announce inline auth errors to VoiceOver when they appear
+            // (US-IOS105).
+            .announce(authViewModel.errorMessage) { $0 }
+
+            Spacer()
+
+            // Joining with the code from an invite text (any device). Sign-in
+            // comes first; the tap now says so and is remembered until then.
+            if !appState.setupCodeAfterSignIn && appState.pendingInviteToken == nil {
+                Button {
+                    appState.setupCodeAfterSignIn = true
+                } label: {
+                    Label("Have a setup code?", systemImage: "number.square")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(DailyOKColor.green700)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .glassPill(style: .ultraThin)
+                }
+                .accessibilityHint("Sign in first, then enter the code from your invite")
+                .padding(.bottom, 16)
+            }
+        }
+        .padding(.horizontal, 24)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: authViewModel.errorMessage)
+    }
+
+    private func contextNotice(icon: String, text: LocalizedStringKey, cancel: (() -> Void)? = nil) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundStyle(DailyOKColor.green700)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(text)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let cancel {
+                    Button("I don't have a code", action: cancel)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(DailyOKColor.green700)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .glassCard(style: .thin, radius: DailyOKGlass.radiusMedium, elevation: DailyOKElevation.level2)
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: - Phone Auth (Primary — simplest for receivers)
@@ -133,8 +200,8 @@ struct AuthView: View {
     private var lockoutNotice: some View {
         if let message = authViewModel.authLockoutMessage {
             Text(message)
-                .font(.footnote)
-                .foregroundStyle(.orange)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(DailyOKColor.error)
                 .multilineTextAlignment(.center)
                 .accessibilityAddTraits(.updatesFrequently)
         }
@@ -194,7 +261,13 @@ struct AuthView: View {
                     .textFieldStyle(.roundedBorder)
                     .keyboardType(.phonePad)
                     .textContentType(.telephoneNumber)
+                    .accessibilityLabel("Phone number")
                     .onSubmit { Task { await authViewModel.sendPhoneOTP() } }
+
+                Text("US numbers as usual. Outside the US, start with + and your country code.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
 
                 Button {
                     Task { await authViewModel.sendPhoneOTP() }
@@ -304,8 +377,8 @@ struct AuthView: View {
                                 .controlSize(.small)
                         } else {
                             Text("Forgot Password?")
-                                .font(.caption)
-                                .foregroundStyle(.green)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(DailyOKColor.green700)
                         }
                     }
                     .disabled(authViewModel.isResettingPassword)
@@ -315,7 +388,7 @@ struct AuthView: View {
             if let resetMessage = authViewModel.resetPasswordMessage {
                 Text(resetMessage)
                     .font(.caption)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(DailyOKColor.green700)
                     .multilineTextAlignment(.center)
             }
 
@@ -347,7 +420,13 @@ struct AuthView: View {
             .tint(.green)
             // On sign-up, enforce the exact policy the copy promises so the user
             // isn't shown "Good" and then rejected by the server.
-            .disabled(authViewModel.isLoading || (isSignUp && !authViewModel.passwordMeetsPolicy))
+            .disabled(authViewModel.isLoading
+                      || (isSignUp && !authViewModel.passwordMeetsPolicy)
+                      || authViewModel.authLockoutSecondsRemaining > 0)
+
+            // The lockout is shared with phone sign-in; say why the button is
+            // off instead of letting taps do nothing.
+            lockoutNotice
 
             Button {
                 if reduceMotion {
@@ -410,9 +489,14 @@ struct PasswordResetSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        authViewModel.cancelPasswordReset()
-                        dismiss()
+                    Button(authViewModel.resetStage == .done ? "Close" : "Cancel") {
+                        if authViewModel.resetStage == .done {
+                            // The password IS changed; closing signs them in.
+                            Task { await authViewModel.finishPasswordReset() }
+                        } else {
+                            authViewModel.cancelPasswordReset()
+                            dismiss()
+                        }
                     }
                 }
             }
@@ -509,8 +593,9 @@ struct PasswordResetSheet: View {
             Text(authViewModel.resetPasswordMessage ?? String(localized: "Password updated."))
                 .multilineTextAlignment(.center)
             Button("Done") {
-                authViewModel.cancelPasswordReset()
-                dismiss()
+                // Leaving .done closes the sheet; the user is signed in with
+                // the new password.
+                Task { await authViewModel.finishPasswordReset() }
             }
             .buttonStyle(.borderedProminent)
             .tint(.green)

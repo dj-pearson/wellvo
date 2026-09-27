@@ -46,7 +46,11 @@ struct SegmentedCodeField: View {
             .textContentType(.oneTimeCode)
             .focused($focused)
             .opacity(0.02) // near-invisible but still focusable/tappable
-            .frame(height: 1)
+            // As big as the boxes it sits under: VoiceOver users exploring by
+            // touch find the field where they see it. At 1pt tall it could
+            // only be reached by swiping.
+            .frame(maxWidth: .infinity)
+            .frame(height: boxHeight)
             .accessibilityLabel("Verification code")
             .accessibilityValue("\(code.count) of \(length) digits entered")
             .accessibilityHint("Enter the \(length)-digit code")
@@ -82,7 +86,9 @@ struct SegmentedCodeField: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
                     .strokeBorder(
-                        isActive ? DailyOKColor.green500 : Color.gray.opacity(0.3),
+                        // Idle outline at a visible contrast (gray 30% was far
+                        // under 3:1 against the box fill).
+                        isActive ? DailyOKColor.green700 : Color(.systemGray2),
                         lineWidth: isActive ? 2 : 1
                     )
             )

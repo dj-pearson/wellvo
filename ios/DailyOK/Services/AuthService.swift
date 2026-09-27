@@ -184,6 +184,15 @@ actor AuthService {
     /// already linked just because the check failed.
     func appleIDLinkStatus() async -> Bool? {
         guard let session = try? await supabase.auth.session else { return nil }
+        // Self-only check (00060). has_apple_identity(p_user_id) answers for
+        // any user id, so it is kept only as the fallback for a backend that
+        // predates the new function.
+        if let mine: Bool = try? await supabase
+            .rpc("has_my_apple_identity")
+            .execute()
+            .value {
+            return mine
+        }
         return try? await supabase
             .rpc("has_apple_identity", params: ["p_user_id": session.user.id.uuidString])
             .execute()
@@ -291,15 +300,40 @@ actor AuthService {
         )
     }
 
-    /// Normalize a US phone number to +1XXXXXXXXXX format.
+    /// True when the number can't be read without a country code: not a US
+    /// number (10 digits, or 11 starting with 1) and not written with "+".
+    /// `normalizePhone` would otherwise turn a UK "07700 900123" into
+    /// "+07700900123", and the SMS provider's refusal read as "Could not send
+    /// verification code".
+    nonisolated static func phoneNeedsCountryCode(_ phone: String) -> Bool {
+        let trimmed = phone.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("+") { return false }
+        let digits = trimmed.filter(\.isNumber)
+        if digits.count == 10 { return false }
+        if digits.count == 11, digits.hasPrefix("1") { return false }
+        return true
+    }
+
+    /// Normalize to E.164 ("+1XXXXXXXXXX" for a US number typed without "+").
     private func normalizePhone(_ phone: String) -> String {
+        Self.normalizedPhone(phone)
+    }
+
+    /// A number written with "+" already carries its country code and is
+    /// taken as written (digits only, E.164). It used to be checked for 10
+    /// digits first, so "+47 912 34 567" (Norway, 10 digits with its code) —
+    /// exactly what the sign-in hint tells people outside the US to type —
+    /// became +1 479-123-4567 and the code went to a stranger in Arkansas.
+    /// Without "+", 10 digits (or 11 starting with 1) are US numbers as before.
+    nonisolated static func normalizedPhone(_ phone: String) -> String {
         let digits = phone.filter(\.isNumber)
-        if digits.count == 10 {
-            return "+1\(digits)"
-        } else if digits.count == 11, digits.hasPrefix("1") {
+        if phone.trimmingCharacters(in: .whitespaces).hasPrefix("+") {
             return "+\(digits)"
         }
-        return phone.hasPrefix("+") ? phone : "+\(digits)"
+        if digits.count == 10 {
+            return "+1\(digits)"
+        }
+        return "+\(digits)"
     }
 
     // MARK: - Password Reset
@@ -363,18 +397,60 @@ actor AuthService {
     /// network blip on foreground indistinguishable from a signed-out state and
     /// bounced a logged-in user to the sign-in screen. Callers must not treat a
     /// thrown error here as "signed out" (see `AuthViewModel.checkSession`).
+    ///
+    /// "No session" means nothing is stored, or the server REFUSED the stored
+    /// one (revoked / expired refresh token). A refresh that failed because the
+    /// device is offline is not that: access tokens last about an hour and a
+    /// receiver opens the app once a day, so `try?` on `auth.session` (which
+    /// refreshes an expired token over the network) turned every offline
+    /// launch into the sign-in screen, and the offline check-in queue could
+    /// not be reached. That case now throws, like a failed profile fetch.
     func currentSession() async throws -> AppUser? {
-        guard let session = try? await supabase.auth.session else { return nil }
+        guard supabase.auth.currentSession != nil else { return nil }
+
+        let userId: UUID
+        do {
+            userId = try await supabase.auth.session.user.id
+        } catch {
+            if Self.isConnectivityError(error) { throw error }
+            return nil
+        }
 
         let user: AppUser = try await supabase
             .from("users")
             .select()
-            .eq("id", value: session.user.id.uuidString)
+            .eq("id", value: userId.uuidString)
             .single()
             .execute()
             .value
 
         return user
+    }
+
+    /// A session is stored on this device (it may need a refresh). Does not
+    /// touch the network.
+    nonisolated var hasStoredSession: Bool {
+        SupabaseService.shared.client.auth.currentSession != nil
+    }
+
+    /// The signed-in user's id from the stored session, without refreshing it,
+    /// so an offline launch can still find its cached role.
+    nonisolated var storedUserId: UUID? {
+        SupabaseService.shared.client.auth.currentSession?.user.id
+    }
+
+    /// The request never got an answer from the server (offline, timed out,
+    /// DNS, TLS). Distinct from the server saying no.
+    nonisolated static func isConnectivityError(_ error: Error) -> Bool {
+        if error is URLError { return true }
+        if let dailyOK = error as? DailyOKError {
+            switch dailyOK {
+            case .offline: return true
+            case .network(let inner): return isConnectivityError(inner)
+            default: return false
+            }
+        }
+        return (error as NSError).domain == NSURLErrorDomain
     }
 
     /// Check if the Apple credential is still valid (not revoked). Returns true

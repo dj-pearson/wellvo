@@ -225,7 +225,7 @@ struct FirstReceiverWalkthroughView: View {
 
                 ReceiverFlowRow(number: 1, icon: "message.fill", text: "Opens the text message you sent them.")
                 ReceiverFlowRow(number: 2, icon: "arrow.down.app.fill", text: "Taps the link to download Daily OK.")
-                ReceiverFlowRow(number: 3, icon: "phone.fill", text: "Signs in with the same phone number — no codes to type.")
+                ReceiverFlowRow(number: 3, icon: "phone.fill", text: "Signs in with that phone number and types the code we text them, then confirms they're joining your family.")
                 ReceiverFlowRow(number: 4, icon: "bell.badge.fill", text: "Allows notifications so they get the daily reminder.")
                 ReceiverFlowRow(number: 5, icon: "hand.thumbsup.fill", text: "Done. Each day they'll just tap \"I'm OK.\"")
 
@@ -339,7 +339,8 @@ struct FirstReceiverWalkthroughView: View {
         case .receiverDetails:
             return isLoading
                 || name.trimmingCharacters(in: .whitespaces).isEmpty
-                || phone.trimmingCharacters(in: .whitespaces).isEmpty
+                // Same rule as owner onboarding: 10+ digits, not "abc".
+                || phone.filter(\.isNumber).count < 10
         default:
             return false
         }
@@ -400,7 +401,12 @@ struct FirstReceiverWalkthroughView: View {
             pendingInvite = invite
         } catch {
             DailyOKHaptics.error()
-            errorMessage = DailyOKError.network(error).localizedDescription
+            // The server's own words ("Your plan includes 1 receiver…"), not
+            // "Network error: Edge function error 403: {json}".
+            errorMessage = edgeErrorMessage(
+                error,
+                fallback: String(localized: "Couldn't create the invite. Check your connection and try again.")
+            )
         }
     }
 

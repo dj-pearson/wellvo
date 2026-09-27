@@ -26,6 +26,7 @@ import { checkRateLimit, checkServiceRoleRateLimit } from "./shared/rate-limiter
 import { logInfo, logError, withRequestLogging } from "./shared/logger.ts";
 import { isBelowMinimum, forceUpdatePayload } from "./shared/config.ts";
 import { initSentry } from "./shared/sentry.ts";
+import { recordPeerAddress } from "./shared/client-ip.ts";
 
 // Initialize error reporting before we start serving so every logError() and
 // the top-level handler catch routes to the Daily OK Sentry project.
@@ -303,4 +304,10 @@ async function handler(req: Request): Promise<Response> {
 }
 
 console.log(`Daily OK Edge Functions server running on port ${PORT}`);
-Deno.serve({ port: PORT }, handler);
+Deno.serve({ port: PORT }, (req, info) => {
+  // The socket peer, so shared/client-ip.ts can tell a request relayed by our
+  // own proxy from one that set its own forwarding headers.
+  const addr = info?.remoteAddr as { hostname?: string } | undefined;
+  recordPeerAddress(req, addr?.hostname);
+  return handler(req);
+});

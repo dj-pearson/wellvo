@@ -19,6 +19,9 @@ struct OnboardingCarousel: View {
     var skipLabel: String = "Skip"
 
     @State private var currentIndex: Int = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var motion: Animation? { reduceMotion ? nil : DailyOKMotion.smoothSpring }
 
     var body: some View {
         // Guard against an empty page list: `pages.count - 1` below would be -1,
@@ -52,14 +55,14 @@ struct OnboardingCarousel: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .animation(DailyOKMotion.smoothSpring, value: currentIndex)
+            .animation(motion, value: currentIndex)
 
             HStack(spacing: 8) {
                 ForEach(0..<pages.count, id: \.self) { i in
                     Capsule()
                         .fill(i == currentIndex ? DailyOKColor.brand : Color(.systemGray4))
                         .frame(width: i == currentIndex ? 24 : 8, height: 8)
-                        .animation(DailyOKMotion.smoothSpring, value: currentIndex)
+                        .animation(motion, value: currentIndex)
                 }
             }
             .padding(.vertical, 16)
@@ -72,19 +75,20 @@ struct OnboardingCarousel: View {
                 if currentIndex == pages.count - 1 {
                     onComplete()
                 } else {
-                    withAnimation(DailyOKMotion.smoothSpring) {
+                    withAnimation(motion) {
                         currentIndex += 1
                     }
                 }
             } label: {
-                Text(currentIndex == pages.count - 1 ? primaryCtaLabel : nextLabel)
+                Text(LocalizedStringKey(currentIndex == pages.count - 1 ? primaryCtaLabel : nextLabel))
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     // The capsule grows with the label rather than cropping it.
                     .frame(minHeight: 52)
                     .background(
-                        Capsule().fill(DailyOKColor.brand)
+                        // White on the brand green500 was ~2.3:1.
+                        Capsule().fill(DailyOKColor.green700)
                     )
             }
             .padding(.horizontal, 24)
@@ -97,23 +101,38 @@ struct OnboardingCarousel: View {
 private struct OnboardingPageView: View {
     let page: OnboardingPageData
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var circleSize: CGFloat { dynamicTypeSize.isAccessibilitySize ? 96 : 160 }
+
     var body: some View {
+        // Scrolls at large text sizes instead of cutting the page off.
+        ScrollView {
+            pageContent
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+        }
+    }
+
+    private var pageContent: some View {
         VStack(spacing: 24) {
             ZStack {
                 Circle()
                     .fill(DailyOKColor.green100)
-                    .frame(width: 160, height: 160)
+                    .frame(width: circleSize, height: circleSize)
                 Image(systemName: page.systemImage)
-                    .font(.system(size: 72, weight: .semibold))
+                    .font(.system(size: circleSize * 0.45, weight: .semibold))
                     .foregroundStyle(DailyOKColor.green700)
             }
             .accessibilityHidden(true)
 
-            Text(page.title)
+            // LocalizedStringKey: Text(String) is never looked up in the
+            // string catalog.
+            Text(LocalizedStringKey(page.title))
                 .font(.largeTitle.weight(.bold))
                 .multilineTextAlignment(.center)
 
-            Text(page.body)
+            Text(LocalizedStringKey(page.body))
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)

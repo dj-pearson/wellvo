@@ -1,8 +1,14 @@
 import SwiftUI
 import UserNotifications
 
-/// A non-intrusive banner shown when notification permission is denied.
-/// Dismissable for 7 days. Links to iOS Settings.
+/// A non-intrusive banner shown when notification permission is denied
+/// (dismissable for 7 days, links to iOS Settings) — or was never asked.
+///
+/// "Never asked" is the state of anyone who joined without passing a
+/// permission step (older builds' setup-code path, an onboarding interrupted
+/// before that step). iOS shows no Notifications row in Settings for an app
+/// that never asked, so the only fix is the system prompt; the banner offers
+/// it, and can't be dismissed while nothing has been decided.
 struct NotificationPermissionBanner: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
@@ -16,12 +22,18 @@ struct NotificationPermissionBanner: View {
 
     private let dismissKey = "notificationBannerDismissedAt"
 
+    /// Only once the real status is known (the initial value is a placeholder).
+    @State private var hasChecked = false
+    @State private var isRequesting = false
+
     var body: some View {
         // A `Group` adds no layout footprint when its content is empty (unlike a
         // clear placeholder), yet the `.task`/`.onChange` stay attached so the
         // banner detects a denied state even while currently hidden.
         Group {
-            if shouldShow {
+            if hasChecked && permissionStatus == .notDetermined {
+                askContent
+            } else if shouldShow {
                 bannerContent
             }
         }
@@ -33,6 +45,47 @@ struct NotificationPermissionBanner: View {
                 Task { await checkPermission() }
             }
         }
+    }
+
+    private var askContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "bell.badge.fill")
+                    .font(.title3)
+                    .foregroundStyle(DailyOKColor.green700)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Turn on reminders")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Text("Daily OK needs notifications for daily check-in reminders and missed check-in alerts.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Button {
+                guard !isRequesting else { return }
+                isRequesting = true
+                Task {
+                    _ = try? await PushNotificationService.shared.requestPermission()
+                    await checkPermission()
+                    isRequesting = false
+                }
+            } label: {
+                Text("Allow Notifications")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(DailyOKColor.green700)
+            .disabled(isRequesting)
+        }
+        .padding(12)
+        .background(DailyOKColor.green700.opacity(0.08))
+        .cornerRadius(12)
+        .accessibilityElement(children: .contain)
     }
 
     private var bannerContent: some View {
@@ -130,6 +183,7 @@ struct NotificationPermissionBanner: View {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         await MainActor.run {
             permissionStatus = settings.authorizationStatus
+            hasChecked = true
         }
     }
 }

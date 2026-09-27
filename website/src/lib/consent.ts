@@ -70,5 +70,23 @@ export function loadGoogleAnalytics(): void {
     w.dataLayer.push(arguments)
   }
   w.gtag('js', new Date())
-  w.gtag('config', GA_MEASUREMENT_ID, { anonymize_ip: true })
+  w.gtag('config', GA_MEASUREMENT_ID, { anonymize_ip: true, page_location: analyticsPageLocation() })
+}
+
+/**
+ * The page URL analytics may see. An invite link carries both working
+ * credentials for joining a family — /invite/<token>?code=<setup code> — and
+ * GA's default page_location is the full URL, so anyone with access to the GA
+ * property could have read them. Invite pages report as plain "/invite".
+ */
+export function analyticsPageLocation(href: string = window.location.href): string {
+  try {
+    const url = new URL(href)
+    if (url.pathname === '/invite' || url.pathname.startsWith('/invite/')) {
+      return `${url.origin}/invite`
+    }
+    return href
+  } catch {
+    return href
+  }
 }

@@ -215,5 +215,93 @@ async function legacyRedeemInvite(
   };
 }
 
+/**
+ * What joining this invite would mean, WITHOUT joining (the optional
+ * `preview: true` request field on invite-receiver accept, redeem-code and
+ * auto-join; older clients never send it and still join at once).
+ *
+ * Joining used to happen before the joiner saw anything: a link redeemed as
+ * the screen appeared, a phone match redeemed during launch, and a code
+ * redeemed on its sixth digit. Someone who mistyped a code, or whose number
+ * was on a stranger's invite, became a member watched every day without being
+ * told by whom. New builds show this first and only redeem on "Join".
+ */
+export interface JoinPreview {
+  preview: true;
+  family_id: string;
+  family_name: string | null;
+  role: string;
+  /** The inviting owner's display name ("User" when they never set one). */
+  owner_name: string | null;
+  /** What the owner called the invitee ("Mom"). */
+  invite_name: string | null;
+  checkin_time: string | null;
+  /** Everyone who will see this person's check-ins: the owner, then active co-caregivers. */
+  watchers: string[];
+  /** The caller is already an active member of this family. */
+  already_member: boolean;
+}
+
+export async function describeInvite(inviteId: string, userId: string): Promise<JoinPreview | null> {
+  const { data: invite } = await supabaseAdmin
+    .from("invite_tokens")
+    .select("id, family_id, role, name, checkin_time")
+    .eq("id", inviteId)
+    .maybeSingle();
+  if (!invite) return null;
+
+  const { data: family } = await supabaseAdmin
+    .from("families")
+    .select("id, name, owner_id")
+    .eq("id", invite.family_id)
+    .maybeSingle();
+  if (!family) return null;
+
+  const { data: members } = await supabaseAdmin
+    .from("family_members")
+    .select("user_id, role, status")
+    .eq("family_id", family.id)
+    .eq("status", "active");
+  const active = (members ?? []) as { user_id: string; role: string }[];
+  const viewerIds = active.filter((m) => m.role === "viewer" && m.user_id !== userId).map((m) => m.user_id);
+
+  const ids = [family.owner_id, ...viewerIds].filter(Boolean) as string[];
+  const names = new Map<string, string>();
+  if (ids.length > 0) {
+    const { data: users } = await supabaseAdmin
+      .from("users")
+      .select("id, display_name")
+      .in("id", ids);
+    for (const u of (users ?? []) as { id: string; display_name: string | null }[]) {
+      const name = (u.display_name ?? "").trim();
+      if (name) names.set(u.id, name);
+    }
+  }
+
+  const ownerName = names.get(family.owner_id) ?? null;
+  const watchers: string[] = [];
+  if (ownerName && ownerName !== "User") watchers.push(ownerName);
+  for (const id of viewerIds) {
+    const n = names.get(id);
+    if (n && n !== "User") watchers.push(n);
+  }
+
+  // Already in: report the role they actually hold (an owner typing their
+  // own family's code is not about to become a receiver).
+  const mine = active.find((m) => m.user_id === userId);
+
+  return {
+    preview: true,
+    family_id: family.id,
+    family_name: family.name ?? null,
+    role: mine?.role ?? invite.role ?? "receiver",
+    owner_name: ownerName,
+    invite_name: invite.name ?? null,
+    checkin_time: invite.role === "viewer" ? null : (invite.checkin_time ?? null),
+    watchers: watchers.slice(0, 10),
+    already_member: mine !== undefined,
+  };
+}
+
 export const LIMIT_REACHED_MESSAGE =
   "This family's plan has no free places. Ask the person who invited you to upgrade their plan or remove someone first.";

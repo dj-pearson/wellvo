@@ -41,7 +41,10 @@ struct ContentView: View {
                         // No role, and we could not find out. Never guess — an
                         // owner dashboard shown to a receiver is the failure
                         // this replaces.
-                        RoleLoadFailedView { Task { await resolveRole() } }
+                        RoleLoadFailedView(
+                            retry: { Task { await resolveRole() } },
+                            signOut: { Task { await authViewModel.signOut() } }
+                        )
                     } else if appState.roleResolution == .resolved {
                         // Signed in, genuinely no family: ask, don't assume owner.
                         GetStartedChoiceView()
@@ -99,33 +102,45 @@ struct ContentView: View {
         }
         .onChange(of: authViewModel.authState) { oldState, newState in
             if newState == .unauthenticated {
-                appState.currentUserRole = nil
-                appState.roleResolution = .resolving
-                // Signing out ends any invite in progress, so it can't be
-                // redeemed for whoever signs in next on this device. (A cold
-                // start from a link goes .loading → .unauthenticated and keeps
-                // its token for the sign-in that follows.)
                 if oldState == .authenticated {
-                    appState.pendingInviteToken = nil
-                    appState.pendingAutoJoin = nil
+                    // Signing out ends everything in progress — an invite, an
+                    // auto-join, owner onboarding, the code screen — so none of
+                    // it lands on whoever signs in next on this device.
+                    appState.resetForSignOut()
+                } else {
+                    // A cold start from a link goes .loading → .unauthenticated
+                    // and keeps its token for the sign-in that follows.
+                    appState.currentUserRole = nil
+                    appState.roleResolution = .resolving
                 }
             }
         }
         .onChange(of: scenePhase) { _, phase in
+            guard phase == .active, authViewModel.authState == .authenticated else { return }
             // A lookup that failed (offline launch) is retried when the app
             // comes back, instead of only on the next cold start.
-            if phase == .active, authViewModel.authState == .authenticated,
-               appState.roleResolution == .failed {
+            if appState.roleResolution == .failed {
+                Task { await resolveRole() }
+            } else if Self.shouldRecheckRole(
+                role: appState.currentUserRole,
+                lastResolvedAt: appState.lastRoleResolvedAt,
+                busy: appState.isOnboarding || appState.showPairingCodeEntry
+                    || appState.pendingInviteToken != nil || appState.pendingAutoJoin != nil
+            ) {
+                // A member removed from the family (or a co-caregiver made
+                // owner) used to keep the old screen until a cold launch.
                 Task { await resolveRole() }
             }
         }
+        .onChange(of: appState.roleRefreshRequest) { _, _ in
+            Task { await resolveRole() }
+        }
         .onChange(of: appState.currentUserRole) { _, role in
             // Keep the offline cache in step with every role change (joining,
-            // finishing owner setup, transferring ownership).
-            Task {
-                guard let userId = try? await SupabaseService.shared.client.auth.session.user.id else { return }
-                appState.cacheRole(role, for: userId)
-            }
+            // finishing owner setup, transferring ownership). The stored
+            // session's id: an offline refresh must not skip the write.
+            guard let userId = AuthService.shared.storedUserId else { return }
+            appState.cacheRole(role, for: userId)
         }
         .task(id: authViewModel.authState) {
             guard authViewModel.authState == .authenticated,
@@ -148,10 +163,10 @@ struct ContentView: View {
     /// 3. With no membership, try a phone-number invite match before asking the
     ///    user what they're here to do.
     private func resolveRole() async {
-        guard let userId = try? await SupabaseService.shared.client.auth.session.user.id else {
-            // Signed in but the session can't be loaded right now (offline with
-            // an expired token). Retry on foreground rather than hang on the
-            // launch screen.
+        // The STORED session's user id: refreshing an expired access token
+        // needs the network, and an offline launch must still reach the
+        // cached role (a receiver's I'm OK button) instead of a retry screen.
+        guard let userId = AuthService.shared.storedUserId else {
             appState.roleResolution = .failed
             return
         }
@@ -168,13 +183,17 @@ struct ContentView: View {
             appState.roleResolution = .failed
             return
         }
+        appState.lastRoleResolvedAt = Date()
 
         if let role {
             appState.currentUserRole = role
             // Already a member: drop any stale invite/auto-join deep link so it
-            // can't surface the receiver onboarding flow over their real home.
+            // can't surface the receiver onboarding flow over their real home,
+            // and never open the code screen over it either.
             appState.pendingInviteToken = nil
             appState.pendingAutoJoin = nil
+            appState.setupCodeAfterSignIn = false
+            appState.autoJoinBlockedMessage = nil
             appState.roleResolution = .resolved
             return
         }
@@ -184,19 +203,51 @@ struct ContentView: View {
         appState.currentUserRole = nil
 
         // No membership — check for a phone-number invite match (new user),
-        // unless an invite link is already being handled.
+        // unless an invite link is already being handled. Preview only: the
+        // person is asked "Join Sarah's family?" before anything is redeemed.
         if appState.pendingInviteToken == nil, appState.pendingAutoJoin == nil {
-            if let result = try? await FamilyService.shared.checkAutoJoin() {
-                appState.pendingAutoJoin = result
+            switch (try? await FamilyService.shared.checkAutoJoin(preview: true)) ?? .noMatch {
+            case .matched(let result):
+                if !(result.isPreview && appState.hasDeclinedAutoJoin(familyId: result.familyId, for: userId)) {
+                    appState.pendingAutoJoin = result
+                }
+                appState.autoJoinBlockedMessage = nil
+            case .blocked(let message):
+                appState.autoJoinBlockedMessage = message
+            case .noMatch:
+                appState.autoJoinBlockedMessage = nil
+            }
+        }
+
+        // "Have a setup code?" from the sign-in screen: now that we know they
+        // belong to no family, take them to the code.
+        if appState.setupCodeAfterSignIn {
+            appState.setupCodeAfterSignIn = false
+            if appState.pendingInviteToken == nil, appState.pendingAutoJoin == nil {
+                appState.showPairingCodeEntry = true
             }
         }
         appState.roleResolution = .resolved
+    }
+
+    /// Re-ask the server on foreground once the last answer is 15 minutes old,
+    /// but never in the middle of joining or setting up.
+    nonisolated static func shouldRecheckRole(
+        role: UserRole?,
+        lastResolvedAt: Date?,
+        busy: Bool,
+        now: Date = Date()
+    ) -> Bool {
+        guard role != nil, !busy, let lastResolvedAt else { return false }
+        return now.timeIntervalSince(lastResolvedAt) > 15 * 60
     }
 }
 
 /// Shown when a signed-in user's role can't be loaded and none is cached.
 private struct RoleLoadFailedView: View {
     let retry: () -> Void
+    let signOut: () -> Void
+    @State private var showSignOutConfirm = false
 
     var body: some View {
         ZStack {
@@ -214,10 +265,20 @@ private struct RoleLoadFailedView: View {
                     .multilineTextAlignment(.center)
                 Button("Try Again", action: retry)
                     .buttonStyle(.borderedProminent)
-                    .tint(DailyOKColor.green500)
+                    .tint(DailyOKColor.green700)
                     .controlSize(.large)
+                // A way out when the network blocks Daily OK, or this is the
+                // wrong account.
+                Button("Sign out") { showSignOutConfirm = true }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 8)
             }
             .padding(32)
+        }
+        .confirmationDialog("Sign out of Daily OK?", isPresented: $showSignOutConfirm, titleVisibility: .visible) {
+            Button("Sign Out", role: .destructive, action: signOut)
+            Button("Cancel", role: .cancel) {}
         }
     }
 }

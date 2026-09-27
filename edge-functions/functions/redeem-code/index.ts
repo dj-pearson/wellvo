@@ -2,11 +2,19 @@ import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidTimezone } from "../../shared/validation.ts";
 import { logError } from "../../shared/logger.ts";
-import { LIMIT_REACHED_MESSAGE, redeemInvite } from "../../shared/join-family.ts";
+import { describeInvite, LIMIT_REACHED_MESSAGE, redeemInvite } from "../../shared/join-family.ts";
+import { clientIp } from "../../shared/client-ip.ts";
 
 interface RedeemRequest {
   code: string;
   timezone?: string;
+  /**
+   * Optional (additive): describe the family this code joins without joining
+   * it, so the app can ask "Join Sarah's family?" first. Counts toward the
+   * same lockout as a redeem, so it is no better a guessing oracle. Older
+   * builds never send it and join at once, as before.
+   */
+  preview?: boolean;
 }
 
 // Failed attempts allowed per user in the lockout window. Mirrors
@@ -94,6 +102,7 @@ export async function handleRedeemCode(
 
   if (inviteError || !invite) {
     const failures = await recordAttempt(userId, ip, false);
+    await maybeAlarmOnFailureSpike();
     return json({
       error: "Invalid or expired code. Please check and try again.",
       attemptsRemaining: Math.max(0, MAX_FAILED_ATTEMPTS - failures),
@@ -101,6 +110,14 @@ export async function handleRedeemCode(
   }
 
   await recordAttempt(userId, ip, true);
+
+  if (body.preview === true) {
+    const preview = await describeInvite(invite.id, userId);
+    if (!preview) {
+      return json({ error: "Invalid or expired code. Please check and try again." }, 400);
+    }
+    return json(preview);
+  }
 
   const result = await redeemInvite(invite.id, userId, body.timezone, "code");
 
@@ -178,15 +195,40 @@ async function recordAttempt(userId: string, ip: string | null, succeeded: boole
   return count ?? 1;
 }
 
-/** The caller's IP as reported by the edge proxy (Cloudflare, then Traefik). */
-function clientIp(req: Request): string | null {
-  const cf = req.headers.get("CF-Connecting-IP");
-  if (cf) return cf.trim();
-  const real = req.headers.get("X-Real-IP");
-  if (real) return real.trim();
-  const fwd = req.headers.get("X-Forwarded-For");
-  if (fwd) return fwd.split(",")[0].trim();
-  return null;
+/**
+ * Platform-wide alarm (never a block: anyone could trip a global block with
+ * throwaway accounts and lock every real receiver out). Wrong codes across
+ * ALL callers in the last hour past a threshold mean someone is guessing at
+ * scale with many accounts and addresses; say so in Sentry, at most once an
+ * hour per process.
+ */
+const FAILURE_ALARM_THRESHOLD = 200;
+let lastAlarmAt = 0;
+let lastAlarmCheckAt = 0;
+
+async function maybeAlarmOnFailureSpike(): Promise<void> {
+  const now = Date.now();
+  // One count query per minute at most, and nothing after an alarm for an hour.
+  if (now - lastAlarmAt < 60 * 60 * 1000 || now - lastAlarmCheckAt < 60 * 1000) return;
+  lastAlarmCheckAt = now;
+  try {
+    const since = new Date(now - 60 * 60 * 1000).toISOString();
+    const { count } = await supabaseAdmin
+      .from("pairing_code_attempts")
+      .select("id", { count: "exact", head: true })
+      .eq("succeeded", false)
+      .gte("created_at", since);
+    if ((count ?? 0) >= FAILURE_ALARM_THRESHOLD) {
+      lastAlarmAt = now;
+      logError(
+        "Pairing-code failures spiking platform-wide (possible distributed guessing)",
+        new Error(`failed_codes_last_hour=${count}`),
+        { path: "/redeem-code" },
+      );
+    }
+  } catch {
+    // Best effort.
+  }
 }
 
 function json(body: unknown, status = 200): Response {

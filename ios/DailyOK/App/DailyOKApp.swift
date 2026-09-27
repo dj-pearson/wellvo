@@ -92,7 +92,16 @@ struct DailyOKApp: App {
             // demote them into the receiver onboarding flow. If we already know
             // their role, ignore the token. (ContentView also re-resolves role
             // and clears a stale token on cold-start from a link.)
-            guard appState.currentUserRole == nil else { return }
+            guard appState.currentUserRole == nil else {
+                // Say why nothing happened (a co-caregiver link tapped by
+                // someone already in a family used to do nothing at all).
+                appState.deepLinkOutcome = AppState.DeepLinkOutcome(
+                    title: String(localized: "You're already in a family"),
+                    message: String(localized: "This invite can't be used from an account that already belongs to a family. Ask the person who sent it to add you another way, or sign in with a different account."),
+                    isFailure: false
+                )
+                return
+            }
             appState.pendingInviteToken = token
         case "dashboard":
             // Owner status widget tap (dailyok://dashboard) — jump to the

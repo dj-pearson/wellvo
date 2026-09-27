@@ -31,10 +31,38 @@ struct GetStartedChoiceView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                if let blocked = appState.autoJoinBlockedMessage {
+                    // Their number matched an invite, but the family's plan is
+                    // full. Say so, rather than let them pick "Set up check-ins
+                    // for someone" and become the owner of an empty family.
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("You've been invited, but can't join yet", systemImage: "person.crop.circle.badge.exclamationmark")
+                            .font(.headline)
+                        Text(blocked)
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("We've let them know. Try again once they've made room.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Button("Try Again") {
+                            appState.autoJoinBlockedMessage = nil
+                            appState.roleResolution = .resolving
+                            appState.roleRefreshRequest += 1
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(DailyOKColor.green700)
+                    }
+                    .padding()
+                    .glassCard(style: .thin, radius: DailyOKGlass.radiusMedium, elevation: DailyOKElevation.level2)
+                    .padding(.horizontal, 24)
+                    .accessibilityElement(children: .contain)
+                }
+
                 VStack(spacing: 12) {
                     choiceButton(
                         title: "I was invited",
-                        subtitle: "Someone sent me a text with a setup code",
+                        subtitle: "Someone sent me a text with a 6-digit setup code",
                         icon: "envelope.open.fill"
                     ) {
                         appState.showPairingCodeEntry = true
@@ -42,7 +70,7 @@ struct GetStartedChoiceView: View {
 
                     choiceButton(
                         title: "Set up check-ins for someone",
-                        subtitle: "A parent, grandparent, teen or friend",
+                        subtitle: "You'll be the organizer who gets alerts about a parent, child or friend",
                         icon: "person.2.fill"
                     ) {
                         appState.isOnboarding = true

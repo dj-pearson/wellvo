@@ -1,10 +1,12 @@
 import SwiftUI
+import UserNotifications
 
 struct OnboardingView: View {
     @StateObject private var viewModel = OnboardingViewModel()
     @StateObject private var subscriptionService = SubscriptionService.shared
     @EnvironmentObject var appState: AppState
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @ScaledMetric(relativeTo: .largeTitle) private var largeIconSize: CGFloat = 80
     @ScaledMetric(relativeTo: .title) private var mediumIconSize: CGFloat = 60
     @FocusState private var receiverField: ReceiverField?
@@ -104,6 +106,18 @@ struct OnboardingView: View {
                 .animation(reduceMotion ? nil : DailyOKMotion.smoothSpring, value: viewModel.currentStep)
             }
         }
+        .task { await viewModel.loadOwnerName() }
+        .onChange(of: scenePhase) { _, phase in
+            // Back from iOS Settings with notifications turned on: move on,
+            // instead of still saying they're off.
+            guard phase == .active, viewModel.currentStep == .notifications, viewModel.notificationDenied else { return }
+            Task {
+                if await PushNotificationService.shared.checkPermissionStatus() == .authorized {
+                    viewModel.notificationDenied = false
+                    viewModel.advance()
+                }
+            }
+        }
     }
 
     /// Back is offered on every step but the final success screen. On the first
@@ -152,7 +166,7 @@ struct OnboardingView: View {
                 )
 
                 userTypeButton(
-                    title: "Teenager",
+                    title: "Child or Teen",
                     subtitle: "A simple daily check-in",
                     icon: "person.fill",
                     type: .teenager
@@ -211,9 +225,28 @@ struct OnboardingView: View {
                 .textFieldStyle(.roundedBorder)
                 .font(.title3)
                 .padding(.horizontal)
+                .accessibilityLabel("Family group name")
+
+            if viewModel.needsOwnerName {
+                // Phone and Apple sign-ups have no name yet, and the person
+                // invited is about to be asked "Join ___'s family?".
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("What should your family call you?")
+                        .font(.headline)
+                    TextField("e.g. Sarah", text: $viewModel.ownerName)
+                        .textFieldStyle(.roundedBorder)
+                        .textContentType(.givenName)
+                        .font(.title3)
+                        .accessibilityLabel("Your name")
+                    Text("They'll see this name when you invite them.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal)
+            }
 
             if let error = viewModel.errorMessage {
-                Text(error).foregroundStyle(.red).font(.caption)
+                Text(error).foregroundStyle(DailyOKColor.error).font(.callout)
             }
 
             Button {
@@ -222,15 +255,17 @@ struct OnboardingView: View {
                 if viewModel.isLoading {
                     ProgressView()
                 } else {
-                    Text("Create Family")
+                    // Coming back to this step renames; it never creates a
+                    // second family.
+                    Text(viewModel.createdFamily == nil ? "Create Family" : "Continue")
                 }
             }
             .buttonStyle(.borderedProminent)
-            .tint(DailyOKColor.green500)
+            .tint(DailyOKColor.green700)
             .controlSize(.large)
             // Disable on the TRIMMED name so a whitespace-only entry can't tap
             // into a dead-end error (US-IOS104).
-            .disabled(viewModel.familyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading)
+            .disabled(!viewModel.canCreateFamily || viewModel.isLoading)
         }
         .padding(24)
         .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level3)
@@ -258,6 +293,11 @@ struct OnboardingView: View {
                     .focused($receiverField, equals: .phone)
 
                 DatePicker("Daily Check-In Time", selection: $viewModel.checkinTime, displayedComponents: .hourAndMinute)
+                    .padding(.horizontal, 4)
+                Text("In their local time. You can change it later.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 4)
             }
             .padding(.horizontal)
@@ -330,12 +370,16 @@ struct OnboardingView: View {
                 // Recovery path: the system won't re-prompt once denied, so guide the
                 // user to Settings rather than dead-ending on "All set".
                 VStack(spacing: 12) {
-                    Label("Notifications are turned off. Daily OK can't alert you to missed check-ins until you enable them in Settings.",
-                          systemImage: "exclamationmark.triangle.fill")
-                        .font(.subheadline)
-                        .foregroundStyle(DailyOKColor.gold)
-                        .multilineTextAlignment(.center)
-                        .labelStyle(.titleAndIcon)
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(DailyOKColor.gold)
+                            .accessibilityHidden(true)
+                        // Primary-colored text: gold text on light glass was ~2:1.
+                        Text("Notifications are turned off. Daily OK can't alert you to missed check-ins until you enable them in Settings.")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                    }
+                    .accessibilityElement(children: .combine)
 
                     Button("Open Settings") {
                         if let url = URL(string: UIApplication.openSettingsURLString) {
@@ -442,10 +486,10 @@ struct OnboardingView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark")
                         .font(.caption2)
-                        .foregroundStyle(isHighlighted ? .white.opacity(0.8) : .green)
+                        .foregroundStyle(isHighlighted ? .white : DailyOKColor.green700)
                     Text(feature)
                         .font(.caption)
-                        .foregroundStyle(isHighlighted ? .white.opacity(0.9) : .secondary)
+                        .foregroundStyle(isHighlighted ? .white : .secondary)
                 }
             }
         }
@@ -454,8 +498,10 @@ struct OnboardingView: View {
             Group {
                 if isHighlighted {
                     RoundedRectangle(cornerRadius: DailyOKGlass.radiusMedium, style: .continuous)
+                        // Darker than the brand green so the white price and
+                        // feature text reads (white on green500 was ~2.3:1).
                         .fill(
-                            LinearGradient(colors: [DailyOKColor.green500, DailyOKColor.green600],
+                            LinearGradient(colors: [DailyOKColor.green700, DailyOKColor.green800],
                                            startPoint: .topLeading, endPoint: .bottomTrailing)
                         )
                         .overlay(
@@ -481,6 +527,11 @@ struct OnboardingView: View {
         .accessibilityLabel("\(title) plan, \(price). Includes \(features.joined(separator: ", ")).")
     }
 
+    private var invitedName: String {
+        let trimmed = viewModel.receiverName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? String(localized: "They") : trimmed
+    }
+
     private var completeStep: some View {
         VStack(spacing: 24) {
             ZStack {
@@ -502,12 +553,21 @@ struct OnboardingView: View {
                 .font(.largeTitle)
                 .fontWeight(.bold)
 
-            Text("Your family's check-in system is ready.\nYou'll see your dashboard next.")
+            // Honest about what happens next: with no invite sent, nobody will
+            // be asked to check in yet.
+            Group {
+                if viewModel.didSendInvite {
+                    Text("Your invite is on its way. \(invitedName) will show on your dashboard once they join.")
+                } else {
+                    Text("Your family is set up. Add someone from the dashboard to start daily check-ins.")
+                }
+            }
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
             Button("Go to Dashboard") {
+                viewModel.markFirstInviteHandled()
                 // The family exists now, so this user is its owner. Setting the
                 // role is what routes to the owner tabs; without it ContentView
                 // would still see "no family" and show the start screen again.
@@ -515,7 +575,7 @@ struct OnboardingView: View {
                 appState.isOnboarding = false
             }
             .buttonStyle(.borderedProminent)
-            .tint(DailyOKColor.green500)
+            .tint(DailyOKColor.green700)
             .controlSize(.large)
         }
         .padding(24)

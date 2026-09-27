@@ -109,6 +109,21 @@ final class AuthViewModel: ObservableObject {
             UserDefaults.standard.set(newValue?.timeIntervalSince1970 ?? 0, forKey: "auth_lockout_until")
         }
     }
+    private var lastFailureAt: Date? {
+        get {
+            let ts = UserDefaults.standard.double(forKey: "auth_last_failure_at")
+            return ts > 0 ? Date(timeIntervalSince1970: ts) : nil
+        }
+        set {
+            UserDefaults.standard.set(newValue?.timeIntervalSince1970 ?? 0, forKey: "auth_last_failure_at")
+        }
+    }
+
+    /// Failures older than an hour no longer count toward a lockout.
+    nonisolated static func failuresHaveDecayed(lastFailureAt: Date?, now: Date = Date()) -> Bool {
+        guard let lastFailureAt else { return false }
+        return now.timeIntervalSince(lastFailureAt) > 60 * 60
+    }
     private var lockoutTimer: Task<Void, Never>?
     private var otpVerifyAttempts: Int = 0
     private static let maxOTPAttempts = 5
@@ -162,6 +177,11 @@ final class AuthViewModel: ObservableObject {
     // MARK: - Session Management
 
     func checkSession() async {
+        // A verified password-reset code creates a real session (GoTrue signs
+        // the user in), but the reset isn't finished until a new password is
+        // set. Adopting it here used to swap the reset sheet for the app the
+        // moment the code was accepted, so the password never changed.
+        guard !holdsSessionForPasswordReset else { return }
         do {
             if let user = try await AuthService.shared.currentSession() {
                 currentUser = user
@@ -176,14 +196,44 @@ final class AuthViewModel: ObservableObject {
             // A thrown error means the auth session may still be valid but the
             // profile fetch failed transiently (network blip on foreground /
             // resume). Do NOT sign the user out over that — keep the existing
-            // authenticated session if we already have a user. Only fall back to
-            // unauthenticated on a cold start where we never loaded a profile.
-            if currentUser != nil {
+            // authenticated session if we already have a user. On a cold start
+            // with no profile yet, stay signed in only when the failure is the
+            // network and a session is stored: that is a receiver opening the
+            // app offline, who needs the I'm OK button (and its offline queue),
+            // not the sign-in screen. Routing uses the cached role.
+            if Self.keepsSessionAfterFailedCheck(
+                hasLoadedUser: currentUser != nil,
+                hasStoredSession: AuthService.shared.hasStoredSession,
+                isConnectivityError: AuthService.isConnectivityError(error)
+            ) {
                 authState = .authenticated
             } else {
                 authState = .unauthenticated
                 HeartbeatService.shared.stop()
             }
+        }
+    }
+
+    /// Whether a failed session check keeps the user signed in (see checkSession).
+    nonisolated static func keepsSessionAfterFailedCheck(
+        hasLoadedUser: Bool,
+        hasStoredSession: Bool,
+        isConnectivityError: Bool
+    ) -> Bool {
+        hasLoadedUser || (hasStoredSession && isConnectivityError)
+    }
+
+    /// True while the password-reset sheet owns the session its code created:
+    /// the code has been accepted (or is being checked) and no new password is
+    /// set yet. Nothing may treat the user as signed in until they finish.
+    var holdsSessionForPasswordReset: Bool {
+        Self.resetHoldsSession(resetStage)
+    }
+
+    nonisolated static func resetHoldsSession(_ stage: PasswordResetStage) -> Bool {
+        switch stage {
+        case .enterCode, .setPassword: return true
+        case .request, .done: return false
         }
     }
 
@@ -193,6 +243,8 @@ final class AuthViewModel: ObservableObject {
             for await (event, _) in SupabaseService.shared.client.auth.authStateChanges {
                 switch event {
                 case .signedIn:
+                    // checkSession itself ignores the session a password-reset
+                    // code creates until the new password is set.
                     if currentUser == nil {
                         await checkSession()
                     }
@@ -207,6 +259,12 @@ final class AuthViewModel: ObservableObject {
                     // otherwise confirm-delivery / background check-ins start
                     // 401ing after the first refresh (US-IOS084).
                     await SupabaseService.shared.syncAccessTokenToExtension()
+                    // An offline launch kept the stored session without a
+                    // profile; the first successful refresh means the network
+                    // is back, so load it now rather than at next foreground.
+                    if currentUser == nil, authState == .authenticated {
+                        await checkSession()
+                    }
                 default:
                     break
                 }
@@ -408,9 +466,14 @@ final class AuthViewModel: ObservableObject {
             clearFormFields()
             await checkBiometricSetupPrompt()
         } catch {
-            errorMessage = error.localizedDescription
-            password = "" // Clear password on failure
-            recordFailedAttempt()
+            if AuthService.isConnectivityError(error) {
+                // Not a wrong password: keep what they typed and don't count it.
+                errorMessage = Self.offlineMessage
+            } else {
+                errorMessage = error.localizedDescription
+                password = "" // Clear password on failure
+                recordFailedAttempt()
+            }
         }
 
         isLoading = false
@@ -455,13 +518,21 @@ final class AuthViewModel: ObservableObject {
             clearFormFields()
             await checkBiometricSetupPrompt()
         } catch {
-            errorMessage = error.localizedDescription
-            password = "" // Clear password on failure
-            recordFailedAttempt()
+            if AuthService.isConnectivityError(error) {
+                errorMessage = Self.offlineMessage
+            } else {
+                errorMessage = error.localizedDescription
+                password = "" // Clear password on failure
+                recordFailedAttempt()
+            }
         }
 
         isLoading = false
     }
+
+    /// Shown when the server never answered. Such a failure says nothing about
+    /// the password or code, so it never counts toward the lockout.
+    static let offlineMessage = String(localized: "Couldn't reach Daily OK. Check your connection and try again.")
 
     // MARK: - Phone OTP Auth
 
@@ -469,6 +540,10 @@ final class AuthViewModel: ObservableObject {
         let cleaned = phoneNumber.filter(\.isNumber)
         guard cleaned.count >= 10 else {
             errorMessage = String(localized: "Please enter a valid phone number")
+            return
+        }
+        guard !AuthService.phoneNeedsCountryCode(phoneNumber) else {
+            errorMessage = String(localized: "For a number outside the US, start with + and the country code (for example +44).")
             return
         }
         guard !isLockedOut() else { return }
@@ -482,8 +557,12 @@ final class AuthViewModel: ObservableObject {
             otpVerifyAttempts = 0
             startResendCooldown()
         } catch {
-            errorMessage = String(localized: "Could not send verification code. Please try again.")
-            recordFailedAttempt()
+            // Sending a code proves nothing about who is asking, and a failed
+            // send (bad signal, SMS provider down) is not a wrong guess — it no
+            // longer counts toward the sign-in lockout.
+            errorMessage = AuthService.isConnectivityError(error)
+                ? Self.offlineMessage
+                : String(localized: "Could not send verification code. Please try again.")
         }
 
         isLoading = false
@@ -533,9 +612,16 @@ final class AuthViewModel: ObservableObject {
             clearFormFields()
             await checkBiometricSetupPrompt()
         } catch {
-            errorMessage = String(localized: "Invalid code. Please try again. (\(Self.maxOTPAttempts - otpVerifyAttempts) attempts remaining)")
-            otpCode = ""
-            recordFailedAttempt()
+            if AuthService.isConnectivityError(error) {
+                // The code may well be right; the server never saw it (or its
+                // answer never arrived). Don't call it invalid or spend a try.
+                otpVerifyAttempts -= 1
+                errorMessage = Self.offlineMessage
+            } else {
+                errorMessage = String(localized: "Invalid code. Please try again. (\(Self.maxOTPAttempts - otpVerifyAttempts) attempts remaining)")
+                otpCode = ""
+                recordFailedAttempt()
+            }
         }
 
         isLoading = false
@@ -612,20 +698,40 @@ final class AuthViewModel: ObservableObject {
             newPassword = ""
             recoveryCode = ""
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = AuthService.isConnectivityError(error)
+                ? Self.offlineMessage
+                : error.localizedDescription
         }
 
         isResettingPassword = false
     }
 
+    /// "Done" on the reset confirmation: the new password is set, so the
+    /// session the code created may now sign the user in.
+    func finishPasswordReset() async {
+        cancelPasswordReset()
+        await checkSession()
+        if authState == .authenticated {
+            resetFailedAttempts()
+            await checkBiometricSetupPrompt()
+        }
+    }
+
     /// Return the reset flow to its starting state (cancel, or start over after a
     /// code expires).
     func cancelPasswordReset() {
+        let abandonedRecoverySession = resetStage == .setPassword
         resetStage = .request
         recoveryCode = ""
         newPassword = ""
         resetPasswordMessage = nil
         errorMessage = nil
+        // Cancelling after the code was accepted leaves a signed-in session in
+        // the Keychain for a password that was never changed. Drop it, so the
+        // next launch doesn't quietly sign in with it.
+        if abandonedRecoverySession {
+            Task { await signOut() }
+        }
     }
 
     func signOut() async {
@@ -753,6 +859,13 @@ final class AuthViewModel: ObservableObject {
 
     // MARK: - Rate Limiting
 
+    /// Show a lockout that is still running from before (the countdown lives
+    /// in UserDefaults) as soon as the sign-in screen appears, instead of only
+    /// after a tap that silently does nothing.
+    func refreshLockoutState() {
+        _ = isLockedOut()
+    }
+
     /// Check if auth is currently locked out. Returns true if locked.
     private func isLockedOut() -> Bool {
         if let until = lockoutUntil, until > Date() {
@@ -770,6 +883,12 @@ final class AuthViewModel: ObservableObject {
 
     /// Record a failed auth attempt and apply lockout if threshold reached.
     private func recordFailedAttempt() {
+        // Old failures decay: someone who mistyped five times last month is
+        // not one wrong guess from a 5-minute lockout today.
+        if Self.failuresHaveDecayed(lastFailureAt: lastFailureAt) {
+            failedAttempts = 0
+        }
+        lastFailureAt = Date()
         failedAttempts += 1
         let count = failedAttempts
 

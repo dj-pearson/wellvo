@@ -136,3 +136,132 @@ final class AuthViewModelSignOutTests: XCTestCase {
         XCTAssertEqual(viewModel.phoneNumber, "")
     }
 }
+
+// MARK: - Sign-in, password reset and offline launch
+
+/// Auth & onboarding deep dive (2026-09-27).
+@MainActor
+final class AuthFlowTests: XCTestCase {
+    private final class Flag { var value = false }
+
+    private func recordingSignOut(_ revoked: Flag) -> SignOutDependencies {
+        SignOutDependencies(
+            deactivatePushToken: {},
+            revokeServerSession: { revoked.value = true },
+            resetBiometric: {},
+            stopHeartbeat: {},
+            resetReconcileLatch: {},
+            clearSharedSession: {}
+        )
+    }
+
+    // MARK: Password reset keeps the auth UI until the new password is set
+
+    /// Verifying the emailed code creates a real session (supabase-swift emits
+    /// .signedIn). checkSession used to adopt it, ContentView swapped the reset
+    /// sheet for the app, and the password was never changed.
+    func testResetCodeSessionIsHeldUntilThePasswordIsSet() {
+        XCTAssertFalse(AuthViewModel.resetHoldsSession(.request))
+        XCTAssertTrue(AuthViewModel.resetHoldsSession(.enterCode))
+        XCTAssertTrue(AuthViewModel.resetHoldsSession(.setPassword))
+        XCTAssertFalse(AuthViewModel.resetHoldsSession(.done))
+    }
+
+    func testCheckSessionDoesNotSignInMidReset() async {
+        let viewModel = AuthViewModel(bootstrap: false)
+        viewModel.authState = .unauthenticated
+        viewModel.resetStage = .setPassword
+
+        // Returns before touching the network.
+        await viewModel.checkSession()
+
+        XCTAssertEqual(viewModel.authState, .unauthenticated)
+        XCTAssertEqual(viewModel.resetStage, .setPassword)
+    }
+
+    /// Cancelling after the code was accepted drops the recovery session, so
+    /// the next launch doesn't quietly sign in with a password never changed.
+    func testCancellingAfterTheCodeSignsTheRecoverySessionOut() async {
+        let revoked = Flag()
+        let viewModel = AuthViewModel(bootstrap: false)
+        viewModel.signOutDependencies = recordingSignOut(revoked)
+        viewModel.resetStage = .setPassword
+
+        viewModel.cancelPasswordReset()
+        for _ in 0..<100 where !revoked.value { await Task.yield() }
+
+        XCTAssertTrue(revoked.value)
+        XCTAssertEqual(viewModel.resetStage, .request)
+    }
+
+    func testCancellingBeforeTheCodeDoesNotSignOut() async {
+        let revoked = Flag()
+        let viewModel = AuthViewModel(bootstrap: false)
+        viewModel.signOutDependencies = recordingSignOut(revoked)
+        viewModel.resetStage = .enterCode
+
+        viewModel.cancelPasswordReset()
+        for _ in 0..<20 { await Task.yield() }
+
+        XCTAssertFalse(revoked.value)
+    }
+
+    // MARK: Offline launch
+
+    /// Access tokens last about an hour; a receiver opens the app once a day.
+    /// An offline refresh used to read as "signed out".
+    func testOfflineLaunchWithAStoredSessionStaysSignedIn() {
+        XCTAssertTrue(AuthViewModel.keepsSessionAfterFailedCheck(
+            hasLoadedUser: false, hasStoredSession: true, isConnectivityError: true))
+        XCTAssertTrue(AuthViewModel.keepsSessionAfterFailedCheck(
+            hasLoadedUser: true, hasStoredSession: true, isConnectivityError: false))
+        // The server refused (or nothing is stored): sign-in screen.
+        XCTAssertFalse(AuthViewModel.keepsSessionAfterFailedCheck(
+            hasLoadedUser: false, hasStoredSession: true, isConnectivityError: false))
+        XCTAssertFalse(AuthViewModel.keepsSessionAfterFailedCheck(
+            hasLoadedUser: false, hasStoredSession: false, isConnectivityError: true))
+    }
+
+    func testConnectivityErrorsAreToldApartFromRefusals() {
+        XCTAssertTrue(AuthService.isConnectivityError(URLError(.notConnectedToInternet)))
+        XCTAssertTrue(AuthService.isConnectivityError(URLError(.timedOut)))
+        XCTAssertTrue(AuthService.isConnectivityError(DailyOKError.network(URLError(.networkConnectionLost))))
+        XCTAssertTrue(AuthService.isConnectivityError(DailyOKError.offline))
+        XCTAssertFalse(AuthService.isConnectivityError(EdgeFunctionsClient.HTTPError(status: 400, body: "{}")))
+        XCTAssertFalse(AuthService.isConnectivityError(DailyOKError.auth("Invalid login credentials")))
+        XCTAssertFalse(AuthService.isConnectivityError(NSError(domain: "GoTrue", code: 400)))
+    }
+
+    // MARK: Lockout
+
+    /// Five mistakes last month shouldn't leave someone one typo from a
+    /// 5-minute lockout today.
+    func testOldFailuresDecay() {
+        let now = Date()
+        XCTAssertFalse(AuthViewModel.failuresHaveDecayed(lastFailureAt: nil, now: now))
+        XCTAssertFalse(AuthViewModel.failuresHaveDecayed(lastFailureAt: now.addingTimeInterval(-600), now: now))
+        XCTAssertTrue(AuthViewModel.failuresHaveDecayed(lastFailureAt: now.addingTimeInterval(-3_700), now: now))
+    }
+
+    // MARK: Phone numbers
+
+    func testNumbersThatNeedACountryCode() {
+        XCTAssertFalse(AuthService.phoneNeedsCountryCode("(555) 123-4567"))
+        XCTAssertFalse(AuthService.phoneNeedsCountryCode("1 555 123 4567"))
+        XCTAssertFalse(AuthService.phoneNeedsCountryCode("+44 7700 900123"))
+        // A UK number typed the local way used to become "+07700900123".
+        XCTAssertTrue(AuthService.phoneNeedsCountryCode("07700 900123"))
+        XCTAssertTrue(AuthService.phoneNeedsCountryCode("447700900123"))
+    }
+
+    /// "+" means the country code is already there. A 10-digit number with
+    /// one (Norway +47 9xxxxxxx) used to be read as US and the code texted to
+    /// +1 479-xxx-xxxx.
+    func testPhoneNormalization() {
+        XCTAssertEqual(AuthService.normalizedPhone("(555) 123-4567"), "+15551234567")
+        XCTAssertEqual(AuthService.normalizedPhone("1 555 123 4567"), "+15551234567")
+        XCTAssertEqual(AuthService.normalizedPhone("+1 (555) 123-4567"), "+15551234567")
+        XCTAssertEqual(AuthService.normalizedPhone("+47 912 34 567"), "+4791234567")
+        XCTAssertEqual(AuthService.normalizedPhone("+44 7700 900123"), "+447700900123")
+    }
+}

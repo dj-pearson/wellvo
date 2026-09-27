@@ -10,7 +10,9 @@ struct DashboardView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.requestReview) private var requestReview
 
-    private static let walkthroughAutoShownKey = "dailyok.firstReceiverWalkthrough.autoShown"
+    // Internal (not private): owner onboarding marks it after sending the
+    // first invite, so the walkthrough doesn't ask for the same person again.
+    static let walkthroughAutoShownKey = "dailyok.firstReceiverWalkthrough.autoShown"
 
     /// Owners act; viewers (co-caregivers) see everything but the owner-only
     /// controls, which the server rejects for them anyway (403).

@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
 import { isValidUUID, isValidTime24H, isValidTimezone, sanitizeDisplayName } from "../../shared/validation.ts";
-import { LIMIT_REACHED_MESSAGE, redeemInvite } from "../../shared/join-family.ts";
+import { describeInvite, LIMIT_REACHED_MESSAGE, redeemInvite } from "../../shared/join-family.ts";
 import { buildCaregiverInviteMessage, buildInviteLink, buildInviteMessage } from "../../shared/invite-message.ts";
 
 interface InviteRequest {
@@ -20,6 +20,11 @@ interface InviteRequest {
   role?: "receiver" | "viewer";
   // Accept invite
   token?: string;
+  /**
+   * Optional (additive, accept only): describe the family without joining it,
+   * so the app can ask first. Older builds never send it and join at once.
+   */
+  preview?: boolean;
 }
 
 export async function handleInviteReceiver(req: Request, auth: AuthResult): Promise<Response> {
@@ -286,6 +291,14 @@ async function acceptInvite(body: InviteRequest, auth: AuthResult): Promise<Resp
       JSON.stringify({ error: "This invite link is invalid or has expired" }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
+  }
+
+  if (body.preview === true) {
+    const preview = await describeInvite(invite.id, acceptingUserId);
+    if (!preview) {
+      return json({ error: "This invite link is invalid or has expired" }, 400);
+    }
+    return json(preview);
   }
 
   const result = await redeemInvite(invite.id, acceptingUserId, body.timezone, "link");

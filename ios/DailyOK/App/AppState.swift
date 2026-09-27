@@ -28,6 +28,27 @@ final class AppState: ObservableObject {
     @Published var isOnboarding: Bool = false
     @Published var showPairingCodeEntry: Bool = false
 
+    /// "Have a setup code?" was tapped on the sign-in screen. Sign-in has to
+    /// come first, so this is remembered and acted on once role resolution
+    /// finds no membership (an existing member never gets the code screen
+    /// over their home). The tap used to set a flag nothing on screen read.
+    @Published var setupCodeAfterSignIn: Bool = false
+
+    /// The verified phone matched an invite, but the family's plan has no
+    /// free place. Shown on the get-started screen instead of dropping the
+    /// person there with no reason (where "Set up check-ins for someone"
+    /// would make them the owner of an empty family by mistake).
+    @Published var autoJoinBlockedMessage: String?
+
+    /// When role resolution last got an answer from the server, so a return
+    /// to the foreground can re-check a role that may have changed (removed
+    /// from the family, made owner) without a cold launch.
+    var lastRoleResolvedAt: Date?
+
+    /// Asks ContentView to resolve the role again (e.g. a join whose answer
+    /// was lost may in fact have succeeded).
+    @Published var roleRefreshRequest = 0
+
     /// Set when the launch/resume pin probe finds a genuine certificate
     /// mismatch (a device-trusted but un-pinned CA — possible MITM). Drives a
     /// blocking overlay; transient "couldn't evaluate" states never set this.
@@ -108,6 +129,40 @@ final class AppState: ObservableObject {
         } else {
             UserDefaults.standard.removeObject(forKey: key)
         }
+    }
+
+    // MARK: - Declined phone-match invites
+
+    private static let declinedAutoJoinKeyPrefix = "dailyok.declinedAutoJoin."
+
+    /// Families this user said "This isn't me" to when their phone number
+    /// matched an invite. Not offered again on this device, so a wrong-number
+    /// invite doesn't reappear on every launch.
+    func hasDeclinedAutoJoin(familyId: String, for userId: UUID) -> Bool {
+        let key = Self.declinedAutoJoinKeyPrefix + userId.uuidString
+        return (UserDefaults.standard.stringArray(forKey: key) ?? []).contains(familyId)
+    }
+
+    func declineAutoJoin(familyId: String, for userId: UUID) {
+        let key = Self.declinedAutoJoinKeyPrefix + userId.uuidString
+        var declined = UserDefaults.standard.stringArray(forKey: key) ?? []
+        guard !declined.contains(familyId) else { return }
+        declined.append(familyId)
+        UserDefaults.standard.set(Array(declined.suffix(20)), forKey: key)
+    }
+
+    /// Everything in progress for a signed-in person that must not carry over
+    /// to whoever signs in next on this device.
+    func resetForSignOut() {
+        currentUserRole = nil
+        roleResolution = .resolving
+        pendingInviteToken = nil
+        pendingAutoJoin = nil
+        isOnboarding = false
+        showPairingCodeEntry = false
+        setupCodeAfterSignIn = false
+        autoJoinBlockedMessage = nil
+        lastRoleResolvedAt = nil
     }
 
     enum AppTab: Int, CaseIterable {

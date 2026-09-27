@@ -11,6 +11,28 @@ actor FamilyService {
             throw FamilyError.notAuthenticated
         }
 
+        // Idempotent: one owner, one family. Owner onboarding could run this
+        // twice (Back from Plans to "Name Your Family Group", or a retry after
+        // the membership insert below failed), and each run inserted another
+        // family. getFamily() resolves to the EARLIEST one while onboarding
+        // invited into the newest, so the owner's first receiver joined a
+        // family their dashboard never showed. Reuse the family they own.
+        let owned: [Family] = try await supabase
+            .from("families")
+            .select()
+            .eq("owner_id", value: session.user.id.uuidString)
+            .order("created_at", ascending: true)
+            .limit(1)
+            .execute()
+            .value
+        if let existing = owned.first {
+            try await ensureOwnerMembership(familyId: existing.id, userId: session.user.id)
+            if existing.name != name {
+                return (try? await renameFamily(id: existing.id, to: name)) ?? existing
+            }
+            return existing
+        }
+
         // Initial *unpaid* limits. We deliberately do NOT grant a paid tier here:
         // a new family starts with a single-receiver allowance, and the
         // subscription webhook upgrades `subscription_tier` / `max_receivers` /
@@ -44,6 +66,79 @@ actor FamilyService {
             .execute()
 
         return family
+    }
+
+    /// The owner's own membership row, inserted if a previous attempt created
+    /// the family but not this row. An existing row (unique on family + user)
+    /// is fine.
+    private func ensureOwnerMembership(familyId: UUID, userId: UUID) async throws {
+        struct IdRow: Decodable { let id: UUID }
+        let rows: [IdRow] = try await supabase
+            .from("family_members")
+            .select("id")
+            .eq("family_id", value: familyId.uuidString)
+            .eq("user_id", value: userId.uuidString)
+            .limit(1)
+            .execute()
+            .value
+        guard rows.isEmpty else { return }
+        try await supabase
+            .from("family_members")
+            .insert([
+                "family_id": familyId.uuidString,
+                "user_id": userId.uuidString,
+                "role": UserRole.owner.rawValue,
+                "status": MemberStatus.active.rawValue,
+            ])
+            .execute()
+    }
+
+    /// Rename a family the caller owns (owner onboarding's "Name Your Family
+    /// Group" when they come back to it).
+    func renameFamily(id: UUID, to name: String) async throws -> Family {
+        try await supabase
+            .from("families")
+            .update(["name": name])
+            .eq("id", value: id.uuidString)
+            .select()
+            .single()
+            .execute()
+            .value
+    }
+
+    /// Set the signed-in user's own display name (what receivers and
+    /// co-caregivers see: "Sarah will see when you check in").
+    func updateMyDisplayName(_ name: String) async throws {
+        guard let session = try? await supabase.auth.session else {
+            throw FamilyError.notAuthenticated
+        }
+        try await supabase
+            .from("users")
+            .update(["display_name": name])
+            .eq("id", value: session.user.id.uuidString)
+            .execute()
+    }
+
+    /// The signed-in user's display name. `loaded` is false when it couldn't
+    /// be read (offline), which is not the same as having no name.
+    func myDisplayName() async -> (loaded: Bool, name: String?) {
+        guard let session = try? await supabase.auth.session else { return (false, nil) }
+        struct NameRow: Decodable {
+            let displayName: String?
+            enum CodingKeys: String, CodingKey { case displayName = "display_name" }
+        }
+        do {
+            let rows: [NameRow] = try await supabase
+                .from("users")
+                .select("display_name")
+                .eq("id", value: session.user.id.uuidString)
+                .limit(1)
+                .execute()
+                .value
+            return (true, rows.first?.displayName)
+        } catch {
+            return (false, nil)
+        }
     }
 
     func getFamily() async throws -> Family? {
@@ -306,6 +401,22 @@ actor FamilyService {
         )
     }
 
+    /// Describe the family an invite link joins, WITHOUT joining (the
+    /// optional `preview` field). A server that predates it ignores the field
+    /// and joins at once; that answer comes back as `.joined`.
+    func previewInvite(token: String) async throws -> JoinStep {
+        let response: JoinPreviewResponse = try await EdgeFunctionsClient.invoke(
+            "invite-receiver",
+            json: [
+                "action": .string("accept"),
+                "token": .string(token),
+                "timezone": .string(TimeZone.current.identifier),
+                "preview": .bool(true),
+            ]
+        )
+        return response.step
+    }
+
     /// Redeem a 6-digit pairing code (iPad / alternate-device setup).
     /// Returns the join result from the server.
     func redeemPairingCode(_ code: String) async throws -> RedeemCodeResponse {
@@ -315,28 +426,46 @@ actor FamilyService {
         )
     }
 
-    /// Check if the authenticated user's phone matches a pending invite and auto-join.
-    /// Returns the auto-join result, or nil if no match found.
-    func checkAutoJoin() async throws -> AutoJoinResult? {
-        // The device zone lets the server schedule check-ins at the receiver's
-        // local time from the first day (optional field; older servers ignore it).
-        let data: AutoJoinResponse = try await EdgeFunctionsClient.invoke(
-            "auto-join",
-            body: ["timezone": TimeZone.current.identifier]
-        )
-
-        // A match with no family_id is not actionable — emitting an empty string
-        // would just make a downstream UUID(uuidString:) fail. Treat it as "no
-        // match" instead.
-        guard data.matched, let familyId = data.familyId, !familyId.isEmpty else { return nil }
-
-        return AutoJoinResult(
-            familyId: familyId,
-            role: data.role ?? "receiver",
-            checkinTime: data.checkinTime,
-            ownerName: data.ownerName
+    /// Check a code and describe its family WITHOUT joining. Counts toward the
+    /// same server lockout as a redeem. A server that predates `preview` joins
+    /// at once; the response then carries `success` instead of `preview`.
+    func previewPairingCode(_ code: String) async throws -> RedeemCodeResponse {
+        try await EdgeFunctionsClient.invoke(
+            "redeem-code",
+            json: [
+                "code": .string(code),
+                "timezone": .string(TimeZone.current.identifier),
+                "preview": .bool(true),
+            ]
         )
     }
+
+    /// Check if the authenticated user's verified phone matches a pending
+    /// invite. With `preview`, nothing is joined yet (the app asks first); an
+    /// older server ignores the flag and joins, which comes back as a match
+    /// with `isPreview == false`.
+    ///
+    /// `familyId` (optional; older servers ignore it) limits the join to the
+    /// family the preview showed.
+    func checkAutoJoin(preview: Bool = false, familyId: String? = nil) async throws -> AutoJoinCheck {
+        // The device zone lets the server schedule check-ins at the receiver's
+        // local time from the first day (optional field; older servers ignore it).
+        var body: [String: JSONValue] = ["timezone": .string(TimeZone.current.identifier)]
+        if preview { body["preview"] = .bool(true) }
+        if let familyId { body["family_id"] = .string(familyId) }
+        let data: AutoJoinResponse = try await EdgeFunctionsClient.invoke("auto-join", json: body)
+        return data.check
+    }
+}
+
+/// What asking auto-join produced.
+enum AutoJoinCheck {
+    /// The verified phone matches an invite.
+    case matched(AutoJoinResult)
+    /// It matches, but the family can't take them (plan full); the server's
+    /// explanation is attached.
+    case blocked(String)
+    case noMatch
 }
 
 /// Everything the UI needs to hand an invite to the native iOS Messages
@@ -439,16 +568,45 @@ struct RedeemCodeResponse: Decodable {
     let name: String?
     let ownerName: String?
     let error: String?
+    // Additive: a `preview: true` answer (nothing joined yet).
+    var preview: Bool? = nil
+    var familyName: String? = nil
+    var inviteName: String? = nil
+    var watchers: [String]? = nil
 
     enum CodingKeys: String, CodingKey {
-        case success
+        case success, preview, watchers
         case alreadyMember = "already_member"
         case familyId = "family_id"
         case role
         case checkinTime = "checkin_time"
         case name
         case ownerName = "owner_name"
+        case familyName = "family_name"
+        case inviteName = "invite_name"
         case error
+    }
+
+    /// The role joined (or that would be joined). An already-member answer
+    /// carries the member's real role, which can be owner (their own
+    /// family's code); it used to be flattened to receiver.
+    var joinedRole: UserRole {
+        role.flatMap(UserRole.init(rawValue:)) ?? .receiver
+    }
+
+    /// Set when this is a preview answer.
+    var joinPreview: JoinPreview? {
+        guard preview == true, let familyId, !familyId.isEmpty else { return nil }
+        return JoinPreview(
+            familyId: familyId,
+            familyName: familyName,
+            role: role == UserRole.viewer.rawValue ? .viewer : .receiver,
+            ownerName: ownerName,
+            inviteName: inviteName,
+            checkinTime: checkinTime,
+            watchers: watchers ?? [],
+            alreadyMember: alreadyMember == true
+        )
     }
 }
 
@@ -459,26 +617,181 @@ struct AutoJoinResponse: Decodable {
     let role: String?
     let checkinTime: String?
     let ownerName: String?
+    // Additive fields: `preview` answers, and why a match couldn't join.
+    var preview: Bool? = nil
+    var familyName: String? = nil
+    var inviteName: String? = nil
+    var watchers: [String]? = nil
+    var reason: String? = nil
+    var message: String? = nil
 
     enum CodingKeys: String, CodingKey {
-        case matched
+        case matched, preview, watchers, reason, message
         case alreadyMember = "already_member"
         case familyId = "family_id"
         case role
         case checkinTime = "checkin_time"
         case ownerName = "owner_name"
+        case familyName = "family_name"
+        case inviteName = "invite_name"
+    }
+
+    var check: AutoJoinCheck {
+        if !matched {
+            if reason == "limit_reached" {
+                return .blocked(message ?? String(localized: "This family's plan has no free places. Ask the person who invited you to make room, then try again."))
+            }
+            return .noMatch
+        }
+        // A match with no family_id is not actionable — emitting an empty
+        // string would just make a downstream UUID(uuidString:) fail.
+        guard let familyId, !familyId.isEmpty else { return .noMatch }
+        return .matched(AutoJoinResult(
+            familyId: familyId,
+            role: role ?? "receiver",
+            checkinTime: checkinTime,
+            ownerName: ownerName,
+            isPreview: preview == true,
+            familyName: familyName,
+            inviteName: inviteName,
+            watchers: watchers ?? [],
+            alreadyMember: alreadyMember == true
+        ))
     }
 }
 
-struct AutoJoinResult {
+struct AutoJoinResult: Equatable {
     let familyId: String
     let role: String
     let checkinTime: String?
     var ownerName: String? = nil
+    /// Nothing is joined yet: the app must ask before confirming.
+    var isPreview: Bool = false
+    var familyName: String? = nil
+    var inviteName: String? = nil
+    var watchers: [String] = []
+    var alreadyMember: Bool = false
+
+    var joinPreview: JoinPreview {
+        JoinPreview(
+            familyId: familyId,
+            familyName: familyName,
+            role: role == UserRole.viewer.rawValue ? .viewer : .receiver,
+            ownerName: ownerName,
+            inviteName: inviteName,
+            checkinTime: checkinTime,
+            watchers: watchers,
+            alreadyMember: alreadyMember
+        )
+    }
+}
+
+/// What joining a family would mean, shown BEFORE anything is redeemed:
+/// whose family, as what, and who will see this person's check-ins.
+struct JoinPreview: Equatable {
+    let familyId: String
+    let familyName: String?
+    /// .receiver or .viewer (co-caregiver).
+    let role: UserRole
+    let ownerName: String?
+    /// What the owner called the invitee ("Mom").
+    let inviteName: String?
+    let checkinTime: String?
+    /// The owner, then active co-caregivers (placeholder names left out).
+    let watchers: [String]
+    let alreadyMember: Bool
+
+    /// A name fit to show: nil for empty and for the "User" placeholder that
+    /// phone / Apple sign-ups get when no name was given.
+    static func presentableName(_ name: String?) -> String? {
+        guard let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty, trimmed != "User" else { return nil }
+        return trimmed
+    }
+
+    var displayOwnerName: String? { Self.presentableName(ownerName) }
+
+    /// "Sarah", "Sarah and Tom", "Sarah, Tom, and Ann" — everyone who will
+    /// see the check-ins; nil when no one has a real name yet.
+    var watchersList: String? {
+        var names = watchers.compactMap { Self.presentableName($0) }
+        if names.isEmpty, let owner = displayOwnerName { names = [owner] }
+        guard !names.isEmpty else { return nil }
+        return ListFormatter.localizedString(byJoining: names)
+    }
+
+    /// The headline question: "Join Sarah's family?"
+    var headline: String {
+        if let owner = displayOwnerName {
+            return String(localized: "Join \(owner)'s family?")
+        }
+        if let family = Self.presentableName(familyName) {
+            return String(localized: "Join \(family)?")
+        }
+        return String(localized: "Join this family?")
+    }
+
+    /// Who will see what, in one sentence.
+    var sharingSentence: String {
+        let who = watchersList ?? String(localized: "The family who invited you")
+        if role == .viewer {
+            return String(localized: "You'll join as a co-caregiver. \(who) and you will be told if a check-in is missed, and you'll see everyone's check-ins and their location when shared.")
+        }
+        return String(localized: "\(who) will see when you check in each day, your phone's battery level, and your location if you choose to share it.")
+    }
+}
+
+/// Where a preview-capable request left things.
+enum JoinStep: Equatable {
+    /// Nothing joined yet.
+    case preview(JoinPreview)
+    /// An older server joined at once (it ignores `preview`).
+    case joined(JoinDetails)
+}
+
+/// Raw decode of a `preview: true` answer from invite-receiver accept (or its
+/// join answer from a server that predates previews).
+struct JoinPreviewResponse: Decodable {
+    let preview: Bool?
+    let familyId: String?
+    let familyName: String?
+    let role: String?
+    let ownerName: String?
+    let inviteName: String?
+    let checkinTime: String?
+    let watchers: [String]?
+    let alreadyMember: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case preview, role, watchers
+        case familyId = "family_id"
+        case familyName = "family_name"
+        case ownerName = "owner_name"
+        case inviteName = "invite_name"
+        case checkinTime = "checkin_time"
+        case alreadyMember = "already_member"
+    }
+
+    var step: JoinStep {
+        let joinedRole: UserRole = role == UserRole.viewer.rawValue ? .viewer : .receiver
+        guard preview == true, let familyId, !familyId.isEmpty else {
+            return .joined(JoinDetails(checkinTime: checkinTime, ownerName: ownerName, role: joinedRole))
+        }
+        return .preview(JoinPreview(
+            familyId: familyId,
+            familyName: familyName,
+            role: joinedRole,
+            ownerName: ownerName,
+            inviteName: inviteName,
+            checkinTime: checkinTime,
+            watchers: watchers ?? [],
+            alreadyMember: alreadyMember == true
+        ))
+    }
 }
 
 /// What a successful join tells the receiver's onboarding screen.
-struct JoinDetails {
+struct JoinDetails: Equatable {
     let checkinTime: String?
     let ownerName: String?
     /// The role joined as (nil against an older backend: a receiver).
