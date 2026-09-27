@@ -1,7 +1,11 @@
 import SwiftUI
 
-/// A trend line chart showing average check-in time over the selected period.
-/// Uses native SwiftUI drawing — no external chart library needed.
+/// A trend line of the receiver's FIRST check-in time each day, over the
+/// selected period. Uses native SwiftUI drawing — no external chart library.
+///
+/// Only the first check-in of each receiver-local day is used: averaging
+/// every check-in put a morning-and-evening receiver's "trend" at about 2 PM,
+/// a time they never check in, and let on-demand answers drag it around.
 struct CheckInTrendChartView: View {
     let checkIns: [CheckIn]
     let days: Int
@@ -17,17 +21,22 @@ struct CheckInTrendChartView: View {
         // Compute the buckets and bounds ONCE per body evaluation. These were
         // previously read ~10x per render (dataPoints + yMin/yMax/yMid/
         // overall*), each filtering/reducing the full check-in history.
-        let points = Self.computeDataPoints(checkIns: checkIns, days: days, timezone: timezone)
+        let calendar = Calendar.forTimezone(timezone)
+        let firsts = Self.firstCheckInMinutes(checkIns: checkIns, days: days, calendar: calendar)
+        let points = Self.computeDataPoints(firsts: firsts, days: days, calendar: calendar)
         let avgs = points.map(\.avgMinutes)
         let yMinV = max(0, (avgs.min() ?? 0) - 60)
         let yMaxV = min(1440, (avgs.max() ?? 1440) + 60)
         let yMidV = (yMinV + yMaxV) / 2
-        let overallAvgV = avgs.isEmpty ? 0 : avgs.reduce(0, +) / Double(avgs.count)
-        let overallMinV = avgs.min() ?? 0
-        let overallMaxV = avgs.max() ?? 0
+        let rawMinutes = firsts.map { $0.minutes }
+        let overallAvgV = rawMinutes.isEmpty ? 0 : Double(rawMinutes.reduce(0, +)) / Double(rawMinutes.count)
+        // Earliest / latest are real days, not the min/max of weekly averages.
+        let overallMinV = rawMinutes.min() ?? 0
+        let overallMaxV = rawMinutes.max() ?? 0
+        let format: (Double) -> String = { Self.formatMinutes(Int($0), calendar: calendar) }
 
         return VStack(alignment: .leading, spacing: 12) {
-            Text("Check-In Time Trend")
+            Text("First Check-In Time")
                 .font(.headline)
 
             if points.isEmpty {
@@ -42,19 +51,19 @@ struct CheckInTrendChartView: View {
                     HStack(alignment: .top, spacing: 4) {
                         // Y-axis labels
                         VStack {
-                            Text(formatHour(yMaxV))
+                            Text(format(yMaxV))
                                 .font(.system(size: labelSize))
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text(formatHour(yMidV))
+                            Text(format(yMidV))
                                 .font(.system(size: labelSize))
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text(formatHour(yMinV))
+                            Text(format(yMinV))
                                 .font(.system(size: labelSize))
                                 .foregroundStyle(.secondary)
                         }
-                        .frame(width: 36, height: chartHeight)
+                        .frame(width: 44, height: chartHeight)
 
                         // Chart
                         GeometryReader { geometry in
@@ -98,7 +107,7 @@ struct CheckInTrendChartView: View {
                                     .fill(point.count > 0 ? Color.green : Color.clear)
                                     .frame(width: 6, height: 6)
                                     .position(x: x, y: y)
-                                    .accessibilityLabel("\(point.label): average check-in at \(formatMinutesToTime(Int(point.avgMinutes))), \(point.count) check-in\(point.count == 1 ? "" : "s")")
+                                    .accessibilityLabel("\(point.label): usually \(format(point.avgMinutes)), \(point.count) day\(point.count == 1 ? "" : "s")")
                             }
                         }
                         .frame(height: chartHeight)
@@ -106,7 +115,7 @@ struct CheckInTrendChartView: View {
 
                     // X-axis labels
                     HStack {
-                        Spacer().frame(width: 40)
+                        Spacer().frame(width: 48)
                         if let first = points.first, let last = points.last {
                             Text(first.label)
                                 .font(.system(size: labelSize))
@@ -128,24 +137,17 @@ struct CheckInTrendChartView: View {
 
                 // Summary stats
                 HStack(spacing: 20) {
-                    trendStat(
-                        label: "Average",
-                        value: formatMinutesToTime(Int(overallAvgV))
-                    )
-                    trendStat(
-                        label: "Earliest",
-                        value: formatMinutesToTime(Int(overallMinV))
-                    )
-                    trendStat(
-                        label: "Latest",
-                        value: formatMinutesToTime(Int(overallMaxV))
-                    )
+                    trendStat(label: "Usually", value: format(overallAvgV))
+                    trendStat(label: "Earliest", value: format(Double(overallMinV)))
+                    trendStat(label: "Latest", value: format(Double(overallMaxV)))
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("First check-in of the day: usually \(format(overallAvgV)), earliest \(format(Double(overallMinV))), latest \(format(Double(overallMaxV))).")
             }
         }
         .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level2)
     }
 
     // MARK: - Data Processing
@@ -156,21 +158,32 @@ struct CheckInTrendChartView: View {
         let count: Int
     }
 
-    private static func computeDataPoints(checkIns: [CheckIn], days: Int, timezone: String? = nil) -> [DataPoint] {
-        let calendar = Calendar.forTimezone(timezone)
-        let today = calendar.startOfDay(for: Date())
-        // Anchor the window to END today: the exclusive upper bound is the start
-        // of tomorrow, and the window is exactly `days` days ending today. The
-        // old math used integer division for the bucket count and anchored to the
-        // oldest day, which silently dropped the most recent days — the last 2 of
-        // a 30-day view, and TODAY entirely on the 7-day view — from both the
-        // chart and its summary stats (a real problem for a provider-facing view).
-        guard let endExclusive = calendar.date(byAdding: .day, value: 1, to: today),
-              let windowStart = calendar.date(byAdding: .day, value: -(days - 1), to: today) else {
-            return []
+    /// The first check-in of each receiver-local day in the window, as
+    /// minutes after that day's midnight.
+    nonisolated static func firstCheckInMinutes(checkIns: [CheckIn], days: Int, calendar: Calendar, now: Date = Date()) -> [(day: Date, minutes: Int)] {
+        let window = HistoryTimeline.window(days: days, now: now, calendar: calendar)
+        var firstByDay: [Date: Date] = [:]
+        for ci in checkIns where ci.checkedInAt >= window.start && ci.checkedInAt < window.end {
+            let day = calendar.startOfDay(for: ci.checkedInAt)
+            if let existing = firstByDay[day], existing <= ci.checkedInAt { continue }
+            firstByDay[day] = ci.checkedInAt
         }
+        let result = firstByDay.map { entry -> (day: Date, minutes: Int) in
+            let c = calendar.dateComponents([.hour, .minute], from: entry.value)
+            return (day: entry.key, minutes: (c.hour ?? 0) * 60 + (c.minute ?? 0))
+        }
+        return result.sorted { $0.day < $1.day }
+    }
 
-        // Group check-ins by day (week views) or week (longer ranges).
+    nonisolated private static func computeDataPoints(firsts: [(day: Date, minutes: Int)], days: Int, calendar: Calendar, now: Date = Date()) -> [DataPoint] {
+        // Anchor the window to END today: exactly `days` days ending today
+        // (the same window as the heatmap), so the most recent days are never
+        // dropped from the chart.
+        let window = HistoryTimeline.window(days: days, now: now, calendar: calendar)
+        let windowStart = window.start
+        let endExclusive = window.end
+
+        // Group days by day (week views) or week (longer ranges).
         let bucketSize = days <= 7 ? 1 : 7
         // Ceiling so a range that isn't a whole multiple of the bucket size still
         // covers its most recent (partial) bucket.
@@ -186,29 +199,17 @@ struct CheckInTrendChartView: View {
             guard let bucketStart = calendar.date(byAdding: .day, value: bucket * bucketSize, to: windowStart) else {
                 continue
             }
-            // Clamp the final bucket so it ends at tomorrow's start (inclusive of
-            // today) rather than running past the window.
             let rawEnd = calendar.date(byAdding: .day, value: bucketSize, to: bucketStart) ?? endExclusive
             let bucketEnd = min(rawEnd, endExclusive)
 
-            let bucketCheckIns = checkIns.filter { ci in
-                ci.checkedInAt >= bucketStart && ci.checkedInAt < bucketEnd
-            }
+            let bucketDays = firsts.filter { $0.day >= bucketStart && $0.day < bucketEnd }
+            if bucketDays.isEmpty { continue }
 
-            if bucketCheckIns.isEmpty {
-                continue
-            }
-
-            let totalMinutes = bucketCheckIns.reduce(0.0) { sum, ci in
-                let components = calendar.dateComponents([.hour, .minute], from: ci.checkedInAt)
-                return sum + Double((components.hour ?? 0) * 60 + (components.minute ?? 0))
-            }
-
-            let avg = totalMinutes / Double(bucketCheckIns.count)
+            let avg = Double(bucketDays.reduce(0) { $0 + $1.minutes }) / Double(bucketDays.count)
             points.append(DataPoint(
                 label: dateFormatter.string(from: bucketStart),
                 avgMinutes: avg,
-                count: bucketCheckIns.count
+                count: bucketDays.count
             ))
         }
 
@@ -217,16 +218,25 @@ struct CheckInTrendChartView: View {
 
     // MARK: - Formatting
 
-    private func formatHour(_ minutes: Double) -> String {
-        formatMinutesToTime(Int(minutes))
-    }
-
-    private func formatMinutesToTime(_ totalMinutes: Int) -> String {
-        let h = totalMinutes / 60
-        let m = totalMinutes % 60
-        let period = h >= 12 ? "PM" : "AM"
-        let displayHour = h == 0 ? 12 : (h > 12 ? h - 12 : h)
-        return "\(displayHour):\(String(format: "%02d", m)) \(period)"
+    /// Minutes-after-midnight as a short time in the reader's locale (12- or
+    /// 24-hour) — the hand-built "h:mm AM/PM" ignored 24-hour readers, the
+    /// same bug the PDF's averageCheckInTime fixed.
+    nonisolated static func formatMinutes(_ totalMinutes: Int, calendar: Calendar, locale: Locale = .current) -> String {
+        let clamped = max(0, min(1439, totalMinutes))
+        var components = DateComponents()
+        components.year = 2001
+        components.month = 1
+        components.day = 1
+        components.hour = clamped / 60
+        components.minute = clamped % 60
+        guard let date = calendar.date(from: components) else { return "—" }
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = locale
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 
     private func trendStat(label: String, value: String) -> some View {

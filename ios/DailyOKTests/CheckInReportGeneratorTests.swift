@@ -101,4 +101,85 @@ final class CheckInReportGeneratorTests: XCTestCase {
         XCTAssertEqual(spaces(inLondon), "03:14")    // small hours, the next day
         XCTAssertNotEqual(inChicago, inLondon)
     }
+
+    // MARK: - Period, counts and streak
+
+    private func utc() -> Calendar {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        return cal
+    }
+
+    private func report(checkIns: [CheckIn], days: [HistoryDay] = [], periodDays: Int = 30, generatedAt: Date) -> CheckInReportGenerator.ReportData {
+        CheckInReportGenerator.ReportData(
+            receiverName: "Mom", familyName: "Family", checkIns: checkIns,
+            periodDays: periodDays, generatedAt: generatedAt, timezone: "UTC", days: days
+        )
+    }
+
+    /// The fetch reached into the day before the window, so a perfect month
+    /// printed "Days Checked In: 31 / 30".
+    func testDayCountNeverExceedsThePeriod() {
+        let formatter = ISO8601DateFormatter()
+        let now = formatter.date(from: "2026-09-27T15:00:00Z")!
+        let checkIns = (0...30).map { offset -> CheckIn in
+            let at = utc().date(byAdding: .day, value: -offset, to: formatter.date(from: "2026-09-27T09:00:00Z")!)!
+            return CheckIn(id: UUID(), receiverId: UUID(), familyId: UUID(), checkedInAt: at, source: .app)
+        }
+        let lines = CheckInReportGenerator.summaryLines(for: report(checkIns: checkIns, generatedAt: now), calendar: utc())
+        XCTAssertTrue(lines.contains("Days Checked In: 30 / 30"), "\(lines)")
+        XCTAssertTrue(lines.contains("Total Check-Ins: 30"), "\(lines)")
+    }
+
+    /// Exported at 7 AM before today's check-in, the report said "Current
+    /// Streak: 0" while the dashboard said 2.
+    func testStreakDoesNotResetBeforeTodaysCheckIn() {
+        let now = checkIn(at: "2026-09-27T07:00:00Z").checkedInAt
+        let checkIns = [checkIn(at: "2026-09-25T09:00:00Z"), checkIn(at: "2026-09-26T09:00:00Z")]
+        let lines = CheckInReportGenerator.summaryLines(for: report(checkIns: checkIns, generatedAt: now), calendar: utc())
+        XCTAssertTrue(lines.contains("Current Streak: 2 day(s)"), "\(lines)")
+    }
+
+    /// The report lists missed requests and help requests, and counts them.
+    func testReportShowsMissedDaysAndHelpRequests() {
+        let now = checkIn(at: "2026-09-27T15:00:00Z").checkedInAt
+        var help = checkIn(at: "2026-09-26T09:04:00Z")
+        help = CheckIn(id: help.id, receiverId: help.receiverId, familyId: help.familyId,
+                       checkedInAt: help.checkedInAt, source: .notification, responseType: .needHelp)
+        let missed = CheckInRequest(
+            id: UUID(), familyId: UUID(), receiverId: UUID(), requestedBy: UUID(),
+            type: .scheduled, status: .missed, createdAt: checkIn(at: "2026-09-25T09:00:00Z").checkedInAt,
+            respondedAt: nil, escalationStep: 3, nextEscalationAt: nil
+        )
+        let days = HistoryTimeline.build(
+            checkIns: [help], requests: [missed], settings: nil, enrolledSince: nil,
+            days: 7, now: now, calendar: utc()
+        )
+        let data = report(checkIns: [help], days: days, periodDays: 7, generatedAt: now)
+
+        let rows = CheckInReportGenerator.reportRows(days: days, calendar: utc(), locale: Locale(identifier: "en_US"))
+        XCTAssertEqual(rows.map(\.event), ["Asked for help", "Check-in not answered · family alerted"])
+
+        let lines = CheckInReportGenerator.summaryLines(for: data, calendar: utc())
+        XCTAssertTrue(lines.contains("Checked in on 1 of 2 days a check-in was due (50%)"), "\(lines)")
+        XCTAssertTrue(lines.contains("Missed days: 1"), "\(lines)")
+        XCTAssertTrue(lines.contains("Help requests (need help / call me / SOS): 1"), "\(lines)")
+    }
+
+    func testMoodBreakdownOrderIsStable() {
+        func ci(_ mood: Mood) -> CheckIn {
+            CheckIn(id: UUID(), receiverId: UUID(), familyId: UUID(), checkedInAt: Date(), mood: mood, source: .app)
+        }
+        let result = CheckInReportGenerator.moodBreakdownString([ci(.tired), ci(.happy), ci(.happy), ci(.neutral)])
+        XCTAssertEqual(result, "Good: 2, Okay: 1, Tired: 1")
+    }
+
+    func testReportFileNameIsReadableAndSafe() {
+        let start = checkIn(at: "2026-08-29T12:00:00Z").checkedInAt
+        let end = checkIn(at: "2026-09-27T12:00:00Z").checkedInAt
+        let name = CheckInReportGenerator.fileName(
+            receiverName: "Mom/Dad", start: start, end: end, calendar: utc(), locale: Locale(identifier: "en_US")
+        )
+        XCTAssertEqual(name, "Daily OK – Mom Dad – Aug 29–Sep 27.pdf")
+    }
 }

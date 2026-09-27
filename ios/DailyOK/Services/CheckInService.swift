@@ -303,7 +303,11 @@ actor CheckInService {
     /// Fetch check-in history for an explicit date range (for a caregiver report
     /// covering a custom window, e.g. ahead of a doctor visit). `to` defaults to
     /// now.
-    func checkInHistory(receiverId: UUID, familyId: UUID, from: Date, to: Date? = nil) async throws -> [CheckIn] {
+    ///
+    /// `limit` caps the rows (newest first). History passes one sized to the
+    /// window so a flood of hand-inserted rows can't make the tab or the PDF
+    /// export unusable.
+    func checkInHistory(receiverId: UUID, familyId: UUID, from: Date, to: Date? = nil, limit: Int? = nil) async throws -> [CheckIn] {
         let formatter = ISO8601DateFormatter()
         var query = supabase
             .from("checkins")
@@ -314,12 +318,65 @@ actor CheckInService {
         if let to {
             query = query.lt("checked_in_at", value: formatter.string(from: to))
         }
-        let checkIns: [CheckIn] = try await query
-            .order("checked_in_at", ascending: false)
-            .execute()
-            .value
+        let ordered = query.order("checked_in_at", ascending: false)
+        let checkIns: [CheckIn]
+        if let limit {
+            checkIns = try await ordered.limit(limit).execute().value
+        } else {
+            checkIns = try await ordered.execute().value
+        }
         return checkIns
     }
+
+    /// Check-in requests (scheduled and on-demand) raised in a window, oldest
+    /// first — what History judges missed / answered-after-an-alert / stood-down
+    /// days from. Owners (00002) and viewers (00055) can read them.
+    func checkInRequestHistory(receiverId: UUID, familyId: UUID, from: Date, to: Date, limit: Int = 1000) async throws -> [CheckInRequest] {
+        let formatter = ISO8601DateFormatter()
+        let requests: [CheckInRequest] = try await supabase
+            .from("checkin_requests")
+            .select()
+            .eq("receiver_id", value: receiverId.uuidString)
+            .eq("family_id", value: familyId.uuidString)
+            .gte("created_at", value: formatter.string(from: from))
+            .lt("created_at", value: formatter.string(from: to))
+            .order("created_at", ascending: true)
+            .limit(limit)
+            .execute()
+            .value
+        return requests
+    }
+
+    /// A receiver's schedule, for anyone who can see their History.
+    ///
+    /// Owners read receiver_settings directly. Viewers can't (RLS — the row
+    /// also holds home coordinates), so they get the schedule fields from the
+    /// `family_receiver_schedules` RPC (00057). nil = unknown (older server,
+    /// no row, or offline); History then never guesses a schedule.
+    func receiverSchedule(familyMemberId: UUID, familyId: UUID) async -> ReceiverSettings? {
+        if let rows: [ReceiverSettings] = try? await supabase
+            .from("receiver_settings")
+            .select()
+            .eq("family_member_id", value: familyMemberId.uuidString)
+            .limit(1)
+            .execute()
+            .value,
+           let row = rows.first {
+            return row
+        }
+        guard let rows: [ReceiverSettings] = try? await supabase
+            .rpc("family_receiver_schedules", params: FamilyScheduleParams(p_family_id: familyId.uuidString))
+            .execute()
+            .value else {
+            return nil
+        }
+        return rows.first { $0.familyMemberId == familyMemberId }
+    }
+}
+
+/// `family_receiver_schedules` (00057) parameters.
+private struct FamilyScheduleParams: Encodable {
+    let p_family_id: String
 }
 
 /// `on-demand-checkin` response. Every field is optional: older servers send

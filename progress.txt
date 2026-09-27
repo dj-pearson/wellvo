@@ -5116,3 +5116,272 @@ DEFERRED
   parses every changed Swift file cleanly, apart from the `if let x = try?
   await` construct it already fails on in committed code. SQL was run on a
   local Postgres 16.
+
+================================================================================
+2026-09-27 — iOS function deep dive: Owner: History tab (heatmap, trends, member filter, PDF export)
+================================================================================
+
+What History must guarantee: every day it shows says what actually happened
+that day in the receiver's own calendar, the same way the dashboard would
+have said it. A help request is never green. Today is never "missed" before
+it's due. A miss the family stood down says so. Today's pause or schedule
+never rewrites the past. The on-screen numbers and the exported PDF are the
+same numbers, for the same person. Owners and viewers see the same history.
+Four reviewer passes (UI/UX, break-it, spoof, product). Each claim was
+checked against the code first. All were confirmed except the
+"other receivers can read GPS" item, which is real but needs an RLS
+tightening (deferred).
+
+ONE MODEL FOR EVERY SECTION
+
+  New Views/Owner/HistoryTimeline.swift (pure, unit-tested) builds a
+  HistoryDay for each receiver-local day. Each day has a status, its
+  check-ins and its events, and is built from `checkins` AND
+  `checkin_requests`. The heatmap, the new summary card, the log, the day
+  detail and the PDF all read it. It reuses the dashboard's rules:
+    * helpKind: need help / call me / kid SOS outranks everything;
+    * a request counts as answered by a later check-in;
+    * the stood-down rule, including the re-armed-pending case and inference
+      on older backends.
+  Past days are judged from the requests that were actually raised. The
+  current settings are used only for today and as a labelled fallback.
+
+FIXED
+
+  - CRITICAL: help requests showed as green "On time" in the heatmap, the
+    log and the PDF, which contradicted the dashboard's Needs Help. Such a
+    day now has its own "Asked for help" state (red, ‼). The log row reads
+    "Asked for help" / "Wants a call" / "Sent SOS". The PDF log says the
+    same and the summary counts help requests.
+  - Today was painted red "Missed" before the check-in was due; the `.future`
+    branch was unreachable. Today now uses DashboardViewModel.scheduleState:
+    "Due at 9:00 AM" (neutral), "Waiting for an answer" (amber) while a
+    request is open, and a missed state only once the request is. Today's
+    cell has a ring.
+  - History ignored checkin_requests, so these never appeared:
+      * stood-down misses (00055);
+      * misses later answered the same day;
+      * escalations;
+      * unanswered on-demand requests.
+    It now reads the window's requests (existing owner and viewer RLS, no
+    backend change) and shows:
+      * "Checked in after an alert" when escalation_step >= 2, or the
+        request was missed and then answered that day;
+      * "Missed · reached another way" with "Alerts stopped" in the log;
+      * a missed on-demand request on an otherwise OK day;
+      * a multi-window day with an unanswered slot.
+  - The current pause and schedule were applied to the whole window. Pausing
+    today erased every earlier miss, and a schedule change repainted months.
+    Now a past day with no request is "No check-in asked", and a request
+    that wasn't answered is "Missed", whatever the settings say now. In the
+    no-requests fallback the current pause is no longer applied to the past.
+    Lateness is judged at grace + one interval (when the owner is alerted),
+    not a hardcoded 8:00 + 2h. With no schedule, nothing is ever painted
+    missed or late by guesswork.
+  - Viewers couldn't read receiver_settings (confirmed on PG16: 0 rows), so
+    their heatmap assumed every day at 8:00 AM. New RPC
+    family_receiver_schedules (00057) returns the schedule fields without
+    the home coordinates. CheckInService.receiverSchedule tries the table
+    first, then the RPC. On an older server the result is nil and History
+    says so.
+  - Zero check-ins in the period showed the calm "No check-in history" empty
+    state, which hid a wall of missed days, and export was disabled. The
+    calendar, summary and log now always render for a selected receiver.
+    The empty log explains why ("Mom joined on Sep 20…" / "Nothing was asked
+    or answered…"). Export works whenever data for the selection is on
+    screen.
+  - Receiver/period race: switching receivers quickly could show, and
+    export, Mom's history under Dad's name. The fix:
+      * every load goes through reload(), which cancels the task in flight;
+      * a generation counter drops superseded results;
+      * data is tagged with the key it was loaded for;
+      * export snapshots everything before any await and is disabled unless
+        the loaded key matches the selection.
+  - Every tab switch and foreground wiped the screen to a skeleton, and
+    foreground reloaded even on other tabs. Refreshes now keep the data
+    (stale-while-revalidate) with a toolbar spinner. A failed refresh shows
+    the dashboard's StaleDataStrip. The skeleton appears only when there is
+    nothing for this receiver yet. Foreground reloads only while History is
+    the selected tab.
+  - Member-load failures fell through to "No check-in history", or left a
+    nameless stale heatmap with a dead export button. Now:
+      * a failure shows "Couldn't load your family" + Try Again;
+      * a failed refresh keeps what is on screen;
+      * no family clears the history;
+      * with no receivers yet: "Waiting for Mom to join" (invited),
+        viewer-specific copy, or a "Go to Family" action for owners.
+  - PDF numbers:
+      * "Days Checked In: 31 / 30": rows are trimmed to the drawn window;
+      * the period line was one day longer than the data; it now prints the
+        same window as the screen;
+      * "Current Streak: 0" every morning: the streak now uses the
+        Streaks.currentStreak rule, as the dashboard does;
+      * consistency counted weekends and paused days; it now reads "Checked
+        in on X of Y days a check-in was due", plus missed / reached another
+        way / after an alert / help counts;
+      * the log now includes missed and stood-down rows ("What happened"
+        column);
+      * mood breakdown order is stable;
+      * the usual time averages the first check-in per day.
+  - The PDF was shared as anonymous Data. It is now written to a temp file
+    (complete file protection) named "Daily OK – Mom – Aug 29–Sep 27.pdf"
+    and shared by URL. The export flag is set before any await, so a double
+    tap can't generate twice. If getFamily fails, the cached family name is
+    used instead of silently doing nothing.
+  - Times were shown in the owner's zone while days were bucketed in the
+    receiver's. Log and detail times now use ReceiverTime.format (receiver
+    zone, with an abbreviation when it differs), day titles use the
+    receiver's calendar, and a note reads "Times are in Mom's time (CDT)".
+  - Trend:
+      * "Earliest/Latest" were the min/max of weekly averages; they are now
+        real days;
+      * a morning + evening receiver averaged to about 2 PM; the chart now
+        uses the first check-in per day;
+      * axis labels ignored 24-hour locales; now locale-aware in the
+        receiver's calendar;
+      * there is a whole-chart accessibility summary.
+  - Heatmap:
+      * `.help()` tooltips did nothing on iPhone; cells are now buttons that
+        open a day-detail sheet ("what happened": check-ins with mood / kid
+        reply / place / how it arrived, unanswered requests, stand-downs);
+      * VoiceOver had about 100 undated "No data" stops; the grid is now one
+        element with a summary, and every day is in the log;
+      * clipping at large text sizes: the grid scrolls horizontally,
+        anchored to today;
+      * duplicate ForEach ids in the weekday labels are gone (labels are
+        indexed and localized);
+      * month labels are derived from the real columns;
+      * the legend wraps.
+  - Log:
+      * raw enum text ("On_demand", "having_fun") replaced with words ("Answered
+        your request", "Mood: Having Fun"), including in VoiceOver;
+      * the log is grouped by day with each day's state, and includes missed,
+        stood-down and help events plus kid replies and location labels;
+      * LazyVStack; rows open the day detail.
+  - Craft: gradient chip and log dots removed. The selected chip is flat
+    green700, so white text passes contrast. All cards use the same
+    glassCard surface.
+
+ADDED
+
+  - Summary card: "93% — checked in on 27 of 29 days a check-in was due".
+    Missed, reached another way, after an alert and asked-for-help counts
+    appear only when non-zero. Current streak uses the dashboard's rule and
+    at least 31 days are fetched, so the two numbers agree. Today counts
+    only once resolved, so an evening receiver isn't at 6/7 at 9 AM.
+  - Day detail sheet, with a plain-language explanation per state.
+  - Single-receiver families see the name as a header instead of one chip.
+
+BACKEND (additive, CLAUDE.md §A)
+
+  supabase/migrations/00057_history_truth.sql:
+  - New RPC family_receiver_schedules(p_family_id) → jsonb array. SECURITY
+    DEFINER, for the owner and active owner/viewer members only; receivers
+    and strangers are refused. It uses an explicit column list: no home
+    coordinates, and no future columns by default. EXECUTE is granted to
+    authenticated only. No RLS policy is changed; receiver_settings is not
+    widened.
+  - guard_checkins_client_write (00051), client roles only, silent:
+      * INSERT clamps checked_in_at to [now-7d, now], the same window
+        process-checkin-response enforces;
+      * UPDATE also pins latitude, longitude, location_accuracy_meters and
+        distance_from_home_meters, and keeps kid_response_type = 'sos' once
+        set.
+    Mood, location_label and the other kid_response_type changes (Android)
+    are still allowed. local_date is deliberately not computed on direct
+    inserts, so an old build's replay can't hit the 00053 unique index. No
+    shipped build inserts checkins directly.
+  - Client defence: the History check-in fetch is bounded by the end of
+    today and a row limit, and rows dated after now are ignored everywhere
+    in History and the PDF.
+
+  Verified on local Postgres 16 (pg_cron/pg_net stubbed): 00001–00057
+  apply on a fresh DB and 00057 replays. Scenarios checked:
+    * a viewer's direct SELECT of receiver_settings returns 0 rows, while
+      the RPC returns 1 row without home_latitude and with checkin_time
+      "09:00:00";
+    * the RPC refuses the stranger and the receiver, and serves the owner;
+    * a receiver's direct insert is clamped: +3 days → now, -40 days → -7
+      days;
+    * a receiver's PATCH keeps sos and the coordinates, and applies mood,
+      location_label and kid_response_type from NULL.
+
+TESTS
+
+  New DailyOKTests/HistoryTimelineTests.swift (added to the pbxproj):
+  - window size; future and out-of-window rows are ignored;
+  - help kinds are never on time, and are counted;
+  - today before due / waiting / no schedule;
+  - missed, missed-then-answered = late, step 2 = late, step 1 = on time;
+  - stood down: recorded, inferred on expired, re-armed pending is not;
+  - unanswered on-demand after a morning check-in;
+  - answered the next day = missed on its own day;
+  - no request = not asked; today's pause doesn't erase misses;
+  - fallback: ignores the current pause for the past, never guesses without
+    a schedule, honours custom off-days, lateness at the owner alert;
+  - enrollment; stats exclude today in progress; nil percent; streak from
+    yesterday;
+  - word labels; the RPC row shape decodes (TIME "08:00:00", no
+    coordinates);
+  - heatmap columns and month labels; trend first-per-day and 24-hour
+    format.
+  CheckInReportGeneratorTests: 30/30 never 31/30; the morning streak;
+  missed + help rows and summary lines; stable mood order; file name.
+
+DEFERRED
+
+  - Any active family member, including another receiver, can read every
+    receiver's checkins with GPS/distance ("Family owners and viewers can
+    read family checkins" uses is_family_member with no role filter).
+    Restricting it to owner/viewer tightens RLS, so it needs a release
+    boundary after confirming no shipped receiver path reads other
+    receivers' rows (grep finds none). Recorded as a known exposure.
+  - Rejecting direct client inserts into checkins outright, or requiring the
+    receiver role: a tightening, same boundary as the dashboard pass.
+    Clamping covers backdating and future rows now.
+  - Deactivated receivers in the picker (a "Past" section) and a family
+    switcher for caregivers in two families. This needs a product decision
+    on retention and visibility.
+  - Custom date range for the report (from/to API already exists), and an
+    "include care notes" option.
+  - Day detail extras: care notes for that day, Call/Message quick actions,
+    and escalation step times (not stored per step; only the final step is
+    known).
+  - Response-delay trend (responded_at - created_at vs grace period) and a
+    "problems only" log filter.
+  - Circular mean for late-night check-in times (11:55 PM / 12:05 AM).
+  - If data_retention_days is set below the viewed window, older requests
+    outlive their check-ins and those days would read as missed. The
+    default is 365 against a 90-day maximum window, and the app doesn't
+    expose the setting.
+  - The dashboard's own receiver_settings read has the same viewer RLS gap
+    (receiverSettingsByMember). It could adopt family_receiver_schedules;
+    not touched here (another function).
+  - Streak is calendar-day based (the dashboard rule). A schedule-aware
+    streak remains deferred, as in the dashboard pass.
+
+  Not compiled (no Xcode, no swiftc, no deno). The tree-sitter Swift grammar
+  parses every changed and new Swift file cleanly. Static helpers on View
+  types that tests call are marked nonisolated. SQL was run on a local
+  Postgres 16.
+
+REVIEW PASS (same day, adversarial review of the History diff; not compiled —
+no Xcode/swiftc here; tree-sitter parse clean)
+  Cross-checked every referenced symbol (DashboardViewModel.helpKind /
+  scheduleState, ReceiverViewModel.scheduledTimes / parseCheckinTime,
+  ReceiverTime, Streaks, Calendar.forTimezone, EmptyStateView, StaleDataStrip,
+  glass tokens, AppState.AppTab, FamilyMember fields, CheckInRequest memberwise
+  init), switch exhaustiveness, nonisolated use from the detached PDF task,
+  pbxproj entries (4 ids, app + test targets), RPC shape vs ReceiverSettings
+  decoder, and every test's expected values by hand. Fixed:
+  - A request raised last night and still escalating showed yesterday as red
+    "Missed" at 7 AM while the dashboard showed it pending. `.waiting` now
+    applies to any request still pending inside its 24 h (isLive), not only
+    today's; the log's "no answer yet" follows the same rule. Legend reads
+    "Waiting for an answer". Test added.
+  - Streak: a 90-day load read 90 days of check-ins, so History/PDF could print
+    a longer streak than the dashboard's 30-day read. HistoryTimeline now uses
+    the dashboard's 30-day lookback. Test added.
+  - PDF exported after midnight without a reload used a new "now" for the
+    period, file name and streak while its days were from the loaded
+    snapshot. Export (and the summary card's streak) now use the load time.

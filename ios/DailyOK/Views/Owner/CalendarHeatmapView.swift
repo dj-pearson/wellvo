@@ -1,337 +1,212 @@
 import SwiftUI
 
-/// A GitHub-style calendar heatmap showing check-in status per day.
-/// Green = on time, Yellow = late, Red = missed, Gray = no data.
+/// A GitHub-style calendar heatmap: one cell per receiver-local day.
+///
+/// It draws `HistoryDay`s built by `HistoryTimeline`, so every state here —
+/// including "asked for help", "reached another way" and today's "due later" —
+/// is the same one the log, the summary and the PDF show, and matches the
+/// dashboard. Tapping a day opens what happened that day.
 struct CalendarHeatmapView: View {
-    let checkIns: [CheckIn]
-    let days: Int
-    let scheduledTime: String? // HH:mm format, used to determine "late"
-    /// IANA timezone of the receiver. Buckets days and judges on-time/late in
-    /// the receiver's zone, not the owner's device zone.
+    let days: [HistoryDay]
+    /// IANA timezone of the receiver: the days were bucketed in it, so month
+    /// and weekday labels are read in it too.
     var timezone: String? = nil
-    /// Day the receiver joined. Days before this render as "no data", not "missed".
-    var enrolledSince: Date? = nil
-    /// Calendar weekday numbers (1=Sun…7=Sat) on which a check-in is scheduled.
-    /// Days off the schedule (weekend-only/custom/paused) render as "no data".
-    /// Nil means every day is scheduled (legacy behavior).
-    var scheduledWeekdays: Set<Int>? = nil
-    /// Full receiver settings, used to resolve the per-day scheduled time for the
-    /// "late" threshold on weekday_weekend / custom schedules (US-IOS101). When
-    /// nil, falls back to the single `scheduledTime` for every day.
-    var settings: ReceiverSettings? = nil
+    /// One-sentence summary VoiceOver reads for the whole grid.
+    var accessibilitySummary: String = ""
+    var onSelect: (HistoryDay) -> Void = { _ in }
 
     @Environment(\.colorSchemeContrast) private var contrast
     // Scale the grid with Dynamic Type instead of fixed point sizes so the
-    // heatmap remains legible at larger text sizes (US-IOS105).
+    // heatmap remains legible at larger text sizes (US-IOS105). The grid
+    // scrolls horizontally (anchored to today), so large sizes no longer clip
+    // the most recent weeks off the right edge.
     @ScaledMetric(relativeTo: .caption2) private var cellSize: CGFloat = 14
     @ScaledMetric(relativeTo: .caption2) private var spacing: CGFloat = 3
     @ScaledMetric(relativeTo: .caption2) private var symbolSize: CGFloat = 7
     @ScaledMetric(relativeTo: .caption2) private var dayLabelSize: CGFloat = 9
+    @ScaledMetric(relativeTo: .caption2) private var monthLabelHeight: CGFloat = 12
+    @ScaledMetric(relativeTo: .caption2) private var legendSwatch: CGFloat = 10
     @ScaledMetric(relativeTo: .caption2) private var legendSymbolSize: CGFloat = 6
 
     var body: some View {
-        // Compute the grid and month labels once per body evaluation instead of
-        // rebuilding them inline (buildGrid is O(days)).
-        let grid = buildGrid()
-        let labels = monthLabels()
+        let calendar = Calendar.forTimezone(timezone)
+        let columns = Self.columns(for: days, calendar: calendar)
+        let monthLabels = Self.monthLabels(for: columns, calendar: calendar)
 
         return VStack(alignment: .leading, spacing: 8) {
             Text("Check-In Calendar")
                 .font(.headline)
 
-            // Month labels
-            HStack(spacing: 0) {
-                ForEach(labels, id: \.offset) { label in
-                    Text(label.name)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .frame(width: CGFloat(label.weeks) * (cellSize + spacing), alignment: .leading)
-                }
-            }
-
-            // Day-of-week labels + grid
             HStack(alignment: .top, spacing: spacing) {
-                // Day labels
-                VStack(spacing: spacing) {
-                    ForEach(["", "M", "", "W", "", "F", ""], id: \.self) { label in
-                        Text(label)
+                // Weekday labels (Sunday-first rows, matching the grid).
+                VStack(alignment: .trailing, spacing: spacing) {
+                    Color.clear.frame(height: monthLabelHeight)
+                    ForEach(0..<7, id: \.self) { row in
+                        Text(row % 2 == 1 ? calendar.veryShortWeekdaySymbols[row] : "")
                             .font(.system(size: dayLabelSize))
                             .foregroundStyle(.secondary)
-                            .frame(width: 14, height: cellSize)
+                            .frame(height: cellSize)
                     }
                 }
+                .accessibilityHidden(true)
 
-                // Heatmap grid
-                ForEach(0..<grid.count, id: \.self) { weekIndex in
-                    VStack(spacing: spacing) {
-                        ForEach(0..<grid[weekIndex].count, id: \.self) { dayIndex in
-                            let entry = grid[weekIndex][dayIndex]
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(colorForStatus(entry.status))
-                                    .frame(width: cellSize, height: cellSize)
-
-                                Text(symbolForStatus(entry.status))
-                                    .font(.system(size: symbolSize, weight: .bold))
-                                    .foregroundStyle(symbolColor(entry.status))
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: spacing) {
+                        ForEach(columns.indices, id: \.self) { col in
+                            VStack(alignment: .leading, spacing: spacing) {
+                                Text(monthLabels[col] ?? "")
+                                    .font(.system(size: dayLabelSize))
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize()
+                                    .frame(width: cellSize, height: monthLabelHeight, alignment: .bottomLeading)
+                                ForEach(0..<7, id: \.self) { row in
+                                    cell(columns[col][row])
+                                }
                             }
-                            .help(entry.tooltip)
-                            .accessibilityLabel(entry.tooltip.isEmpty ? "No data" : entry.tooltip)
                         }
                     }
+                    .padding(.trailing, 2)
                 }
+                .defaultScrollAnchor(.trailing)
             }
+            // One stop for VoiceOver instead of ~100 undated cells; every day
+            // with something in it is also in the log below, with its date.
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilitySummary)
+            .accessibilityHint("Each day is listed in the check-in log below.")
 
-            // Legend
-            HStack(spacing: 12) {
-                legendItem(color: .gray.opacity(0.15), label: "No data", symbol: "")
-                legendItem(color: .green, label: "On time", symbol: "\u{2713}")
-                legendItem(color: .yellow, label: "Late", symbol: "!")
-                legendItem(color: .red, label: "Missed", symbol: "\u{2717}")
+            // Legend — wraps instead of running off the card at large sizes.
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), alignment: .leading)], alignment: .leading, spacing: 6) {
+                legendItem(.onTime, label: "Checked in")
+                legendItem(.late, label: "After an alert")
+                legendItem(.missed, label: "Missed")
+                legendItem(.stoodDown, label: "Reached another way")
+                legendItem(.needsHelp, label: "Asked for help")
+                legendItem(.waiting, label: "Waiting for an answer")
+                legendItem(.notAsked, label: "No check-in asked")
             }
             .font(.caption2)
             .foregroundStyle(.secondary)
+            .accessibilityHidden(true)
         }
         .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard(style: .thin, radius: DailyOKGlass.radiusLarge, elevation: DailyOKElevation.level2)
     }
 
-    // MARK: - Grid Building
+    // MARK: - Cells
 
-    private struct DayEntry {
-        let date: Date
-        let status: DayStatus
-        let tooltip: String
-    }
-
-    private enum DayStatus {
-        case noData
-        case onTime
-        case late
-        case missed
-        case future
-    }
-
-    private func buildGrid() -> [[DayEntry]] {
-        let calendar = Calendar.forTimezone(timezone)
-        let today = calendar.startOfDay(for: Date())
-        // Render exactly `days` cells ending today (start..today inclusive == days),
-        // not days+1 — otherwise the oldest column is mis-rendered (US-IOS101).
-        let startDate = calendar.date(byAdding: .day, value: -(days - 1), to: today) ?? today
-        let enrollDay = enrolledSince.map { calendar.startOfDay(for: $0) }
-
-        // Build check-in lookup by day, keeping the EARLIEST check-in for each
-        // day — it's what determines on-time vs late. `checkIns` isn't
-        // guaranteed sorted ascending, so a plain first-wins could let an
-        // afternoon check-in represent a day that also had an on-time morning one
-        // and paint it "late".
-        var checkInByDay: [Date: CheckIn] = [:]
-        for checkIn in checkIns {
-            let day = calendar.startOfDay(for: checkIn.checkedInAt)
-            if let existing = checkInByDay[day] {
-                if checkIn.checkedInAt < existing.checkedInAt {
-                    checkInByDay[day] = checkIn
-                }
-            } else {
-                checkInByDay[day] = checkIn
+    @ViewBuilder
+    private func cell(_ day: HistoryDay?) -> some View {
+        if let day {
+            Button {
+                onSelect(day)
+            } label: {
+                swatch(day.status, isToday: day.isToday, size: cellSize, glyphSize: symbolSize)
+                    .contentShape(Rectangle())
             }
-        }
-
-        // Build entries
-        var entries: [DayEntry] = []
-        var current = startDate
-        while current <= today {
-            let status: DayStatus
-            let tooltip: String
-
-            // Resolve the "late" threshold per day from the schedule (weekday vs
-            // weekend vs custom), not a single weekday time for every day.
-            let lateThreshold = scheduledMinutes(for: current, calendar: calendar) + 120
-
-            if current > today {
-                status = .future
-                tooltip = ""
-            } else if let checkIn = checkInByDay[current] {
-                let checkInMinutes = calendar.component(.hour, from: checkIn.checkedInAt) * 60
-                    + calendar.component(.minute, from: checkIn.checkedInAt)
-
-                if checkInMinutes <= lateThreshold {
-                    status = .onTime
-                    tooltip = "\(formatDate(current)): Checked in at \(formatTime(checkIn.checkedInAt))"
-                } else {
-                    status = .late
-                    tooltip = "\(formatDate(current)): Late check-in at \(formatTime(checkIn.checkedInAt))"
-                }
-            } else if let enrollDay, current < enrollDay {
-                // Before the receiver joined — there was nothing to miss.
-                status = .noData
-                tooltip = ""
-            } else if let scheduledWeekdays,
-                      !scheduledWeekdays.contains(calendar.component(.weekday, from: current)) {
-                // No check-in was scheduled this day (weekend-only/custom/paused).
-                status = .noData
-                tooltip = ""
-            } else {
-                status = .missed
-                tooltip = "\(formatDate(current)): Missed"
-            }
-
-            entries.append(DayEntry(date: current, status: status, tooltip: tooltip))
-            guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
-            current = next
-        }
-
-        // Pad the beginning to align with the correct day of the week
-        let firstDayWeekday = calendar.component(.weekday, from: startDate) - 1 // 0 = Sunday
-        let paddedEntries = Array(repeating: DayEntry(date: startDate, status: .noData, tooltip: ""), count: firstDayWeekday) + entries
-
-        // Split into weeks (columns of 7)
-        var weeks: [[DayEntry]] = []
-        var week: [DayEntry] = []
-        for (index, entry) in paddedEntries.enumerated() {
-            week.append(entry)
-            if (index + 1) % 7 == 0 {
-                weeks.append(week)
-                week = []
-            }
-        }
-        if !week.isEmpty {
-            // Pad last week
-            while week.count < 7 {
-                week.append(DayEntry(date: Date(), status: .future, tooltip: ""))
-            }
-            weeks.append(week)
-        }
-
-        return weeks
-    }
-
-    private func monthLabels() -> [(offset: Int, name: String, weeks: Int)] {
-        let calendar = Calendar.forTimezone(timezone)
-        let today = calendar.startOfDay(for: Date())
-        // Match buildGrid's exact `days`-cell window (US-IOS101).
-        let startDate = calendar.date(byAdding: .day, value: -(days - 1), to: today) ?? today
-
-        var labels: [(offset: Int, name: String, weeks: Int)] = []
-        var current = startDate
-        var currentMonth = calendar.component(.month, from: current)
-        var weekCount = 0
-        var offset = 0
-
-        // Locale-aware abbreviated month name (US-IOS044).
-        let monthFormatter = DateFormatter()
-        monthFormatter.setLocalizedDateFormatFromTemplate("MMM")
-
-        // Number of week-columns a run of `dayCount` days occupies — round UP so a
-        // partial trailing week still gets a column, otherwise month labels are
-        // undersized and drift left of their cells (US-IOS101).
-        func weekColumns(_ dayCount: Int) -> Int {
-            max(1, Int((Double(dayCount) / 7.0).rounded(.up)))
-        }
-
-        while current <= today {
-            let month = calendar.component(.month, from: current)
-            if month != currentMonth {
-                let prevDay = calendar.date(byAdding: .day, value: -1, to: current) ?? current
-                let w = weekColumns(weekCount)
-                labels.append((offset: offset, name: monthFormatter.string(from: prevDay), weeks: w))
-                offset += w
-                weekCount = 0
-                currentMonth = month
-            }
-            weekCount += 1
-            guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
-            current = next
-        }
-        labels.append((offset: offset, name: monthFormatter.string(from: today), weeks: weekColumns(weekCount)))
-
-        return labels
-    }
-
-    // MARK: - Helpers
-
-    private func colorForStatus(_ status: DayStatus) -> Color {
-        switch status {
-        case .onTime: return .green
-        case .late: return .yellow
-        case .missed: return .red
-        case .noData: return Color(.systemGray5)
-        case .future: return Color(.systemGray6)
+            .buttonStyle(.plain)
+        } else {
+            // Padding before the first day / after today.
+            Color.clear.frame(width: cellSize, height: cellSize)
         }
     }
 
-    /// In-cell glyph color. The 'late' cell is yellow, on which white is nearly
-    /// invisible — use a dark glyph there so on-time/late/missed aren't
-    /// distinguishable by fill color alone. Full opacity under Increase Contrast
-    /// (US-IOS106).
-    private func symbolColor(_ status: DayStatus) -> Color {
-        let base: Color = (status == .late) ? Color(red: 0.35, green: 0.25, blue: 0.0) : .white
-        return contrast == .increased ? base : base.opacity(status == .late ? 1.0 : 0.9)
-    }
-
-    private func symbolForStatus(_ status: DayStatus) -> String {
-        switch status {
-        case .onTime: return "\u{2713}"
-        case .late: return "!"
-        case .missed: return "\u{2717}"
-        case .noData, .future: return ""
-        }
-    }
-
-    private func legendItem(color: Color, label: String, symbol: String = "") -> some View {
-        HStack(spacing: 4) {
-            ZStack {
+    private func swatch(_ status: HistoryDayStatus, isToday: Bool, size: CGFloat, glyphSize: CGFloat) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(fill(status))
+            if isToday {
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(color)
-                    .frame(width: 10, height: 10)
-                if !symbol.isEmpty {
-                    // Dark glyph on the yellow "Late" swatch (US-IOS106).
-                    Text(symbol)
-                        .font(.system(size: legendSymbolSize, weight: .bold))
-                        .foregroundStyle(symbol == "!" ? Color(red: 0.35, green: 0.25, blue: 0.0) : .white)
-                }
+                    .strokeBorder(Color.primary, lineWidth: 1.5)
             }
+            Text(Self.glyph(status))
+                .font(.system(size: glyphSize, weight: .bold))
+                .foregroundStyle(glyphColor(status))
+        }
+        .frame(width: size, height: size)
+    }
+
+    private func legendItem(_ status: HistoryDayStatus, label: String) -> some View {
+        HStack(spacing: 4) {
+            swatch(status, isToday: false, size: legendSwatch, glyphSize: legendSymbolSize)
             // Lead with the label text so the legend isn't color-only.
             Text(label)
         }
     }
 
-    /// Scheduled minutes-of-day for a given date, resolved against the receiver's
-    /// schedule type (US-IOS101). Falls back to the single `scheduledTime`.
-    private func scheduledMinutes(for date: Date, calendar: Calendar) -> Int {
-        let fallback = parseTimeToMinutes(scheduledTime ?? "08:00")
-        guard let settings else { return fallback }
-        let weekday = calendar.component(.weekday, from: date) // 1=Sun…7=Sat
-        switch settings.scheduleType {
-        case .daily:
-            return parseTimeToMinutes(settings.checkinTime)
-        case .weekdayWeekend:
-            let isWeekend = (weekday == 1 || weekday == 7)
-            let time = isWeekend ? (settings.weekendCheckinTime ?? settings.checkinTime) : settings.checkinTime
-            return parseTimeToMinutes(time)
-        case .custom:
-            let key = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][weekday - 1]
-            if let earliest = settings.customSchedule?.times(forDayKey: key).first {
-                return parseTimeToMinutes(earliest)
-            }
-            return fallback
+    // MARK: - Styling
+
+    private func fill(_ status: HistoryDayStatus) -> Color {
+        switch status {
+        case .onTime: return .green
+        case .late: return .yellow
+        case .missed, .needsHelp: return .red
+        case .stoodDown: return .red.opacity(0.3)
+        case .waiting: return DailyOKColor.warning
+        case .notAsked: return Color(.systemGray5)
+        case .dueLater: return Color(.systemGray6)
         }
     }
 
-    private func parseTimeToMinutes(_ time: String) -> Int {
-        let parts = time.split(separator: ":")
-        guard parts.count >= 2,
-              let h = Int(parts[0]),
-              let m = Int(parts[1]) else { return 480 } // default 8:00
-        return h * 60 + m
+    /// Each state has its own glyph, so none is told apart by color alone
+    /// (missed ✗ and help ‼ share red on purpose — both are urgent, as on the
+    /// dashboard).
+    nonisolated static func glyph(_ status: HistoryDayStatus) -> String {
+        switch status {
+        case .onTime: return "\u{2713}"
+        case .late: return "!"
+        case .missed: return "\u{2717}"
+        case .needsHelp: return "\u{203C}"
+        case .stoodDown: return "\u{2013}"
+        case .waiting: return "\u{2026}"
+        case .notAsked, .dueLater: return ""
+        }
     }
 
-    private func formatDate(_ date: Date) -> String {
-        date.formatted(date: .abbreviated, time: .omitted)
+    /// Dark glyphs on the light fills (yellow, amber, pale red), white on the
+    /// saturated ones. Full opacity under Increase Contrast (US-IOS106).
+    private func glyphColor(_ status: HistoryDayStatus) -> Color {
+        let base: Color
+        switch status {
+        case .late, .waiting: base = Color(red: 0.35, green: 0.25, blue: 0.0)
+        case .stoodDown: base = Color(red: 0.55, green: 0.0, blue: 0.0)
+        default: base = .white
+        }
+        return contrast == .increased ? base : base.opacity(status == .onTime || status == .missed || status == .needsHelp ? 0.9 : 1.0)
     }
 
-    private func formatTime(_ date: Date) -> String {
-        date.formatted(date: .omitted, time: .shortened)
+    // MARK: - Layout (pure)
+
+    /// Week columns of 7 Sunday-first rows. nil = padding before the first day
+    /// or after today.
+    nonisolated static func columns(for days: [HistoryDay], calendar: Calendar) -> [[HistoryDay?]] {
+        guard let first = days.first else { return [] }
+        let lead = calendar.component(.weekday, from: first.date) - 1 // 0 = Sunday
+        var cells: [HistoryDay?] = Array(repeating: nil, count: lead) + days.map { Optional($0) }
+        while cells.count % 7 != 0 { cells.append(nil) }
+        return stride(from: 0, to: cells.count, by: 7).map { Array(cells[$0..<($0 + 7)]) }
+    }
+
+    /// A month name over the column where that month starts (and over the
+    /// first column, unless a month starts right after it and would collide).
+    /// Derived from the real columns, so labels can't drift from their cells.
+    nonisolated static func monthLabels(for columns: [[HistoryDay?]], calendar: Calendar) -> [String?] {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.setLocalizedDateFormatFromTemplate("MMM")
+
+        let starts: [Date?] = columns.map { column in
+            column.compactMap { $0 }.first { calendar.component(.day, from: $0.date) == 1 }?.date
+        }
+        return columns.indices.map { index in
+            if let start = starts[index] { return formatter.string(from: start) }
+            if index == 0, let first = columns[0].compactMap({ $0 }).first {
+                let collides = starts.prefix(3).dropFirst().contains { $0 != nil }
+                return collides ? nil : formatter.string(from: first.date)
+            }
+            return nil
+        }
     }
 }
