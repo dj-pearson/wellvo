@@ -135,6 +135,10 @@ actor AuthService {
             body: [
                 "identity_token": tokenString,
                 "nonce": hashedNonce,
+                // Lets the server check that this device started the sign-in
+                // (a captured identity token alone can't be replayed). Older
+                // servers ignore it.
+                "raw_nonce": rawNonce,
             ]
         )
 
@@ -172,14 +176,18 @@ actor AuthService {
 
     /// Check if the current user has an Apple identity linked.
     func hasLinkedAppleID() async -> Bool {
-        guard let session = try? await supabase.auth.session else { return false }
+        (await appleIDLinkStatus()) ?? false
+    }
 
-        let result: Bool? = try? await supabase
+    /// Like `hasLinkedAppleID`, but `nil` when it couldn't be checked (offline,
+    /// server error), so Settings doesn't offer to link an Apple ID that is
+    /// already linked just because the check failed.
+    func appleIDLinkStatus() async -> Bool? {
+        guard let session = try? await supabase.auth.session else { return nil }
+        return try? await supabase
             .rpc("has_apple_identity", params: ["p_user_id": session.user.id.uuidString])
             .execute()
             .value
-
-        return result ?? false
     }
 
     // MARK: - Email Auth

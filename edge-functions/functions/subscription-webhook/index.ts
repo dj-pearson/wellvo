@@ -1,8 +1,19 @@
 import { supabaseAdmin } from "../../shared/supabase.ts";
-import { logWarn } from "../../shared/logger.ts";
+import { logInfo, logWarn } from "../../shared/logger.ts";
 import type { AuthResult } from "../../shared/auth.ts";
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import {
+  ADDON_IDS,
+  capUnverifiedExpiry,
+  tierForProduct,
+  UUID_REGEX,
+} from "../../shared/subscription-policy.ts";
+import type { AppStoreTransaction } from "../../shared/app-store-jws.ts";
+import {
+  applyEntitlement,
+  bindReceipt,
+  findBillingFamily,
+  verifyAppleClaim,
+} from "../../shared/subscription-billing.ts";
 
 interface SubscriptionUpdate {
   product_id: string;
@@ -10,46 +21,34 @@ interface SubscriptionUpdate {
   original_id: string;
   expiration_date?: string;
   app_account_token?: string; // UUID linking to Supabase user
+  /**
+   * Optional (US-EDGE005): StoreKit 2 `VerificationResult.jwsRepresentation`.
+   * When present, everything about the purchase is taken from Apple's signed
+   * payload and the plain fields above are ignored.
+   */
+  signed_transaction?: string;
+  /** Android sends "android" plus purchase_token / order_id. */
+  platform?: string;
+  purchase_token?: string;
 }
 
-// Product ID → tier + seat limits.
-//
-// Two product-ID namespaces are recognized:
-//   - `net.wellvo.*`  — the iOS App Store Connect source of truth (bundle id
-//     com.wellvo.ios). iOS `SubscriptionService.ProductIDs` sends these.
-//   - `net.dailyok.*` — the original namespace still registered for Android
-//     Google Play (`SubscriptionService.PRODUCT_IDS`) and any historical/
-//     sandbox iOS purchase.
-//
-// Per CLAUDE.md §E we never stop recognizing a product ID a subscriber may
-// still hold, so BOTH namespaces map to the same tiers. iOS purchases were
-// 400ing ("Unknown product_id") because only the dailyok namespace was known.
-// FOLLOW-UP: unify on a single namespace once Google Play products are
-// re-registered under net.wellvo.* (requires Play Console work).
-const CAREGIVER = { tier: "caregiver", maxReceivers: 1, maxViewers: 3 };
-const FAMILY = { tier: "family", maxReceivers: 3, maxViewers: 5 };
-const FAMILY_PLUS = { tier: "family_plus", maxReceivers: 6, maxViewers: 10 };
+/**
+ * How strictly unverifiable iOS purchases are treated (US-EDGE005):
+ *   "log"     (default) — accept, cap the claimed expiry, record as unverified.
+ *                         Needed while shipped builds that send no signature
+ *                         are in use and the App Store Server API key is not
+ *                         configured.
+ *   "enforce"           — refuse (403 verification_required), or 503 when
+ *                         Apple could not be reached so the app retries.
+ * Switch to "enforce" once APPSTORE_* is configured, or once
+ * MIN_SUPPORTED_IOS_APP_VERSION includes the build that sends
+ * signed_transaction (CLAUDE.md §B).
+ */
+const VERIFY_MODE = (Deno.env.get("SUBSCRIPTION_VERIFY_MODE") ?? "log").trim().toLowerCase();
 
-const TIER_MAP: Record<string, { tier: string; maxReceivers: number; maxViewers: number }> = {
-  // iOS / App Store Connect (source of truth)
-  "net.wellvo.caregiver.monthly": CAREGIVER,
-  "net.wellvo.caregiver.yearly": CAREGIVER,
-  "net.wellvo.family.monthly": FAMILY,
-  "net.wellvo.family.yearly": FAMILY,
-  "net.wellvo.familyplus.monthly": FAMILY_PLUS,
-  "net.wellvo.familyplus.yearly": FAMILY_PLUS,
-  // Android / Google Play + historical iOS sandbox
-  "net.dailyok.caregiver.monthly": CAREGIVER,
-  "net.dailyok.caregiver.yearly": CAREGIVER,
-  "net.dailyok.family.monthly": FAMILY,
-  "net.dailyok.family.yearly": FAMILY,
-  "net.dailyok.familyplus.monthly": FAMILY_PLUS,
-  "net.dailyok.familyplus.yearly": FAMILY_PLUS,
-};
-
-// Add-on product IDs, both namespaces.
-const ADDON_RECEIVER_IDS = new Set(["net.wellvo.addon.receiver", "net.dailyok.addon.receiver"]);
-const ADDON_VIEWER_IDS = new Set(["net.wellvo.addon.viewer", "net.dailyok.addon.viewer"]);
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+}
 
 /**
  * Who this request is allowed to provision for.
@@ -62,178 +61,183 @@ const ADDON_VIEWER_IDS = new Set(["net.wellvo.addon.viewer", "net.dailyok.addon.
  * or, pointed the other way, set a paying customer's expiry into the past
  * (US-EDGE004).
  *
- * Service role stays trusted: real App Store Server Notifications arrive
- * server-to-server and legitimately act for another user. Same shape as the
- * authorization check in process-checkin-response.
+ * Service role stays trusted: server-to-server calls legitimately act for
+ * another user. Same shape as the authorization check in
+ * process-checkin-response.
  */
-function resolveAuthorizedUserId(
-  body: SubscriptionUpdate,
+export function resolveAuthorizedUserId(
+  body: { app_account_token?: string },
   auth: AuthResult,
+  path = "/subscription-webhook",
 ): { userId: string } | { response: Response } {
   const claimed = body.app_account_token;
 
   if (claimed && !UUID_REGEX.test(claimed)) {
-    logWarn("Invalid app_account_token format", { path: "/subscription-webhook" });
-    return {
-      response: new Response(
-        JSON.stringify({ error: "Invalid app_account_token: must be a valid UUID" }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
-      ),
-    };
+    logWarn("Invalid app_account_token format", { path });
+    return { response: json({ error: "Invalid app_account_token: must be a valid UUID" }, 400) };
   }
 
   if (!auth.isServiceRole && claimed && auth.userId && claimed.toLowerCase() !== auth.userId.toLowerCase()) {
-    logWarn("Rejected cross-user subscription provisioning", { path: "/subscription-webhook", userId: auth.userId });
-    return {
-      response: new Response(
-        JSON.stringify({ error: "You can only update your own subscription" }),
-        { status: 403, headers: { "Content-Type": "application/json" } },
-      ),
-    };
+    logWarn("Rejected cross-user subscription request", { path, userId: auth.userId });
+    return { response: json({ error: "You can only update your own subscription" }, 403) };
   }
 
   const userId = claimed || auth.userId;
   if (!userId) {
-    return {
-      response: new Response(
-        JSON.stringify({ error: "Could not identify user. Ensure app_account_token is set." }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
-      ),
-    };
+    return { response: json({ error: "Could not identify user. Ensure app_account_token is set." }, 400) };
   }
 
-  return { userId };
+  return { userId: userId.toLowerCase() };
+}
+
+async function userExists(id: string): Promise<boolean> {
+  const { data } = await supabaseAdmin.from("users").select("id").eq("id", id).limit(1);
+  return (data?.length ?? 0) > 0;
 }
 
 export async function handleSubscriptionWebhook(req: Request, auth: AuthResult): Promise<Response> {
-  const body: SubscriptionUpdate = await req.json();
-  const { product_id, expiration_date, app_account_token } = body;
+  let body: SubscriptionUpdate;
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "Invalid request body" }, 400);
+  }
 
-  const tierInfo = TIER_MAP[product_id];
-  if (!tierInfo) {
-    if (ADDON_RECEIVER_IDS.has(product_id)) {
-      return handleAddonReceiver(body, auth);
-    }
-    if (ADDON_VIEWER_IDS.has(product_id)) {
-      return handleAddonViewer(body, auth);
-    }
-
-    return new Response(
-      JSON.stringify({ error: "Unknown product_id" }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
+  // Add-on seats: the increment RPCs can't run under the service role
+  // (00018/00051: they require auth.uid() = owner), so this used to answer 500.
+  // The app treats 5xx as transient, never finished the transaction, and
+  // re-posted it on every launch and reconnect. Nothing is granted either way
+  // until add-ons go through the verified, idempotent receipts table; a 409
+  // lets the app finish the transaction instead of looping.
+  if (ADDON_IDS.has(body.product_id)) {
+    return json({ error: "addon_unavailable", message: "Extra places can't be added this way yet. Please contact support." }, 409);
   }
 
   // Identify the user — prefer appAccountToken (linked at purchase time),
-  // fall back to the authenticated user ID from the JWT. Authorization for
-  // that choice lives in resolveAuthorizedUserId.
+  // fall back to the authenticated user ID from the JWT.
   const resolved = resolveAuthorizedUserId(body, auth);
   if ("response" in resolved) return resolved.response;
-  let userId: string | null = resolved.userId;
+  let userId = resolved.userId;
 
-  if (app_account_token) {
-    // The appAccountToken is the Supabase user UUID set during purchase.
-    const { data: user } = await supabaseAdmin
-      .from("users")
-      .select("id")
-      .eq("id", app_account_token)
-      .single();
+  const platform: "ios" | "android" = body.platform === "android" ? "android" : "ios";
+  const now = new Date();
 
-    if (!user) {
-      logWarn("app_account_token user not found", { path: "/subscription-webhook" });
-      return new Response(
-        JSON.stringify({ error: "No user found for the provided app_account_token" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+  // --- What was actually bought (US-EDGE005) -------------------------------
+  let productId = body.product_id;
+  let expiresAt: Date | null;
+  let originalTransactionId: string | null = null;
+  let verifiedTx: AppStoreTransaction | null = null;
+
+  if (platform === "ios") {
+    const claim = await verifyAppleClaim(body);
+    if (claim.kind === "invalid") {
+      logWarn("Subscription verification failed", { path: "/subscription-webhook", userId, reason: claim.reason });
+      // Only refuse in enforce mode. In log mode an unsigned request is
+      // accepted anyway, so refusing a bad signature adds no protection (a
+      // forger just leaves the signature out) — while a verifier problem, or
+      // an Xcode StoreKit-configuration purchase signed by a local cert, would
+      // make every purchase from new builds a permanent 400: the app finishes
+      // the transaction and the family is never upgraded. Fall through to the
+      // capped, unverified path below instead.
+      if (VERIFY_MODE === "enforce") {
+        return json({ error: "verification_failed", reason: claim.reason }, 400);
+      }
     }
+    if (claim.kind === "verified") {
+      const tx = claim.tx;
+      verifiedTx = tx;
+      productId = tx.productId;
+      originalTransactionId = tx.originalTransactionId;
+      expiresAt = tx.expiresDate ? new Date(tx.expiresDate) : null;
 
-    userId = user.id;
+      // The account the purchase was made for. Another live account's
+      // purchase is refused; a purchase whose account was deleted may be
+      // claimed by the account presenting it (re-registration).
+      const token = tx.appAccountToken?.toLowerCase();
+      if (token && token !== userId && !auth.isServiceRole) {
+        if (await userExists(token)) {
+          logWarn("Refused a purchase made for another account", { path: "/subscription-webhook", userId });
+          return json({ error: "This purchase belongs to another Daily OK account" }, 403);
+        }
+      } else if (token && auth.isServiceRole) {
+        userId = token;
+      }
+
+      if (tx.revocationDate) {
+        return json({ success: true, applied: false, reason: "revoked", verified: true });
+      }
+      if (tx.isUpgraded) {
+        return json({ success: true, applied: false, reason: "upgraded", verified: true });
+      }
+    } else {
+      // Unsigned (shipped build, no API key) or Apple unreachable.
+      if (VERIFY_MODE === "enforce") {
+        return claim.kind === "unavailable"
+          ? json({ error: "verification_unavailable" }, 503)
+          : json({ error: "verification_required" }, 403);
+      }
+      logInfo("Accepting unverified iOS subscription (log mode)", {
+        path: "/subscription-webhook",
+        userId,
+        reason: claim.kind === "unsigned" ? "unsigned" : `${claim.kind}:${claim.reason}`,
+      });
+      // Every shipped iOS build sends the expiry of an auto-renewing
+      // subscription. A missing one only comes from a hand-made request, and
+      // used to store NULL — which the grace job never lapses.
+      expiresAt = capUnverifiedExpiry(body.expiration_date, now);
+      if (!expiresAt) return json({ error: "expiration_date is required" }, 400);
+      originalTransactionId = body.original_id || null;
+    }
+  } else {
+    // Android: purchase_token is not verified with the Play Developer API yet
+    // (deferred), and shipped Android builds send no expiry, so NULL is kept
+    // for them as before (a lapse arrives via the app's own restore flow).
+    expiresAt = capUnverifiedExpiry(body.expiration_date, now);
   }
 
+  const tierInfo = tierForProduct(productId);
+  if (!tierInfo) return json({ error: "Unknown product_id" }, 400);
+  if (platform === "ios" && !expiresAt) return json({ error: "expiration_date is required" }, 400);
 
-  // Verify the user owns a family
-  const { data: family } = await supabaseAdmin
-    .from("families")
-    .select("id")
-    .eq("owner_id", userId)
-    .single();
-
-  if (!family) {
-    return new Response(
-      JSON.stringify({ error: "No family found for this user" }),
-      { status: 404, headers: { "Content-Type": "application/json" } }
-    );
+  if (body.app_account_token && !(await userExists(userId))) {
+    logWarn("app_account_token user not found", { path: "/subscription-webhook" });
+    return json({ error: "No user found for the provided app_account_token" }, 400);
   }
 
-  // Update the family subscription
-  const { error } = await supabaseAdmin
-    .from("families")
-    .update({
-      subscription_tier: tierInfo.tier,
-      subscription_status: "active",
-      subscription_expires_at: expiration_date || null,
-      max_receivers: tierInfo.maxReceivers,
-      max_viewers: tierInfo.maxViewers,
-    })
-    .eq("id", family.id);
+  // --- Which family it pays for --------------------------------------------
+  const family = await findBillingFamily(userId);
+  if (!family) return json({ error: "No family found for this user" }, 404);
 
-  if (error) {
-    return new Response(
-      JSON.stringify({ error: "Failed to update subscription" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+  const verified = verifiedTx !== null;
+  if (verifiedTx) {
+    const bound = await bindReceipt({
+      tx: verifiedTx,
+      userId,
+      familyId: family.id,
+    });
+    if (bound === "bound_to_other_user") {
+      return json({ error: "This purchase is already linked to another Daily OK account" }, 409);
+    }
   }
 
-  return new Response(
-    JSON.stringify({ success: true, tier: tierInfo.tier }),
-    { headers: { "Content-Type": "application/json" } }
-  );
-}
-
-async function handleAddonReceiver(body: SubscriptionUpdate, auth: AuthResult): Promise<Response> {
-  // Same rule as the tier path. This one was worse: it took
-  // body.app_account_token with no UUID validation and no ownership check at
-  // all, so any authenticated caller could add a paid seat to another owner's
-  // family (US-EDGE004).
-  const resolved = resolveAuthorizedUserId(body, auth);
-  if ("response" in resolved) return resolved.response;
-  const userId = resolved.userId;
-
-  const { error } = await supabaseAdmin.rpc("increment_max_receivers", { p_owner_id: userId });
-
-  if (error) {
-    return new Response(
-      JSON.stringify({ error: "Failed to add receiver slot" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+  try {
+    const result = await applyEntitlement({
+      family,
+      tierInfo,
+      expiresAt,
+      originalTransactionId,
+      payerUserId: userId,
+      platform,
+      verified,
+      now,
+    });
+    if (!result.applied) {
+      // 200: the app should finish the transaction; nothing is wrong with it.
+      return json({ success: true, applied: false, reason: result.reason, tier: family.subscription_tier, verified });
+    }
+  } catch (_err) {
+    return json({ error: "Failed to update subscription" }, 500);
   }
 
-  return new Response(
-    JSON.stringify({ success: true, addon: "receiver" }),
-    { headers: { "Content-Type": "application/json" } }
-  );
-}
-
-async function handleAddonViewer(body: SubscriptionUpdate, auth: AuthResult): Promise<Response> {
-  // Same rule as the tier path. This one was worse: it took
-  // body.app_account_token with no UUID validation and no ownership check at
-  // all, so any authenticated caller could add a paid seat to another owner's
-  // family (US-EDGE004).
-  const resolved = resolveAuthorizedUserId(body, auth);
-  if ("response" in resolved) return resolved.response;
-  const userId = resolved.userId;
-
-  const { error } = await supabaseAdmin.rpc("increment_max_viewers", { p_owner_id: userId });
-
-  if (error) {
-    return new Response(
-      JSON.stringify({ error: "Failed to add viewer slot" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
-  return new Response(
-    JSON.stringify({ success: true, addon: "viewer" }),
-    { headers: { "Content-Type": "application/json" } }
-  );
+  return json({ success: true, tier: tierInfo.tier, applied: true, verified });
 }

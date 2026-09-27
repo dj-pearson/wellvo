@@ -1,73 +1,62 @@
-import { supabaseAdmin } from "../../shared/supabase.ts";
 import type { AuthResult } from "../../shared/auth.ts";
+import { resolveAuthorizedUserId } from "../subscription-webhook/index.ts";
+import { findBillingFamily, startGracePeriod } from "../../shared/subscription-billing.ts";
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+}
 
 /**
- * Handles App Store subscription cancellation/expiration notifications.
- * Called via App Store Server Notifications v2 or manually from the iOS app.
- * Service-role-only for server-to-server calls, or user-authenticated for self-cancellation.
+ * Records that a family's subscription has been cancelled.
+ *
+ * No shipped app calls this route, and Apple's server notifications now go to
+ * /app-store-notifications (signed). What remains is kept for server-to-server
+ * use and for an app acting on its OWN account.
+ *
+ * Two fixes (2026-09-27):
+ *  - Authorization. `app_account_token` came from the request body and was
+ *    trusted as-is, so any signed-in user — a receiver, a removed co-caregiver —
+ *    could name an owner's id and stop that family's check-ins. A client may
+ *    now only name itself (the same rule as /subscription-webhook, US-EDGE004).
+ *  - Cancelled-but-paid families kept getting nothing. This wrote
+ *    subscription_status = 'cancelled', which every check-in dispatcher
+ *    excludes and the nightly job never moved on, so check-ins stopped the day
+ *    of cancellation and never came back. A family with paid time left now
+ *    stays 'active' until its expiry, when the nightly job starts the normal
+ *    seven-day grace period.
  */
 export async function handleSubscriptionCancellation(req: Request, auth: AuthResult): Promise<Response> {
-  const body = await req.json();
-  // product_id arrives in the App Store notification but is deliberately not
-  // read: a family holds one subscription, so cancellation is identified by the
-  // owner, not the product. Matching on product_id would risk ignoring a real
-  // cancellation whose product id we did not recognise, which is the worse
-  // failure — the family would keep paid access they had cancelled.
-  const { app_account_token } = body;
-
-  // Identify user
-  const userId = app_account_token || auth.userId;
-  if (!userId) {
-    return new Response(
-      JSON.stringify({ error: "User identification required" }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
+  let body: { app_account_token?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "Invalid request body" }, 400);
   }
 
-  // Find user's family
-  const { data: family, error: familyError } = await supabaseAdmin
-    .from("families")
-    .select("id, subscription_tier, subscription_expires_at")
-    .eq("owner_id", userId)
-    .single();
+  const resolved = resolveAuthorizedUserId(body, auth, "/subscription-cancellation");
+  if ("response" in resolved) return resolved.response;
 
-  if (familyError || !family) {
-    return new Response(
-      JSON.stringify({ error: "No family found for this user" }),
-      { status: 404, headers: { "Content-Type": "application/json" } }
-    );
-  }
+  const family = await findBillingFamily(resolved.userId).catch(() => null);
+  if (!family) return json({ error: "No family found for this user" }, 404);
 
-  // If there's still time on the subscription, move to grace_period
-  // Otherwise move directly to expired and downgrade to free
-  const expiresAt = family.subscription_expires_at
-    ? new Date(family.subscription_expires_at)
-    : null;
-
+  const expiresAt = family.subscription_expires_at ? new Date(family.subscription_expires_at) : null;
   const now = new Date();
 
-  if (expiresAt && expiresAt > now) {
-    // Subscription still has remaining time — keep access until expiry,
-    // then grace period enforcement cron will handle the transition
-    await supabaseAdmin
-      .from("families")
-      .update({
-        subscription_status: "cancelled",
-      })
-      .eq("id", family.id);
-  } else {
-    // Already past expiry — enter grace period now (7 days from today)
-    await supabaseAdmin
-      .from("families")
-      .update({
-        subscription_status: "grace_period",
-        subscription_expires_at: now.toISOString(),
-      })
-      .eq("id", family.id);
+  // A (grandfathered) Free family has no subscription to cancel; putting it in
+  // grace would stop its check-ins a week later.
+  if (family.subscription_tier === "free") {
+    return json({ success: true, status: "cancellation_processed" });
   }
 
-  return new Response(
-    JSON.stringify({ success: true, status: "cancellation_processed" }),
-    { headers: { "Content-Type": "application/json" } }
-  );
+  if (expiresAt && expiresAt > now) {
+    // Paid time remains: nothing changes until it runs out.
+    return json({ success: true, status: "cancellation_processed", ends_at: expiresAt.toISOString() });
+  }
+
+  try {
+    await startGracePeriod(family, now);
+  } catch {
+    return json({ error: "Failed to record cancellation" }, 500);
+  }
+  return json({ success: true, status: "cancellation_processed" });
 }

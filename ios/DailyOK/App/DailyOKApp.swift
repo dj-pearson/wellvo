@@ -9,6 +9,13 @@ struct DailyOKApp: App {
     @StateObject private var offlineService = OfflineCheckInService.shared
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @Environment(\.scenePhase) private var scenePhase
+    /// The app lock asks for Face ID on a launch or a return from the
+    /// background, never on an `.inactive` → `.active` bounce. The Face ID sheet
+    /// itself (and Control Center, Notification Center, an incoming call)
+    /// bounces the scene through `.inactive`; locking again on that return
+    /// re-prompted after every successful unlock, forever. Latent until
+    /// Settings gained its "Require Face ID" toggle.
+    @State private var biometricCheckDue = true
 
     init() {
         // Before anything reads a persisted session. Stored-property
@@ -158,6 +165,8 @@ struct DailyOKApp: App {
 
         switch phase {
         case .active:
+            let checkBiometric = biometricCheckDue
+            biometricCheckDue = false
             // Run foreground work as a single ordered task instead of six
             // concurrent Tasks all competing for the first connection on resume.
             // Auth-critical work first, then sync/push, then best-effort work.
@@ -165,7 +174,7 @@ struct DailyOKApp: App {
                 // Session first so downstream work uses a valid token; biometric
                 // gate immediately after.
                 await authViewModel.checkSession()
-                await authViewModel.checkBiometricOnResume()
+                if checkBiometric { await authViewModel.checkBiometricOnResume() }
                 // Sync queued check-ins and refresh the push token.
                 await offlineService.syncPendingCheckIns()
                 await reRegisterPushToken()
@@ -198,6 +207,7 @@ struct DailyOKApp: App {
                 }
             }
         case .background:
+            biometricCheckDue = true
             // Stop the foreground heartbeat timer when backgrounded (it can't
             // fire while suspended anyway); checkSession restarts it on resume.
             HeartbeatService.shared.stop()

@@ -19,8 +19,27 @@ struct Testimonial: Identifiable {
 struct PaywallFeatureCarousel: View {
     let features: [PaywallFeature]
     @State private var currentIndex: Int = 0
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// Grows with the text size; a fixed 320 pt clipped the descriptions at
+    /// larger sizes.
+    @ScaledMetric(relativeTo: .title2) private var pageHeight: CGFloat = 320
 
     var body: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            // At accessibility sizes a paged carousel can't fit a card; list
+            // them so nothing is cut off.
+            VStack(spacing: 12) {
+                ForEach(features) { feature in
+                    PaywallFeatureCard(feature: feature)
+                        .padding(.horizontal, 16)
+                }
+            }
+        } else {
+            pagedCarousel
+        }
+    }
+
+    private var pagedCarousel: some View {
         VStack(spacing: 16) {
             TabView(selection: $currentIndex) {
                 ForEach(Array(features.enumerated()), id: \.offset) { index, feature in
@@ -30,7 +49,7 @@ struct PaywallFeatureCarousel: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 320)
+            .frame(height: pageHeight)
 
             HStack(spacing: 8) {
                 ForEach(0..<features.count, id: \.self) { i in
@@ -40,6 +59,7 @@ struct PaywallFeatureCarousel: View {
                         .animation(DailyOKMotion.smoothSpring, value: currentIndex)
                 }
             }
+            .accessibilityHidden(true) // page dots; VoiceOver swipes the pages
         }
     }
 }
@@ -58,6 +78,7 @@ private struct PaywallFeatureCard: View {
                     .font(.system(size: 36, weight: .semibold))
                     .foregroundStyle(scheme == .dark ? DailyOKColor.green400 : DailyOKColor.green700)
             }
+            .accessibilityHidden(true)
 
             Text(feature.title)
                 .font(.title2.weight(.bold))
@@ -71,8 +92,9 @@ private struct PaywallFeatureCard: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(LinearGradient(
                     // Light: pale green wash. Dark: a subtle green-tinted dark
                     // surface so the card doesn't stay bright against dark chrome.

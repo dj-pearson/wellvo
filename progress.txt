@@ -5727,3 +5727,415 @@ DEFERRED
     the rate limiter) and collapsed by apns-collapse-id.
   - LIMIT_REACHED_MESSAGE said "receiver slots" to co-caregivers too; now
     role-neutral ("no free places"). No client matches on the text.
+
+================================================================================
+2026-09-27 — iOS function deep dive: Owner: Settings tab (account, Apple ID link, subscription/paywall/restore, data export, data retention, caregiver digest, notifications, sign out, delete account)
+================================================================================
+
+What the Settings tab must guarantee: the plan it shows is the family's real
+plan, the one that decides whether check-ins run, and a problem with it is
+visible before check-ins stop. Nobody can change another family's plan, and
+nobody gets a paid plan the App Store didn't sell them. Paying again after a
+lapse brings the check-ins back. Every account holder (owner, co-caregiver,
+person checked on) can export their data and delete their account, and is
+told what that does to the family and to their App Store billing. Signing out
+says plainly that this phone stops getting alerts. Nothing destructive (a
+shorter retention window, account deletion) happens on one tap.
+
+Four reviewer passes (UI/UX, break-it, spoof, product). Every claim was
+checked against the code, and for SQL against a local Postgres 16. All were
+confirmed. One was worse than reported: Export My Data has never worked (see
+below).
+
+Branch: worked in the existing claude/ios-app-deep-dive-cm3nu0 working tree,
+as the orchestrator asked. Nothing was committed.
+
+FIXED
+
+  - CRITICAL: /subscription-cancellation trusted app_account_token from the
+    request body. Any signed-in user, such as a receiver or a removed
+    co-caregiver, could name an owner's id. That family went to 'cancelled',
+    which every dispatcher excludes and the nightly job never moved on, so its
+    check-ins and escalations stopped for good. Changes:
+      * A client may only name itself (resolveAuthorizedUserId, now exported
+        from subscription-webhook).
+      * 'cancelled' is never written: a family with paid time left stays
+        'active' until expiry, then the normal grace week applies.
+      * A Free family is never put into grace.
+      * No shipped app calls this route.
+  - CRITICAL (US-EDGE005): /subscription-webhook trusted the product_id and
+    expiration_date in the body. One curl gave Family Plus with a NULL expiry,
+    which the grace job never lapses. It now establishes the purchase from the
+    most trustworthy source available:
+      1. `signed_transaction` (new optional field; builds from this one send
+         StoreKit's jwsRepresentation);
+      2. an App Store Server API lookup of transaction_id (shipped builds),
+         when APPSTORE_ISSUER_ID / APPSTORE_KEY_ID / APPSTORE_PRIVATE_KEY are
+         set;
+      3. otherwise unverified.
+    The signature is checked in shared/app-store-jws.ts:
+      * x5c chain of exactly 3;
+      * root pinned to the Apple Root CA - G3 SHA-256 (63343abf…9179, matched
+        against the app-store-server-api npm package);
+      * each certificate verified against its issuer (ECDSA, WebCrypto);
+      * Apple's leaf and WWDR marker OIDs;
+      * ES256 JWS;
+      * certificates valid at signedDate, and signedDate not in the future.
+    Verified data wins over the body. Also:
+      * bundleId must be com.wellvo.ios;
+      * a purchase made for another live account → 403 (for a deleted account
+        it may be reclaimed);
+      * a revoked or upgraded transaction is acknowledged but not applied.
+    SUBSCRIPTION_VERIFY_MODE=log (default) still accepts unverifiable iOS
+    requests from shipped builds, with these limits:
+      * the expiry is required, so no NULL (every shipped build sends one);
+      * the expiry is capped at 370 days;
+      * the request is logged.
+    "enforce" refuses them (403, or 503 when Apple is unreachable).
+  - HIGH: Resubscribing after a lapse never turned check-ins back on. The
+    expiry job set receiver_settings.is_active = FALSE and nothing set it
+    back. Now:
+      * the job stamps the new receiver_settings.billing_paused_at;
+      * resume_billing_paused_schedules() (service role only) re-enables
+        exactly those rows when a plan is applied. A schedule the owner paused
+        by hand stays paused.
+      * Rows already switched off in expired families are backfilled.
+  - HIGH: Renewals reached the server only when the owner opened the app, so
+    about a week without opening it expired the family while Apple kept
+    charging. New route /app-store-notifications (App Store Server
+    Notifications v2):
+      * unauthenticated at the router, trusts only the signature, and has its
+        own rate-limit bucket, so junk traffic can't throttle pg_cron;
+      * DID_RENEW / SUBSCRIBED / OFFER_REDEEMED / … apply the plan;
+      * DID_FAIL_TO_RENEW → grace_period ("Payment issue");
+      * EXPIRED / GRACE_PERIOD_EXPIRED / REFUND / REVOKE → grace_period with
+        the real end date, so the existing 7-day path applies and nothing
+        stops at once;
+      * only the subscription the family is billed to can lapse it.
+    docs/APP_STORE_CONNECT_AND_SUPABASE_SETUP.md told ops to point Apple at
+    /subscription-webhook, which requires a user JWT (every notification
+    401'd). The doc now names the new URL and the env vars.
+  - HIGH: Last write wins. A lesser or older transaction lowered
+    max_receivers, and the 00005 trigger deactivated the newest receivers.
+    decideApply (shared/subscription-policy.ts) refuses:
+      * an already-expired entitlement;
+      * a lower tier from a DIFFERENT subscription while a higher plan is
+        running.
+    A real downgrade keeps its original transaction id and still applies. The
+    iOS listener no longer pushes revoked or isUpgraded transactions (it
+    finishes them).
+  - HIGH: Billing after an ownership transfer (decision). The family stays
+    covered by whoever pays until they cancel. The new owner can take the
+    plan over by buying their own. How:
+      * new families.billing_user_id (+ billing_original_transaction_id,
+        billing_platform, billing_verified_at), backfilled = owner_id for paid
+        families;
+      * the webhook matches "family I pay for and still belong to" first, then
+        "family I own";
+      * this replaced `.single()`, which also 404'd every purchase for owners
+        with stray duplicate families (send-digest had the same bug; fixed).
+    iOS:
+      * the transfer alert now says the subscription keeps paying until
+        cancelled, and where to cancel;
+      * the new owner sees "Another family member pays for this plan" and
+        "Take Over the Plan" instead of a Free upsell;
+      * the ex-owner (a co-caregiver) sees their Apple ID subscription with
+        Manage Subscription.
+  - HIGH: Co-caregivers and receivers could not delete their account or
+    export their data (App Store 5.1.1(v), GDPR 15/17/20). New shared
+    AccountDataSections:
+      * in the owner's Settings, in ViewerSettingsView, and in a new "Account
+        & Privacy" sheet from the receiver's menu;
+      * role-specific copy ("removes you from the family… stays with the
+        owner").
+    The RPCs were already self-scoped. Verified on Postgres: delete works for
+    viewer and receiver accounts.
+  - HIGH: Export My Data never worked. export_user_data referenced
+    invite_tokens.created_by, a column that has never existed (since 00010).
+    plpgsql only resolves it at run time, so every export raised "column
+    it.created_by does not exist", and the app showed that raw text. Fixed in
+    00059:
+      * the invites exported are those for families the user owns and the one
+        they joined with;
+      * adds 'families_owned'.
+  - Plan row showed the device's StoreKit tier as "Family_plus". It now shows
+    the family's server plan through PlanSummary.line:
+      * display name, "Paid through Oct 3";
+      * "Payment issue. Check-ins stop on …";
+      * "Plan ended. Daily check-ins are paused…";
+      * "Free until …" for the grandfathered Free tier;
+      * the seat line.
+    The Apple ID's own subscription is explained only when it disagrees
+    (PlanSummary.storeRelation):
+      * paid by another member;
+      * bought on another Apple ID or device;
+      * "isn't applied yet — tap Restore";
+      * "doesn't pay for a family you own — cancel in Manage Subscription".
+    Manage Subscription still follows StoreKit, since only the payer can
+    manage it.
+  - Restore Purchases gave no feedback in Settings, and showed stale errors
+    in the paywall. restorePurchases() now:
+      * returns RestoreOutcome (restored(tier) / nothingToRestore /
+        failed(msg));
+      * shows a spinner and disables the button while it runs;
+      * reports the result in an alert.
+    Messages are separated:
+      * errorMessage is cleared when loadProducts / restore / purchase starts;
+      * background syncs write a new `syncIssue`, shown under the plan, never
+        as a later surprise alert;
+      * both are cleared at sign-out, so the next account on the phone doesn't
+        see the last one's "contact support".
+    Rejections read plainly ("belongs to a different Daily OK account", "isn't
+    linked to a family yet") with a Contact Support button (dailyok.net/support)
+    instead of a dead end.
+  - Add-ons: the webhook answered 500 (the increment RPCs can't run as service
+    role). The app held the transaction open and re-posted it on every launch
+    and reconnect. It now answers a deterministic 409 addon_unavailable, the
+    app finishes the transaction, and reconcile skips add-ons.
+  - Paywall (guideline 3.1.2):
+      * prices show their period ("$3.99/mo", "$29.99/yr");
+      * rows are grouped by plan (monthly then yearly) and show seats ("Check
+        on up to 3 people · 5 co-caregivers");
+      * new auto-renew disclosure plus Terms of Use and Privacy links;
+      * the hard-coded "Sarah M." testimonial was removed (no evidence it was
+        real);
+      * "a full archive" became "Up to 2 years of history";
+      * after a purchase, a confirmation ("You're on Family Plus…") with a
+        VoiceOver announcement dismisses the paywall;
+      * plan buttons have labels ("Upgrade to Family Plus, $9.99/mo, save
+        17%").
+  - Delete Account:
+      * a first step says what happens for the role;
+      * if StoreKit has an entitlement, it says Apple billing continues and
+        offers Manage Subscription;
+      * an owner with active co-caregivers is offered "Make a Co-Caregiver the
+        Owner" (goes to the Family tab);
+      * then the typed DELETE step (now case-insensitive);
+      * a full-screen "Deleting your account…" blocks input;
+      * a lost reply is checked (users row gone → finish sign-out);
+      * errors are plain words, never "Network error: <PostgREST text>".
+  - Data Retention:
+      * shortening now asks first ("Check-ins from before <date> will be
+        permanently deleted tonight, for everyone in your family");
+      * Save is enabled only for a real change and shows progress;
+      * offline no longer fails silently;
+      * a foreground reload no longer overwrites an unsaved choice;
+      * the footer says it applies to the whole family.
+    Server:
+      * client writes are clamped to 30–3650 (shipped apps send 90–730);
+      * the nightly job clamps too (a PATCH of 3000000 had broken the job for
+        every family);
+      * out-of-range rows are backfilled.
+  - Check-in Summary (was "Daily Summary", envelope icon, though it's a push):
+      * renamed, with a new icon and copy;
+      * Save only when dirty, with progress;
+      * no-session is a failed load, not a silently dead Save;
+      * the foreground reload is skipped when dirty.
+    dispatch_caregiver_digests:
+      * an invalid timezone falls back to UTC;
+      * each row is isolated, so one bad row no longer stops every owner's
+        summary.
+    send-digest never says "No misses 🎉" when the plan has ended, a
+    receiver's schedule is off, or fewer check-ins came in than expected. It
+    says check-ins are paused instead.
+  - Sign Out copy (owner and co-caregiver): "While you're signed out, this
+    iPhone won't alert you if someone misses a check-in."
+  - Face ID lock could never be turned on or off. The post-sign-in prompt
+    sets showBiometricPrompt, but no view reads it. New "Require Face ID"
+    toggle (AppLockSection) for owners and co-caregivers:
+      * turning it off needs Face ID or the passcode;
+      * turning it on doesn't, since a prompt would be followed by the resume
+        lock.
+  - Apple ID link:
+      * tri-state (unknown / linked / notLinked), so an offline check no longer
+        shows the link button to linked users;
+      * errors read plainly (409 → "already used by another Daily OK
+        account");
+      * the message clears on leaving, and link state and message are reset at
+        sign-out.
+    link-apple-id takes an optional raw_nonce and checks sha256(raw) against
+    the token (the hashed nonce alone proves nothing). iOS sends it.
+  - Contrast and accessibility:
+      * green text and fills use green700 in light mode;
+      * the banner's Open Settings button uses a dark orange;
+      * the banner's dismiss button has a 44 pt target;
+      * paywall carousel: @ScaledMetric height, a vertical list at
+        accessibility sizes, icons hidden from VoiceOver, one element per
+        card, radius 16;
+      * the Account row shows the phone number when there's no email.
+
+ADDED
+
+  - Notification status row (owner and co-caregiver): On / Off / Not set up /
+    "On · Time Sensitive off", refreshed on foreground, with the warning "You
+    won't be alerted on this iPhone when a check-in is missed". Tap asks for
+    permission when it hasn't been asked yet, otherwise it opens iOS Settings.
+  - ViewerSettingsView rebuilt: role "Co-caregiver", family name and plan
+    warning, their Apple ID subscription (if any), notification status, app
+    lock, export and delete, About with Help & Support.
+
+BACKEND (additive, CLAUDE.md §A/§B)
+
+  supabase/migrations/00059_settings_billing_integrity.sql:
+  - New nullable families.billing_user_id (FK users, ON DELETE SET NULL),
+    billing_original_transaction_id, billing_platform, billing_verified_at.
+    guard_families_client_write keeps them server-only (silently, like
+    00051). Same body plus the retention clamp.
+  - New subscription_receipts table (RLS on, no policies, service role only):
+    binds a verified App Store subscription to one account.
+  - New nullable receiver_settings.billing_paused_at, and
+    resume_billing_paused_schedules(uuid) (EXECUTE for service_role only).
+  - CREATE OR REPLACE, signatures unchanged: enforce_subscription_grace_period
+    (cancelled → grace), enforce_data_retention (clamp),
+    dispatch_caregiver_digests (tz guard and per-row isolation),
+    export_user_data (fixed, plus families_owned).
+  - Data fixes: cancelled with time left → active; out-of-range retention →
+    365.
+  Verified on local Postgres 16 (00001–00059 on a fresh DB, 00059 replayed,
+  Supabase-style grants, SET ROLE authenticated so RLS and guards apply):
+    * client PATCH of retention 3000000 → 3650, -5 → 30, 90 → 90;
+    * a billing_user_id PATCH is ignored;
+    * a client can neither read subscription_receipts nor run resume;
+    * the retention job runs with a 3000000 row present;
+    * expiry pauses Mom (billing_paused_at set), and resume turns only her
+      back on (Dad's manual pause stays);
+    * cancelled with time left is untouched by the job, and past expiry goes
+      to grace_period;
+    * digest with timezone 'Mars/Olympus' still stamps both owners;
+    * export returns families_owned;
+    * viewer and receiver delete_user_account succeed, and the payer's
+      deletion nulls billing_user_id.
+
+  edge-functions:
+  - New shared/app-store-jws.ts (verifier), shared/app-store-server-api.ts
+    (transaction lookup, ES256 JWT), shared/subscription-policy.ts (tier map,
+    decideApply, capUnverifiedExpiry, notificationAction),
+    shared/subscription-billing.ts (family lookup, receipt binding, apply,
+    resume, grace). All tolerate 00059 not being applied yet: they fall back
+    to owner-only matching.
+  - New functions/app-store-notifications/index.ts, routed in server.ts via
+    appleSignedRoutes. /app-store-notifications has a 120/min limit in its own
+    bucket.
+  - subscription-webhook: additive optional request fields signed_transaction
+    / platform. Additive response fields applied / verified / reason. New
+    statuses:
+      * 409 for add-ons (was 500);
+      * 400 verification_failed;
+      * 403 for another live account's purchase;
+      * 403/503 only in enforce mode.
+    Shipped iOS classifies 4xx as permanentlyRejected (finish) and 5xx as
+    transient.
+  - subscription-cancellation, send-digest, link-apple-id as above.
+  Tests: shared/subscription-policy_test.ts and shared/app-store-jws_test.ts.
+  The JWS fixture in testdata/ is an openssl-made chain shaped like Apple's:
+  a P-384 root, a P-384 intermediate with the WWDR marker, and a P-256 leaf
+  with the App Store marker. No deno here, so the verifier was transpiled
+  with tsc and run under Node 22 against that chain. 10/10 cases behaved:
+    * valid → accepted;
+    * the production pin refuses the test root;
+    * edited payload, rogue root, intermediate without marker, wrong signing
+      key, 2-cert chain, alg none, future signedDate, and signedDate outside
+      the leaf's validity → refused.
+  The new shared modules and the touched handlers type-check under tsc
+  --strict with Deno/supabase stubs. deno check, deno lint and deno test were
+  not run.
+
+TESTS
+
+  DailyOKTests/SubscriptionServiceTests.swift gains SettingsPlanTests (same
+  file, no pbxproj change):
+    * plan line (display name, payment issue, expired, free deadline);
+    * storeRelation (new owner not upsold, ex-owner paying for nothing,
+      unapplied → Restore, paid elsewhere);
+    * restore outcomes;
+    * revoked and upgraded transactions not synced;
+    * rejection messages never show server JSON;
+    * paywall ordering, and seats matching the server map;
+    * sign-out and delete copy per role, including the billing line;
+    * plain failure copy;
+    * Apple link 409 copy;
+    * retention shortening;
+    * dated export file name;
+    * Family decoding with and without billing_user_id.
+
+DEFERRED
+
+  - Switching SUBSCRIPTION_VERIFY_MODE to "enforce". Needs the App Store
+    Connect In-App Purchase key in the Coolify secrets and a log check that
+    real purchases verify. Until then a forged request still gets a plan
+    (capped at a year, replayable). With the key set, shipped builds are
+    verified via lookup. Local Xcode .storekit purchases don't exist on
+    Apple's servers and will 400 then; test with Sandbox.
+  - Configuring App Store Server Notifications in App Store Connect
+    (ops; URL in the setup doc).
+  - Android:
+      * purchase_token is still not verified (needs a Play Developer API
+        service account);
+      * Android plans still store a NULL expiry and never lapse;
+      * Real-time Developer Notifications don't exist yet.
+  - Warning push to the owner and co-caregivers when a family enters
+    grace_period ("check-ins stop on <date>"). Needs a notification type and
+    a sender in the nightly job. Settings now shows it; a push would reach
+    owners who don't open the app.
+  - The downgrade trigger (00005) still deactivates the newest members when
+    max_receivers really drops. Marking them "over the limit" and letting the
+    owner choose changes trigger semantics that the plan-limit guard depends
+    on; that needs its own pass. decideApply now stops the spurious drops.
+  - Sign in with Apple token revocation on account deletion. Needs Apple
+    refresh tokens stored at sign-in/link and a client-secret JWT; the app
+    stores neither today.
+  - Add-on SKUs: a verified, idempotent seat count (tier base plus verified
+    add-on receipts). Anyone who bought one should be refunded or granted
+    manually. Don't delete the product ids (CLAUDE.md §E).
+  - AUTO_RENEW_DISABLED → "Ends <date>" in the app. 'cancelled' is excluded
+    from dispatch, so it would need a new nullable column (e.g.
+    auto_renew_off_at), not the status.
+  - transfer_family_ownership_v2 could refuse a target who already owns a
+    family. findBillingFamily no longer 404s on that case.
+  - Digest:
+      * for co-caregivers;
+      * the local-day window;
+      * expected counts per schedule slot;
+      * the current value on the Settings row;
+      * digest_last_sent_at is still stamped before the push is known to
+        have been sent.
+  - Notifications: "Send a test alert".
+  - The post-sign-in biometric prompt (showBiometricPrompt) is still never
+    presented. The Settings toggle replaces its purpose.
+  - A localized confirmation word for Delete Account (DELETE is now
+    case-insensitive).
+  - A BGAppRefreshTask for reconcile. The ASSN route covers the main case.
+  - Receipt binding applies only to verified purchases, so in log mode an
+    unverified original_id can still be claimed by several accounts.
+
+  Not compiled (no Xcode, no swiftc, no deno). The tree-sitter Swift grammar
+  parses every changed Swift file except its known gaps: `let x = try await`
+  and `try?` inside `if let` (SettingsView, ViewerTabView; the same
+  pre-existing gap as AuthViewModel line 171), the regex literal in
+  AuthService, and raw strings `#"…"#` in the tests. With those lines
+  neutralised, SettingsView and ViewerTabView parse cleanly. SQL was run on a
+  local Postgres 16. TypeScript was checked with tsc --strict.
+
+[2026-09-27] Settings tab — adversarial review of the uncommitted Settings work (not compiled: no Xcode/deno)
+  Verified: migrations 00001–00059 apply on scratch Postgres 16; export_user_data, grace job
+  (active→grace→expired pauses + stamps billing_paused_at), resume_billing_paused_schedules,
+  dispatch_caregiver_digests (invalid tz → UTC), enforce_data_retention, retention clamp and
+  billing-column guard for client writes, delete_user_account all execute. Edge JWS + policy
+  tests 13/13 under Node; changed edge files type-check with tsc (modules stubbed).
+  Fixed:
+  - App lock loop: exposing "Require Face ID" activated a latent bug — every .inactive→.active
+    bounce (incl. the Face ID sheet itself) re-locked and re-prompted. DailyOKApp now only runs
+    checkBiometricOnResume on launch / return from background.
+  - /subscription-webhook in log mode returned a permanent 400 for a signed_transaction that
+    failed verification (verifier fault, Xcode StoreKit-config purchase), so new builds would
+    finish the transaction with no plan. Log mode now falls through to the capped unverified
+    path (no security loss: unsigned is accepted in log mode anyway); enforce still 400s.
+  - Owner takeover after transfer: a new owner buying a LOWER tier than the ex-owner's running
+    plan was refused (higher_plan_active) — charged, nothing applied. decideApply now takes
+    ownerTakeover (payer is owner, family billed to someone else). Test added.
+  - ViewerTabView: explicit `import StoreKit` for manageSubscriptionsSheet.
+  - link-apple-id: comment no longer claims raw_nonce stops replay while it is optional.
+  Unresolved: families transferred BEFORE 00059 were backfilled billing_user_id = new owner, so
+  the ex-owner's renewals still find no family (same as before); paywall shows "You're on X" even
+  when the server answers applied:false (already_expired / higher_plan_active from a second
+  Apple ID); DataRetention picker shows blank for values outside 90/180/365/730.

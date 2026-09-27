@@ -507,7 +507,7 @@ struct FamilyView: View {
                 Button("Cancel", role: .cancel) {}
             } message: { target in
                 let name = displayName(target)
-                Text("\(name) will manage the family's check-ins, invites and plan. You'll become a co-caregiver and can't undo this yourself.\n\nYour subscription stays on your Apple ID and stops covering this family, so \(name) will need their own plan before your current period ends.")
+                Text("\(name) will manage the family's check-ins, invites and plan. You'll become a co-caregiver and can't undo this yourself.\n\nYour subscription stays on your Apple ID and keeps paying for this family until you cancel it (Settings › Apple ID › Subscriptions, or Manage Subscription in Daily OK's Settings). \(name) can take the plan over by choosing one of their own.")
             }
             .alert(
                 "Cancel Invite",

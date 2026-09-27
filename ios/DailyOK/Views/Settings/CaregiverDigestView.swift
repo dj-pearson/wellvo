@@ -12,6 +12,10 @@ struct CaregiverDigestView: View {
     @State private var frequency: String = "off"
     @State private var hour: Int = 8
     @State private var isLoading = true
+    @State private var isSaving = false
+    /// What the server has. Save is offered only for a real change, and a
+    /// foreground reload never overwrites a choice not yet saved.
+    @State private var loaded: (frequency: String, hour: Int)?
     @State private var showSaved = false
     @State private var errorMessage: String?
     /// True when the current preference couldn't be read. Saving is blocked while
@@ -41,7 +45,7 @@ struct CaregiverDigestView: View {
                     Text("Weekly").tag("weekly")
                 }
             } footer: {
-                Text("A gentle summary of your family's check-ins — consistency, streaks, any misses, and how everyone's been feeling. Weekly summaries arrive on Mondays.")
+                Text("A notification summarising your family's check-ins — how many came in, any misses, and how everyone's been feeling. Weekly summaries arrive on Mondays.")
             }
 
             if frequency != "off" {
@@ -67,21 +71,27 @@ struct CaregiverDigestView: View {
             }
 
             Section {
-                Button("Save") {
+                Button {
                     Task { await save() }
+                } label: {
+                    HStack {
+                        Text("Save")
+                        Spacer()
+                        if isSaving { ProgressView() }
+                    }
                 }
-                .disabled(isLoading || loadFailed)
+                .disabled(isLoading || loadFailed || isSaving || !isDirty)
             }
         }
         .scrollContentBackground(.hidden)
         .background(AmbientBackground(tone: .neutral))
-        .navigationTitle("Daily Summary")
+        .navigationTitle("Check-in Summary")
         .overlay {
             if showSaved {
                 Text("Saved")
                     .font(.headline)
                     .padding()
-                    .background(.green, in: Capsule())
+                    .background(DailyOKColor.green700, in: Capsule())
                     .foregroundStyle(.white)
                     .transition(.scale.combined(with: .opacity))
                     .accessibilityHidden(true) // announced via UIAccessibility.post
@@ -96,10 +106,16 @@ struct CaregiverDigestView: View {
             Text(errorMessage ?? "")
         }
         .task { await load() }
-        // Reload on foreground so a stale value isn't re-saved (US-IOS111).
+        // Reload on foreground so a stale value isn't re-saved (US-IOS111) —
+        // but not over an unsaved choice.
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active { Task { await load() } }
+            if newPhase == .active, !isDirty { Task { await load() } }
         }
+    }
+
+    private var isDirty: Bool {
+        guard let loaded else { return false }
+        return loaded.frequency != frequency || (frequency != "off" && loaded.hour != hour)
     }
 
     private static func hourLabel(_ h: Int) -> String {
@@ -116,6 +132,9 @@ struct CaregiverDigestView: View {
     private func load() async {
         loadFailed = false
         guard let session = try? await SupabaseService.shared.client.auth.session else {
+            // No session: treat like a failed load so Save can't write defaults
+            // (it used to be enabled and then silently do nothing).
+            loadFailed = true
             isLoading = false
             return
         }
@@ -129,6 +148,7 @@ struct CaregiverDigestView: View {
                 .value
             frequency = row.digestFrequency ?? "off"
             hour = row.digestHour ?? 8
+            loaded = (frequency, hour)
         } catch {
             // Couldn't read the current preference (network blip / RLS). Do NOT
             // silently fall back to defaults and leave Save enabled — a Save
@@ -141,7 +161,13 @@ struct CaregiverDigestView: View {
     }
 
     private func save() async {
-        guard let session = try? await SupabaseService.shared.client.auth.session else { return }
+        guard !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
+        guard let session = try? await SupabaseService.shared.client.auth.session else {
+            errorMessage = String(localized: "You're signed out. Sign in again to change your summary.")
+            return
+        }
         do {
             try await SupabaseService.shared.client
                 .from("users")
@@ -149,15 +175,16 @@ struct CaregiverDigestView: View {
                 .eq("id", value: session.user.id.uuidString)
                 .execute()
 
+            loaded = (frequency, hour)
             DailyOKHaptics.success()
-            UIAccessibility.post(notification: .announcement, argument: String(localized: "Digest settings saved"))
+            UIAccessibility.post(notification: .announcement, argument: String(localized: "Summary settings saved"))
             withAnimation { showSaved = true }
             try? await Task.sleep(for: .seconds(1.5))
             withAnimation { showSaved = false }
         } catch {
             Log.settings.error("Failed to save digest prefs: \(error.localizedDescription, privacy: .public)")
             DailyOKHaptics.error()
-            errorMessage = DailyOKError.network(error).localizedDescription
+            errorMessage = AccountCopy.failureMessage(for: error, action: String(localized: "save your summary setting"))
             UIAccessibility.post(notification: .announcement, argument: String(localized: "Couldn't save digest settings"))
         }
     }

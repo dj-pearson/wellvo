@@ -59,6 +59,9 @@ struct NotificationPermissionBanner: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
+                            // A full 44 pt target: the glyph alone was ~24 pt.
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Dismiss notification banner")
@@ -77,7 +80,13 @@ struct NotificationPermissionBanner: View {
                     .padding(.vertical, 8)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.orange)
+                // White on system orange is ~2.2:1; this orange keeps the label
+                // readable in light mode.
+                .tint(Color(UIColor { trait in
+                    trait.userInterfaceStyle == .dark
+                        ? .systemOrange
+                        : UIColor(red: 0.62, green: 0.33, blue: 0.0, alpha: 1)
+                }))
                 .accessibilityLabel("Open notification settings")
                 .accessibilityHint("Opens iOS Settings to enable notifications for Daily OK")
             }

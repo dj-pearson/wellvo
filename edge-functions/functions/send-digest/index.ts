@@ -54,11 +54,15 @@ export async function handleSendDigest(req: Request, _auth: AuthResult): Promise
   const periodLabel = isWeekly ? "This week" : "Today";
 
   // The owner's family.
-  const { data: family } = await supabaseAdmin
+  // Earliest owned family, as the apps pick it (`.single()` returned nothing
+  // at all when stray duplicates existed, so no digest was ever sent).
+  const { data: families } = await supabaseAdmin
     .from("families")
-    .select("id, name")
+    .select("id, name, subscription_status")
     .eq("owner_id", ownerId)
-    .single();
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const family = families?.[0];
 
   if (!family) {
     return json({ ok: true, skipped: "no family", sent: 0 }, 200);
@@ -67,7 +71,7 @@ export async function handleSendDigest(req: Request, _auth: AuthResult): Promise
   // Active receivers in the family.
   const { data: members } = await supabaseAdmin
     .from("family_members")
-    .select("user_id, users(display_name)")
+    .select("id, user_id, users(display_name)")
     .eq("family_id", family.id)
     .eq("role", "receiver")
     .eq("status", "active");
@@ -76,6 +80,22 @@ export async function handleSendDigest(req: Request, _auth: AuthResult): Promise
   if (receivers.length === 0) {
     return json({ ok: true, skipped: "no active receivers", sent: 0 }, 200);
   }
+
+  // Whose check-ins are actually being sent. A receiver with no schedule row,
+  // or one switched off (e.g. by the plan-expiry job), gets no requests — so
+  // "no misses" would be reassurance about nothing.
+  const memberIds: string[] = receivers.map((r: { id: string }) => r.id);
+  const { data: settingsRows } = await supabaseAdmin
+    .from("receiver_settings")
+    .select("family_member_id, is_active")
+    .in("family_member_id", memberIds);
+  const activeScheduleIds = new Set(
+    (settingsRows ?? [])
+      .filter((r: { is_active: boolean | null }) => r.is_active !== false)
+      .map((r: { family_member_id: string }) => r.family_member_id),
+  );
+  const pausedCount = memberIds.filter((id: string) => !activeScheduleIds.has(id)).length;
+  const planEnded = family.subscription_status === "expired";
 
   const sinceISO = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
@@ -122,10 +142,17 @@ export async function handleSendDigest(req: Request, _auth: AuthResult): Promise
   // Build a calm, reassuring summary line.
   const title = isWeekly ? `${family.name}: weekly summary` : `${family.name}: today's check-ins`;
   const parts: string[] = [];
+  if (planEnded) {
+    parts.push("Check-ins are paused because your Daily OK plan has ended. Open the app to renew.");
+  } else if (pausedCount > 0) {
+    parts.push(pausedCount === receivers.length
+      ? "Check-ins aren't being sent to anyone right now. Open the app to check their schedules."
+      : `Check-ins aren't being sent to ${pausedCount} of ${receivers.length} people. Open the app to check their schedules.`);
+  }
   parts.push(`${periodLabel}: ${totalCheckins} of ${expected} check-ins (${consistency}%).`);
   if (misses > 0) {
     parts.push(`${misses} missed.`);
-  } else {
+  } else if (!planEnded && pausedCount === 0 && totalCheckins >= expected) {
     parts.push("No misses 🎉");
   }
   if (dominantMood) {

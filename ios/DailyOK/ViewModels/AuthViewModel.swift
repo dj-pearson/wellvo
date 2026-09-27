@@ -290,13 +290,53 @@ final class AuthViewModel: ObservableObject {
 
     // MARK: - Link Apple ID
 
-    @Published var hasLinkedApple = false
+    enum AppleLinkState: Equatable {
+        /// Not checked yet, or the check failed (offline). Settings shows
+        /// neither "Linked" nor the link button.
+        case unknown
+        case linked
+        case notLinked
+    }
+
+    @Published var appleLinkState: AppleLinkState = .unknown
     @Published var isLinkingApple = false
     @Published var linkAppleMessage: String?
+    /// Whether `linkAppleMessage` reports success (green) or a problem.
+    @Published var linkAppleMessageIsSuccess = false
+
+    var hasLinkedApple: Bool { appleLinkState == .linked }
 
     /// Check whether the current user already has a linked Apple identity.
+    /// A failed check leaves a known state alone rather than flipping a linked
+    /// account back to "Link your Apple ID".
     func checkAppleLinkStatus() async {
-        hasLinkedApple = await AuthService.shared.hasLinkedAppleID()
+        if let linked = await AuthService.shared.appleIDLinkStatus() {
+            appleLinkState = linked ? .linked : .notLinked
+        }
+    }
+
+    /// Drop a stale result line when the user leaves Settings.
+    func clearAppleLinkMessage() {
+        if !isLinkingApple { linkAppleMessage = nil }
+    }
+
+    /// Plain words for a failed link (the raw error read "Edge function error
+    /// 409: {\"error\":…}").
+    nonisolated static func appleLinkFailureMessage(_ error: Error) -> String {
+        if let http = error as? EdgeFunctionsClient.HTTPError {
+            switch http.status {
+            case 409:
+                return String(localized: "This Apple ID is already used by another Daily OK account.")
+            case 400, 401:
+                return String(localized: "Apple couldn't confirm this sign-in. Please try again.")
+            default:
+                return String(localized: "Couldn't link your Apple ID right now. Please try again later.")
+            }
+        }
+        if error is URLError {
+            return String(localized: "You're offline. Check your connection and try again.")
+        }
+        return String(localized: "Couldn't link your Apple ID right now. Please try again later.")
     }
 
     /// Configure an Apple Sign-In request for identity linking (reuses nonce logic).
@@ -315,6 +355,7 @@ final class AuthViewModel: ObservableObject {
     func linkAppleID(_ result: Result<ASAuthorization, Error>) async {
         isLinkingApple = true
         linkAppleMessage = nil
+        linkAppleMessageIsSuccess = false
 
         switch result {
         case .success(let authorization):
@@ -331,15 +372,17 @@ final class AuthViewModel: ObservableObject {
             do {
                 try await AuthService.shared.linkAppleID(credential: credential, rawNonce: rawNonce)
                 currentRawNonce = nil
-                hasLinkedApple = true
-                linkAppleMessage = String(localized: "Apple ID linked successfully!")
+                appleLinkState = .linked
+                linkAppleMessageIsSuccess = true
+                linkAppleMessage = String(localized: "Apple ID linked. You can now use Sign in with Apple.")
             } catch {
-                linkAppleMessage = error.localizedDescription
+                Log.auth.error("Link Apple ID failed: \(error.localizedDescription, privacy: .public)")
+                linkAppleMessage = Self.appleLinkFailureMessage(error)
             }
 
         case .failure(let error):
             if (error as? ASAuthorizationError)?.code != .canceled {
-                linkAppleMessage = error.localizedDescription
+                linkAppleMessage = String(localized: "Sign in with Apple didn't finish. Please try again.")
             }
         }
 
@@ -632,6 +675,10 @@ final class AuthViewModel: ObservableObject {
         currentUser = nil
         authState = .unauthenticated
         biometricLocked = false
+        // The next account on this phone must not see this one's Apple link.
+        appleLinkState = .unknown
+        linkAppleMessage = nil
+        linkAppleMessageIsSuccess = false
         clearFormFields()
     }
 

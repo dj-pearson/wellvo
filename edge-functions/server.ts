@@ -56,6 +56,7 @@ import { handleAdminSocial } from "./functions/admin-social/index.ts";
 import { handleGenerateNextArticle } from "./functions/generate-next-article/index.ts";
 import { handleIngestMetrics } from "./functions/ingest-metrics/index.ts";
 import { handleSendDigest } from "./functions/send-digest/index.ts";
+import { handleAppStoreNotification } from "./functions/app-store-notifications/index.ts";
 
 type FunctionHandler = (req: Request, auth: AuthResult) => Promise<Response>;
 
@@ -73,6 +74,13 @@ const webhookSecretRoutes: Record<string, string> = {
   "/generate-next-article": "BLOG_GENERATION_WEBHOOK_SECRET",
   "/ingest-metrics": "INGEST_METRICS_WEBHOOK_SECRET",
 };
+
+// Routes called by Apple's servers (App Store Server Notifications v2). They
+// carry no bearer token or shared secret; the handler trusts only the body's
+// signature, which must chain to Apple Root CA - G3 (shared/app-store-jws.ts).
+const appleSignedRoutes = new Set([
+  "/app-store-notifications",
+]);
 
 // All routes
 const routes: Record<string, FunctionHandler> = {
@@ -100,6 +108,7 @@ const routes: Record<string, FunctionHandler> = {
   "/generate-next-article": handleGenerateNextArticle,
   "/ingest-metrics": handleIngestMetrics,
   "/send-digest": handleSendDigest,
+  "/app-store-notifications": handleAppStoreNotification,
 };
 
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://dailyok.net";
@@ -199,7 +208,19 @@ async function handler(req: Request): Promise<Response> {
   // Supabase JWT. Each route declares which env var holds its expected secret.
   let auth: AuthResult;
   const secretEnvVar = webhookSecretRoutes[path];
-  if (secretEnvVar) {
+  const appleSigned = appleSignedRoutes.has(path);
+  if (appleSigned) {
+    // Not a user and not the service role: the handler verifies the payload.
+    // Its own rate-limit bucket: sharing the service-role counters would let
+    // a flood of junk here throttle pg_cron's check-in dispatch.
+    auth = { authenticated: true, isServiceRole: false };
+    const rateLimitResult = checkRateLimit("__apple_notifications__", path);
+    if (!rateLimitResult.allowed) {
+      return jsonWithCors({ error: "Too many requests" }, 429, req, {
+        "Retry-After": String(rateLimitResult.retryAfterSeconds),
+      });
+    }
+  } else if (secretEnvVar) {
     const expected = Deno.env.get(secretEnvVar);
     if (!expected || expected.trim() === "") {
       logError(`${path} misconfigured: ${secretEnvVar} not set`, new Error("missing secret env"), { path });
@@ -240,7 +261,7 @@ async function handler(req: Request): Promise<Response> {
   // served. Only applies to authenticated client (JWT) traffic — never service
   // role or webhook calls. Fails open when the version header is absent (older
   // builds) or the floor is disabled, so nothing breaks until a floor is set.
-  if (!auth.isServiceRole && !secretEnvVar) {
+  if (!auth.isServiceRole && !secretEnvVar && !appleSigned) {
     const clientVersion = req.headers.get("X-App-Version");
     const clientPlatform = req.headers.get("X-App-Platform");
     if (isBelowMinimum(clientPlatform, clientVersion)) {

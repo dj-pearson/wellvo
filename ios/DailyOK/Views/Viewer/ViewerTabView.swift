@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 
 /// Read-only tab view for Viewers — same dashboard as Owner but no edit controls.
 ///
@@ -38,55 +39,93 @@ struct ViewerTabView: View {
     }
 }
 
-/// Minimal settings for Viewers — account info and sign out only.
+/// Settings for co-caregivers (viewers).
+///
+/// Used to be account info and Sign Out only. A co-caregiver — including the
+/// ex-owner after handing the family over — had no way to delete their
+/// account, export their data, see whether alerts can reach them, lock the app,
+/// or reach Manage Subscription for a plan they may still be paying for.
 struct ViewerSettingsView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
+    @StateObject private var subscriptionService = SubscriptionService.shared
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showSignOutConfirmation = false
+    @State private var showManageSubscriptions = false
+    @State private var family: Family?
+
+    private var storeRelation: PlanSummary.StoreRelation {
+        guard subscriptionService.hasLoadedEntitlements else { return .consistent }
+        return PlanSummary.storeRelation(
+            storeTier: subscriptionService.currentTier,
+            family: family,
+            currentUserId: authViewModel.currentUser?.id,
+            isOwner: false
+        )
+    }
 
     var body: some View {
         NavigationStack {
             List {
-                Section("Account") {
-                    if let user = authViewModel.currentUser {
-                        HStack {
-                            Circle()
-                                .fill(Color.green.opacity(0.2))
-                                .frame(width: 40, height: 40)
-                                .overlay {
-                                    Text(String(user.displayName.prefix(1)).uppercased())
-                                        .fontWeight(.bold)
-                                        .foregroundStyle(.green)
-                                }
+                AccountHeaderSection(roleLabel: String(localized: "Co-caregiver"))
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(user.displayName)
-                                    .font(.body)
-                                Text(user.email ?? "")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-
+                if let family {
+                    Section {
                         HStack {
-                            Text("Role")
+                            Text("Family")
                             Spacer()
-                            Text("Viewer")
+                            Text(family.name)
                                 .foregroundStyle(.secondary)
                         }
+                        .accessibilityElement(children: .combine)
+                        let line = PlanSummary.line(for: family)
+                        if line.needsAttention, let detail = line.detail {
+                            Label(detail, systemImage: "exclamationmark.triangle.fill")
+                                .font(.subheadline)
+                                .foregroundStyle(SettingsStyle.warningText)
+                        }
+                    } footer: {
+                        Text("You're told when a check-in is missed. The family's owner manages check-ins, invites and the plan.")
                     }
                 }
 
-                Section("About") {
-                    HStack {
-                        Text("Version")
-                        Spacer()
-                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")
-                            .foregroundStyle(.secondary)
+                // Only when this Apple ID has a subscription: after handing the
+                // family over, the ex-owner is a co-caregiver and this is the
+                // only place in the app they can see or cancel it.
+                if subscriptionService.currentTier != .free {
+                    Section {
+                        HStack {
+                            Text("Your Apple ID")
+                            Spacer()
+                            Text(subscriptionService.currentTier.displayName)
+                                .foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
+                        if storeRelation == .consistent {
+                            Text("Your subscription pays for this family's plan.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        } else if let message = PlanSummary.relationMessage(storeRelation) {
+                            Text(message)
+                                .font(.footnote)
+                                .foregroundStyle(SettingsStyle.warningText)
+                        }
+                        Button("Manage Subscription") { showManageSubscriptions = true }
+                    } header: {
+                        Text("Subscription")
                     }
-
-                    Link("Privacy Policy", destination: URL(string: "https://dailyok.net/privacy")!)
-                    Link("Terms of Service", destination: URL(string: "https://dailyok.net/terms")!)
                 }
+
+                Section {
+                    NotificationStatusRow()
+                } header: {
+                    Text("Notifications")
+                }
+
+                AppLockSection()
+
+                AccountDataSections(role: .viewer)
+
+                AboutSection()
 
                 Section {
                     Button("Sign Out", role: .destructive) {
@@ -97,15 +136,28 @@ struct ViewerSettingsView: View {
             .scrollContentBackground(.hidden)
             .background(AmbientBackground(tone: .neutral))
             .navigationTitle("Settings")
-            .alert("Sign Out", isPresented: $showSignOutConfirmation) {
+            .alert("Sign Out?", isPresented: $showSignOutConfirmation) {
                 Button("Sign Out", role: .destructive) {
                     DailyOKHaptics.warning()
                     Task { await authViewModel.signOut() }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("Are you sure you want to sign out?")
+                Text(AccountCopy.signOutMessage(role: .viewer))
             }
+            .manageSubscriptionsSheet(isPresented: $showManageSubscriptions)
+            .task { await loadFamily() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { Task { await loadFamily() } }
+            }
+        }
+    }
+
+    private func loadFamily() async {
+        do {
+            if let loaded = try await FamilyService.shared.getFamily() { family = loaded }
+        } catch {
+            // Keep what's shown; the rest of Settings doesn't depend on it.
         }
     }
 }

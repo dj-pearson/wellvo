@@ -614,9 +614,29 @@ Configure in **App Store Connect → App → App Information → App Store Serve
 
 | Field          | Value                                          |
 | -------------- | ---------------------------------------------- |
-| Production URL | `https://functions.dailyok.net/subscription-webhook` |
-| Sandbox URL    | `https://functions.dailyok.net/subscription-webhook` |
+| Production URL | `https://functions.dailyok.net/app-store-notifications` |
+| Sandbox URL    | `https://functions.dailyok.net/app-store-notifications` |
 | Version        | Version 2                                      |
+
+> `/subscription-webhook` is the **app's** endpoint (it requires a user JWT), so
+> Apple's notifications sent there were refused with 401. `/app-store-notifications`
+> takes no token and trusts only the payload's signature (chain to Apple Root CA - G3,
+> bundle id `com.wellvo.ios`).
+
+**Transaction verification for the app endpoint (US-EDGE005).** Set these edge-function
+env vars (values live in the Coolify secrets, never in the repo):
+
+| Env var                     | Value                                                                |
+| --------------------------- | -------------------------------------------------------------------- |
+| `APPSTORE_ISSUER_ID`        | App Store Connect → Users and Access → Integrations → In-App Purchase |
+| `APPSTORE_KEY_ID`           | The In-App Purchase key id                                           |
+| `APPSTORE_PRIVATE_KEY`      | The key's `.p8` contents (PEM; `\n` escapes are accepted)             |
+| `SUBSCRIPTION_VERIFY_MODE`  | `log` (default) until the key is set and verified in logs, then `enforce` |
+
+With the key set, `/subscription-webhook` asks Apple for each `transaction_id` the app
+sends and applies only what Apple's signed answer says. Builds from 2026-09-27 on also
+send the signed transaction itself. In `log` mode an unverifiable request is still
+accepted (expiry capped at one yearly term) so shipped builds keep working.
 
 **Notification types to handle:**
 
@@ -920,7 +940,8 @@ curl https://functions.dailyok.net/health
 | `/process-checkin-response`  | POST   | User JWT     | App / Notification Action         |
 | `/escalation-tick`           | POST   | Service Role | pg_cron (every minute)            |
 | `/on-demand-checkin`         | POST   | User JWT     | Owner taps "Check on [Name]"      |
-| `/subscription-webhook`      | POST   | Apple Signed | App Store Server Notifications V2 |
+| `/subscription-webhook`      | POST   | User JWT     | App after a purchase / restore (verified with Apple) |
+| `/app-store-notifications`   | POST   | Apple Signed | App Store Server Notifications V2 |
 | `/invite-receiver`           | POST   | User JWT     | Owner invites a receiver          |
 | `/subscription-cancellation` | POST   | Service Role | Subscription lifecycle            |
 | `/health`                    | GET    | None         | Monitoring                        |

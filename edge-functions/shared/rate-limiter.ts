@@ -22,6 +22,9 @@ setInterval(() => {
 
 // Per-endpoint limits (requests per minute)
 const ENDPOINT_LIMITS: Record<string, number> = {
+  // Apple's server notifications share one bucket (no user id); Apple retries
+  // anything refused, so this only bounds junk traffic.
+  "/app-store-notifications": 120,
   "/invite-receiver": 5,
   "/on-demand-checkin": 10,
   "/redeem-code": 5, // Stricter limit: 6-digit code = 1M combinations

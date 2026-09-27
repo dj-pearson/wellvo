@@ -9,8 +9,23 @@ final class SubscriptionService: ObservableObject {
     @Published var products: [Product] = []
     @Published var purchasedProductIDs: Set<String> = []
     @Published var currentTier: SubscriptionTier = .free
+    /// False until StoreKit's entitlements have been read once, so a screen
+    /// doesn't treat the starting `.free` as "this Apple ID has no plan".
+    @Published private(set) var hasLoadedEntitlements = false
     @Published var isLoading = false
+    /// A message for the screen that started the current action (purchase,
+    /// restore, loading plans). Cleared when a new one starts, so an old failure
+    /// can't pop up after an unrelated success.
     @Published var errorMessage: String?
+    /// A background sync problem (launch reconcile, renewals arriving while the
+    /// app is open). Shown in Settings next to the plan, never as a surprise
+    /// alert on some later screen.
+    @Published var syncIssue: String?
+    /// True when `errorMessage` / `syncIssue` asks the user to contact support,
+    /// so the screen can offer a way to do that.
+    @Published var needsSupport = false
+
+    static let supportURL = URL(string: "https://dailyok.net/support")!
 
     /// The grandfather deadline for a legacy Free-tier family, mirrored from the
     /// loaded `Family` so feature gating can honor it (US-IOS097). Set this when
@@ -93,14 +108,36 @@ final class SubscriptionService: ObservableObject {
 
     func loadProducts() async {
         isLoading = true
+        errorMessage = nil
         do {
+            // Grouped by plan, monthly before yearly, so each plan's two prices
+            // sit together instead of interleaving across plans by price.
             products = try await Product.products(for: ProductIDs.all)
-                .sorted { $0.price < $1.price }
+                .sorted { Self.paywallOrder($0.id, $0.price) < Self.paywallOrder($1.id, $1.price) }
         } catch {
             errorMessage = String(localized: "Failed to load subscription options.")
             Log.subscription.error("Failed to load products: \(error.localizedDescription, privacy: .public)")
         }
         isLoading = false
+    }
+
+    /// Sort key for the paywall: plan (Caregiver, Family, Family Plus), then
+    /// price within a plan (monthly first). Unknown ids go last.
+    nonisolated static func paywallOrder(_ productID: String, _ price: Decimal) -> PaywallSortKey {
+        let rank: Int
+        if ProductIDs.caregiver.contains(productID) { rank = 1 }
+        else if ProductIDs.family.contains(productID) { rank = 2 }
+        else if ProductIDs.familyPlus.contains(productID) { rank = 3 }
+        else { rank = 9 }
+        return PaywallSortKey(rank: rank, price: price)
+    }
+
+    struct PaywallSortKey: Comparable {
+        let rank: Int
+        let price: Decimal
+        static func < (a: PaywallSortKey, b: PaywallSortKey) -> Bool {
+            a.rank != b.rank ? a.rank < b.rank : a.price < b.price
+        }
     }
 
     // MARK: - Display Pricing (StoreKit-driven, App Store guideline 3.1)
@@ -157,6 +194,7 @@ final class SubscriptionService: ObservableObject {
     func purchase(_ product: Product) async throws -> StoreKit.Transaction? {
         isLoading = true
         errorMessage = nil
+        needsSupport = false
 
         defer { isLoading = false }
 
@@ -185,7 +223,11 @@ final class SubscriptionService: ObservableObject {
             // `Transaction.updates` redeliver it — the mechanism this comment
             // claimed but did not previously have, because the sync swallowed its
             // own failures (US-IOS139).
-            let outcome = await syncSubscriptionToBackend(transaction)
+            let outcome = await syncSubscriptionToBackend(
+                transaction,
+                signedTransaction: verification.jwsRepresentation,
+                surfaceErrors: true
+            )
             if outcome.mayFinishTransaction {
                 await transaction.finish()
             }
@@ -225,21 +267,71 @@ final class SubscriptionService: ObservableObject {
 
         purchasedProductIDs = purchased
         updateCurrentTier()
+        hasLoadedEntitlements = true
     }
 
-    func restorePurchases() async {
+    /// What Restore Purchases found, so the screen can say so. It used to
+    /// return nothing: Settings showed no result at all, and the paywall showed
+    /// whatever stale message was lying around.
+    enum RestoreOutcome: Equatable {
+        case restored(SubscriptionTier)
+        case nothingToRestore
+        case failed(String)
+
+        var message: String {
+            switch self {
+            case .restored(let tier):
+                return String(localized: "Your \(tier.displayName) plan is restored.")
+            case .nothingToRestore:
+                return String(localized: "No Daily OK subscription was found for this Apple ID. If you subscribed with a different Apple ID, sign in to it in Settings › Apple ID and try again.")
+            case .failed(let message):
+                return message
+            }
+        }
+    }
+
+    @discardableResult
+    func restorePurchases() async -> RestoreOutcome {
         isLoading = true
+        errorMessage = nil
+        needsSupport = false
+        defer { isLoading = false }
+        var syncFailed = false
         do {
             try await AppStore.sync()
         } catch {
-            errorMessage = String(localized: "Failed to restore purchases.")
+            // A cancelled Apple ID prompt lands here too; what's already on the
+            // device is still checked below.
+            syncFailed = true
+            Log.subscription.error("AppStore.sync failed: \(error.localizedDescription, privacy: .public)")
         }
         await updatePurchasedProducts()
         // Restore must also re-provision the backend: a reinstalled user has a
         // valid StoreKit entitlement but the server never recorded it, so
         // without this their seats/features never come back (US-IOS095).
-        await reconcileEntitlementsToBackend()
-        isLoading = false
+        await reconcileEntitlementsToBackend(surfaceErrors: true)
+
+        let outcome = Self.restoreOutcome(
+            tier: currentTier,
+            storeSyncFailed: syncFailed,
+            backendMessage: errorMessage
+        )
+        if case .failed(let message) = outcome { errorMessage = message }
+        return outcome
+    }
+
+    /// Pure: what to tell the user after a restore.
+    nonisolated static func restoreOutcome(
+        tier: SubscriptionTier,
+        storeSyncFailed: Bool,
+        backendMessage: String?
+    ) -> RestoreOutcome {
+        if let backendMessage { return .failed(backendMessage) }
+        if tier != .free { return .restored(tier) }
+        if storeSyncFailed {
+            return .failed(String(localized: "Couldn't reach the App Store to restore purchases. Check your connection and try again."))
+        }
+        return .nothingToRestore
     }
 
     /// Push every currently-entitled transaction to the backend so a
@@ -264,18 +356,32 @@ final class SubscriptionService: ObservableObject {
     /// silently skipped).
     func resetReconcileLatch() {
         hasReconciledThisLaunch = false
+        // Messages belong to the account that caused them; the next person to
+        // sign in on this phone must not see "contact support" meant for the
+        // last one.
+        errorMessage = nil
+        syncIssue = nil
+        needsSupport = false
     }
 
     /// Returns true when every current entitlement reached the backend, so the
     /// caller knows whether this is worth attempting again. A permanent rejection
     /// counts as settled: repeating it would not change the answer.
     @discardableResult
-    func reconcileEntitlementsToBackend() async -> Bool {
+    func reconcileEntitlementsToBackend(surfaceErrors: Bool = false) async -> Bool {
         var allSettled = true
         for await result in Transaction.currentEntitlements {
             guard let transaction = try? checkVerified(result) else { continue }
             if let expiry = transaction.expirationDate, expiry <= Date() { continue }
-            let outcome = await syncSubscriptionToBackend(transaction)
+            // Add-ons can't be applied server-side yet (the webhook answers 409
+            // and nothing is granted); re-posting them on every launch only
+            // produced a "contact support" message.
+            if tier(forProductID: transaction.productID) == nil { continue }
+            let outcome = await syncSubscriptionToBackend(
+                transaction,
+                signedTransaction: result.jwsRepresentation,
+                surfaceErrors: surfaceErrors
+            )
             if case .transientFailure = outcome { allSettled = false }
         }
         return allSettled
@@ -353,17 +459,40 @@ final class SubscriptionService: ObservableObject {
         for await result in Transaction.updates {
             if let transaction = try? checkVerified(result) {
                 await updatePurchasedProducts()
+                // A refunded/revoked transaction, or the old one an upgrade
+                // replaced, arrives on this same stream. Pushing it used to
+                // re-provision a refunded family as "active", or write the
+                // pre-upgrade tier back — and a lower max_receivers makes the
+                // server deactivate the newest receivers. Neither is a plan to
+                // apply; the server learns about refunds from Apple directly
+                // (/app-store-notifications).
+                if !Self.shouldSyncToBackend(
+                    revoked: transaction.revocationDate != nil,
+                    upgraded: transaction.isUpgraded
+                ) {
+                    await transaction.finish()
+                    continue
+                }
                 // Sync to the backend BEFORE finishing, matching the purchase
                 // path. `Transaction.updates` only redelivers *unfinished*
                 // transactions, so finishing a renewal whose sync failed means it
                 // is never re-pushed and the user silently loses provisioned
                 // entitlements. Holding it unfinished is how it comes back.
-                let outcome = await syncSubscriptionToBackend(transaction)
+                let outcome = await syncSubscriptionToBackend(
+                    transaction,
+                    signedTransaction: result.jwsRepresentation,
+                    surfaceErrors: false
+                )
                 if outcome.mayFinishTransaction {
                     await transaction.finish()
                 }
             }
         }
+    }
+
+    /// Pure: whether a delivered transaction describes a plan to apply.
+    nonisolated static func shouldSyncToBackend(revoked: Bool, upgraded: Bool) -> Bool {
+        !revoked && !upgraded
     }
 
     private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
@@ -399,20 +528,36 @@ final class SubscriptionService: ObservableObject {
     /// StoreKit can redeliver an unsynced transaction, but with the failure
     /// invisible they finished unconditionally, and `Transaction.updates` only
     /// redelivers transactions that were never finished (US-IOS139).
+    ///
+    /// `signedTransaction` is Apple's JWS for the transaction
+    /// (`VerificationResult.jwsRepresentation`). The server verifies it and
+    /// takes the product and expiry from it instead of trusting these fields
+    /// (US-EDGE005); older servers ignore the extra key.
+    ///
+    /// `surfaceErrors`: only the screen the user is looking at (purchase,
+    /// restore) gets `errorMessage`; background syncs report through
+    /// `syncIssue` so they never pop up later as an unrelated alert.
     @discardableResult
-    private func syncSubscriptionToBackend(_ transaction: StoreKit.Transaction, attempt: Int = 1) async -> SyncOutcome {
+    private func syncSubscriptionToBackend(
+        _ transaction: StoreKit.Transaction,
+        signedTransaction: String? = nil,
+        surfaceErrors: Bool,
+        attempt: Int = 1
+    ) async -> SyncOutcome {
         let maxRetries = 3
+        var body: [String: String] = [
+            "product_id": transaction.productID,
+            "transaction_id": String(transaction.id),
+            "original_id": String(transaction.originalID),
+            "expiration_date": transaction.expirationDate?.ISO8601Format() ?? "",
+            "app_account_token": transaction.appAccountToken?.uuidString ?? "",
+        ]
+        if let signedTransaction, !signedTransaction.isEmpty {
+            body["signed_transaction"] = signedTransaction
+        }
         do {
-            try await EdgeFunctionsClient.invoke(
-                "subscription-webhook",
-                body: [
-                    "product_id": transaction.productID,
-                    "transaction_id": String(transaction.id),
-                    "original_id": String(transaction.originalID),
-                    "expiration_date": transaction.expirationDate?.ISO8601Format() ?? "",
-                    "app_account_token": transaction.appAccountToken?.uuidString ?? "",
-                ]
-            )
+            try await EdgeFunctionsClient.invoke("subscription-webhook", body: body)
+            if syncIssue != nil { syncIssue = nil }
             return .synced
         } catch {
             // A deterministic rejection (400/403/404) will never succeed, so
@@ -422,18 +567,54 @@ final class SubscriptionService: ObservableObject {
             // StoreKit on every single launch, forever.
             if NetworkRetry.isNonRetryable(error) {
                 Log.subscription.error("Subscription sync permanently rejected: \(error.localizedDescription, privacy: .public)")
-                errorMessage = String(localized: "We couldn't activate your subscription. Please contact support.")
+                let http = error as? EdgeFunctionsClient.HTTPError
+                let message = Self.rejectionMessage(status: http?.status, body: http?.body)
+                report(message, surface: surfaceErrors, support: true)
                 return .permanentlyRejected
             }
             if attempt < maxRetries {
                 let delay = UInt64(pow(2.0, Double(attempt))) * 1_000_000_000 // exponential backoff
                 try? await Task.sleep(nanoseconds: delay)
-                return await syncSubscriptionToBackend(transaction, attempt: attempt + 1)
+                return await syncSubscriptionToBackend(
+                    transaction,
+                    signedTransaction: signedTransaction,
+                    surfaceErrors: surfaceErrors,
+                    attempt: attempt + 1
+                )
             }
             Log.subscription.error("Failed to sync subscription after \(maxRetries, privacy: .public) attempts: \(error.localizedDescription, privacy: .public)")
-            errorMessage = String(localized: "Subscription activated. We're still finishing setup and will retry shortly.")
+            report(
+                String(localized: "Your purchase went through. We're still applying it to your family and will keep trying."),
+                surface: surfaceErrors,
+                support: false
+            )
             return .transientFailure
         }
+    }
+
+    private func report(_ message: String, surface: Bool, support: Bool) {
+        if surface {
+            errorMessage = message
+        } else {
+            syncIssue = message
+        }
+        needsSupport = support
+    }
+
+    /// Pure: plain words for a subscription the server refused (4xx). The raw
+    /// server text is never shown.
+    nonisolated static func rejectionMessage(status: Int?, body: String?) -> String {
+        let body = body ?? ""
+        if status == 409, body.contains("addon_unavailable") {
+            return String(localized: "Extra places can't be added to a plan yet. Please contact support about this purchase.")
+        }
+        if status == 409 || status == 403 {
+            return String(localized: "This App Store purchase belongs to a different Daily OK account. Sign in to that account, or contact support.")
+        }
+        if status == 404 {
+            return String(localized: "Your subscription isn't linked to a family yet. Create or join a family, then tap Restore Purchases. Contact support if this continues.")
+        }
+        return String(localized: "We couldn't apply your subscription to your family. Please contact support.")
     }
 
     /// Get the current Supabase user's UUID to link with the StoreKit transaction

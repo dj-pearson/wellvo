@@ -5,6 +5,23 @@ import { jwtVerify, createRemoteJWKSet } from "jose";
 interface LinkAppleIdRequest {
   identity_token: string;
   nonce: string;
+  /**
+   * Optional (2026-09-27): the RAW nonce whose SHA-256 the app put in the
+   * Apple request. `nonce` alone proves nothing — it is the hashed value,
+   * which anyone holding the identity token can read out of the token itself.
+   * Only the device that started the sign-in knows the raw value, so a
+   * captured token can't be replayed to attach someone's Apple ID to another
+   * account. Builds that don't send it keep the old check — so while the
+   * field is optional a replayer can simply omit it; this only protects
+   * anything once it is required (after MIN_SUPPORTED_IOS_APP_VERSION covers
+   * the builds that send it).
+   */
+  raw_nonce?: string;
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 const APPLE_ISSUER = "https://appleid.apple.com";
@@ -45,7 +62,7 @@ export async function handleLinkAppleId(
     );
   }
 
-  const { identity_token, nonce } = body;
+  const { identity_token, nonce, raw_nonce } = body;
   if (!identity_token || !nonce) {
     return new Response(
       JSON.stringify({ error: "identity_token and nonce are required" }),
@@ -65,6 +82,13 @@ export async function handleLinkAppleId(
     // Apple includes the SHA256-hashed nonce in the token; the client sends
     // the same hash so we can compare directly.
     if (!payload.nonce || payload.nonce !== nonce) {
+      return new Response(
+        JSON.stringify({ error: "Nonce mismatch" }),
+        { status: 400, headers }
+      );
+    }
+
+    if (typeof raw_nonce === "string" && raw_nonce.length > 0 && (await sha256Hex(raw_nonce)) !== payload.nonce) {
       return new Response(
         JSON.stringify({ error: "Nonce mismatch" }),
         { status: 400, headers }

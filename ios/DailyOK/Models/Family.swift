@@ -53,6 +53,10 @@ struct Family: Codable, Identifiable {
     var maxReceivers: Int
     var maxViewers: Int
     let createdAt: Date
+    /// Who pays for this family's plan (00059). Optional: nil on older servers,
+    /// free families, and until the next purchase sync. After an ownership
+    /// transfer it stays the ex-owner while their subscription covers it.
+    var billingUserId: UUID? = nil
 
     enum CodingKeys: String, CodingKey {
         case id, name
@@ -64,6 +68,7 @@ struct Family: Codable, Identifiable {
         case maxReceivers = "max_receivers"
         case maxViewers = "max_viewers"
         case createdAt = "created_at"
+        case billingUserId = "billing_user_id"
     }
 
     /// True once a grandfathered Free-tier family's free window has lapsed
@@ -341,5 +346,209 @@ extension FamilyRoster {
             lines.append("Using a different phone, an iPad, or no phone number? Enter this setup code in the app: \(code)")
         }
         return lines.joined(separator: "\n")
+    }
+}
+
+// MARK: - Settings: what the plan means (pure, tested)
+
+/// What the Settings tab says about the family's plan.
+///
+/// The Settings row used to show the StoreKit tier of whichever Apple ID is on
+/// this phone ("Family_plus"), not the family's plan. A new owner after a
+/// transfer, an owner on a second phone, or a plan bought on Android all read
+/// "Free" with a "View Plans" upsell, while the Family tab said otherwise. The
+/// family's plan (from the server) is what decides whether check-ins run, so
+/// that is what is shown; the Apple ID's own subscription is explained next to
+/// it only when the two disagree.
+enum PlanSummary {
+    struct Line: Equatable {
+        let title: String
+        let detail: String?
+        let needsAttention: Bool
+    }
+
+    static func line(for family: Family, now: Date = Date()) -> Line {
+        let plan = family.subscriptionTier.displayName
+        let day: (Date) -> String = { $0.formatted(.dateTime.month(.abbreviated).day()) }
+
+        if family.subscriptionTier == .free {
+            if let deadline = family.freeTierExpiresAt {
+                return deadline < now
+                    ? Line(title: plan, detail: String(localized: "Your free period has ended. Choose a plan to keep check-ins running."), needsAttention: true)
+                    : Line(title: plan, detail: String(localized: "Free until \(day(deadline)). Choose a plan before then to keep check-ins running."), needsAttention: false)
+            }
+            return Line(title: plan, detail: nil, needsAttention: false)
+        }
+
+        switch FamilyRoster.planState(family, now: now) {
+        case .active:
+            let detail = family.subscriptionExpiresAt.map { String(localized: "Paid through \(day($0))") }
+            return Line(title: plan, detail: detail, needsAttention: false)
+        case .renewSoon:
+            // grace_period: the store couldn't renew; check-ins keep running for
+            // the grace week after the paid period ends.
+            let stop = family.subscriptionExpiresAt.map { $0.addingTimeInterval(7 * 24 * 3600) }
+            let detail = stop.map { String(localized: "Payment issue. Check-ins stop on \(day($0)) unless the plan renews.") }
+                ?? String(localized: "Payment issue. Update your payment method to keep check-ins running.")
+            return Line(title: plan, detail: detail, needsAttention: true)
+        case .endsOn(let end):
+            return Line(title: plan, detail: String(localized: "Ends \(day(end))"), needsAttention: true)
+        case .expired:
+            return Line(title: plan, detail: String(localized: "Plan ended. Daily check-ins are paused until it's renewed."), needsAttention: true)
+        }
+    }
+
+    /// How the subscription on this phone's Apple ID relates to the family.
+    enum StoreRelation: Equatable {
+        /// Nothing to explain.
+        case consistent
+        /// The family is paid for by another member (e.g. the previous owner).
+        case paidByAnotherMember
+        /// The family is paid, but not by a subscription on this Apple ID
+        /// (another Apple ID, another phone, Android).
+        case paidElsewhere
+        /// This Apple ID has a plan the family doesn't show yet → Restore.
+        case notAppliedYet(SubscriptionTier)
+        /// This Apple ID pays, but not for this family (e.g. after handing the
+        /// family to someone else). Point to Manage Subscription.
+        case payingForNothing(SubscriptionTier)
+    }
+
+    static func storeRelation(
+        storeTier: SubscriptionTier,
+        family: Family?,
+        currentUserId: UUID?,
+        isOwner: Bool,
+        now: Date = Date()
+    ) -> StoreRelation {
+        guard let family else {
+            return storeTier == .free ? .consistent : .payingForNothing(storeTier)
+        }
+        let familyPaid = family.subscriptionTier != .free && FamilyRoster.planState(family, now: now) != .expired
+        let payerIsMe = family.billingUserId == nil || family.billingUserId == currentUserId
+
+        if storeTier == .free {
+            guard familyPaid else { return .consistent }
+            if !payerIsMe { return isOwner ? .paidByAnotherMember : .consistent }
+            return isOwner ? .paidElsewhere : .consistent
+        }
+
+        // This Apple ID has a subscription.
+        if !isOwner && !(family.billingUserId == currentUserId) {
+            return .payingForNothing(storeTier)
+        }
+        if !familyPaid || rank(family.subscriptionTier) < rank(storeTier) {
+            return .notAppliedYet(storeTier)
+        }
+        return .consistent
+    }
+
+    static func relationMessage(_ relation: StoreRelation) -> String? {
+        switch relation {
+        case .consistent:
+            return nil
+        case .paidByAnotherMember:
+            return String(localized: "Another family member pays for this plan. You don't need to buy one. If you'd like to take it over, you can choose a plan below.")
+        case .paidElsewhere:
+            return String(localized: "This plan was bought with a different Apple ID or on another device. Manage it from there.")
+        case .notAppliedYet(let tier):
+            return String(localized: "Your Apple ID has a \(tier.displayName) subscription that isn't applied to this family yet. Tap Restore Purchases.")
+        case .payingForNothing(let tier):
+            return String(localized: "Your Apple ID is still subscribed to \(tier.displayName), but it doesn't pay for a family you own. If you don't need it, cancel it in Manage Subscription.")
+        }
+    }
+
+    private static func rank(_ tier: SubscriptionTier) -> Int {
+        switch tier {
+        case .free: return 0
+        case .caregiver: return 1
+        case .family: return 2
+        case .familyPlus: return 3
+        }
+    }
+
+    /// Places a plan includes, as the server grants them
+    /// (subscription-policy.ts TIER_MAP). Free (legacy) → nil.
+    static func seats(for tier: SubscriptionTier) -> (people: Int, coCaregivers: Int)? {
+        switch tier {
+        case .free: return nil
+        case .caregiver: return (1, 3)
+        case .family: return (3, 5)
+        case .familyPlus: return (6, 10)
+        }
+    }
+
+    static func seatsLine(people: Int, coCaregivers: Int) -> String {
+        let p = people == 1
+            ? String(localized: "Check on 1 person")
+            : String(localized: "Check on up to \(people) people")
+        let c = coCaregivers == 1
+            ? String(localized: "1 co-caregiver")
+            : String(localized: "\(coCaregivers) co-caregivers")
+        return "\(p) · \(c)"
+    }
+
+    /// Retention: a shorter window deletes older history for everyone.
+    static func retentionShortens(from loaded: Int?, to new: Int) -> Bool {
+        guard let loaded else { return false }
+        return new < loaded
+    }
+
+    /// The day before which check-ins are deleted by a retention window.
+    static func retentionCutoff(days: Int, now: Date = Date()) -> Date {
+        Calendar.current.date(byAdding: .day, value: -days, to: now) ?? now
+    }
+
+    /// File name for a data export, e.g. "DailyOK-export-2026-09-27.json".
+    static func exportFileName(now: Date = Date(), calendar: Calendar = .current) -> String {
+        let c = calendar.dateComponents([.year, .month, .day], from: now)
+        return String(format: "DailyOK-export-%04d-%02d-%02d.json", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+    }
+}
+
+// MARK: - Account copy by role (pure, tested)
+
+enum AccountCopy {
+    /// Sign-out confirmation. Signing out deactivates this phone's push token,
+    /// so for anyone who gets missed-check-in alerts that is the thing to say.
+    static func signOutMessage(role: UserRole?) -> String {
+        switch role {
+        case .owner, .viewer:
+            return String(localized: "While you're signed out, this iPhone won't alert you if someone misses a check-in. Sign back in to get alerts again.")
+        case .receiver:
+            return String(localized: "You'll stop receiving check-in notifications until you sign back in.")
+        case .none:
+            return String(localized: "Are you sure you want to sign out?")
+        }
+    }
+
+    /// What deleting the account does, in the user's role.
+    static func deleteMessage(role: UserRole?, hasStoreSubscription: Bool) -> String {
+        var text: String
+        switch role {
+        case .owner:
+            text = String(localized: "This permanently deletes your account and your family: everyone's check-in history, schedules, care notes and alerts. The people you check on will stop getting check-ins, and co-caregivers will stop getting alerts.")
+        case .viewer:
+            text = String(localized: "This permanently deletes your account and removes you from the family. You'll stop getting missed-check-in alerts. The family and its history stay with the owner.")
+        case .receiver:
+            text = String(localized: "This permanently deletes your account and your check-in history, and removes you from the family. You'll stop getting check-ins, and your family won't be alerted about you anymore.")
+        case .none:
+            text = String(localized: "This permanently deletes your account and all of your data.")
+        }
+        if hasStoreSubscription {
+            text += " " + String(localized: "Your App Store subscription is not cancelled by this. Cancel it in Manage Subscription, or Apple will keep charging you.")
+        }
+        return text
+    }
+
+    /// Plain words for a failed Delete Account / Export (never the raw server
+    /// or PostgREST text).
+    static func failureMessage(for error: Error, action: String) -> String {
+        if let urlError = error as? URLError,
+           [.notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotConnectToHost, .cannotFindHost, .dataNotAllowed]
+            .contains(urlError.code) {
+            return String(localized: "You're offline, so we couldn't \(action). Check your connection and try again.")
+        }
+        return String(localized: "We couldn't \(action). Please try again. If it keeps happening, contact support at dailyok.net/support.")
     }
 }

@@ -16,6 +16,8 @@ struct ReceiverHomeView: View {
     @State private var showSignOutConfirmation = false
     @State private var showCelebration = false
     @State private var showHealthSharing = false
+    /// Export and account deletion (App Store 5.1.1(v)): receivers had neither.
+    @State private var showAccountSheet = false
     @ScaledMetric(relativeTo: .largeTitle) private var buttonDiameter: CGFloat = 200
     @ScaledMetric(relativeTo: .title) private var tapIconSize: CGFloat = 40
     @ScaledMetric(relativeTo: .title) private var tapTextSize: CGFloat = 28
@@ -181,6 +183,11 @@ struct ReceiverHomeView: View {
                         } label: {
                             Label("Activity Sharing", systemImage: "figure.walk")
                         }
+                        Button {
+                            showAccountSheet = true
+                        } label: {
+                            Label("Account & Privacy", systemImage: "person.crop.circle")
+                        }
                         Button(role: .destructive) {
                             showSignOutConfirmation = true
                         } label: {
@@ -206,6 +213,10 @@ struct ReceiverHomeView: View {
         }
         .sheet(isPresented: $showHealthSharing) {
             HealthSharingView()
+        }
+        .sheet(isPresented: $showAccountSheet) {
+            ReceiverAccountSheet()
+                .environmentObject(authViewModel)
         }
         .task {
             await viewModel.loadStatus()
