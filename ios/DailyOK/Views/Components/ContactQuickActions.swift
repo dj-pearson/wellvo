@@ -10,11 +10,18 @@ struct ContactQuickActions: View {
 
     /// Keep only the dialable characters so a formatted number like
     /// "(555) 123-4567" still produces a valid tel: URL.
-    private var dialable: String? {
+    private var dialable: String? { Self.dialableNumber(phone) }
+
+    static func dialableNumber(_ phone: String?) -> String? {
         guard let phone else { return nil }
         let allowed = Set("+0123456789")
         let cleaned = String(phone.filter { allowed.contains($0) })
         return cleaned.isEmpty ? nil : cleaned
+    }
+
+    /// `tel:` URL for a phone number, or nil when there's nothing dialable.
+    static func telURL(_ phone: String?) -> URL? {
+        dialableNumber(phone).flatMap { URL(string: "tel:\($0)") }
     }
 
     var body: some View {

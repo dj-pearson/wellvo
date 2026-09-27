@@ -56,6 +56,20 @@ final class AppState: ObservableObject {
     /// action taken on someone's behalf has to report whether it happened.
     @Published var deepLinkOutcome: DeepLinkOutcome?
 
+    /// A stand-down asked for from outside the app — the escalation Live
+    /// Activity's "Stand down" button (`dailyok://standdown`). Never acted on
+    /// directly: the URL scheme is public, so any link (a text from a family
+    /// member, a web page) could otherwise cancel an escalation on the owner's
+    /// phone with one tap. The dashboard shows the same "Stop alerts for X?"
+    /// confirmation as the card, and only for a receiver who is escalating in
+    /// the owner's loaded family.
+    @Published var pendingStandDown: PendingStandDown?
+
+    struct PendingStandDown: Equatable {
+        let receiverId: UUID
+        let familyId: UUID
+    }
+
     struct DeepLinkOutcome: Identifiable, Equatable {
         let id = UUID()
         let title: String

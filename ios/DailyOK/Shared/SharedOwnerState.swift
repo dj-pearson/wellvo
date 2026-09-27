@@ -6,9 +6,13 @@ import Foundation
 struct SharedOwnerReceiver: Codable, Identifiable, Equatable {
     var id: String
     var name: String
-    /// "checked_in" | "pending" | "missed" | "no_data"
+    /// "checked_in" | "pending" | "missed" | "no_data" | "needs_help" |
+    /// "upcoming" (nothing due yet today)
     var status: String
     var lastCheckInAt: Date?
+    /// When `status` was computed. Optional so snapshots written by older
+    /// builds still decode. Used to day-scope "upcoming".
+    var statusDate: Date? = nil
 
     /// The status as it stands on `now`, rather than as it stood when the
     /// snapshot was written.
@@ -28,12 +32,25 @@ struct SharedOwnerReceiver: Codable, Identifiable, Equatable {
     /// Deliberately never promotes to "missed": whether a window has elapsed is
     /// the server's call, and a widget guessing it would invent an escalation
     /// nobody raised.
+    ///
+    /// "needs_help" is day-scoped the same way (it IS today's check-in, one
+    /// that asked for help), and so is "upcoming": "not due yet" computed
+    /// yesterday says nothing about today.
     func status(asOf now: Date = Date(), calendar: Calendar = .current) -> String {
-        guard status == "checked_in" else { return status }
-        guard let lastCheckInAt, calendar.isDate(lastCheckInAt, inSameDayAs: now) else {
-            return "pending"
+        switch status {
+        case "checked_in", "needs_help":
+            guard let lastCheckInAt, calendar.isDate(lastCheckInAt, inSameDayAs: now) else {
+                return "pending"
+            }
+            return status
+        case "upcoming":
+            guard let statusDate, calendar.isDate(statusDate, inSameDayAs: now) else {
+                return "pending"
+            }
+            return status
+        default:
+            return status
         }
-        return status
     }
 
     /// The check-in time, only when it belongs to `now`'s day — so a stale
@@ -56,11 +73,13 @@ struct SharedOwnerState: Codable, Equatable {
         receivers.filter { $0.status(asOf: now, calendar: calendar) == "checked_in" }.count
     }
 
-    /// The receiver an owner most wants to see first: a missed one, else a
-    /// pending one, else the first. Ordered on the day-scoped status so a
-    /// stale "checked in" cannot outrank someone who genuinely has not answered.
+    /// The receiver an owner most wants to see first: one who asked for help,
+    /// else a missed one, else a pending one, else the first. Ordered on the
+    /// day-scoped status so a stale "checked in" cannot outrank someone who
+    /// genuinely has not answered.
     func mostRelevant(asOf now: Date = Date(), calendar: Calendar = .current) -> SharedOwnerReceiver? {
-        receivers.first(where: { $0.status(asOf: now, calendar: calendar) == "missed" })
+        receivers.first(where: { $0.status(asOf: now, calendar: calendar) == "needs_help" })
+            ?? receivers.first(where: { $0.status(asOf: now, calendar: calendar) == "missed" })
             ?? receivers.first(where: { $0.status(asOf: now, calendar: calendar) == "pending" })
             ?? receivers.first
     }

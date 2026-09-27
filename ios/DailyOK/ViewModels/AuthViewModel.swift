@@ -39,7 +39,15 @@ struct SignOutDependencies {
             resetBiometric: { await BiometricService.shared.reset() },
             stopHeartbeat: { HeartbeatService.shared.stop() },
             resetReconcileLatch: { SubscriptionService.shared.resetReconcileLatch() },
-            clearSharedSession: { SharedCheckInPublisher.clear() }
+            clearSharedSession: {
+                SharedCheckInPublisher.clear()
+                // The owner widget (incl. the Lock Screen accessory) and any
+                // escalation Live Activity show the family's names, statuses
+                // and a receiver's phone number — none of it may outlive the
+                // session on a shared, handed-down or sold phone.
+                SharedOwnerPublisher.clear()
+                EscalationActivityManager.endAll()
+            }
         )
     }
 }

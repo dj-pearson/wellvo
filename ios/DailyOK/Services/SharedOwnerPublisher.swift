@@ -5,15 +5,17 @@ import WidgetKit
 /// owner status widget. Called by the dashboard after it loads/refreshes.
 enum SharedOwnerPublisher {
     static func publish(_ cards: [ReceiverStatusCard]) {
+        let now = Date()
         let receivers = cards.map { card in
             SharedOwnerReceiver(
                 id: card.id.uuidString,
                 name: card.name,
                 status: statusString(card.status),
-                lastCheckInAt: card.lastCheckIn
+                lastCheckInAt: card.lastCheckIn,
+                statusDate: now
             )
         }
-        SharedOwnerStore.save(SharedOwnerState(receivers: receivers, updatedAt: Date()))
+        SharedOwnerStore.save(SharedOwnerState(receivers: receivers, updatedAt: now))
         WidgetCenter.shared.reloadAllTimelines()
     }
 
@@ -28,6 +30,8 @@ enum SharedOwnerPublisher {
         case .pending: return "pending"
         case .missed: return "missed"
         case .noData: return "no_data"
+        case .needsHelp: return "needs_help"
+        case .upcoming: return "upcoming"
         }
     }
 }

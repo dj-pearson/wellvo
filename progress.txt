@@ -4728,3 +4728,161 @@ background, offline queue without network lookups, stale reminders).
   NOT compiled here (Google Maven blocked). The next CI run is the first real
   compile in months; expect a round of fixes. Two independent compile-review
   passes were run instead.
+
+================================================================================
+2026-09-27 — iOS function deep dive: Owner Dashboard tab
+================================================================================
+
+What the dashboard must guarantee: every card tells the truth about today in
+the receiver's own day (never green over a help request or a live
+escalation, never red for something already answered), owner actions report
+what actually happened, and viewers see the same truth without owner-only
+controls. Four reviewer passes (UI/UX, break-it, spoof, product); every
+finding checked against the code first. All were confirmed. The realtime
+channel-reuse finding could not be confirmed against a pinned
+supabase-swift version, so it was mitigated rather than fixed.
+
+FIXED
+
+  - Stale "Missed": a missed request is never closed server-side. One miss
+    last week came back as "Missed — alerts were sent" (and started a Live
+    Activity) every morning. A request now counts as answered by any later
+    check-in, not only one from today.
+  - "Stop alerts" did not stick: the banner and Live Activity came back on
+    the next reload, and on a Missed card nothing changed at all.
+    cancel-escalation now records stood_down_at/by on pending AND missed
+    rows. The app treats a stood-down request as resolved and shows
+    "Alerts stopped at …". On an older backend it infers a stand-down from a
+    cleared escalation clock. Success haptic and VoiceOver announcement.
+  - "Need help" / "Call me" / kid SOS showed a green "Checked In". There is a
+    new Needs Help status: red, first in the list, with a Call button and
+    "<caregiver> is handling this" once claimed. The widget gets "needs_help"
+    and ranks it first.
+  - Every card warned "hasn't enabled notifications", because owners can't
+    read push_tokens under RLS. A new RPC, family_receiver_push_status,
+    returns yes/no only. When the answer is unknown, no warning is shown.
+  - Viewers were shown Check-on, Stand-down and the dismiss X; all three
+    always failed. Their empty state promised a walkthrough they could never
+    reach. Viewers now get read-only cards (they still see the escalation
+    text and can call, message and add notes), no X, and their own copy.
+    Viewers could not read checkin_requests at all, so Missed showed as
+    Pending for them; there is now an additive SELECT policy.
+  - Stand-down deep link (spoofable): tapping the Dynamic Island, or any
+    crafted dailyok://standdown link, cancelled an escalation with no
+    confirmation. The island now opens the dashboard. The link now only asks
+    "Stop alerts for X?", and only when that receiver is escalating in the
+    owner's loaded family.
+  - Sign-out left names, statuses and a phone number on the Lock Screen
+    widget and Live Activity. Both are now cleared on sign-out.
+  - Losing the family (removed viewer, deleted family) kept the old cards
+    and widget. They are now cleared, the Live Activity is ended and
+    realtime is torn down. A missing session counts as a failed refresh, not
+    "no family".
+  - If the request lookup failed (try?), the card showed "Checked In" over a
+    running escalation. It now fails the load instead.
+  - A realtime event that arrived during a load was dropped, so the card
+    stayed on Pending after a check-in. An extra reload pass now runs.
+  - Every failed background refresh popped a modal. Refresh failures now
+    show a non-modal "showing status from 9:14 — tap to retry" strip. The
+    alert is kept for failed owner actions.
+  - "Request sent" was shown even when no device was notified, and repeated
+    taps started parallel escalation chains. on-demand-checkin now reuses an
+    open request from the last 5 minutes, validates UUIDs, and returns
+    delivered_devices / deduplicated (optional fields). The card shows
+    "Saved, but <name>'s phone couldn't be notified. Call instead?". The
+    button no longer resets mid-send.
+  - Alert dismiss: a viewer's X silently did nothing and the alert came
+    back. The update now returns the rows it changed, so a 0-row update is
+    reported as an error. An urgent alert can't be dismissed until someone
+    has claimed it. "I've got this" now uses acknowledge_alert_v2 (claims
+    only if unclaimed, returns the current holder; falls back to v1).
+    Release is shown only to the person who claimed it, or the owner.
+  - Streak showed 0 every morning. It now uses the shared Streaks rule, the
+    same one the receiver's home screen uses.
+  - "Active today" was keyed on client-writable updated_at. It now uses
+    signal_date in the receiver's time zone.
+
+ADDED
+
+  - Not Due Yet state, plus a one-line status detail: "Due at 10:00 AM",
+    "No check-in scheduled today", "Check-ins are paused", "Asked at 9:00 AM
+    · no answer yet", "Snoozed until 9:45 AM", "No answer since …",
+    "Checked in at …".
+  - Receiver-side times are shown in the receiver's zone, with the zone
+    abbreviation when it differs from the owner's. The timeline bar uses the
+    receiver's calendar.
+  - Headline sentence at the top ("Everyone's checked in today" / "Mom asked
+    for help at 9:12 AM"); tapping it scrolls to that card. Cards are sorted
+    by urgency, then by name (the order was undefined before). The weekly
+    card moved below the cards. The timeline only shows with 3 or more
+    receivers.
+  - The escalation banner is in plain language: what has happened and when
+    the next step is (from next_escalation_at). "Escalation is off" tag.
+  - Phone health: "Phone active 12 min ago · 64% battery", with a warning
+    when the phone may be off.
+  - Weekly: "—" / "Not enough data yet" instead of 100% Good when nothing
+    was scheduled. The bubble is now labelled "Days". Anyone under 80% is
+    named ("Dad: 3 of 7 days").
+  - Contrast: deep amber for Pending text, deep button and badge tints so
+    white labels pass, 44pt Release / "I've got this", relative time on
+    alerts, alert text no longer gray on a tinted surface. The owner widget
+    shows "Updated … ago" once the snapshot is an hour old.
+  - The first-receiver walkthrough flag is per user, not per device.
+
+BACKEND (additive, CLAUDE.md §A)
+
+  supabase/migrations/00055_owner_dashboard_truth.sql:
+  - Nullable columns checkin_requests.stood_down_at / stood_down_by. The
+    00051 client-write guard now pins them, so a receiver can't silence the
+    banner on their own row.
+  - Viewer SELECT policy on checkin_requests.
+  - New RPCs: family_receiver_push_status, acknowledge_alert_v2.
+  Edge: cancel-escalation (still works before the migration; missing-column
+  fallback), on-demand-checkin. Response fields are additive only.
+
+TESTS
+
+  DashboardViewModelTests: stale missed, stand-down (recorded and inferred),
+  help kinds, not-due / off-day / paused, schedule state, status detail,
+  receiver-zone labels, phone health, lagging receivers, alert ordering,
+  card ordering, streak rule. The test helper now schedules a next step by
+  default, as a live escalation always has one.
+  SharedOwnerStateTests: needs_help and upcoming are day-scoped;
+  needs_help outranks missed.
+
+DEFERRED
+
+  - Receivers can INSERT checkins directly (backdating, fake location), and
+    owners can INSERT checkin_requests directly (no membership check,
+    unlimited SMS). Blocking either tightens RLS/triggers, so it needs a
+    release boundary. First confirm that no shipped build writes them (no
+    current iOS or Android code does).
+  - A guard on alerts for owners' whole-row UPDATE: same reason.
+  - Per-user alert dismissal (alert_dismissals table). Hiding X for viewers
+    and for unclaimed urgent alerts covers the harm for now.
+  - Notifying viewers when an owner stands down, and an optional note on
+    stand-down.
+  - Per-receiver non-fatal loads (one receiver's failure still fails the
+    refresh; it now shows as the inline strip, not a modal).
+  - removeAllChannels on sign-out. The unique topic per subscription avoids
+    the stale reuse; old channels are just idle.
+  - Owner widget day-scoping in the receiver's zone; kid quick replies
+    ("On my way"); schedule-aware streak (skipping unscheduled days).
+
+  Not compiled (no Xcode, no swiftc, no deno). The tree-sitter Swift grammar
+  parses every changed file cleanly, apart from constructs it already fails
+  on in the committed code.
+
+  Adversarial review pass (same tree, still not compiled):
+  - acknowledge_alert_v2 fell back to v1 on ANY error, so an offline or
+    unauthorized v2 call silently retried through last-writer-wins v1. Now it
+    falls back only when the RPC is missing (PGRST202 / "Could not find").
+  - A stood_down_at on a PENDING request whose escalation clock was re-armed
+    (receiver snoozed, or undid a check-in) read as "Alerts stopped" while
+    escalation was running again. The stand-down record now counts only for
+    missed rows or while next_escalation_at is NULL. Test added.
+  - Walkthrough flag moved to a per-user key with no shim (CLAUDE.md §C);
+    the legacy device-wide flag is now carried over once.
+  - Losing the family now also clears the stale-refresh strip/timestamp.
+  - Open: "Due at" ignores quiet-hours deferral (ReceiverViewModel's
+    deferPastQuietHours is private).

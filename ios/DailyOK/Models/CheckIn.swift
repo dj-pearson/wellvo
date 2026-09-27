@@ -274,6 +274,11 @@ struct CheckInRequest: Codable, Identifiable {
     /// backends without the column.
     var snoozedUntil: Date?
     var snoozeCount: Int?
+    /// When a caregiver stood down this request's escalation ("I've reached
+    /// them"). Server-owned (00055); nil on older backends, which the dashboard
+    /// covers by inferring a stand-down from a cleared escalation clock.
+    var stoodDownAt: Date?
+    var stoodDownBy: UUID?
 
     enum CodingKeys: String, CodingKey {
         case id, type, status
@@ -286,5 +291,7 @@ struct CheckInRequest: Codable, Identifiable {
         case nextEscalationAt = "next_escalation_at"
         case snoozedUntil = "snoozed_until"
         case snoozeCount = "snooze_count"
+        case stoodDownAt = "stood_down_at"
+        case stoodDownBy = "stood_down_by"
     }
 }

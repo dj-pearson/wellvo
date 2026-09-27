@@ -22,7 +22,7 @@ private func color(for status: String) -> Color {
     switch status {
     case "checked_in": return .green
     case "pending": return .yellow
-    case "missed": return .red
+    case "missed", "needs_help": return .red
     default: return .gray
     }
 }
@@ -32,6 +32,8 @@ private func icon(for status: String) -> String {
     case "checked_in": return "checkmark.circle.fill"
     case "pending": return "clock.fill"
     case "missed": return "exclamationmark.circle.fill"
+    case "needs_help": return "exclamationmark.bubble.fill"
+    case "upcoming": return "calendar.badge.clock"
     default: return "minus.circle.fill"
     }
 }
@@ -84,6 +86,7 @@ struct OwnerStatusView: View {
                 }
             }
             Spacer(minLength: 0)
+            ageFootnote(s)
         }
     }
 
@@ -108,6 +111,16 @@ struct OwnerStatusView: View {
                 }
             }
             Spacer(minLength: 0)
+            ageFootnote(s)
+        }
+    }
+
+    /// The snapshot only changes when the phone app runs. Say how old it is
+    /// once that matters, so a status from hours ago isn't read as live.
+    @ViewBuilder private func ageFootnote(_ s: SharedOwnerState) -> some View {
+        if now.timeIntervalSince(s.updatedAt) >= 60 * 60 {
+            Text("Updated \(s.updatedAt, style: .relative) ago")
+                .font(.caption2).foregroundStyle(.secondary)
         }
     }
 
@@ -115,6 +128,8 @@ struct OwnerStatusView: View {
         switch status {
         case "pending": return "Pending"
         case "missed": return "Missed"
+        case "needs_help": return "Needs help"
+        case "upcoming": return "Not due yet"
         case "no_data": return "—"
         default: return ""
         }

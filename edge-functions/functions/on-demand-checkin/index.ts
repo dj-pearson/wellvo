@@ -2,6 +2,15 @@ import { supabaseAdmin } from "../../shared/supabase.ts";
 import { sendPushNotification, buildCheckinPayload } from "../../shared/apns.ts";
 import { sendFCMNotification, buildFCMCheckinPayload } from "../../shared/fcm.ts";
 import type { AuthResult } from "../../shared/auth.ts";
+import { isValidUUID } from "../../shared/validation.ts";
+
+/**
+ * A second "Check on" tap within this window re-sends the push for the request
+ * that is already open instead of starting another, independent escalation
+ * chain (each pending row escalates on its own: reminder, owner alert, viewer
+ * alert + SMS).
+ */
+const REUSE_OPEN_REQUEST_MS = 5 * 60 * 1000;
 
 interface OnDemandRequest {
   receiver_id: string;
@@ -11,6 +20,13 @@ interface OnDemandRequest {
 export async function handleOnDemandCheckin(req: Request, auth: AuthResult): Promise<Response> {
   const body: OnDemandRequest = await req.json();
   const { receiver_id, family_id } = body;
+
+  if (!receiver_id || !isValidUUID(receiver_id) || !family_id || !isValidUUID(family_id)) {
+    return new Response(
+      JSON.stringify({ error: "Valid receiver_id and family_id are required" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
   // Get the family and verify ownership
   const { data: family } = await supabaseAdmin
@@ -69,27 +85,50 @@ export async function handleOnDemandCheckin(req: Request, auth: AuthResult): Pro
 
   if (settings) gracePeriod = settings.grace_period_minutes;
 
-  // Create check-in request
-  const { data: request, error: requestError } = await supabaseAdmin
+  // Reuse a still-escalating on-demand request raised moments ago (repeated
+  // taps) rather than stacking parallel escalation chains. A stood-down
+  // request (next_escalation_at NULL) is never reused.
+  const reuseSince = new Date(Date.now() - REUSE_OPEN_REQUEST_MS).toISOString();
+  const { data: openRequests } = await supabaseAdmin
     .from("checkin_requests")
-    .insert({
-      family_id,
-      receiver_id,
-      requested_by: family.owner_id,
-      type: "on_demand",
-      status: "pending",
-      escalation_step: 0,
-      next_escalation_at: new Date(Date.now() + gracePeriod * 60 * 1000).toISOString(),
-    })
-    .select()
-    .single();
+    .select("id")
+    .eq("family_id", family_id)
+    .eq("receiver_id", receiver_id)
+    .eq("type", "on_demand")
+    .eq("status", "pending")
+    .not("next_escalation_at", "is", null)
+    .gte("created_at", reuseSince)
+    .order("created_at", { ascending: false })
+    .limit(1);
 
-  if (requestError || !request) {
-    return new Response(
-      JSON.stringify({ error: "Failed to create check-in request" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+  let request: { id: string } | null = openRequests?.[0] ?? null;
+  const deduplicated = request != null;
+
+  if (!request) {
+    // Create check-in request
+    const { data: created, error: requestError } = await supabaseAdmin
+      .from("checkin_requests")
+      .insert({
+        family_id,
+        receiver_id,
+        requested_by: family.owner_id,
+        type: "on_demand",
+        status: "pending",
+        escalation_step: 0,
+        next_escalation_at: new Date(Date.now() + gracePeriod * 60 * 1000).toISOString(),
+      })
+      .select()
+      .single();
+
+    if (requestError || !created) {
+      return new Response(
+        JSON.stringify({ error: "Failed to create check-in request" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    request = created;
   }
+  const requestId: string = request.id;
 
   // Send push notification
   const { data: tokens } = await supabaseAdmin
@@ -98,10 +137,11 @@ export async function handleOnDemandCheckin(req: Request, auth: AuthResult): Pro
     .eq("user_id", receiver_id)
     .eq("is_active", true);
 
+  let deliveredDevices = 0;
   if (tokens?.length) {
     const displayName = owner?.display_name || "Your family";
-    const apnsPayload = buildCheckinPayload(displayName, request.id, "on_demand");
-    const fcmPayload = buildFCMCheckinPayload(displayName, request.id, receiver_id, "on_demand");
+    const apnsPayload = buildCheckinPayload(displayName, requestId, "on_demand");
+    const fcmPayload = buildFCMCheckinPayload(displayName, requestId, receiver_id, "on_demand");
 
     const results = await Promise.all(
       tokens.map((t: { token: string; platform: string }) => {
@@ -113,6 +153,8 @@ export async function handleOnDemandCheckin(req: Request, auth: AuthResult): Pro
         });
       })
     );
+
+    deliveredDevices = results.filter((r) => r.success).length;
 
     // Deactivate expired/invalid tokens
     for (let i = 0; i < results.length; i++) {
@@ -133,13 +175,20 @@ export async function handleOnDemandCheckin(req: Request, auth: AuthResult): Pro
   // Log notification
   await supabaseAdmin.from("notification_log").insert({
     user_id: receiver_id,
-    checkin_request_id: request.id,
+    checkin_request_id: requestId,
     type: "checkin_reminder",
-    status: "sent",
+    status: deliveredDevices > 0 ? "sent" : "failed",
   });
 
   return new Response(
-    JSON.stringify({ success: true, request_id: request.id }),
+    // `delivered_devices` and `deduplicated` are additive, optional fields: the
+    // app tells the owner when nothing could be notified ("call instead?").
+    JSON.stringify({
+      success: true,
+      request_id: requestId,
+      delivered_devices: deliveredDevices,
+      deduplicated,
+    }),
     { headers: { "Content-Type": "application/json" } }
   );
 }

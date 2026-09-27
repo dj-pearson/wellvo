@@ -124,4 +124,37 @@ final class SharedOwnerStateTests: XCTestCase {
             "Dad"
         )
     }
+
+    // MARK: - Help requests and "not due yet"
+
+    func testTodaysHelpRequestIsShown() {
+        let r = receiver("needs_help", "2026-03-10 08:15")
+        XCTAssertEqual(r.status(asOf: date("2026-03-10 21:00"), calendar: calendar), "needs_help")
+    }
+
+    /// Yesterday's help request is not today's status.
+    func testYesterdaysHelpRequestRevertsToPending() {
+        let r = receiver("needs_help", "2026-03-09 08:15")
+        XCTAssertEqual(r.status(asOf: date("2026-03-10 09:00"), calendar: calendar), "pending")
+    }
+
+    func testNotDueYetOnlyHoldsForTheDayItWasComputed() {
+        var r = receiver("upcoming", nil)
+        r.statusDate = date("2026-03-10 06:00")
+        XCTAssertEqual(r.status(asOf: date("2026-03-10 07:00"), calendar: calendar), "upcoming")
+        XCTAssertEqual(r.status(asOf: date("2026-03-11 07:00"), calendar: calendar), "pending")
+        // Written by an older build (no statusDate): don't trust it.
+        XCTAssertEqual(receiver("upcoming", nil).status(asOf: date("2026-03-10 07:00"), calendar: calendar), "pending")
+    }
+
+    func testAHelpRequestOutranksAMiss() {
+        let state = SharedOwnerState(
+            receivers: [
+                SharedOwnerReceiver(id: "1", name: "Dad", status: "missed", lastCheckInAt: nil),
+                SharedOwnerReceiver(id: "2", name: "Mom", status: "needs_help", lastCheckInAt: date("2026-03-10 08:00")),
+            ],
+            updatedAt: date("2026-03-10 08:00")
+        )
+        XCTAssertEqual(state.mostRelevant(asOf: date("2026-03-10 09:00"), calendar: calendar)?.name, "Mom")
+    }
 }

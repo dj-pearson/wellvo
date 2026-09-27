@@ -104,56 +104,26 @@ struct DailyOKApp: App {
             }
         case "standdown":
             // From an escalation Live Activity "Stand down" button. The custom
-            // URL scheme is public, so anything could invoke this — require an
-            // authenticated session before acting, and rely on the
-            // cancel-escalation edge function (which enforces caller == family
-            // owner) to reject anyone who isn't the owner of this family.
+            // URL scheme is public, so anything could invoke this — a crafted
+            // link texted to the owner would pass the server's owner check,
+            // because the owner's own phone is the caller. So this never
+            // cancels anything by itself: it opens the dashboard, which asks
+            // "Stop alerts for <name>?" — the same confirmation as the card —
+            // and only for a receiver who is escalating in the owner's family.
             guard let r = components.queryItems?.first(where: { $0.name == "receiver" })?.value,
                   let f = components.queryItems?.first(where: { $0.name == "family" })?.value,
                   let receiverId = UUID(uuidString: r), let familyId = UUID(uuidString: f) else {
                 Log.general.error("Ignoring standdown deep link: malformed receiver/family parameters")
+                appState.selectedTab = .dashboard
                 reportDeepLink(
-                    title: "Couldn't stand down",
-                    message: "That link was incomplete. Open the alert in Daily OK and stand down from there.",
+                    title: "Couldn't open that alert",
+                    message: "That link was incomplete. Alerts are still running — stand down from the receiver's card if you've reached them.",
                     isFailure: true
                 )
                 return
             }
-            Task {
-                guard (try? await SupabaseService.shared.client.auth.session) != nil else {
-                    Log.general.error("Ignoring standdown deep link: no authenticated session")
-                    reportDeepLink(
-                        title: "Sign in to stand down",
-                        message: "Daily OK needs you signed in before it can cancel this alert.",
-                        isFailure: true
-                    )
-                    return
-                }
-                do {
-                    try await CheckInService.shared.cancelEscalation(receiverId: receiverId, familyId: familyId)
-                    // End the Live Activity immediately on success so the
-                    // owner isn't left with a running overdue timer for a
-                    // resolved escalation (US-IOS081).
-                    await MainActor.run {
-                        EscalationActivityManager.end(receiverId: receiverId.uuidString)
-                    }
-                    reportDeepLink(
-                        title: "Stood down",
-                        message: "This alert is cancelled. Nobody else will be contacted about it.",
-                        isFailure: false
-                    )
-                } catch {
-                    Log.general.error("Standdown deep link failed: \(error.localizedDescription, privacy: .public)")
-                    // Say plainly that the escalation is STILL RUNNING. Silence
-                    // here reads as success, and the owner stops watching an
-                    // alert that is still live.
-                    reportDeepLink(
-                        title: "Still escalating",
-                        message: "Daily OK couldn't cancel this alert — it is still running. Check your connection and try again from the alert in the app.",
-                        isFailure: true
-                    )
-                }
-            }
+            appState.selectedTab = .dashboard
+            appState.pendingStandDown = AppState.PendingStandDown(receiverId: receiverId, familyId: familyId)
         default:
             break
         }

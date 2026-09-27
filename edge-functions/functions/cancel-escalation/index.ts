@@ -55,14 +55,33 @@ export async function handleCancelEscalation(req: Request, auth: AuthResult): Pr
     }
   }
 
-  // Stop escalation for any pending requests for this receiver in this family.
-  const { data: updated, error } = await supabaseAdmin
+  // Stop escalation for any pending requests for this receiver in this family,
+  // and record who stood down and when (00055) on pending AND missed rows so
+  // every caregiver's dashboard treats the request as resolved instead of
+  // re-showing the escalating banner on the next reload.
+  const stoodDownAt = new Date().toISOString();
+  const stoodDownBy = auth.isServiceRole ? null : auth.userId ?? null;
+
+  let { data: updated, error } = await supabaseAdmin
     .from("checkin_requests")
-    .update({ next_escalation_at: null })
+    .update({ next_escalation_at: null, stood_down_at: stoodDownAt, stood_down_by: stoodDownBy })
     .eq("family_id", family_id)
     .eq("receiver_id", receiver_id)
     .eq("status", "pending")
     .select("id");
+
+  // Deployed ahead of migration 00055: the columns don't exist yet. Never let
+  // that block the stand-down itself.
+  const missingColumns = isMissingStoodDownColumn(error);
+  if (missingColumns) {
+    ({ data: updated, error } = await supabaseAdmin
+      .from("checkin_requests")
+      .update({ next_escalation_at: null })
+      .eq("family_id", family_id)
+      .eq("receiver_id", receiver_id)
+      .eq("status", "pending")
+      .select("id"));
+  }
 
   if (error) {
     return new Response(
@@ -71,13 +90,40 @@ export async function handleCancelEscalation(req: Request, auth: AuthResult): Pr
     );
   }
 
+  // A missed request has nothing left to cancel, but "I've reached them" still
+  // resolves it for the family. Best-effort: the escalation itself is over.
+  let resolvedMissed = 0;
+  if (!missingColumns) {
+    const { data: missed } = await supabaseAdmin
+      .from("checkin_requests")
+      .update({ stood_down_at: stoodDownAt, stood_down_by: stoodDownBy })
+      .eq("family_id", family_id)
+      .eq("receiver_id", receiver_id)
+      .eq("status", "missed")
+      .is("stood_down_at", null)
+      .select("id");
+    resolvedMissed = missed?.length ?? 0;
+  }
+
   // Stand-down resolves the escalation — end any running owner Live Activity now
   // (e.g. one started on another of the owner's devices) so it stops showing a
   // stale "Overdue" timer even if that device's app is closed (US-IOS127).
   await endEscalationLiveActivities(family_id, receiver_id);
 
   return new Response(
-    JSON.stringify({ success: true, cancelled: updated?.length ?? 0 }),
+    // `cancelled` keeps its meaning (pending requests whose escalation stopped).
+    // `resolved_missed` and `stood_down_at` are additive, optional fields.
+    JSON.stringify({
+      success: true,
+      cancelled: updated?.length ?? 0,
+      resolved_missed: resolvedMissed,
+      stood_down_at: missingColumns ? null : stoodDownAt,
+    }),
     { headers: { "Content-Type": "application/json" } }
   );
+}
+
+function isMissingStoodDownColumn(error: { message?: string; code?: string } | null): boolean {
+  if (!error) return false;
+  return (error.message ?? "").includes("stood_down") || error.code === "PGRST204" || error.code === "42703";
 }

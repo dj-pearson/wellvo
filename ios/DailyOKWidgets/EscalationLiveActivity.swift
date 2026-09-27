@@ -105,7 +105,10 @@ struct EscalationLiveActivity: Widget {
             } minimal: {
                 Image(systemName: "exclamationmark.bubble.fill").foregroundStyle(brandOrange)
             }
-            .widgetURL(standDownURL(receiverId: context.attributes.receiverId, familyId: context.attributes.familyId))
+            // A tap on the island is "show me", never "stand down": it only
+            // opens the dashboard. Stand-down stays an explicit button, and even
+            // that asks for confirmation in the app.
+            .widgetURL(URL(string: "dailyok://dashboard"))
         }
     }
 }

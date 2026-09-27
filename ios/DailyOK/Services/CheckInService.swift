@@ -161,7 +161,8 @@ actor CheckInService {
 
     /// Owner "stand down" — stop the escalation chain for a receiver's pending
     /// request(s) after reaching them another way (call, in person).
-    func cancelEscalation(receiverId: UUID, familyId: UUID) async throws {
+    @discardableResult
+    func cancelEscalation(receiverId: UUID, familyId: UUID) async throws -> CancelEscalationResult {
         try await EdgeFunctionsClient.invoke(
             "cancel-escalation",
             body: [
@@ -206,6 +207,18 @@ actor CheckInService {
 
     /// Owner sends on-demand check-in request
     func sendOnDemandCheckIn(receiverId: UUID, familyId: UUID) async throws {
+        try await EdgeFunctionsClient.invoke(
+            "on-demand-checkin",
+            body: [
+                "receiver_id": receiverId.uuidString,
+                "family_id": familyId.uuidString,
+            ]
+        )
+    }
+
+    /// On-demand check-in that reports what the server could deliver, so the
+    /// dashboard doesn't claim "Request sent" when no phone was notified.
+    func requestOnDemandCheckIn(receiverId: UUID, familyId: UUID) async throws -> OnDemandCheckInResult {
         try await EdgeFunctionsClient.invoke(
             "on-demand-checkin",
             body: [
@@ -306,6 +319,38 @@ actor CheckInService {
             .execute()
             .value
         return checkIns
+    }
+}
+
+/// `on-demand-checkin` response. Every field is optional: older servers send
+/// only `success` / `request_id`.
+struct OnDemandCheckInResult: Decodable {
+    let success: Bool?
+    let requestId: String?
+    /// Devices the push actually reached. 0 = nothing could be notified.
+    let deliveredDevices: Int?
+    /// A request raised moments ago was re-sent instead of starting another.
+    let deduplicated: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case success, deduplicated
+        case requestId = "request_id"
+        case deliveredDevices = "delivered_devices"
+    }
+}
+
+/// `cancel-escalation` response. Optional fields: older servers send only
+/// `success` / `cancelled`.
+struct CancelEscalationResult: Decodable {
+    let success: Bool?
+    let cancelled: Int?
+    let resolvedMissed: Int?
+    let stoodDownAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case success, cancelled
+        case resolvedMissed = "resolved_missed"
+        case stoodDownAt = "stood_down_at"
     }
 }
 
