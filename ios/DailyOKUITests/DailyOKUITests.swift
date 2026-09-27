@@ -35,11 +35,9 @@ class DailyOKUITestCase: XCTestCase {
 
     /// Sign in using email/password via the Auth screen.
     func signInWithEmail(_ email: String, password: String) {
-        // Wait for auth screen to load
-        let emailToggle = app.buttons["Sign in with email instead"]
-        if waitForElement(emailToggle) {
-            emailToggle.tap()
-        }
+        // Email sign-in is always shown now (phone sign-in was retired, and
+        // with it the "Sign in with email instead" toggle this used to wait
+        // 10 seconds for).
 
         // Fill in email
         let emailField = app.textFields["Email"]

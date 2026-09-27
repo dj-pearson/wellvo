@@ -371,7 +371,9 @@ struct AccountHeaderSection: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(user.displayName)
                             .font(.body)
-                        if let identity = user.email ?? user.phone, !identity.isEmpty {
+                        // Phone-only profiles store email as "" (not nil), so pick the
+                        // first non-empty value rather than `email ?? phone`.
+                        if let identity = [user.email, user.phone].compactMap({ $0 }).first(where: { !$0.isEmpty }) {
                             Text(identity)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)

@@ -584,15 +584,19 @@ final class AuthViewModel: ObservableObject {
             return
         }
         isAddingEmail = true
+        defer { isAddingEmail = false }
         addEmailError = nil
         do {
             try await AuthService.shared.requestAddEmail(address)
+            // "Not now" (or a sign-out) while the request was in flight closed
+            // the prompt; don't bring it back.
+            guard addEmailStage == .enterEmail else { return }
             addEmailCode = ""
             addEmailStage = .enterCode
         } catch {
+            guard addEmailStage == .enterEmail else { return }
             addEmailError = Self.addEmailFailureMessage(error)
         }
-        isAddingEmail = false
     }
 
     func confirmAddEmailCode() async {
@@ -602,30 +606,32 @@ final class AuthViewModel: ObservableObject {
             return
         }
         isAddingEmail = true
+        defer { isAddingEmail = false }
         addEmailError = nil
         do {
             try await AuthService.shared.confirmAddedEmail(addEmailAddress, code: digits)
-            addEmailStage = .done
+            // Confirmed either way; show "done" only if the prompt is still up.
+            if addEmailStage == .enterCode { addEmailStage = .done }
             await refreshCurrentUserQuietly()
         } catch {
+            guard addEmailStage == .enterCode else { return }
             addEmailError = AuthService.isConnectivityError(error)
                 ? Self.offlineMessage
                 : String(localized: "That code is incorrect or has expired. Check the email, or send a new code.")
         }
-        isAddingEmail = false
     }
 
     /// The user tapped the link in the email instead of typing the code.
     func checkAddedEmailByLink() async {
         isAddingEmail = true
+        defer { isAddingEmail = false }
         addEmailError = nil
         if await AuthService.shared.refreshAddedEmailStatus() {
-            addEmailStage = .done
+            if addEmailStage == .enterCode { addEmailStage = .done }
             await refreshCurrentUserQuietly()
-        } else {
+        } else if addEmailStage == .enterCode {
             addEmailError = String(localized: "Not confirmed yet. Tap the link in the email, or type the code.")
         }
-        isAddingEmail = false
     }
 
     /// Back from the code step to fix the address.
@@ -824,6 +830,7 @@ final class AuthViewModel: ObservableObject {
         addEmailAddress = ""
         addEmailCode = ""
         addEmailError = nil
+        isAddingEmail = false
         addEmailDeferredThisLaunch = false
         clearFormFields()
     }

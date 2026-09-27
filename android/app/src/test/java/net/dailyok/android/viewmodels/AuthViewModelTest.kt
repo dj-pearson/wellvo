@@ -151,7 +151,9 @@ class AuthViewModelTest {
     @Test
     fun `wrong add-email code keeps the code step with an error`() = runTest {
         coEvery { authService.confirmAddedEmail(any(), any()) } throws DailyOKError.Auth("Invalid code.")
+        every { authService.signedInAccountLacksEmail() } returns true
         val vm = createViewModel()
+        vm.checkAccountHasEmail()
         vm.updateAddEmailAddress("mom@example.com")
         vm.sendAddEmailCode()
         advanceUntilIdle()
@@ -160,6 +162,20 @@ class AuthViewModelTest {
         advanceUntilIdle()
         assertEquals(AddEmailStage.EnterCode, vm.uiState.value.addEmailStage)
         assertTrue(vm.uiState.value.addEmailError!!.contains("incorrect"))
+    }
+
+    @Test
+    fun `not now while the code is being sent keeps the prompt closed`() = runTest {
+        every { authService.signedInAccountLacksEmail() } returns true
+        coEvery { authService.requestAddEmail(any()) } coAnswers { kotlinx.coroutines.delay(1_000) }
+        val vm = createViewModel()
+        vm.checkAccountHasEmail()
+        vm.updateAddEmailAddress("mom@example.com")
+        vm.sendAddEmailCode()
+        vm.deferAddEmail()
+        advanceUntilIdle()
+        assertEquals(AddEmailStage.Hidden, vm.uiState.value.addEmailStage)
+        assertFalse(vm.uiState.value.isAddingEmail)
     }
 
     @Test

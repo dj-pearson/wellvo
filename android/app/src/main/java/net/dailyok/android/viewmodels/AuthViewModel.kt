@@ -423,12 +423,22 @@ class AuthViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isAddingEmail = true, addEmailError = null)
             try {
                 authService.requestAddEmail(address)
+                // "Not now" (or a sign-out) while this was in flight closed the
+                // prompt; don't bring it back.
+                if (_uiState.value.addEmailStage != AddEmailStage.EnterEmail) {
+                    _uiState.value = _uiState.value.copy(isAddingEmail = false)
+                    return@launch
+                }
                 _uiState.value = _uiState.value.copy(
                     isAddingEmail = false,
                     addEmailCode = "",
                     addEmailStage = AddEmailStage.EnterCode
                 )
             } catch (e: DailyOKError) {
+                if (_uiState.value.addEmailStage != AddEmailStage.EnterEmail) {
+                    _uiState.value = _uiState.value.copy(isAddingEmail = false)
+                    return@launch
+                }
                 _uiState.value = _uiState.value.copy(
                     isAddingEmail = false,
                     addEmailError = e.localizedMessage ?: "Couldn't send the code. Check the address and try again."
@@ -447,8 +457,17 @@ class AuthViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isAddingEmail = true, addEmailError = null)
             try {
                 authService.confirmAddedEmail(state.addEmailAddress, state.addEmailCode)
-                _uiState.value = _uiState.value.copy(isAddingEmail = false, addEmailStage = AddEmailStage.Done)
+                // Confirmed either way; show "done" only if the prompt is still up.
+                val current = _uiState.value
+                _uiState.value = current.copy(
+                    isAddingEmail = false,
+                    addEmailStage = if (current.addEmailStage == AddEmailStage.EnterCode) AddEmailStage.Done else current.addEmailStage
+                )
             } catch (e: DailyOKError) {
+                if (_uiState.value.addEmailStage != AddEmailStage.EnterCode) {
+                    _uiState.value = _uiState.value.copy(isAddingEmail = false)
+                    return@launch
+                }
                 val message = if (e is DailyOKError.Network) e.localizedMessage
                     else "That code is incorrect or has expired. Check the email, or send a new code."
                 _uiState.value = _uiState.value.copy(isAddingEmail = false, addEmailError = message)
@@ -461,7 +480,10 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isAddingEmail = true, addEmailError = null)
             val confirmed = authService.refreshAddedEmailStatus()
-            _uiState.value = if (confirmed) {
+            val stillAsking = _uiState.value.addEmailStage == AddEmailStage.EnterCode
+            _uiState.value = if (!stillAsking) {
+                _uiState.value.copy(isAddingEmail = false)
+            } else if (confirmed) {
                 _uiState.value.copy(isAddingEmail = false, addEmailStage = AddEmailStage.Done)
             } else {
                 _uiState.value.copy(
