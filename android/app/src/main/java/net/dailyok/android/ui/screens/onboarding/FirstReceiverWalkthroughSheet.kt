@@ -459,7 +459,7 @@ private fun InviteSentStep(name: String, phone: String) {
 
         ReceiverFlowRow(1, Icons.Default.Sms, "Opens the text message you triggered.")
         ReceiverFlowRow(2, Icons.Default.ArrowDownward, "Taps the link to download Daily OK.")
-        ReceiverFlowRow(3, Icons.Default.Phone, "Signs in with the same phone number — no codes to type.")
+        ReceiverFlowRow(3, Icons.Default.Phone, "Signs in with Google or an email, then taps the link again (or types the setup code).")
         ReceiverFlowRow(4, Icons.Default.Notifications, "Allows notifications so they get the daily reminder.")
         ReceiverFlowRow(5, Icons.Default.ThumbUp, "Done. Each day they'll just tap \"I'm OK.\"")
 

@@ -585,8 +585,8 @@ private fun InviteReceiverSheet(
                         Spacer(modifier = Modifier.height(8.dp))
                         InstructionStep(1, "Enter their name and phone number below")
                         InstructionStep(2, "They'll receive a text with a download link")
-                        InstructionStep(3, "They download the app and sign in with that phone number")
-                        InstructionStep(4, "The app automatically connects them — no codes needed")
+                        InstructionStep(3, "They download the app and sign in with Google or an email")
+                        InstructionStep(4, "They tap the link again (or enter the setup code) and join your family")
                     }
                 }
 
@@ -729,8 +729,8 @@ private fun InviteReceiverSheet(
                         Spacer(modifier = Modifier.height(12.dp))
                         InstructionStep(1, "You text them a download link from your own phone")
                         InstructionStep(2, "Download the app from the App Store or Play Store")
-                        InstructionStep(3, "Sign in with the phone number you invited them with")
-                        InstructionStep(4, "The app will automatically connect them to your family")
+                        InstructionStep(3, "Sign in with Google or an email")
+                        InstructionStep(4, "Tap the link again, or enter the setup code, to join your family")
                     }
                 }
 

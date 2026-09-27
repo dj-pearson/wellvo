@@ -1315,13 +1315,13 @@ struct InviteReceiverSheet: View {
                 if isCaregiver {
                     InstructionRow(number: 1, text: "Enter their name and phone number below")
                     InstructionRow(number: 2, text: "Your Messages app opens with a ready-to-send text — you tap send")
-                    InstructionRow(number: 3, text: "They get the app and sign in with that same phone number")
+                    InstructionRow(number: 3, text: "They get the app, sign in, and tap the link again (or enter the setup code from the text)")
                     InstructionRow(number: 4, text: "They're told whenever a check-in is missed, and can see check-ins, history and care notes. They're never asked to check in")
                 } else {
                     InstructionRow(number: 1, text: "Enter their name and phone number below")
                     InstructionRow(number: 2, text: "Your Messages app opens with a ready-to-send text — you tap send")
-                    InstructionRow(number: 3, text: "They tap the link, get the app, and sign in with that same phone number")
-                    InstructionRow(number: 4, text: "They're connected automatically. On an iPad or another number, they enter the setup code from the text instead")
+                    InstructionRow(number: 3, text: "They tap the link, get the app, and sign in with Apple or an email")
+                    InstructionRow(number: 4, text: "They tap the link again, or enter the setup code from the text, and see your family before they join")
                 }
             }
             .padding(.vertical, 4)
@@ -1341,7 +1341,7 @@ struct InviteReceiverSheet: View {
         } header: {
             Text(isCaregiver ? "Co-Caregiver" : "Who You're Checking On")
         } footer: {
-            Text("Use the phone number they'll sign into the app with. This is how they're automatically matched to your family.")
+            Text("Your Messages app sends the invite to this number, and the family can call or text them from Daily OK.")
         }
 
         if !isCaregiver {
@@ -1381,7 +1381,7 @@ struct InviteReceiverSheet: View {
                 Text("Invite Sent to \(trimmedName)")
                     .font(.headline)
 
-                Text("When \(trimmedName) signs in with \(phone), they'll join your family automatically.")
+                Text("When \(trimmedName) signs in and taps the link (or enters the setup code), they'll see your family and can join.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

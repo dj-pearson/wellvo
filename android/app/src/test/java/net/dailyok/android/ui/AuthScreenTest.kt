@@ -35,14 +35,14 @@ class AuthScreenTest {
     }
 
     @Test
-    fun `auth screen shows all three auth options`() {
+    fun `auth screen offers Google and email, not phone`() {
         val vm = createMockViewModel()
         composeTestRule.setContent { AuthScreen(viewModel = vm) }
 
-        composeTestRule.onNodeWithText("Sign in with your phone").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Send Code").assertIsDisplayed()
         composeTestRule.onNodeWithText("Continue with Google").assertIsDisplayed()
         composeTestRule.onNodeWithText("Sign in with email").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Sign in with your phone").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Send Code").assertDoesNotExist()
     }
 
     @Test
@@ -55,42 +55,38 @@ class AuthScreenTest {
     }
 
     @Test
-    fun `phone OTP flow shows verification code input`() {
-        val vm = createMockViewModel(
-            AuthUiState(phoneNumber = "2125551234", isAwaitingOTP = true)
-        )
+    fun `phone account help explains how to get back in`() {
+        val vm = createMockViewModel()
         composeTestRule.setContent { AuthScreen(viewModel = vm) }
 
-        composeTestRule.onNodeWithText("Enter verification code").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Verify").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Use a different number").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Signed up with a phone number?").performClick()
+        composeTestRule.onNodeWithText("Contact support").assertIsDisplayed()
     }
 
     @Test
     fun `validation errors display correctly`() {
         val vm = createMockViewModel(
-            AuthUiState(errorMessage = "Please enter a valid US phone number.")
+            AuthUiState(errorMessage = "Please enter a valid email address.")
         )
         composeTestRule.setContent { AuthScreen(viewModel = vm) }
 
-        composeTestRule.onNodeWithText("Please enter a valid US phone number.").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Please enter a valid email address.").assertIsDisplayed()
     }
 
     @Test
-    fun `send code button calls viewModel sendOTP`() {
+    fun `sign in button calls viewModel signInWithEmail`() {
         val vm = createMockViewModel()
         composeTestRule.setContent { AuthScreen(viewModel = vm) }
 
-        composeTestRule.onNodeWithText("Send Code").performClick()
-        verify { vm.sendOTP() }
+        composeTestRule.onNodeWithText("Sign In").performClick()
+        verify { vm.signInWithEmail() }
     }
 
     @Test
-    fun `loading state replaces send code with progress indicator`() {
+    fun `loading state replaces sign in with progress indicator`() {
         val vm = createMockViewModel(AuthUiState(isLoading = true))
         composeTestRule.setContent { AuthScreen(viewModel = vm) }
 
-        // When loading, the button is replaced by CircularProgressIndicator
-        composeTestRule.onNodeWithText("Send Code").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Sign In").assertDoesNotExist()
     }
 }

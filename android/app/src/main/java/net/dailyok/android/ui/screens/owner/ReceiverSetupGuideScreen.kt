@@ -119,8 +119,8 @@ fun ReceiverSetupGuideScreen(
         SetupStepRow(
             stepNumber = 3,
             icon = Icons.Default.Phone,
-            title = "Sign In with Their Phone Number",
-            description = "Open the app and enter the same phone number the text was sent to. They'll receive a verification code."
+            title = "Sign In, Then Tap the Link Again",
+            description = "Open the app and sign in with Google or an email. Then tap the link in the text again, or enter the setup code, to see your family and join."
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -138,7 +138,7 @@ fun ReceiverSetupGuideScreen(
             stepNumber = 5,
             icon = Icons.Default.ThumbUp,
             title = "That's It!",
-            description = "The app automatically connects them to your family. Each day at the scheduled time, they just tap \"I'm OK.\""
+            description = "Once they join, each day at the scheduled time, they just tap \"I'm OK.\""
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -171,11 +171,11 @@ fun ReceiverSetupGuideScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                TipRow("Make sure $receiverName uses the exact phone number you entered when signing in.")
+                TipRow("If the link opens the store instead of the app, $receiverName can tap it again after installing.")
                 Spacer(modifier = Modifier.height(8.dp))
                 TipRow("If they don't see the text, check that the phone number is correct and try re-sending the invite.")
                 Spacer(modifier = Modifier.height(8.dp))
-                TipRow("The app will automatically match them to your family — no codes or links to enter.")
+                TipRow("On a tablet, or if the link won't open the app, they can enter the setup code from the text.")
                 Spacer(modifier = Modifier.height(8.dp))
                 TipRow("You can adjust the check-in schedule anytime from the Family tab.")
             }

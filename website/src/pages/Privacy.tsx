@@ -47,9 +47,9 @@ export default function Privacy() {
             <h3>Information You Provide</h3>
             <ul>
               <li>
-                <strong>Account Information:</strong> Email address, display name, and optionally
-                a phone number, used to sign in and so members of your family group can call or
-                text you from their own phones.
+                <strong>Account Information:</strong> Email address (used to sign in, directly or
+                through Sign in with Apple or Google), display name, and optionally a phone number
+                so members of your family group can call or text you from their own phones.
               </li>
               <li>
                 <strong>Profile Information:</strong> Optional profile photo and time zone.
@@ -160,9 +160,9 @@ export default function Privacy() {
                 app with a prewritten text containing a link to download Daily OK.
                 The Owner chooses whether to send it, and it is delivered from the
                 Owner&apos;s own phone number by their carrier, not by Daily OK. We
-                store the entered phone number so the invited person is
-                automatically connected to the family group when they sign in with
-                that number.
+                store the entered phone number with the invitation, and once the
+                invited person joins it becomes their contact number within the
+                family group.
               </li>
               <li>
                 <strong>Check-in and help texts:</strong> When a check-in is
@@ -174,11 +174,11 @@ export default function Privacy() {
                 receive these messages.
               </li>
             </ul>
-            <h3>Sign-in codes</h3>
+            <h3>Sign-in</h3>
             <p>
-              If you sign in with a phone number, a one-time verification code is
-              sent to that number by our SMS verification provider. It is used only
-              to sign you in.
+              Daily OK does not sign you in with text-message codes. You sign in
+              with Apple, Google, or your email address; any codes we send for
+              signing in or verifying an address arrive by email.
             </p>
             <h3>Opting out and help</h3>
             <p>
@@ -240,7 +240,6 @@ export default function Privacy() {
               <li><strong>Sentry</strong> — application error and crash reporting for our apps, website, and backend, used to detect and fix defects. Configured not to send personal information by default; may process technical data such as IP address and error context.</li>
               <li><strong>Apple Push Notification service (APNs)</strong> — delivery of iOS push notifications.</li>
               <li><strong>Google Firebase Cloud Messaging (FCM)</strong> — delivery of Android push notifications.</li>
-              <li><strong>SMS verification provider</strong> — delivers one-time sign-in codes when you sign in with a phone number. Daily OK sends no alert or marketing texts.</li>
               <li><strong>Apple App Store and Google Play</strong> — payment processing for subscriptions.</li>
             </ul>
           </section>

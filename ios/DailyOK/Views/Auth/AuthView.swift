@@ -7,7 +7,7 @@ struct AuthView: View {
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State private var isSignUp = false
-    @State private var showEmailAuth = false
+    @State private var showPhoneHelp = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @FocusState private var focusedField: AuthField?
     @ScaledMetric(relativeTo: .largeTitle) private var logoSize: CGFloat = 80
@@ -96,7 +96,7 @@ struct AuthView: View {
             if appState.pendingInviteToken != nil {
                 contextNotice(
                     icon: "envelope.open.fill",
-                    text: "You've been invited to Daily OK. Sign in with the phone number the invite was sent to, and we'll show you whose family it is before you join."
+                    text: "You've been invited to Daily OK. Sign in or create an account, and we'll show you whose family it is before you join."
                 )
             } else if appState.setupCodeAfterSignIn {
                 contextNotice(
@@ -109,27 +109,7 @@ struct AuthView: View {
             Spacer(minLength: 12)
 
             VStack(spacing: 16) {
-                if showEmailAuth {
-                    emailAuthSection
-                } else {
-                    phoneAuthSection
-                }
-
-                Button {
-                    if reduceMotion {
-                        showEmailAuth.toggle()
-                        authViewModel.errorMessage = nil
-                    } else {
-                        withAnimation(DailyOKMotion.smoothSpring) {
-                            showEmailAuth.toggle()
-                            authViewModel.errorMessage = nil
-                        }
-                    }
-                } label: {
-                    Text(showEmailAuth ? "Sign in with phone number instead" : "Sign in with email instead")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+                emailAuthSection
 
                 if let error = authViewModel.errorMessage {
                     Text(error)
@@ -144,6 +124,8 @@ struct AuthView: View {
             // Announce inline auth errors to VoiceOver when they appear
             // (US-IOS105).
             .announce(authViewModel.errorMessage) { $0 }
+
+            phoneAccountHelp
 
             Spacer()
 
@@ -192,10 +174,10 @@ struct AuthView: View {
         .accessibilityElement(children: .contain)
     }
 
-    // MARK: - Phone Auth (Primary — simplest for receivers)
+    // MARK: - Lockout
 
-    /// Renders the lockout countdown so a locked-out user understands why Send /
-    /// Verify do nothing, instead of tapping into the void (US-IOS103).
+    /// Renders the lockout countdown so a locked-out user understands why the
+    /// button does nothing, instead of tapping into the void (US-IOS103).
     @ViewBuilder
     private var lockoutNotice: some View {
         if let message = authViewModel.authLockoutMessage {
@@ -207,99 +189,45 @@ struct AuthView: View {
         }
     }
 
-    private var phoneAuthSection: some View {
-        VStack(spacing: 16) {
-            if authViewModel.isAwaitingOTP {
-                // Step 2: Enter the code
-                Text("Enter the code we texted you")
-                    .font(.headline)
+    // MARK: - Accounts made with a phone number
 
-                SegmentedCodeField(code: $authViewModel.otpCode, length: 6) {
-                    Task { await authViewModel.verifyPhoneOTP() }
+    /// Phone-number sign-in was retired (server-sent SMS codes need carrier
+    /// registration). Someone whose account only had a phone number can't sign
+    /// back in by themselves, so say plainly what to do.
+    private var phoneAccountHelp: some View {
+        VStack(spacing: 8) {
+            Button {
+                if reduceMotion {
+                    showPhoneHelp.toggle()
+                } else {
+                    withAnimation(.easeInOut(duration: 0.2)) { showPhoneHelp.toggle() }
                 }
+            } label: {
+                Text("Signed up with a phone number?")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(DailyOKColor.green700)
+            }
+            .accessibilityHint(showPhoneHelp ? "Hides the explanation" : "Shows how to get back into your account")
 
-                Button {
-                    Task { await authViewModel.verifyPhoneOTP() }
-                } label: {
-                    if authViewModel.isLoading {
-                        ProgressView().frame(maxWidth: .infinity, minHeight: 44)
-                    } else {
-                        Text("Verify")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                    }
+            if showPhoneHelp {
+                VStack(spacing: 8) {
+                    Text("Daily OK no longer signs in with text-message codes. If your account only had a phone number, contact us and we'll help you add an email and get back in. Your family and check-in history are safe.")
+                        .font(.footnote)
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Link("Contact support", destination: SubscriptionService.supportURL)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(DailyOKColor.green700)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-                .disabled(authViewModel.isLoading || authViewModel.authLockoutSecondsRemaining > 0)
-
-                // Resend the code (with a cooldown) — previously the only escape
-                // was "Use a different number" (US-IOS103).
-                Button(authViewModel.otpResendCooldown > 0
-                       ? "Resend code in \(authViewModel.otpResendCooldown)s"
-                       : "Resend code") {
-                    Task { await authViewModel.resendPhoneOTP() }
-                }
-                .font(.footnote)
-                .disabled(authViewModel.otpResendCooldown > 0 || authViewModel.isLoading)
-
-                Button("Use a different number") {
-                    authViewModel.isAwaitingOTP = false
-                    authViewModel.otpCode = ""
-                    authViewModel.errorMessage = nil
-                }
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-
-                lockoutNotice
-            } else {
-                // Step 1: Enter phone number
-                Text("Sign in with your phone number")
-                    .font(.headline)
-
-                TextField("(555) 123-4567", text: $authViewModel.phoneNumber)
-                    .textFieldStyle(.roundedBorder)
-                    .keyboardType(.phonePad)
-                    .textContentType(.telephoneNumber)
-                    .accessibilityLabel("Phone number")
-                    .onSubmit { Task { await authViewModel.sendPhoneOTP() } }
-
-                Text("US numbers as usual. Outside the US, start with + and your country code.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-
-                Button {
-                    Task { await authViewModel.sendPhoneOTP() }
-                } label: {
-                    if authViewModel.isLoading {
-                        ProgressView().frame(maxWidth: .infinity, minHeight: 44)
-                    } else {
-                        Text("Send Code")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-                .disabled(authViewModel.isLoading || authViewModel.authLockoutSecondsRemaining > 0)
-
-                lockoutNotice
-
-                // Apple sign-in as secondary option
-                SignInWithAppleButton(.signIn) { request in
-                    authViewModel.configureAppleSignInRequest(request)
-                } onCompletion: { result in
-                    Task { await authViewModel.signInWithApple(result) }
-                }
-                .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                .frame(height: 54)
-                .cornerRadius(12)
+                .padding(16)
+                .glassCard(style: .thin, radius: DailyOKGlass.radiusMedium, elevation: DailyOKElevation.level2)
+                .transition(.opacity)
             }
         }
     }
 
-    // MARK: - Email Auth (Secondary — for owners / tech-savvy users)
+    // MARK: - Sign in with Apple, or email
 
     private var emailAuthSection: some View {
         VStack(spacing: 12) {
@@ -424,8 +352,7 @@ struct AuthView: View {
                       || (isSignUp && !authViewModel.passwordMeetsPolicy)
                       || authViewModel.authLockoutSecondsRemaining > 0)
 
-            // The lockout is shared with phone sign-in; say why the button is
-            // off instead of letting taps do nothing.
+            // Say why the button is off instead of letting taps do nothing.
             lockoutNotice
 
             Button {
@@ -510,7 +437,7 @@ struct PasswordResetSheet: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            // Same component the phone OTP step uses, so the two code entries in
+            // Same component the add-email step uses, so the code entries in
             // this app look and behave alike.
             SegmentedCodeField(code: $authViewModel.recoveryCode, length: 6) {
                 Task { await authViewModel.verifyRecoveryCode() }
@@ -599,6 +526,170 @@ struct PasswordResetSheet: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(.green)
+        }
+    }
+}
+
+// MARK: - Add an email (accounts created with phone sign-in)
+
+/// Asks a phone-only account for an email while its session still works.
+///
+/// Phone-number sign-in was retired, so an account with no email has no way
+/// back in once it signs out. Dismissible ("Not now" / swipe) — it returns on
+/// the next launch — because it can land over a receiver's I'm OK screen and
+/// must never stand between them and checking in.
+///
+/// Confirms with the 6-digit code in the email, like password reset (this app
+/// has no web page for the link to land on). Tapping the link works too: it
+/// is confirmed on the server, and "I tapped the link" re-checks.
+///
+/// Lives in this file for the same project.pbxproj reason as PasswordResetSheet.
+struct AddEmailSheet: View {
+    @ObservedObject var authViewModel: AuthViewModel
+    @FocusState private var emailFocused: Bool
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    switch authViewModel.addEmailStage {
+                    case .enterEmail, .hidden:
+                        emailStep
+                    case .enterCode:
+                        codeStep
+                    case .done:
+                        doneStep
+                    }
+                }
+                .padding(24)
+            }
+            .navigationTitle("Add an email")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if authViewModel.addEmailStage != .done {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Not now") { authViewModel.deferAddEmail() }
+                    }
+                }
+            }
+            .announce(authViewModel.addEmailError) { $0 }
+        }
+    }
+
+    private var errorText: some View {
+        Group {
+            if let error = authViewModel.addEmailError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(DailyOKColor.error)
+                    .multilineTextAlignment(.center)
+            }
+        }
+    }
+
+    private var emailStep: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "envelope.badge")
+                .font(.system(size: 40))
+                .foregroundStyle(DailyOKColor.green700)
+                .accessibilityHidden(true)
+
+            Text("Add an email so you can always sign in")
+                .font(.title3.weight(.semibold))
+                .multilineTextAlignment(.center)
+
+            Text("Daily OK no longer signs in with text-message codes. Add an email now, and you can sign in with it if you ever get a new phone or sign out.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            TextField("Email", text: $authViewModel.addEmailAddress)
+                .textFieldStyle(.roundedBorder)
+                .textContentType(.emailAddress)
+                .keyboardType(.emailAddress)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.send)
+                .focused($emailFocused)
+                .onSubmit { Task { await authViewModel.sendAddEmailCode() } }
+
+            errorText
+
+            Button {
+                Task { await authViewModel.sendAddEmailCode() }
+            } label: {
+                if authViewModel.isAddingEmail {
+                    ProgressView().frame(maxWidth: .infinity).frame(minHeight: 44)
+                } else {
+                    Text("Send Code")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+            .disabled(authViewModel.isAddingEmail)
+        }
+    }
+
+    private var codeStep: some View {
+        VStack(spacing: 16) {
+            Text("Enter the 6-digit code we emailed to \(authViewModel.addEmailAddress).")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            SegmentedCodeField(code: $authViewModel.addEmailCode, length: 6) {
+                Task { await authViewModel.confirmAddEmailCode() }
+            }
+
+            errorText
+
+            Button {
+                Task { await authViewModel.confirmAddEmailCode() }
+            } label: {
+                if authViewModel.isAddingEmail {
+                    ProgressView().frame(maxWidth: .infinity).frame(minHeight: 44)
+                } else {
+                    Text("Confirm")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+            .disabled(authViewModel.isAddingEmail
+                      || authViewModel.addEmailCode.filter(\.isNumber).count != 6)
+
+            Button("I tapped the link in the email") {
+                Task { await authViewModel.checkAddedEmailByLink() }
+            }
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(DailyOKColor.green700)
+            .disabled(authViewModel.isAddingEmail)
+
+            Button("Use a different email") { authViewModel.editAddEmailAddress() }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var doneStep: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 44))
+                .foregroundStyle(.green)
+                .accessibilityHidden(true)
+            Text("Email added. You can now sign in with \(authViewModel.addEmailAddress) — use \"Forgot Password?\" on the sign-in screen to set a password if you need one.")
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Done") { authViewModel.finishAddEmail() }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
         }
     }
 }

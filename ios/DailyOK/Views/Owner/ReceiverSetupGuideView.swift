@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Step-by-step guide for owners helping someone they invited get set up.
-/// Explains exactly what the receiver needs to do, including the setup code
-/// for an iPad or a different number, and can be shared with them or a helper.
+/// Explains exactly what the receiver needs to do, including the setup code,
+/// and can be shared with them or a helper.
 struct ReceiverSetupGuideView: View {
     let receiverName: String
     /// The invite's 6-digit setup code, when known.
@@ -14,15 +14,15 @@ struct ReceiverSetupGuideView: View {
             ("message.fill",
              String(localized: "Open your text"),
              String(localized: "\(receiverName) gets a text from your number. Tap the link in it to get Daily OK.")),
-            ("phone.fill",
-             String(localized: "Sign in with that phone number"),
-             String(localized: "Open the app and enter the same number the text was sent to. A verification code arrives by text.")),
+            ("person.crop.circle.badge.checkmark",
+             String(localized: "Sign in, then tap the link again"),
+             String(localized: "Open the app and sign in with Apple or an email. Then tap the link in the text once more — the app shows whose family it is before they join.")),
         ]
         if let code = pairingCode, !code.isEmpty {
             steps.append((
                 "number",
-                String(localized: "On an iPad or a different number?"),
-                String(localized: "Sign in any way, then enter the setup code \(code) when the app asks.")
+                String(localized: "Or use the setup code"),
+                String(localized: "On an iPad, or if the link doesn't open the app, enter the setup code \(code) when the app asks.")
             ))
         }
         steps.append((
@@ -78,7 +78,7 @@ struct ReceiverSetupGuideView: View {
                             .font(.subheadline)
                             .fontWeight(.semibold)
 
-                        TipRow(text: "Signing in with the number you invited connects \(receiverName) to your family automatically.")
+                        TipRow(text: "If the link opens the App Store instead of the app, \(receiverName) can tap it again after installing, or enter the setup code.")
                         TipRow(text: "If the text didn't arrive, check the number in the Family tab and re-send the invite. A re-sent invite replaces the old link and code.")
                         TipRow(text: "You can change the check-in time anytime from the Family tab.")
                     }

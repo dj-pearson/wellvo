@@ -8,7 +8,11 @@ import './Support.css'
 const faqs = [
   {
     q: 'How do I set up Daily OK for my family?',
-    a: 'Download Daily OK from the App Store, create an account, and set up your family group. Then invite your loved ones by sending them a text — the app opens your Messages app with a prewritten invite you send from your own phone. When they download the app and sign in with that number, they\'re connected automatically.',
+    a: 'Download Daily OK from the App Store, create an account, and set up your family group. Then invite your loved ones by sending them a text — the app opens your Messages app with a prewritten invite you send from your own phone. They download the app, sign in with Apple, Google, or email, then tap the link again (or enter the setup code from the text) to see your family and join.',
+  },
+  {
+    q: 'I signed up with my phone number. How do I sign in now?',
+    a: 'Daily OK no longer signs in with text-message codes. If you are still signed in, the app will ask you to add an email: do that, and you can always sign in with it. If you are signed out and your account only had a phone number, email support@dailyok.net from any address, tell us the phone number you used, and we will help you add an email and get back in. Your family and check-in history are safe.',
   },
   {
     q: 'What happens if my loved one misses a check-in?',

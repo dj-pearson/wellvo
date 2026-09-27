@@ -173,7 +173,7 @@ struct FirstReceiverWalkthroughView: View {
             } header: {
                 Text("Who are you adding?")
             } footer: {
-                Text("Use the phone number they'll sign into the app with — that's how we automatically connect them to your family.")
+                Text("Your Messages app sends the invite to this number, and you can call or text them from Daily OK.")
             }
 
             Section {
@@ -225,7 +225,7 @@ struct FirstReceiverWalkthroughView: View {
 
                 ReceiverFlowRow(number: 1, icon: "message.fill", text: "Opens the text message you sent them.")
                 ReceiverFlowRow(number: 2, icon: "arrow.down.app.fill", text: "Taps the link to download Daily OK.")
-                ReceiverFlowRow(number: 3, icon: "phone.fill", text: "Signs in with that phone number and types the code we text them, then confirms they're joining your family.")
+                ReceiverFlowRow(number: 3, icon: "person.crop.circle.badge.checkmark", text: "Signs in with Apple or an email, taps the link again (or types the setup code), then confirms they're joining your family.")
                 ReceiverFlowRow(number: 4, icon: "bell.badge.fill", text: "Allows notifications so they get the daily reminder.")
                 ReceiverFlowRow(number: 5, icon: "hand.thumbsup.fill", text: "Done. Each day they'll just tap \"I'm OK.\"")
 

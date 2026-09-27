@@ -116,7 +116,7 @@ actor AuthService {
     // MARK: - Link Apple ID
 
     /// Link an Apple identity to the currently signed-in user.
-    /// This allows users who signed up with email/phone to later use "Sign in with Apple."
+    /// This allows users who signed up with email (or, before it was retired, a phone number) to later use "Sign in with Apple."
     func linkAppleID(credential: ASAuthorizationAppleIDCredential, rawNonce: String) async throws {
         guard let identityToken = credential.identityToken,
               let tokenString = String(data: identityToken, encoding: .utf8) else {
@@ -235,7 +235,7 @@ actor AuthService {
     }
 
     /// Fetch existing user profile, or create one if it doesn't exist yet.
-    private func findOrCreateUserProfile(userId: UUID, email: String?, displayName: String?, phone: String? = nil) async throws -> AppUser {
+    private func findOrCreateUserProfile(userId: UUID, email: String?, displayName: String?) async throws -> AppUser {
         // Distinguish "profile doesn't exist" (empty result) from "the lookup
         // failed" (network blip / RLS / timeout). The old `try?` + `.single()`
         // collapsed BOTH to nil, which then fell through to the upsert below and
@@ -254,15 +254,12 @@ actor AuthService {
         if let existing = existing.first { return existing }
 
         // Profile doesn't exist — create it
-        var fields: [String: String] = [
+        let fields: [String: String] = [
             "id": userId.uuidString,
             "email": email ?? "",
             "display_name": displayName ?? "User",
             "timezone": TimeZone.current.identifier,
         ]
-        if let phone {
-            fields["phone"] = phone
-        }
 
         let user: AppUser = try await supabase
             .from("users")
@@ -275,65 +272,70 @@ actor AuthService {
         return user
     }
 
-    // MARK: - Phone OTP Auth
+    // MARK: - Accounts without an email (phone sign-in was retired)
 
-    /// Send a one-time passcode to the given phone number via SMS.
-    func sendPhoneOTP(phone: String) async throws {
-        let normalized = normalizePhone(phone)
-        try await supabase.auth.signInWithOTP(phone: normalized)
+    /// True when the signed-in account has no email address: it was created
+    /// with phone-number sign-in, which the app no longer offers (server-sent
+    /// SMS codes would need A2P 10DLC registration). Such a user can keep using
+    /// the session they have, but once signed out there is no way back in, so
+    /// the app asks them to add an email while it still can.
+    func signedInAccountLacksEmail() async -> Bool {
+        guard let user = try? await supabase.auth.session.user else { return false }
+        return Self.accountLacksEmail(email: user.email)
     }
 
-    /// Verify the OTP code and sign the user in.
-    func verifyPhoneOTP(phone: String, code: String) async throws -> AppUser {
-        let normalized = normalizePhone(phone)
-        let session = try await supabase.auth.verifyOTP(
-            phone: normalized,
-            token: code,
-            type: .sms
+    /// Pure core of `signedInAccountLacksEmail`. An address still waiting for
+    /// confirmation lives in `new_email`, not `email`, so it counts as missing:
+    /// until it is confirmed it cannot be used to sign in.
+    nonisolated static func accountLacksEmail(email: String?) -> Bool {
+        (email ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Ask GoTrue to attach `email` to the signed-in account. It emails a
+    /// 6-digit code (and a link) to that address; nothing changes until the
+    /// code is confirmed with `confirmAddedEmail`.
+    func requestAddEmail(_ email: String) async throws {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        try validateEmail(trimmed)
+        _ = try await supabase.auth.update(user: UserAttributes(email: trimmed))
+    }
+
+    /// Confirm the code from the add-email message. On success the address is
+    /// the account's sign-in email; the profile row is updated to match
+    /// (best-effort: auth.users is what sign-in reads).
+    func confirmAddedEmail(_ email: String, code: String) async throws {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        try validateEmail(trimmed)
+        let digits = code.filter(\.isNumber)
+        guard digits.count == 6 else { throw AuthError.invalidRecoveryCode }
+
+        _ = try await supabase.auth.verifyOTP(
+            email: trimmed,
+            token: digits,
+            type: .emailChange
         )
-
-        return try await findOrCreateUserProfile(
-            userId: session.user.id,
-            email: nil,
-            displayName: nil,
-            phone: normalized
-        )
+        await syncProfileEmail()
     }
 
-    /// True when the number can't be read without a country code: not a US
-    /// number (10 digits, or 11 starting with 1) and not written with "+".
-    /// `normalizePhone` would otherwise turn a UK "07700 900123" into
-    /// "+07700900123", and the SMS provider's refusal read as "Could not send
-    /// verification code".
-    nonisolated static func phoneNeedsCountryCode(_ phone: String) -> Bool {
-        let trimmed = phone.trimmingCharacters(in: .whitespaces)
-        if trimmed.hasPrefix("+") { return false }
-        let digits = trimmed.filter(\.isNumber)
-        if digits.count == 10 { return false }
-        if digits.count == 11, digits.hasPrefix("1") { return false }
-        return true
+    /// Whether the account now has a confirmed email, after the user tapped
+    /// the link in the message instead of typing the code. Refreshes the
+    /// session so the answer comes from the server, not a cached user.
+    func refreshAddedEmailStatus() async -> Bool {
+        guard let session = try? await supabase.auth.refreshSession() else { return false }
+        let hasEmail = !Self.accountLacksEmail(email: session.user.email)
+        if hasEmail { await syncProfileEmail() }
+        return hasEmail
     }
 
-    /// Normalize to E.164 ("+1XXXXXXXXXX" for a US number typed without "+").
-    private func normalizePhone(_ phone: String) -> String {
-        Self.normalizedPhone(phone)
-    }
-
-    /// A number written with "+" already carries its country code and is
-    /// taken as written (digits only, E.164). It used to be checked for 10
-    /// digits first, so "+47 912 34 567" (Norway, 10 digits with its code) —
-    /// exactly what the sign-in hint tells people outside the US to type —
-    /// became +1 479-123-4567 and the code went to a stranger in Arkansas.
-    /// Without "+", 10 digits (or 11 starting with 1) are US numbers as before.
-    nonisolated static func normalizedPhone(_ phone: String) -> String {
-        let digits = phone.filter(\.isNumber)
-        if phone.trimmingCharacters(in: .whitespaces).hasPrefix("+") {
-            return "+\(digits)"
-        }
-        if digits.count == 10 {
-            return "+1\(digits)"
-        }
-        return "+\(digits)"
+    /// Copy the confirmed auth email onto users.email (client-writable column).
+    private func syncProfileEmail() async {
+        guard let user = try? await supabase.auth.session.user,
+              let email = user.email, !email.isEmpty else { return }
+        _ = try? await supabase
+            .from("users")
+            .update(["email": email])
+            .eq("id", value: user.id.uuidString)
+            .execute()
     }
 
     // MARK: - Password Reset

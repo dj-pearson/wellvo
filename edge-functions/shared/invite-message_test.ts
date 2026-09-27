@@ -16,6 +16,8 @@ Deno.test("invite text has the link and the setup code, and no hard-coded store 
   assertStringIncludes(text, "123456");
   // The old text hard-coded an App Store id that did not match the app's.
   assertEquals(text.includes("apps.apple.com"), false);
+  // Phone-number sign-in was retired; the text must not promise it.
+  assertEquals(/phone number/i.test(text), false);
 });
 
 Deno.test("co-caregiver text has the link and code and never asks them to check in", () => {
@@ -26,4 +28,5 @@ Deno.test("co-caregiver text has the link and code and never asks them to check 
   assertStringIncludes(text, "123456");
   assertStringIncludes(text, "won't be asked to check in");
   assertEquals(text.includes("tap \"I'm OK\""), false);
+  assertEquals(/phone number/i.test(text), false);
 });

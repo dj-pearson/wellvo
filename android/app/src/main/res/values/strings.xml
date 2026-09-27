@@ -7,18 +7,9 @@
     <string name="auth_or_divider">or</string>
     <string name="auth_signing_in">Signing in…</string>
     <string name="auth_continue_google">Continue with Google</string>
-    <string name="auth_phone_title">Sign in with your phone</string>
-    <string name="auth_phone_subtitle">We\'ll text you a verification code</string>
-    <string name="auth_phone_label">+1 Phone Number</string>
-    <string name="auth_send_code">Send Code</string>
-    <string name="auth_enter_otp_title">Enter verification code</string>
-    <string name="auth_enter_otp_subtitle">We sent a 6-digit code to your phone</string>
-    <string name="auth_otp_placeholder">6-digit code</string>
-    <string name="auth_verify">Verify</string>
-    <string name="auth_use_different_number">Use a different number</string>
-    <string name="auth_collapse_email">Collapse email sign-in</string>
-    <string name="auth_expand_email">Expand email sign-in</string>
-    <string name="auth_hide_email">Hide email sign-in</string>
+    <string name="auth_phone_account_help_title">Signed up with a phone number?</string>
+    <string name="auth_phone_account_help_body">Daily OK no longer signs in with text-message codes. If your account only had a phone number, contact us and we\'ll help you add an email and get back in. Your family and check-in history are safe.</string>
+    <string name="auth_contact_support">Contact support</string>
     <string name="auth_sign_in_email">Sign in with email</string>
     <string name="auth_display_name">Display Name</string>
     <string name="auth_email">Email</string>
@@ -209,8 +200,8 @@
     <string name="family_remove_action">Remove member</string>
     <string name="family_how_it_works">How It Works</string>
     <string name="family_invite_step_1">They\'ll get a text with a download link</string>
-    <string name="family_invite_step_2">They sign in with their phone number</string>
-    <string name="family_invite_step_3">The app auto-matches them to your family</string>
+    <string name="family_invite_step_2">They sign in with Google or an email</string>
+    <string name="family_invite_step_3">They tap the link again, or enter the setup code, to join</string>
     <string name="family_invite_step_4">They just tap \"I\'m OK\" to check in daily</string>
     <string name="family_name_label">Name</string>
     <string name="family_phone_label">Phone Number</string>
@@ -305,16 +296,16 @@
     <string name="setup_guide_step1_desc">%1$s will receive a text with a link to download Daily OK from the Play Store.</string>
     <string name="setup_guide_step2_title">Download the App</string>
     <string name="setup_guide_step2_desc">Tap the link in the text to open the Play Store and download Daily OK.</string>
-    <string name="setup_guide_step3_title">Sign In with Their Phone Number</string>
-    <string name="setup_guide_step3_desc">Open the app and enter the same phone number the text was sent to. They\'ll receive a verification code.</string>
+    <string name="setup_guide_step3_title">Sign In, Then Tap the Link Again</string>
+    <string name="setup_guide_step3_desc">Open the app and sign in with Google or an email. Then tap the link in the text again, or enter the setup code, to see your family and join.</string>
     <string name="setup_guide_step4_title">Allow Notifications</string>
     <string name="setup_guide_step4_desc">The app will ask to send notifications. This is required so they receive their daily check-in reminder.</string>
     <string name="setup_guide_step5_title">That\'s It!</string>
-    <string name="setup_guide_step5_desc">The app automatically connects them to your family. Each day at the scheduled time, they just tap \"I\'m OK.\"</string>
+    <string name="setup_guide_step5_desc">Once they join, each day at the scheduled time, they just tap \"I\'m OK.\"</string>
     <string name="setup_guide_tips">Tips</string>
-    <string name="setup_guide_tip_1">Make sure %1$s uses the exact phone number you entered when signing in.</string>
+    <string name="setup_guide_tip_1">If the link opens the store instead of the app, %1$s can tap it again after installing.</string>
     <string name="setup_guide_tip_2">If they don\'t see the text, check that the phone number is correct and try re-sending the invite.</string>
-    <string name="setup_guide_tip_3">The app will automatically match them to your family — no codes or links to enter.</string>
+    <string name="setup_guide_tip_3">On a tablet, or if the link won\'t open the app, they can enter the setup code from the text.</string>
     <string name="setup_guide_tip_4">You can adjust the check-in schedule anytime from the Family tab.</string>
 
     <!-- Viewer Settings -->

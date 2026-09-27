@@ -70,13 +70,25 @@ final class AuthViewModel: ObservableObject {
     @Published var password = ""
     @Published var displayName = ""
 
-    // Phone OTP fields
-    @Published var phoneNumber = ""
-    @Published var otpCode = ""
-    @Published var isAwaitingOTP = false
-    /// Seconds remaining before the user can request another SMS code. 0 = ready.
-    @Published var otpResendCooldown = 0
-    private var resendTimer: Task<Void, Never>?
+    // Add an email (accounts created with the retired phone sign-in)
+    /// Where a phone-only account is in adding an email. `.hidden` = nothing
+    /// to show (the account has an email, or the user chose "Not now").
+    @Published var addEmailStage: AddEmailStage = .hidden
+    @Published var addEmailAddress = ""
+    @Published var addEmailCode = ""
+    @Published var addEmailError: String?
+    @Published var isAddingEmail = false
+    /// "Not now" lasts until the next launch: asked once per launch, never nagged
+    /// mid-task. In memory on purpose — a phone-only account should be asked
+    /// again, since losing the session means losing the account.
+    private var addEmailDeferredThisLaunch = false
+
+    enum AddEmailStage: Equatable {
+        case hidden
+        case enterEmail   // asking for the address
+        case enterCode    // code sent; waiting for the 6 digits (or the link)
+        case done
+    }
 
     // Password reset
     @Published var isResettingPassword = false
@@ -131,8 +143,6 @@ final class AuthViewModel: ObservableObject {
         return now.timeIntervalSince(lastFailureAt) > 60 * 60
     }
     private var lockoutTimer: Task<Void, Never>?
-    private var otpVerifyAttempts: Int = 0
-    private static let maxOTPAttempts = 5
 
     /// The raw nonce generated for the current Apple Sign-In attempt.
     /// Stored in Keychain so it survives view recreation and SwiftUI lifecycle events.
@@ -194,6 +204,7 @@ final class AuthViewModel: ObservableObject {
                 authState = .authenticated
                 // Drive the last-seen heartbeat only while signed in.
                 HeartbeatService.shared.start()
+                await checkAccountHasEmail()
             } else {
                 authState = .unauthenticated
                 HeartbeatService.shared.stop()
@@ -540,97 +551,114 @@ final class AuthViewModel: ObservableObject {
     /// the password or code, so it never counts toward the lockout.
     static let offlineMessage = String(localized: "Couldn't reach Daily OK. Check your connection and try again.")
 
-    // MARK: - Phone OTP Auth
+    // MARK: - Add an email (phone sign-in retired)
 
-    func sendPhoneOTP() async {
-        let cleaned = phoneNumber.filter(\.isNumber)
-        guard cleaned.count >= 10 else {
-            errorMessage = String(localized: "Please enter a valid phone number")
+    /// Offer "Add an email" to an account that has none. Phone-number sign-in
+    /// is gone (server-sent SMS codes would need A2P 10DLC registration), so a
+    /// phone-only account that signs out, or loses its session, has no way back
+    /// in. While the session lasts, the app asks for an email once per launch.
+    func checkAccountHasEmail() async {
+        guard authState == .authenticated,
+              addEmailStage == .hidden,
+              !addEmailDeferredThisLaunch,
+              !holdsSessionForPasswordReset else { return }
+        if await AuthService.shared.signedInAccountLacksEmail() {
+            addEmailError = nil
+            addEmailStage = .enterEmail
+        }
+    }
+
+    /// "Not now": close the prompt until the next launch.
+    func deferAddEmail() {
+        addEmailDeferredThisLaunch = true
+        addEmailStage = .hidden
+        addEmailCode = ""
+        addEmailError = nil
+        isAddingEmail = false
+    }
+
+    func sendAddEmailCode() async {
+        let address = addEmailAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isValidEmail(address) else {
+            addEmailError = String(localized: "Please enter a valid email address")
             return
         }
-        guard !AuthService.phoneNeedsCountryCode(phoneNumber) else {
-            errorMessage = String(localized: "For a number outside the US, start with + and the country code (for example +44).")
-            return
-        }
-        guard !isLockedOut() else { return }
-
-        isLoading = true
-        errorMessage = nil
-
+        isAddingEmail = true
+        addEmailError = nil
         do {
-            try await AuthService.shared.sendPhoneOTP(phone: phoneNumber)
-            isAwaitingOTP = true
-            otpVerifyAttempts = 0
-            startResendCooldown()
+            try await AuthService.shared.requestAddEmail(address)
+            addEmailCode = ""
+            addEmailStage = .enterCode
         } catch {
-            // Sending a code proves nothing about who is asking, and a failed
-            // send (bad signal, SMS provider down) is not a wrong guess — it no
-            // longer counts toward the sign-in lockout.
-            errorMessage = AuthService.isConnectivityError(error)
+            addEmailError = Self.addEmailFailureMessage(error)
+        }
+        isAddingEmail = false
+    }
+
+    func confirmAddEmailCode() async {
+        let digits = addEmailCode.filter(\.isNumber)
+        guard digits.count == 6 else {
+            addEmailError = String(localized: "Enter the 6-digit code from your email.")
+            return
+        }
+        isAddingEmail = true
+        addEmailError = nil
+        do {
+            try await AuthService.shared.confirmAddedEmail(addEmailAddress, code: digits)
+            addEmailStage = .done
+            await refreshCurrentUserQuietly()
+        } catch {
+            addEmailError = AuthService.isConnectivityError(error)
                 ? Self.offlineMessage
-                : String(localized: "Could not send verification code. Please try again.")
+                : String(localized: "That code is incorrect or has expired. Check the email, or send a new code.")
         }
-
-        isLoading = false
+        isAddingEmail = false
     }
 
-    /// Re-send the SMS code (US-IOS103). No-op while the cooldown is active so we
-    /// don't spam the SMS gateway (and hit its rate limit).
-    func resendPhoneOTP() async {
-        guard otpResendCooldown == 0 else { return }
-        await sendPhoneOTP()
+    /// The user tapped the link in the email instead of typing the code.
+    func checkAddedEmailByLink() async {
+        isAddingEmail = true
+        addEmailError = nil
+        if await AuthService.shared.refreshAddedEmailStatus() {
+            addEmailStage = .done
+            await refreshCurrentUserQuietly()
+        } else {
+            addEmailError = String(localized: "Not confirmed yet. Tap the link in the email, or type the code.")
+        }
+        isAddingEmail = false
     }
 
-    private func startResendCooldown() {
-        resendTimer?.cancel()
-        otpResendCooldown = 30
-        resendTimer = Task {
-            while !Task.isCancelled, otpResendCooldown > 0 {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                otpResendCooldown -= 1
-            }
+    /// Back from the code step to fix the address.
+    func editAddEmailAddress() {
+        addEmailCode = ""
+        addEmailError = nil
+        addEmailStage = .enterEmail
+    }
+
+    /// Close the prompt after success.
+    func finishAddEmail() {
+        addEmailStage = .hidden
+        addEmailCode = ""
+        addEmailError = nil
+    }
+
+    private func refreshCurrentUserQuietly() async {
+        if let user = try? await AuthService.shared.currentSession() {
+            currentUser = user
         }
     }
 
-    func verifyPhoneOTP() async {
-        guard otpCode.count == 6 else {
-            errorMessage = String(localized: "Please enter the 6-digit code")
-            return
+    /// Plain words for a failed add-email request.
+    static func addEmailFailureMessage(_ error: Error) -> String {
+        if AuthService.isConnectivityError(error) { return offlineMessage }
+        let text = error.localizedDescription.lowercased()
+        if text.contains("already") && (text.contains("registered") || text.contains("exists") || text.contains("use")) {
+            return String(localized: "That email is already used by another Daily OK account. Try a different one.")
         }
-        guard !isLockedOut() else { return }
-
-        otpVerifyAttempts += 1
-        if otpVerifyAttempts > Self.maxOTPAttempts {
-            errorMessage = String(localized: "Too many attempts. Please request a new code.")
-            isAwaitingOTP = false
-            otpCode = ""
-            otpVerifyAttempts = 0
-            return
+        if text.contains("rate") || text.contains("too many") || text.contains("seconds") {
+            return String(localized: "Please wait a minute before asking for another code.")
         }
-
-        isLoading = true
-        errorMessage = nil
-
-        do {
-            currentUser = try await AuthService.shared.verifyPhoneOTP(phone: phoneNumber, code: otpCode)
-            authState = .authenticated
-            resetFailedAttempts()
-            clearFormFields()
-            await checkBiometricSetupPrompt()
-        } catch {
-            if AuthService.isConnectivityError(error) {
-                // The code may well be right; the server never saw it (or its
-                // answer never arrived). Don't call it invalid or spend a try.
-                otpVerifyAttempts -= 1
-                errorMessage = Self.offlineMessage
-            } else {
-                errorMessage = String(localized: "Invalid code. Please try again. (\(Self.maxOTPAttempts - otpVerifyAttempts) attempts remaining)")
-                otpCode = ""
-                recordFailedAttempt()
-            }
-        }
-
-        isLoading = false
+        return String(localized: "Couldn't send the code. Check the address and try again.")
     }
 
     // MARK: - Password Reset
@@ -791,6 +819,12 @@ final class AuthViewModel: ObservableObject {
         appleLinkState = .unknown
         linkAppleMessage = nil
         linkAppleMessageIsSuccess = false
+        // The add-email prompt belongs to the account that just left.
+        addEmailStage = .hidden
+        addEmailAddress = ""
+        addEmailCode = ""
+        addEmailError = nil
+        addEmailDeferredThisLaunch = false
         clearFormFields()
     }
 
@@ -927,7 +961,6 @@ final class AuthViewModel: ObservableObject {
         lockoutUntil = nil
         authLockoutMessage = nil
         authLockoutSecondsRemaining = 0
-        otpVerifyAttempts = 0
         lockoutTimer?.cancel()
     }
 
@@ -954,9 +987,6 @@ final class AuthViewModel: ObservableObject {
         email = ""
         password = ""
         displayName = ""
-        phoneNumber = ""
-        otpCode = ""
-        isAwaitingOTP = false
         resetPasswordMessage = nil
         resetStage = .request
         recoveryCode = ""

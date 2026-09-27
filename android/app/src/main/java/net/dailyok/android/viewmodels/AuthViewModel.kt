@@ -30,9 +30,6 @@ import javax.inject.Inject
 
 @Immutable
 data class AuthUiState(
-    val phoneNumber: String = "",
-    val otpCode: String = "",
-    val isAwaitingOTP: Boolean = false,
     val isLoading: Boolean = false,
     val isGoogleLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -46,8 +43,17 @@ data class AuthUiState(
     val showBiometricSetupPrompt: Boolean = false,
     val biometricLocked: Boolean = false,
     val authLockoutMessage: String? = null,
-    val authLockoutSecondsRemaining: Int = 0
+    val authLockoutSecondsRemaining: Int = 0,
+    // Add an email (accounts made with the retired phone sign-in)
+    val addEmailStage: AddEmailStage = AddEmailStage.Hidden,
+    val addEmailAddress: String = "",
+    val addEmailCode: String = "",
+    val addEmailError: String? = null,
+    val isAddingEmail: Boolean = false
 )
+
+/** Where a phone-only account is in adding an email. */
+enum class AddEmailStage { Hidden, EnterEmail, EnterCode, Done }
 
 /**
  * Where a signed-in user belongs, from their actual family membership.
@@ -84,10 +90,11 @@ class AuthViewModel @Inject constructor(
         get() = secureStorage.loadLong(SecureStorage.AUTH_LOCKOUT_UNTIL)
         set(value) { secureStorage.saveLong(SecureStorage.AUTH_LOCKOUT_UNTIL, value) }
     private var lockoutCountdownJob: Job? = null
-    private var otpVerifyAttempts = 0
-    private companion object {
-        const val MAX_OTP_ATTEMPTS = 5
-    }
+    /**
+     * "Not now" on the add-email prompt lasts until the app process restarts:
+     * asked once per launch, never nagged mid-task.
+     */
+    private var addEmailDeferredThisLaunch = false
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
@@ -147,6 +154,7 @@ class AuthViewModel @Inject constructor(
             authService.syncTimezoneIfChanged()
             _authState.value = AuthState.Authenticated(user = user)
             checkBiometricSetupPrompt()
+            checkAccountHasEmail()
         } else {
             val userId = authService.currentUserId()
             if (userId != null) {
@@ -186,13 +194,22 @@ class AuthViewModel @Inject constructor(
         resolvedForUserId = null
         // onNewToken must not register a rotated token for a signed-out user.
         secureStorage.delete(SecureStorage.USER_ID)
+        // The add-email prompt belongs to the account that just left.
+        _uiState.value = _uiState.value.copy(
+            addEmailStage = AddEmailStage.Hidden,
+            addEmailAddress = "",
+            addEmailCode = "",
+            addEmailError = null,
+            isAddingEmail = false
+        )
     }
 
     /**
      * Work out where this user belongs: the cached role at once (so an offline
      * launch opens the right app), then the server's answer. A failed lookup
      * never falls back to owner. With no membership, try a phone-number invite
-     * match before asking the user.
+     * match (accounts from the retired phone sign-in still have a verified
+     * number) before asking the user.
      */
     suspend fun resolveMembership() {
         val userId = authService.currentUserId() ?: return
@@ -345,14 +362,6 @@ class AuthViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(showReauthPrompt = false)
     }
 
-    fun updatePhoneNumber(phone: String) {
-        _uiState.value = _uiState.value.copy(phoneNumber = phone, errorMessage = null)
-    }
-
-    fun updateOtpCode(code: String) {
-        _uiState.value = _uiState.value.copy(otpCode = code, errorMessage = null)
-    }
-
     fun updateEmail(email: String) {
         _uiState.value = _uiState.value.copy(email = email, errorMessage = null)
     }
@@ -369,65 +378,115 @@ class AuthViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isSignUp = !_uiState.value.isSignUp, errorMessage = null)
     }
 
-    fun sendOTP() {
-        val phone = _uiState.value.phoneNumber
-        if (!AuthService.isValidUSPhone(phone)) {
-            _uiState.value = _uiState.value.copy(errorMessage = "Please enter a valid US phone number.")
+    // MARK: - Add an email (phone sign-in retired)
+
+    /**
+     * Offer "Add an email" to an account that has none. Phone-number sign-in is
+     * gone (server-sent SMS codes would need A2P 10DLC registration), so a
+     * phone-only account that signs out has no way back in. Asked once per
+     * launch while the session still works; dismissible.
+     */
+    fun checkAccountHasEmail() {
+        val state = _uiState.value
+        if (addEmailDeferredThisLaunch || state.addEmailStage != AddEmailStage.Hidden) return
+        if (authService.signedInAccountLacksEmail()) {
+            _uiState.value = state.copy(addEmailStage = AddEmailStage.EnterEmail, addEmailError = null)
+        }
+    }
+
+    fun updateAddEmailAddress(email: String) {
+        _uiState.value = _uiState.value.copy(addEmailAddress = email, addEmailError = null)
+    }
+
+    fun updateAddEmailCode(code: String) {
+        _uiState.value = _uiState.value.copy(addEmailCode = code.filter { it.isDigit() }.take(6), addEmailError = null)
+    }
+
+    /** "Not now": close the prompt until the next launch. */
+    fun deferAddEmail() {
+        addEmailDeferredThisLaunch = true
+        _uiState.value = _uiState.value.copy(
+            addEmailStage = AddEmailStage.Hidden,
+            addEmailCode = "",
+            addEmailError = null,
+            isAddingEmail = false
+        )
+    }
+
+    fun sendAddEmailCode() {
+        val address = _uiState.value.addEmailAddress.trim()
+        if (!Validation.isValidEmail(address)) {
+            _uiState.value = _uiState.value.copy(addEmailError = "Please enter a valid email address.")
             return
         }
-        if (isLockedOut()) return
-
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            _uiState.value = _uiState.value.copy(isAddingEmail = true, addEmailError = null)
             try {
-                authService.sendPhoneOTP(phone)
-                otpVerifyAttempts = 0
-                _uiState.value = _uiState.value.copy(isLoading = false, isAwaitingOTP = true)
+                authService.requestAddEmail(address)
+                _uiState.value = _uiState.value.copy(
+                    isAddingEmail = false,
+                    addEmailCode = "",
+                    addEmailStage = AddEmailStage.EnterCode
+                )
             } catch (e: DailyOKError) {
-                recordFailedAttempt()
-                _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = e.localizedMessage)
+                _uiState.value = _uiState.value.copy(
+                    isAddingEmail = false,
+                    addEmailError = e.localizedMessage ?: "Couldn't send the code. Check the address and try again."
+                )
             }
         }
     }
 
-    fun verifyOTP() {
-        val phone = _uiState.value.phoneNumber
-        val code = _uiState.value.otpCode
-
-        if (code.length != 6) {
-            _uiState.value = _uiState.value.copy(errorMessage = "Please enter the 6-digit code.")
+    fun confirmAddEmailCode() {
+        val state = _uiState.value
+        if (state.addEmailCode.length != 6) {
+            _uiState.value = state.copy(addEmailError = "Enter the 6-digit code from your email.")
             return
         }
-        if (isLockedOut()) return
-
-        otpVerifyAttempts++
-        if (otpVerifyAttempts > MAX_OTP_ATTEMPTS) {
-            _uiState.value = _uiState.value.copy(
-                errorMessage = "Too many attempts. Please request a new code.",
-                isAwaitingOTP = false,
-                otpCode = ""
-            )
-            otpVerifyAttempts = 0
-            return
-        }
-
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            _uiState.value = _uiState.value.copy(isAddingEmail = true, addEmailError = null)
             try {
-                authService.verifyPhoneOTP(phone, code)
-                analyticsService.track(AnalyticsService.SIGN_IN)
-                resetFailedAttempts()
-                _uiState.value = _uiState.value.copy(isLoading = false)
+                authService.confirmAddedEmail(state.addEmailAddress, state.addEmailCode)
+                _uiState.value = _uiState.value.copy(isAddingEmail = false, addEmailStage = AddEmailStage.Done)
             } catch (e: DailyOKError) {
-                recordFailedAttempt()
-                val remaining = MAX_OTP_ATTEMPTS - otpVerifyAttempts
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = "${e.localizedMessage} ($remaining attempts remaining)",
-                    otpCode = ""
+                val message = if (e is DailyOKError.Network) e.localizedMessage
+                    else "That code is incorrect or has expired. Check the email, or send a new code."
+                _uiState.value = _uiState.value.copy(isAddingEmail = false, addEmailError = message)
+            }
+        }
+    }
+
+    /** The user tapped the link in the email instead of typing the code. */
+    fun checkAddedEmailByLink() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isAddingEmail = true, addEmailError = null)
+            val confirmed = authService.refreshAddedEmailStatus()
+            _uiState.value = if (confirmed) {
+                _uiState.value.copy(isAddingEmail = false, addEmailStage = AddEmailStage.Done)
+            } else {
+                _uiState.value.copy(
+                    isAddingEmail = false,
+                    addEmailError = "Not confirmed yet. Tap the link in the email, or type the code."
                 )
             }
         }
+    }
+
+    /** Back from the code step to fix the address. */
+    fun editAddEmailAddress() {
+        _uiState.value = _uiState.value.copy(
+            addEmailStage = AddEmailStage.EnterEmail,
+            addEmailCode = "",
+            addEmailError = null
+        )
+    }
+
+    fun finishAddEmail() {
+        _uiState.value = _uiState.value.copy(
+            addEmailStage = AddEmailStage.Hidden,
+            addEmailCode = "",
+            addEmailError = null
+        )
     }
 
     fun signInWithEmail() {
@@ -523,6 +582,7 @@ class AuthViewModel @Inject constructor(
             pushNotificationService.onSignedOut()
             authService.signOut()
             resetSessionState()
+            addEmailDeferredThisLaunch = false
             _uiState.value = AuthUiState()
         }
     }
@@ -547,11 +607,6 @@ class AuthViewModel @Inject constructor(
 
     fun setBiometricLocked(locked: Boolean) {
         _uiState.value = _uiState.value.copy(biometricLocked = locked)
-    }
-
-    fun backToPhoneEntry() {
-        _uiState.value = _uiState.value.copy(isAwaitingOTP = false, otpCode = "", errorMessage = null)
-        otpVerifyAttempts = 0
     }
 
     // MARK: - Rate Limiting
@@ -589,7 +644,6 @@ class AuthViewModel @Inject constructor(
     private fun resetFailedAttempts() {
         failedAttempts = 0
         lockoutUntilMs = 0
-        otpVerifyAttempts = 0
         lockoutCountdownJob?.cancel()
         _uiState.value = _uiState.value.copy(authLockoutMessage = null, authLockoutSecondsRemaining = 0)
     }

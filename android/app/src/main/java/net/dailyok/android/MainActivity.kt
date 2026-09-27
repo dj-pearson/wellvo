@@ -301,6 +301,12 @@ fun DailyOKApp(
         )
     }
 
+    // An account made with the retired phone sign-in is asked to add an email
+    // while its session still works (dismissible; asked again next launch).
+    if (authState is AuthState.Authenticated && !uiState.biometricLocked) {
+        net.dailyok.android.ui.screens.auth.AddEmailDialog(state = uiState, viewModel = authViewModel)
+    }
+
     val appPrefs: net.dailyok.android.viewmodels.AppPreferencesViewModel = hiltViewModel()
     val hapticsEnabled by appPrefs.hapticsEnabled.collectAsState()
 

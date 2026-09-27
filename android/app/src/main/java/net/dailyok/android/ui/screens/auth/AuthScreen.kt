@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -151,16 +152,20 @@ fun AuthScreen(
                         )
                     }
 
-                    // Phone OTP — primary, prominent
-                    PhoneAuthSection(
-                        state = state,
-                        viewModel = viewModel,
-                        onDismissKeyboard = { keyboardController?.hide() }
+                    // Phone-number sign-in was retired (server-sent SMS codes
+                    // need carrier registration): Google, or email.
+                    GoogleSignInButton(
+                        isLoading = state.isGoogleLoading,
+                        enabled = !state.isLoading && !state.isGoogleLoading,
+                        onClick = { viewModel.signInWithGoogle(context) }
                     )
+
+                    if (state.isGoogleLoading && state.errorMessage != null) {
+                        ErrorText(state.errorMessage)
+                    }
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Divider
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -175,29 +180,19 @@ fun AuthScreen(
                         HorizontalDivider(modifier = Modifier.weight(1f))
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Google Sign-In
-                    GoogleSignInButton(
-                        isLoading = state.isGoogleLoading,
-                        enabled = !state.isLoading && !state.isGoogleLoading,
-                        onClick = { viewModel.signInWithGoogle(context) }
-                    )
-
-                    if (state.isGoogleLoading && state.errorMessage != null) {
-                        ErrorText(state.errorMessage)
-                    }
-
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Email/Password — expandable section
-                    EmailExpandableSection(
+                    EmailAuthSection(
                         state = state,
                         viewModel = viewModel,
                         onDismissKeyboard = { keyboardController?.hide() }
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            PhoneAccountHelp()
 
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -236,89 +231,162 @@ private fun GoogleSignInButton(
     }
 }
 
+/**
+ * Phone-number sign-in was retired. Someone whose account only had a phone
+ * number can't sign back in by themselves, so say plainly what to do.
+ */
 @Composable
-private fun PhoneAuthSection(
+private fun PhoneAccountHelp() {
+    var expanded by remember { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
+
+    TextButton(onClick = { expanded = !expanded }) {
+        Text(
+            text = stringResource(R.string.auth_phone_account_help_title),
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+    AnimatedVisibility(
+        visible = expanded,
+        enter = expandVertically(),
+        exit = shrinkVertically()
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = stringResource(R.string.auth_phone_account_help_body),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+            TextButton(onClick = { uriHandler.openUri("https://dailyok.net/support") }) {
+                Text(stringResource(R.string.auth_contact_support))
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmailAuthSection(
     state: AuthUiState,
     viewModel: AuthViewModel,
     onDismissKeyboard: () -> Unit
 ) {
-    val otpFocusRequester = remember { FocusRequester() }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = stringResource(R.string.auth_sign_in_email),
+            style = MaterialTheme.typography.titleMedium
+        )
+        Spacer(modifier = Modifier.height(8.dp))
 
-    if (!state.isAwaitingOTP) {
-        Text(
-            text = stringResource(R.string.auth_phone_title),
-            style = MaterialTheme.typography.titleLarge
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = stringResource(R.string.auth_phone_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(16.dp))
+        if (state.isSignUp) {
+            OutlinedTextField(
+                value = state.displayName,
+                onValueChange = viewModel::updateDisplayName,
+                label = { Text(stringResource(R.string.auth_display_name)) },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.isLoading
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
 
         OutlinedTextField(
-            value = state.phoneNumber,
-            onValueChange = viewModel::updatePhoneNumber,
-            label = { Text(stringResource(R.string.auth_phone_label)) },
+            value = state.email,
+            onValueChange = viewModel::updateEmail,
+            label = { Text(stringResource(R.string.auth_email)) },
             keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Phone,
+                keyboardType = KeyboardType.Email,
+                imeAction = ImeAction.Next
+            ),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !state.isLoading
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = state.password,
+            onValueChange = viewModel::updatePassword,
+            label = { Text(stringResource(R.string.auth_password)) },
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
                 imeAction = ImeAction.Done
             ),
             keyboardActions = KeyboardActions(onDone = {
                 onDismissKeyboard()
-                viewModel.sendOTP()
+                viewModel.signInWithEmail()
             }),
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isLoading && !state.isGoogleLoading
-        )
-
-        if (!state.isGoogleLoading) {
-            ErrorText(state.errorMessage)
-        }
-        Spacer(modifier = Modifier.height(24.dp))
-
-        LoadingOrButton(
-            isLoading = state.isLoading,
-            label = stringResource(R.string.auth_send_code),
-            enabled = !state.isGoogleLoading,
-            onClick = viewModel::sendOTP
-        )
-    } else {
-        Text(
-            text = stringResource(R.string.auth_enter_otp_title),
-            style = MaterialTheme.typography.titleLarge
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.auth_enter_otp_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedTextField(
-            value = state.otpCode,
-            onValueChange = { if (it.length <= 6) viewModel.updateOtpCode(it) },
-            label = { Text(stringResource(R.string.auth_otp_placeholder)) },
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Number,
-                imeAction = ImeAction.Done
-            ),
-            keyboardActions = KeyboardActions(onDone = {
-                onDismissKeyboard()
-                viewModel.verifyOTP()
-            }),
-            singleLine = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(otpFocusRequester),
             enabled = !state.isLoading
         )
 
-        LaunchedEffect(Unit) {
-            otpFocusRequester.requestFocus()
+        // Password strength indicator (sign-up only)
+        if (state.isSignUp && state.password.isNotEmpty()) {
+            val strength = PasswordStrength.evaluate(state.password)
+            val strengthColor = when (strength) {
+                PasswordStrength.WEAK -> MaterialTheme.colorScheme.error
+                PasswordStrength.FAIR -> MaterialTheme.colorScheme.tertiary
+                PasswordStrength.GOOD -> MaterialTheme.colorScheme.secondary
+                PasswordStrength.STRONG -> MaterialTheme.colorScheme.primary
+            }
+            Column(modifier = Modifier.fillMaxWidth()) {
+                androidx.compose.material3.LinearProgressIndicator(
+                    progress = { strength.progress },
+                    modifier = Modifier.fillMaxWidth().height(4.dp),
+                    color = strengthColor,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = strength.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = strengthColor
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+
+        if (!state.isSignUp) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(
+                    onClick = viewModel::sendPasswordReset,
+                    enabled = !state.isResettingPassword
+                ) {
+                    if (state.isResettingPassword) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            stringResource(R.string.auth_forgot_password),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        }
+
+        state.resetPasswordMessage?.let { msg ->
+            Text(
+                text = msg,
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
         }
 
         ErrorText(state.errorMessage)
@@ -326,174 +394,16 @@ private fun PhoneAuthSection(
 
         LoadingOrButton(
             isLoading = state.isLoading,
-            label = stringResource(R.string.auth_verify),
-            onClick = viewModel::verifyOTP
+            label = if (state.isSignUp) stringResource(R.string.auth_create_account) else stringResource(R.string.auth_sign_in),
+            onClick = viewModel::signInWithEmail
         )
 
         Spacer(modifier = Modifier.height(8.dp))
-        TextButton(onClick = viewModel::backToPhoneEntry) {
-            Text(stringResource(R.string.auth_use_different_number))
-        }
-    }
-}
-
-@Composable
-private fun EmailExpandableSection(
-    state: AuthUiState,
-    viewModel: AuthViewModel,
-    onDismissKeyboard: () -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    TextButton(
-        onClick = { expanded = !expanded },
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Icon(
-            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-            contentDescription = if (expanded) stringResource(R.string.auth_collapse_email) else stringResource(R.string.auth_expand_email),
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = if (expanded) stringResource(R.string.auth_hide_email) else stringResource(R.string.auth_sign_in_email),
-            style = MaterialTheme.typography.bodyLarge
-        )
-    }
-
-    AnimatedVisibility(
-        visible = expanded,
-        enter = expandVertically(),
-        exit = shrinkVertically()
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (state.isSignUp) {
-                OutlinedTextField(
-                    value = state.displayName,
-                    onValueChange = viewModel::updateDisplayName,
-                    label = { Text(stringResource(R.string.auth_display_name)) },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !state.isLoading
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            OutlinedTextField(
-                value = state.email,
-                onValueChange = viewModel::updateEmail,
-                label = { Text(stringResource(R.string.auth_email)) },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Email,
-                    imeAction = ImeAction.Next
-                ),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !state.isLoading
+        TextButton(onClick = viewModel::toggleSignUp) {
+            Text(
+                if (state.isSignUp) stringResource(R.string.auth_already_have_account)
+                else stringResource(R.string.auth_no_account)
             )
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = state.password,
-                onValueChange = viewModel::updatePassword,
-                label = { Text(stringResource(R.string.auth_password)) },
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(onDone = {
-                    onDismissKeyboard()
-                    viewModel.signInWithEmail()
-                }),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !state.isLoading
-            )
-
-            // Password strength indicator (sign-up only)
-            if (state.isSignUp && state.password.isNotEmpty()) {
-                val strength = PasswordStrength.evaluate(state.password)
-                val strengthColor = when (strength) {
-                    PasswordStrength.WEAK -> MaterialTheme.colorScheme.error
-                    PasswordStrength.FAIR -> MaterialTheme.colorScheme.tertiary
-                    PasswordStrength.GOOD -> MaterialTheme.colorScheme.secondary
-                    PasswordStrength.STRONG -> MaterialTheme.colorScheme.primary
-                }
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    androidx.compose.material3.LinearProgressIndicator(
-                        progress = { strength.progress },
-                        modifier = Modifier.fillMaxWidth().height(4.dp),
-                        color = strengthColor,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = strength.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = strengthColor
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-            }
-
-            if (!state.isSignUp) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(
-                        onClick = viewModel::sendPasswordReset,
-                        enabled = !state.isResettingPassword
-                    ) {
-                        if (state.isResettingPassword) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text(
-                                stringResource(R.string.auth_forgot_password),
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-                }
-            }
-
-            state.resetPasswordMessage?.let { msg ->
-                Text(
-                    text = msg,
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            ErrorText(state.errorMessage)
-            Spacer(modifier = Modifier.height(24.dp))
-
-            LoadingOrButton(
-                isLoading = state.isLoading,
-                label = if (state.isSignUp) stringResource(R.string.auth_create_account) else stringResource(R.string.auth_sign_in),
-                onClick = viewModel::signInWithEmail
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-            TextButton(onClick = viewModel::toggleSignUp) {
-                Text(
-                    if (state.isSignUp) stringResource(R.string.auth_already_have_account)
-                    else stringResource(R.string.auth_no_account)
-                )
-            }
         }
     }
 }

@@ -339,11 +339,11 @@ extension FamilyRoster {
         if let link, !link.isEmpty {
             lines.append("")
             lines.append("1. Get the app: \(link)")
-            lines.append("2. Sign in with this phone number and we're connected.")
+            lines.append("2. Sign in, then tap this link again to join.")
         }
         if let code, !code.isEmpty {
             lines.append("")
-            lines.append("Using a different phone, an iPad, or no phone number? Enter this setup code in the app: \(code)")
+            lines.append("Or enter this setup code in the app: \(code)")
         }
         return lines.joined(separator: "\n")
     }

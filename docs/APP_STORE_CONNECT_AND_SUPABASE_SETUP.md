@@ -764,6 +764,16 @@ GOTRUE_EXTERNAL_APPLE_SECRET=<apple-sign-in-client-secret>
 # Apple client secret must be a JWT signed with your Apple Services key
 # See: https://developer.apple.com/documentation/sign_in_with_apple/generate_and_validate_tokens
 
+# Phone-number sign-in is retired: server-sent SMS codes would need A2P 10DLC
+# registration. Keep the phone provider OFF and leave every GOTRUE_SMS_* /
+# Twilio value unset. (In the Supabase docker-compose these map from
+# ENABLE_PHONE_SIGNUP and ENABLE_PHONE_AUTOCONFIRM.)
+GOTRUE_EXTERNAL_PHONE_ENABLED=false
+GOTRUE_SMS_AUTOCONFIRM=false
+# Accounts created with phone sign-in are asked in-app to add an email: GoTrue
+# emails a 6-digit code for the email change. The "Change Email Address"
+# template must include {{ .Token }} (the default template does).
+
 # ─── PostgreSQL Extensions ───
 # Ensure pg_cron is enabled (Supabase includes it by default)
 ```
@@ -1136,7 +1146,8 @@ PRODUCT_BUNDLE_IDENTIFIER = net.dailyok.app
 POSTGRES_PASSWORD, JWT_SECRET, ANON_KEY, SERVICE_ROLE_KEY,
 SITE_URL, API_EXTERNAL_URL, SUPABASE_PUBLIC_URL,
 SMTP_ADMIN_EMAIL, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SENDER_NAME,
-GOTRUE_EXTERNAL_APPLE_ENABLED, GOTRUE_EXTERNAL_APPLE_CLIENT_ID, GOTRUE_EXTERNAL_APPLE_SECRET
+GOTRUE_EXTERNAL_APPLE_ENABLED, GOTRUE_EXTERNAL_APPLE_CLIENT_ID, GOTRUE_EXTERNAL_APPLE_SECRET,
+GOTRUE_EXTERNAL_PHONE_ENABLED=false, GOTRUE_SMS_AUTOCONFIRM=false (phone sign-in retired)
 ```
 
 ### Edge Functions (Docker Compose)

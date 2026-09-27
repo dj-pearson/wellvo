@@ -84,66 +84,89 @@ class AuthViewModelTest {
         assertEquals(AuthUiState(), vm.uiState.value)
     }
 
+    // Phone-number sign-in was retired; accounts without an email are asked to add one.
+
     @Test
-    fun `updatePhoneNumber updates state and clears error`() = runTest {
+    fun `phone-only account is asked to add an email after sign-in`() = runTest {
+        val testUser = AppUser(
+            id = "user-1", displayName = "Mom", role = UserRole.Receiver,
+            timezone = "UTC", createdAt = "", updatedAt = ""
+        )
+        coEvery { authService.getCurrentUser() } returns testUser
+        every { authService.signedInAccountLacksEmail() } returns true
         val vm = createViewModel()
-        vm.updatePhoneNumber("5551234567")
-        assertEquals("5551234567", vm.uiState.value.phoneNumber)
-        assertNull(vm.uiState.value.errorMessage)
+        sessionStatusFlow.value = SessionStatus.Authenticated(mockk(relaxed = true))
+        advanceUntilIdle()
+        assertEquals(AddEmailStage.EnterEmail, vm.uiState.value.addEmailStage)
     }
 
     @Test
-    fun `sendOTP with invalid phone sets error`() = runTest {
+    fun `account with an email is not asked`() = runTest {
+        every { authService.signedInAccountLacksEmail() } returns false
         val vm = createViewModel()
-        vm.updatePhoneNumber("123") // too short
-        vm.sendOTP()
-        advanceUntilIdle()
-        assertEquals("Please enter a valid US phone number.", vm.uiState.value.errorMessage)
-        assertFalse(vm.uiState.value.isAwaitingOTP)
+        vm.checkAccountHasEmail()
+        assertEquals(AddEmailStage.Hidden, vm.uiState.value.addEmailStage)
     }
 
     @Test
-    fun `sendOTP with valid phone transitions to awaiting OTP`() = runTest {
+    fun `not now closes the prompt for this launch`() = runTest {
+        every { authService.signedInAccountLacksEmail() } returns true
         val vm = createViewModel()
-        vm.updatePhoneNumber("2125551234")
-        coEvery { authService.sendPhoneOTP(any()) } returns Unit
-        vm.sendOTP()
-        advanceUntilIdle()
-        assertTrue(vm.uiState.value.isAwaitingOTP)
-        assertNull(vm.uiState.value.errorMessage)
+        vm.checkAccountHasEmail()
+        vm.deferAddEmail()
+        assertEquals(AddEmailStage.Hidden, vm.uiState.value.addEmailStage)
+        vm.checkAccountHasEmail()
+        assertEquals(AddEmailStage.Hidden, vm.uiState.value.addEmailStage)
     }
 
     @Test
-    fun `sendOTP network error sets error message`() = runTest {
+    fun `add email rejects an invalid address`() = runTest {
         val vm = createViewModel()
-        vm.updatePhoneNumber("2125551234")
-        coEvery { authService.sendPhoneOTP(any()) } throws DailyOKError.Network()
-        vm.sendOTP()
+        vm.updateAddEmailAddress("not-an-email")
+        vm.sendAddEmailCode()
         advanceUntilIdle()
-        assertFalse(vm.uiState.value.isAwaitingOTP)
-        assertTrue(vm.uiState.value.errorMessage?.contains("Network") == true)
+        assertEquals("Please enter a valid email address.", vm.uiState.value.addEmailError)
+        coVerify(exactly = 0) { authService.requestAddEmail(any()) }
     }
 
     @Test
-    fun `verifyOTP with short code sets error`() = runTest {
+    fun `add email sends a code then confirms it`() = runTest {
+        every { authService.signedInAccountLacksEmail() } returns true
         val vm = createViewModel()
-        vm.updateOtpCode("123")
-        vm.verifyOTP()
+        vm.checkAccountHasEmail()
+        vm.updateAddEmailAddress("mom@example.com")
+        vm.sendAddEmailCode()
         advanceUntilIdle()
-        assertEquals("Please enter the 6-digit code.", vm.uiState.value.errorMessage)
+        coVerify { authService.requestAddEmail("mom@example.com") }
+        assertEquals(AddEmailStage.EnterCode, vm.uiState.value.addEmailStage)
+
+        vm.updateAddEmailCode("12 34 56")
+        assertEquals("123456", vm.uiState.value.addEmailCode)
+        vm.confirmAddEmailCode()
+        advanceUntilIdle()
+        coVerify { authService.confirmAddedEmail("mom@example.com", "123456") }
+        assertEquals(AddEmailStage.Done, vm.uiState.value.addEmailStage)
     }
 
     @Test
-    fun `verifyOTP with valid code calls authService and tracks analytics`() = runTest {
+    fun `wrong add-email code keeps the code step with an error`() = runTest {
+        coEvery { authService.confirmAddedEmail(any(), any()) } throws DailyOKError.Auth("Invalid code.")
         val vm = createViewModel()
-        vm.updatePhoneNumber("2125551234")
-        vm.updateOtpCode("123456")
-        coEvery { authService.verifyPhoneOTP(any(), any()) } returns Unit
-        vm.verifyOTP()
+        vm.updateAddEmailAddress("mom@example.com")
+        vm.sendAddEmailCode()
         advanceUntilIdle()
-        coVerify { authService.verifyPhoneOTP(any(), "123456") }
-        verify { analyticsService.track(AnalyticsService.SIGN_IN) }
-        assertNull(vm.uiState.value.errorMessage)
+        vm.updateAddEmailCode("000000")
+        vm.confirmAddEmailCode()
+        advanceUntilIdle()
+        assertEquals(AddEmailStage.EnterCode, vm.uiState.value.addEmailStage)
+        assertTrue(vm.uiState.value.addEmailError!!.contains("incorrect"))
+    }
+
+    @Test
+    fun `accountLacksEmail is true only without an address`() {
+        assertTrue(AuthService.accountLacksEmail(null))
+        assertTrue(AuthService.accountLacksEmail(" "))
+        assertFalse(AuthService.accountLacksEmail("mom@example.com"))
     }
 
     @Test
@@ -186,16 +209,6 @@ class AuthViewModelTest {
         assertTrue(vm.uiState.value.isSignUp)
         vm.toggleSignUp()
         assertFalse(vm.uiState.value.isSignUp)
-    }
-
-    @Test
-    fun `backToPhoneEntry resets OTP state`() = runTest {
-        val vm = createViewModel()
-        vm.updateOtpCode("123456")
-        vm.backToPhoneEntry()
-        assertEquals("", vm.uiState.value.otpCode)
-        assertFalse(vm.uiState.value.isAwaitingOTP)
-        assertNull(vm.uiState.value.errorMessage)
     }
 
     @Test

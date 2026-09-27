@@ -127,13 +127,16 @@ final class AuthViewModelSignOutTests: XCTestCase {
         let viewModel = makeViewModel(dependencies(log: log) { throw RevokeFailed() })
         viewModel.email = "someone@example.com"
         viewModel.password = "hunter2"
-        viewModel.phoneNumber = "+15551234567"
+        viewModel.addEmailAddress = "new@example.com"
+        viewModel.addEmailStage = .enterCode
 
         await viewModel.signOut()
 
         XCTAssertEqual(viewModel.email, "")
         XCTAssertEqual(viewModel.password, "")
-        XCTAssertEqual(viewModel.phoneNumber, "")
+        // The add-email prompt belonged to the account that signed out.
+        XCTAssertEqual(viewModel.addEmailAddress, "")
+        XCTAssertEqual(viewModel.addEmailStage, .hidden)
     }
 }
 
@@ -243,25 +246,23 @@ final class AuthFlowTests: XCTestCase {
         XCTAssertTrue(AuthViewModel.failuresHaveDecayed(lastFailureAt: now.addingTimeInterval(-3_700), now: now))
     }
 
-    // MARK: Phone numbers
+    // MARK: Accounts without an email (phone sign-in retired)
 
-    func testNumbersThatNeedACountryCode() {
-        XCTAssertFalse(AuthService.phoneNeedsCountryCode("(555) 123-4567"))
-        XCTAssertFalse(AuthService.phoneNeedsCountryCode("1 555 123 4567"))
-        XCTAssertFalse(AuthService.phoneNeedsCountryCode("+44 7700 900123"))
-        // A UK number typed the local way used to become "+07700900123".
-        XCTAssertTrue(AuthService.phoneNeedsCountryCode("07700 900123"))
-        XCTAssertTrue(AuthService.phoneNeedsCountryCode("447700900123"))
+    /// A phone-only account has no email; it is the one asked to add one.
+    func testAccountWithoutEmailIsAskedToAddOne() {
+        XCTAssertTrue(AuthService.accountLacksEmail(email: nil))
+        XCTAssertTrue(AuthService.accountLacksEmail(email: ""))
+        XCTAssertTrue(AuthService.accountLacksEmail(email: "  "))
+        XCTAssertFalse(AuthService.accountLacksEmail(email: "mom@example.com"))
     }
 
-    /// "+" means the country code is already there. A 10-digit number with
-    /// one (Norway +47 9xxxxxxx) used to be read as US and the code texted to
-    /// +1 479-xxx-xxxx.
-    func testPhoneNormalization() {
-        XCTAssertEqual(AuthService.normalizedPhone("(555) 123-4567"), "+15551234567")
-        XCTAssertEqual(AuthService.normalizedPhone("1 555 123 4567"), "+15551234567")
-        XCTAssertEqual(AuthService.normalizedPhone("+1 (555) 123-4567"), "+15551234567")
-        XCTAssertEqual(AuthService.normalizedPhone("+47 912 34 567"), "+4791234567")
-        XCTAssertEqual(AuthService.normalizedPhone("+44 7700 900123"), "+447700900123")
+    /// "Not now" closes the prompt without touching the rest of the session.
+    func testNotNowClosesTheAddEmailPrompt() {
+        let viewModel = AuthViewModel(bootstrap: false)
+        viewModel.addEmailStage = .enterEmail
+        viewModel.addEmailError = "x"
+        viewModel.deferAddEmail()
+        XCTAssertEqual(viewModel.addEmailStage, .hidden)
+        XCTAssertNil(viewModel.addEmailError)
     }
 }

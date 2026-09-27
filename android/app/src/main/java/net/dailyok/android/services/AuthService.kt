@@ -12,8 +12,8 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.IDToken
-import io.github.jan.supabase.auth.providers.builtin.OTP
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.postgrest.postgrest
@@ -37,28 +37,75 @@ class AuthService @Inject constructor(
     val sessionStatus: Flow<SessionStatus>
         get() = supabase.auth.sessionStatus
 
-    suspend fun sendPhoneOTP(phone: String) {
-        val normalized = normalizePhone(phone)
+    // Phone-number sign-in was retired: server-sent SMS codes would need A2P
+    // 10DLC registration. Sign-in is Google or email. An account created with a
+    // phone number keeps its session and is asked to add an email (below).
+
+    /**
+     * True when the signed-in account has no email: it was made with the
+     * retired phone sign-in, so once signed out it has no way back in. A
+     * pending (unconfirmed) address lives in new_email, not email, so it
+     * still counts as missing.
+     */
+    fun signedInAccountLacksEmail(): Boolean {
+        val user = supabase.auth.currentUserOrNull() ?: return false
+        return accountLacksEmail(user.email)
+    }
+
+    /**
+     * Ask GoTrue to attach [email] to the signed-in account. It emails a
+     * 6-digit code (and a link); nothing changes until it is confirmed.
+     */
+    suspend fun requestAddEmail(email: String) {
+        val trimmed = email.trim().lowercase()
         try {
-            supabase.auth.signInWith(OTP) {
-                this.phone = normalized
-            }
+            supabase.auth.updateUser { this.email = trimmed }
         } catch (e: Exception) {
             throw mapAuthError(e)
         }
     }
 
-    suspend fun verifyPhoneOTP(phone: String, code: String) {
-        val normalized = normalizePhone(phone)
+    /** Confirm the 6-digit code from the add-email message. */
+    suspend fun confirmAddedEmail(email: String, code: String) {
+        val trimmed = email.trim().lowercase()
         try {
-            supabase.auth.verifyPhoneOtp(
-                phone = normalized,
-                token = code,
-                type = io.github.jan.supabase.auth.OtpType.Phone.SMS
+            supabase.auth.verifyEmailOtp(
+                type = OtpType.Email.EMAIL_CHANGE,
+                email = trimmed,
+                token = code.filter { it.isDigit() }
             )
         } catch (e: Exception) {
             throw mapAuthError(e)
         }
+        syncProfileEmail()
+    }
+
+    /**
+     * Whether the account now has a confirmed email, after the user tapped the
+     * link in the message instead of typing the code. Refreshes the session so
+     * the answer comes from the server.
+     */
+    suspend fun refreshAddedEmailStatus(): Boolean {
+        try {
+            supabase.auth.refreshCurrentSession()
+        } catch (_: Exception) {
+            return false
+        }
+        val hasEmail = !signedInAccountLacksEmail()
+        if (hasEmail) syncProfileEmail()
+        return hasEmail
+    }
+
+    /** Copy the confirmed auth email onto users.email (best-effort). */
+    private suspend fun syncProfileEmail() {
+        val user = supabase.auth.currentUserOrNull() ?: return
+        val email = user.email?.takeIf { it.isNotBlank() } ?: return
+        try {
+            supabase.postgrest.from("users")
+                .update(buildJsonObject { put("email", JsonPrimitive(email)) }) {
+                    filter { eq("id", user.id) }
+                }
+        } catch (_: Exception) { /* best-effort */ }
     }
 
     suspend fun signUpWithEmail(email: String, password: String, displayName: String) {
@@ -325,16 +372,10 @@ class AuthService @Inject constructor(
             "jordan1234", "mustang123", "access1234", "123456789a", "abcdefghij",
         )
 
-        fun normalizePhone(phone: String): String {
-            val digits = phone.replace(Regex("[^\\d]"), "")
-            return when {
-                digits.length == 10 && digits[0] in '2'..'9' -> "+1$digits"
-                digits.length == 11 && digits.startsWith("1") -> "+$digits"
-                phone.startsWith("+") -> phone
-                else -> "+$digits"
-            }
-        }
+        /** Pure core of [signedInAccountLacksEmail]. */
+        fun accountLacksEmail(email: String?): Boolean = email.isNullOrBlank()
 
+        /** Validates the phone number an owner types for someone they invite. */
         fun isValidUSPhone(phone: String): Boolean {
             val digits = phone.replace(Regex("[^\\d]"), "")
             return when {
@@ -350,6 +391,8 @@ class AuthService @Inject constructor(
                 "rate" in msg || "too many" in msg -> DailyOKError.Auth("Too many attempts. Please wait and try again.")
                 "invalid" in msg && "otp" in msg -> DailyOKError.Auth("Invalid code. Please check and try again.")
                 "expired" in msg -> DailyOKError.Auth("Code expired. Please request a new one.")
+                "already" in msg && ("registered" in msg || "exists" in msg || "in use" in msg) ->
+                    DailyOKError.Auth("That email is already used by another Daily OK account.")
                 "not found" in msg -> DailyOKError.NotFound()
                 "network" in msg || "connection" in msg -> DailyOKError.Network()
                 else -> DailyOKError.Auth(e.message ?: "Authentication failed.")

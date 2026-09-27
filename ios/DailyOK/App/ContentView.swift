@@ -92,6 +92,27 @@ struct ContentView: View {
         } message: { outcome in
             Text(outcome.message)
         }
+        // A phone-only account (phone sign-in was retired) is asked to add an
+        // email while its session still works. Swiping away is "Not now".
+        .sheet(isPresented: Binding(
+            get: {
+                authViewModel.authState == .authenticated
+                    && !authViewModel.biometricLocked
+                    && authViewModel.addEmailStage != .hidden
+            },
+            set: { presented in
+                // Only a dismissal the user made; a sign-out or lock hides it too.
+                guard !presented, authViewModel.authState == .authenticated,
+                      !authViewModel.biometricLocked else { return }
+                if authViewModel.addEmailStage == .done {
+                    authViewModel.finishAddEmail()
+                } else if authViewModel.addEmailStage != .hidden {
+                    authViewModel.deferAddEmail()
+                }
+            }
+        )) {
+            AddEmailSheet(authViewModel: authViewModel)
+        }
         .animation(reduceMotion ? nil : .easeInOut, value: authViewModel.authState)
         .animation(reduceMotion ? nil : .easeInOut, value: authViewModel.biometricLocked)
         // An alert's "Text" action: land on the dashboard, which opens the

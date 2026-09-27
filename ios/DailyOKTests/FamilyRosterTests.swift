@@ -251,6 +251,8 @@ final class FamilyRosterTests: XCTestCase {
         let text = FamilyRoster.shareMessage(name: "Alex", role: .viewer, link: "https://dailyok.net/invite/x?code=1", code: "123456")
         XCTAssertTrue(text.contains("won't be asked to check in"))
         XCTAssertTrue(text.contains("123456"))
+        // Phone-number sign-in is gone; the invite must not promise it.
+        XCTAssertFalse(text.localizedCaseInsensitiveContains("phone number"))
         let receiver = FamilyRoster.shareMessage(name: "Mom", role: .receiver, link: nil, code: nil)
         XCTAssertTrue(receiver.hasPrefix("Hi Mom!"))
     }

@@ -42,8 +42,8 @@ object InviteShare {
     fun message(name: String, inviteLink: String?, pairingCode: String?, serverMessage: String?): String {
         if (!serverMessage.isNullOrBlank()) return serverMessage
         val link = inviteLink ?: "https://dailyok.net"
-        val code = pairingCode?.let { "\n\nUsing a different phone, an iPad, or no phone number? Enter this setup code in the app: $it" } ?: ""
+        val code = pairingCode?.let { "\n\nOr enter this setup code in the app: $it" } ?: ""
         return "Hi $name! I'd like to check in with you each day using Daily OK — you just tap \"I'm OK\" once a day.\n\n" +
-            "1. Get the app: $link\n2. Sign in with this phone number and we're connected.$code"
+            "1. Get the app: $link\n2. Sign in, then tap this link again to join.$code"
     }
 }

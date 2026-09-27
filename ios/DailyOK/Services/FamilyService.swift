@@ -504,10 +504,9 @@ struct InviteDetails: Identifiable {
         let greeting = trimmed.isEmpty ? "Hi!" : "Hi \(trimmed)!"
         var body =
             "\(greeting) I'd like to check in with you every day using Daily OK. " +
-            "Download the app and sign in with this phone number and we'll be " +
-            "connected automatically: https://apps.apple.com/app/daily-ok/id6742044109"
+            "Download the app and sign in: https://apps.apple.com/app/daily-ok/id6742044109"
         if let code = pairingCode, !code.isEmpty {
-            body += "\n\nSetting up on an iPad? Use this code: \(code)"
+            body += "\n\nThen enter this setup code in the app to join: \(code)"
         }
         return body
     }

@@ -82,8 +82,9 @@ export default function Invite() {
           <li>
             <h2>Open it</h2>
             <p>
-              Sign in with the phone number this text was sent to, and you're
-              connected automatically.
+              Sign in with Apple, Google, or your email. Then tap Open Daily OK
+              below (or the link in your text again) to see whose family it is
+              and join.
             </p>
             <a className="btn btn-secondary" href={openInAppHref}>
               Open Daily OK
@@ -98,14 +99,13 @@ export default function Invite() {
                   {code}
                 </p>
                 <p className="invite-note">
-                  Use it on an iPad, on a different phone, or if you sign in with
-                  Apple or email instead of your phone number.
+                  Use it on an iPad, or if the link doesn't open the app.
                 </p>
               </>
             ) : (
               <p className="invite-note">
                 Your invitation text includes a 6-digit setup code. Enter it in the
-                app if you sign in with a different phone number, Apple or email.
+                app if the link doesn't open it.
               </p>
             )}
           </li>

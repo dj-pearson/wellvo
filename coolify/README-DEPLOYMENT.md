@@ -50,6 +50,9 @@
    - `SITE_URL` — `https://dailyok.net`
    - `API_EXTERNAL_URL` — `https://api.dailyok.net`
    - Enable Apple Sign-In provider
+   - Keep the **phone** provider disabled (`GOTRUE_EXTERNAL_PHONE_ENABLED=false`,
+     i.e. `ENABLE_PHONE_SIGNUP=false` in the Supabase template) and leave the SMS
+     provider (Twilio) settings empty: phone-number sign-in is retired
 3. Deploy and note the **Docker network name** (usually `supabase_default`)
 4. Run the SQL migrations in order:
    ```bash
