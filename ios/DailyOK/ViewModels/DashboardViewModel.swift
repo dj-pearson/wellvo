@@ -261,6 +261,9 @@ final class DashboardViewModel: ObservableObject {
     /// Signed-in user, for "Release" on the caller's own claim and the
     /// per-user walkthrough flag.
     @Published var currentUserId: UUID?
+    /// Active receivers' membership rows keyed by receiver user id, so an
+    /// owner's card can open that receiver's schedule & alerts.
+    @Published var receiverMembers: [UUID: FamilyMember] = [:]
     /// Set true when a milestone (a receiver reaching a multi-day streak) makes
     /// this a good moment to ask for an App Store rating. The view observes this
     /// and presents the system prompt, then resets it.
@@ -338,6 +341,7 @@ final class DashboardViewModel: ObservableObject {
 
             let members = try await FamilyService.shared.getFamilyMembers(familyId: family.id)
             let receivers = members.filter { $0.role == .receiver && $0.status == .active }
+            receiverMembers = Dictionary(receivers.map { ($0.userId, $0) }, uniquingKeysWith: { first, _ in first })
 
             // Which receivers have notifications on — one RPC for all of them.
             // nil = unknown, which never shows the warning.
@@ -524,6 +528,7 @@ final class DashboardViewModel: ObservableObject {
     /// including the Lock Screen widget and any running Live Activity.
     private func clearFamilyState() async {
         receiverCards = []
+        receiverMembers = [:]
         alerts = []
         weeklySummary = nil
         refreshError = nil

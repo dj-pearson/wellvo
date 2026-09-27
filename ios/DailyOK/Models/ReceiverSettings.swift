@@ -43,7 +43,7 @@ enum ScheduleType: String, Codable, CaseIterable {
 ///   * New clients dual-read via `times(forDayKey:)` (prefer the array, fall
 ///     back to the single field) and dual-write the legacy field (= earliest
 ///     time) so old clients still see a valid single time.
-struct DaySchedule: Codable, Equatable {
+struct DaySchedule: Codable, Equatable, Sendable {
     var mon: String?
     var tue: String?
     var wed: String?
@@ -128,6 +128,13 @@ struct ReceiverSettings: Codable, Identifiable {
     var notifyOwnerOnCheckin: Bool // owner gets a push when this receiver checks in OK
     var simpleMode: Bool // extra-large, low-clutter, emoji-free check-in for seniors
     var audioConfirmationEnabled: Bool // speak/chime a confirmation on check-in
+    /// When a pause ends by itself (00056). Nil = paused until someone resumes,
+    /// or not paused. Older servers don't send it.
+    var pausedUntil: Date?
+    /// True when `custom_schedule` arrived as a JSON *string* holding the
+    /// object — what iOS builds before 2026-09-27 wrote. Dispatch can't read
+    /// that shape, so the settings screen rewrites it as an object. Not coded.
+    var customScheduleNeedsRepair = false
 
     enum CodingKeys: String, CodingKey {
         case id, timezone
@@ -154,6 +161,7 @@ struct ReceiverSettings: Codable, Identifiable {
         case notifyOwnerOnCheckin = "notify_owner_on_checkin"
         case simpleMode = "simple_mode"
         case audioConfirmationEnabled = "audio_confirmation_enabled"
+        case pausedUntil = "paused_until"
     }
 
     init(from decoder: Decoder) throws {
@@ -178,11 +186,29 @@ struct ReceiverSettings: Codable, Identifiable {
         receiverMode = try container.decodeIfPresent(ReceiverMode.self, forKey: .receiverMode) ?? .standard
         scheduleType = try container.decodeIfPresent(ScheduleType.self, forKey: .scheduleType) ?? .daily
         weekendCheckinTime = try container.decodeIfPresent(String.self, forKey: .weekendCheckinTime)
-        customSchedule = try container.decodeIfPresent(DaySchedule.self, forKey: .customSchedule)
+        // Dual-read: an object (correct), or a string holding the object's JSON
+        // (written by older iOS builds). A string used to throw here, which
+        // failed the whole row — and, because the dashboard decodes settings
+        // as an array, every receiver's schedule. Anything else unreadable is
+        // treated as "no custom schedule" rather than failing the row.
+        if let schedule = try? container.decodeIfPresent(DaySchedule.self, forKey: .customSchedule) {
+            customSchedule = schedule
+        } else if let raw = try? container.decodeIfPresent(String.self, forKey: .customSchedule),
+                  let data = raw.data(using: .utf8),
+                  let schedule = try? JSONDecoder().decode(DaySchedule.self, from: data) {
+            customSchedule = schedule
+            customScheduleNeedsRepair = true
+        } else {
+            customSchedule = nil
+        }
         schedulePaused = try container.decodeIfPresent(Bool.self, forKey: .schedulePaused) ?? false
         notifyOwnerOnCheckin = try container.decodeIfPresent(Bool.self, forKey: .notifyOwnerOnCheckin) ?? true
         simpleMode = try container.decodeIfPresent(Bool.self, forKey: .simpleMode) ?? false
         audioConfirmationEnabled = try container.decodeIfPresent(Bool.self, forKey: .audioConfirmationEnabled) ?? false
+        // Read as text so the result doesn't depend on the decoder's date
+        // strategy (Postgres sends "2026-09-28T07:00:00+00:00").
+        let pausedUntilRaw = try? container.decodeIfPresent(String.self, forKey: .pausedUntil)
+        pausedUntil = pausedUntilRaw.flatMap { ReceiverSettingsForm.parseTimestamp($0) }
     }
 }
 
@@ -205,6 +231,281 @@ extension ReceiverSettings {
                 set.insert(weekday)
             }
             return set
+        }
+    }
+}
+
+// MARK: - Owner edits
+
+/// The owner-editable part of `receiver_settings`, in wire format ("HH:mm"
+/// times, a real `DaySchedule`). The settings screen snapshots this right after
+/// a load and diffs against it, so Save sends only what the owner changed — a
+/// receiver's own Simple Mode / Spoken Confirmation choices are never
+/// overwritten by an owner who didn't touch them — and Back can warn about
+/// unsaved edits.
+struct ReceiverSettingsForm: Equatable {
+    var checkinTime: String
+    var gracePeriodMinutes: Int
+    var reminderIntervalMinutes: Int
+    var escalationEnabled: Bool
+    var moodTrackingEnabled: Bool
+    var smsEscalationEnabled: Bool
+    var notifyOwnerOnCheckin: Bool
+    var receiverMode: ReceiverMode
+    var scheduleType: ScheduleType
+    var schedulePaused: Bool
+    /// Only meaningful while paused; nil = until someone resumes.
+    var pausedUntil: Date?
+    var simpleMode: Bool
+    var audioConfirmationEnabled: Bool
+    /// Only meaningful for `.weekdayWeekend`.
+    var weekendCheckinTime: String?
+    /// Only meaningful for `.custom`.
+    var customSchedule: DaySchedule?
+    /// Both set, or both nil (quiet hours off).
+    var quietHoursStart: String?
+    var quietHoursEnd: String?
+
+    /// The PATCH body for this form. With no `original`, every field is sent.
+    /// Otherwise only changed fields. Schedule details are sent when the
+    /// schedule type is the one that uses them and either they or the type
+    /// changed. Quiet hours are sent as a pair so they are never half-cleared.
+    func patch(from original: ReceiverSettingsForm?) -> ReceiverSettingsPatch {
+        var p = ReceiverSettingsPatch()
+        func changed<T: Equatable>(_ kp: KeyPath<ReceiverSettingsForm, T>) -> Bool {
+            guard let original else { return true }
+            return original[keyPath: kp] != self[keyPath: kp]
+        }
+        if changed(\.checkinTime) { p.set("checkin_time", .string(checkinTime)) }
+        if changed(\.gracePeriodMinutes) { p.set("grace_period_minutes", .int(gracePeriodMinutes)) }
+        if changed(\.reminderIntervalMinutes) { p.set("reminder_interval_minutes", .int(reminderIntervalMinutes)) }
+        if changed(\.escalationEnabled) { p.set("escalation_enabled", .bool(escalationEnabled)) }
+        if changed(\.moodTrackingEnabled) { p.set("mood_tracking_enabled", .bool(moodTrackingEnabled)) }
+        if changed(\.smsEscalationEnabled) { p.set("sms_escalation_enabled", .bool(smsEscalationEnabled)) }
+        if changed(\.notifyOwnerOnCheckin) { p.set("notify_owner_on_checkin", .bool(notifyOwnerOnCheckin)) }
+        if changed(\.receiverMode) { p.set("receiver_mode", .string(receiverMode.rawValue)) }
+        if changed(\.scheduleType) { p.set("schedule_type", .string(scheduleType.rawValue)) }
+        if changed(\.schedulePaused) { p.set("schedule_paused", .bool(schedulePaused)) }
+        if changed(\.simpleMode) { p.set("simple_mode", .bool(simpleMode)) }
+        if changed(\.audioConfirmationEnabled) { p.set("audio_confirmation_enabled", .bool(audioConfirmationEnabled)) }
+
+        // paused_until only means something while paused. Sent only when it
+        // changes, so a save on a server without the column (pre-00056)
+        // fails only if the owner actually chose an end date.
+        let effectivePausedUntil: Date? = schedulePaused ? pausedUntil : nil
+        var originalPausedUntil: Date?
+        if let original, original.schedulePaused { originalPausedUntil = original.pausedUntil }
+        let pauseEndChanged = original == nil
+            ? effectivePausedUntil != nil
+            : effectivePausedUntil != originalPausedUntil
+        if pauseEndChanged {
+            if let end = effectivePausedUntil {
+                p.set("paused_until", .string(Self.timestampString(end)))
+            } else {
+                p.set("paused_until", .null)
+            }
+        }
+
+        switch scheduleType {
+        case .weekdayWeekend:
+            if let weekend = weekendCheckinTime, changed(\.weekendCheckinTime) || changed(\.scheduleType) {
+                p.set("weekend_checkin_time", .string(weekend))
+            }
+        case .custom:
+            if let schedule = customSchedule, changed(\.customSchedule) || changed(\.scheduleType) {
+                p.set("custom_schedule", .schedule(schedule))
+            }
+        case .daily:
+            break
+        }
+
+        if changed(\.quietHoursStart) || changed(\.quietHoursEnd) {
+            if let start = quietHoursStart, let end = quietHoursEnd {
+                p.set("quiet_hours_start", .string(start))
+                p.set("quiet_hours_end", .string(end))
+            } else {
+                // Explicit nulls so turning Quiet Hours off actually persists.
+                p.set("quiet_hours_start", .null)
+                p.set("quiet_hours_end", .null)
+            }
+        }
+        return p
+    }
+
+    // MARK: Schedule checks
+
+    /// Every "HH:mm" time the current schedule would dispatch, de-duplicated
+    /// and sorted.
+    var scheduledTimes: [String] {
+        let times: [String]
+        switch scheduleType {
+        case .daily:
+            times = [checkinTime]
+        case .weekdayWeekend:
+            times = [checkinTime, weekendCheckinTime ?? checkinTime]
+        case .custom:
+            let schedule = customSchedule ?? DaySchedule()
+            times = DaySchedule.allDays.flatMap { schedule.times(forDayKey: $0.key) }
+        }
+        return Array(Set(times.map(Self.normalizedHHmm))).sorted()
+    }
+
+    /// Scheduled times that fall inside quiet hours. Dispatch sends nothing
+    /// while quiet hours are on (00052), so such a check-in is not asked at its
+    /// time — before 00056 it was dropped for the day, with no escalation.
+    /// Half-open [start, end), wrapping midnight — the receiver app's rule.
+    var timesInsideQuietHours: [String] {
+        guard let qs = quietHoursStart.flatMap(Self.minutesOfDay),
+              let qe = quietHoursEnd.flatMap(Self.minutesOfDay),
+              qs != qe else { return [] }
+        return scheduledTimes.filter { time in
+            guard let m = Self.minutesOfDay(time) else { return false }
+            return Self.isInQuietHours(m, start: qs, end: qe)
+        }
+    }
+
+    static func isInQuietHours(_ minute: Int, start: Int, end: Int) -> Bool {
+        if start < end { return minute >= start && minute < end }
+        if start > end { return minute >= start || minute < end }
+        return false
+    }
+
+    /// "08:00" / "08:00:00" → 480. Nil when unparseable.
+    static func minutesOfDay(_ hhmm: String) -> Int? {
+        let parts = hhmm.split(separator: ":")
+        guard parts.count >= 2, let h = Int(parts[0]), let m = Int(parts[1]),
+              (0..<24).contains(h), (0..<60).contains(m) else { return nil }
+        return h * 60 + m
+    }
+
+    private static func normalizedHHmm(_ time: String) -> String {
+        guard let m = minutesOfDay(time) else { return time }
+        return String(format: "%02d:%02d", m / 60, m % 60)
+    }
+
+    // MARK: Escalation timeline
+
+    enum EscalationStepKind: Equatable {
+        case asked, reminder, ownerAlerted, viewersAlerted, missed
+    }
+
+    /// What escalation does after a check-in is asked and not answered, as
+    /// minutes after the ask. Mirrors escalation_tick (00052): the first step
+    /// fires after the grace period, each later step one reminder interval
+    /// apart, and after step 3 the request is marked missed.
+    static func escalationSteps(gracePeriodMinutes grace: Int, reminderIntervalMinutes interval: Int)
+        -> [(offsetMinutes: Int, kind: EscalationStepKind)] {
+        [
+            (0, .asked),
+            (grace, .reminder),
+            (grace + interval, .ownerAlerted),
+            (grace + 2 * interval, .viewersAlerted),
+            (grace + 3 * interval, .missed),
+        ]
+    }
+
+    // MARK: Pause
+
+    enum PauseLength: String, CaseIterable, Identifiable {
+        case untilResumed, tomorrow, threeDays, oneWeek, onDate
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .untilResumed: return String(localized: "Until I turn it back on")
+            case .tomorrow: return String(localized: "Just today")
+            case .threeDays: return String(localized: "For 3 days")
+            case .oneWeek: return String(localized: "For a week")
+            case .onDate: return String(localized: "Until a date…")
+            }
+        }
+    }
+
+    /// When a pause of `length` ends: the start of the resume day in the
+    /// receiver's calendar, so "Just today" resumes at their midnight and
+    /// tomorrow's check-in goes out. Nil for `.untilResumed`. For `.onDate`
+    /// the chosen day's year/month/day are taken as-is.
+    static func resumeDate(for length: PauseLength, now: Date, chosenDay: Date,
+                           receiverCalendar: Calendar, pickerCalendar: Calendar = .current) -> Date? {
+        let startOfToday = receiverCalendar.startOfDay(for: now)
+        switch length {
+        case .untilResumed:
+            return nil
+        case .tomorrow:
+            return receiverCalendar.date(byAdding: .day, value: 1, to: startOfToday)
+        case .threeDays:
+            return receiverCalendar.date(byAdding: .day, value: 3, to: startOfToday)
+        case .oneWeek:
+            return receiverCalendar.date(byAdding: .day, value: 7, to: startOfToday)
+        case .onDate:
+            let ymd = pickerCalendar.dateComponents([.year, .month, .day], from: chosenDay)
+            return receiverCalendar.date(from: ymd)
+        }
+    }
+
+    // MARK: Timestamps
+
+    static func timestampString(_ date: Date) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f.string(from: date)
+    }
+
+    /// Postgres timestamptz text, with or without fractional seconds.
+    static func parseTimestamp(_ raw: String) -> Date? {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = f.date(from: raw) { return d }
+        f.formatOptions = [.withInternetDateTime]
+        if let d = f.date(from: raw) { return d }
+        // Postgres may use a space separator.
+        let t = raw.replacingOccurrences(of: " ", with: "T")
+        if t != raw { return parseTimestamp(t) }
+        return nil
+    }
+}
+
+/// A partial `receiver_settings` update. Encodes a real JSON object for
+/// `custom_schedule` — older builds sent a pre-stringified JSON *string*,
+/// which PostgREST stores verbatim in the jsonb column, so dispatch never
+/// matched a day and no custom-schedule check-in was ever sent — and explicit
+/// nulls where a column must be cleared.
+struct ReceiverSettingsPatch: Encodable, Equatable, Sendable {
+    enum Value: Equatable, Sendable {
+        case string(String)
+        case int(Int)
+        case bool(Bool)
+        case schedule(DaySchedule)
+        case null
+    }
+
+    private(set) var fields: [String: Value] = [:]
+
+    var isEmpty: Bool { fields.isEmpty }
+
+    mutating func set(_ key: String, _ value: Value) { fields[key] = value }
+    mutating func remove(_ key: String) { fields[key] = nil }
+    subscript(key: String) -> Value? { fields[key] }
+
+    private struct Key: CodingKey {
+        let stringValue: String
+        var intValue: Int? { nil }
+        init(_ s: String) { stringValue = s }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { nil }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: Key.self)
+        for (name, value) in fields.sorted(by: { $0.key < $1.key }) {
+            let key = Key(name)
+            switch value {
+            case .string(let v): try c.encode(v, forKey: key)
+            case .int(let v): try c.encode(v, forKey: key)
+            case .bool(let v): try c.encode(v, forKey: key)
+            case .schedule(let v): try c.encode(v, forKey: key)
+            case .null: try c.encodeNil(forKey: key)
+            }
         }
     }
 }

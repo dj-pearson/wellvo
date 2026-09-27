@@ -4886,3 +4886,233 @@ DEFERRED
   - Losing the family now also clears the stale-refresh strip/timestamp.
   - Open: "Due at" ignores quiet-hours deferral (ReceiverViewModel's
     deferPastQuietHours is private).
+
+================================================================================
+2026-09-27 — iOS function deep dive: Owner: Receiver detail (settings, schedule, escalation, manual check-in, care notes)
+================================================================================
+
+What this function must guarantee: whatever the owner sees on a receiver's
+detail screen is the schedule the server will actually run, in the
+receiver's own time; a saved change really reached the row; a setting that
+could never produce a check-in (every day off, a time inside quiet hours)
+can't be saved; "check on them now" says what really happened; nothing the
+owner or a co-caregiver types is lost silently. Four reviewer passes (UI/UX,
+break-it, spoof, product), each claim checked against the code first.
+
+CONFIRMED AND FIXED
+
+  - CRITICAL: iOS saved custom_schedule as a JSON *string*. The update body
+    was [String: String?], and the schedule was pre-stringified. PostgREST
+    stores a JSON value verbatim in a jsonb column, so the row held a string
+    scalar, `custom_schedule ? 'mon'` was false, and dispatch hit CONTINUE.
+    No custom or multi-window check-in was ever created, and nothing ever
+    escalated. The row also failed to decode everywhere: the settings screen
+    showed only Retry, the dashboard lost schedule awareness for every
+    receiver (it decodes an array), and the receiver's own phone lost Simple
+    Mode and kid mode. Fixed three ways:
+      * The new ReceiverSettingsPatch encodes a real object and explicit
+        nulls. A unit test asserts that custom_schedule is an object.
+      * ReceiverSettings dual-reads the string form (and flags it). Any other
+        unreadable value becomes nil and no longer fails the row. The
+        settings screen rewrites a flagged row on open.
+      * 00056: a trigger unwraps string-typed JSON on every write, so shipped
+        iOS builds work from now on, and existing rows are repaired.
+      Verified on local PG16: a string write is stored as an object and
+      dispatch creates the request.
+  - HIGH: a check-in time inside quiet hours was dropped for the day, with no
+    prompt and no escalation. Dispatch skipped the receiver during quiet
+    hours, and the 10-minute catch-up had passed by the time they ended.
+    The app now blocks Save and names the conflicting time; this covers
+    daily, weekday/weekend and every custom window, including ranges that
+    wrap midnight. 00056 dispatch now defers such a window to the end of
+    quiet hours when that falls on the same local day, which is how the
+    receiver app already showed it. Quiet hours use the same half-open rule
+    as the receiver app.
+  - HIGH: "Send Check-In Now" said "Sent" even when no phone was notified.
+    It now uses requestOnDemandCheckIn, the same path as the dashboard
+    (c73cbf1):
+      * "Saved, but Mom's phone couldn't be notified. Call instead?" with
+        Call / FaceTime / Text.
+      * "Already asked a moment ago — reminder re-sent".
+      * "Sent at 9:04 · waiting for an answer" otherwise.
+    The result stays on screen. A double tap can't send twice. The button is
+    disabled for a member who isn't active.
+  - HIGH: care note text was wiped when saving failed. When the session
+    hadn't resolved, add() also returned silently. add/edit now return
+    success and the draft is kept on failure. A missing identity is resolved
+    again and reported. Retry also re-resolves identity.
+  - Unsaved edits were dropped on Back. A resumed pause looked done and
+    wasn't. The form is now snapshotted after load. While it differs from
+    the snapshot, Back asks "Save / Discard / Keep Editing" (swipe-back is
+    off too). The pause banner says "Will pause when you tap Save" until it
+    is saved.
+  - Reappearing reloaded some fields and not others, and Save then wrote the
+    mix. Settings now load once per screen, and a load resets every field
+    (quiet hours off when null, custom days cleared).
+  - The owner's Save overwrote Simple Mode and Spoken Confirmation that the
+    receiver had set themselves. Save now sends only the changed fields.
+  - "Settings saved" appeared after a 0-row update (RLS, ownership moved,
+    member removed). The update now returns ids, and an empty result is an
+    error. The same fix applies to care note edit and delete: a refused
+    delete used to vanish locally.
+  - The loading and failed states showed invented values (the time was
+    Date()). The screen now shows a spinner until the row loads. A failed
+    load shows an inline "Couldn't load Mom's settings" with Try Again. A
+    not-yet-joined (invited) receiver gets an explanation instead of an
+    error. A deactivated member gets a banner.
+  - The Timezone row could show the owner's own zone. It now shows
+    receiver_settings.timezone, the zone dispatch uses, as a friendly name
+    with the time there now. When zones differ it says "8:00 AM for Mom is
+    10:00 AM for you".
+  - The SMS copy said "if push fails", but escalation-tick texts whenever
+    SMS is on. The copy now matches. The toggle is disabled while escalation
+    is off. When the owner's account has no phone, it says so.
+  - The Kid mode footer promised location sharing, which no UI can turn on.
+    That promise is removed.
+  - Quiet-hours and pause copy now say what actually happens: an overdue
+    check-in still escalates, and pausing doesn't stop one already sent. Use
+    Stop alerts for that.
+  - The care_notes client could set author_name, created_at and updated_at,
+    and could rewrite family_id, receiver_id and author_name on edit.
+    00056 adds a client-role-only trigger (the 00051 pattern, silent
+    pinning):
+      * the name comes from users.display_name;
+      * timestamps come from the server clock;
+      * an edit can change only the body.
+    No shipped client sends anything else. Verified as the authenticated
+    role on local PG16.
+  - Care notes:
+      * alert title matches the action ("Couldn't delete note");
+      * spinner on first load;
+      * a "Couldn't refresh — tap to retry" strip when notes are already on
+        screen;
+      * the VoiceOver label includes the date and "edited";
+      * a visible "…" menu plus accessibility actions for edit/delete;
+      * Cancel is 44pt;
+      * posting scrolls to the new note;
+      * owner moderation is checked against THIS family (getFamily() returned
+        the earliest owned family);
+      * a realtime channel is no longer orphaned when the screen closes
+        mid-start (generation check, unsubscribe).
+  - Picker values set elsewhere (e.g. 20 min) showed a blank selection. The
+    stored value is now always in the options, and 5 and 10 min were added.
+  - Contrast: the toast is deep green; success and warning text use dynamic
+    deep green and amber (the system colors are about 2:1 on white).
+  - Custom rows:
+      * each picker is labelled "Monday check-in 2";
+      * the remove button names the time;
+      * the fixed 100pt width is gone;
+      * switching to Custom seeds each day from the chosen time (weekend time
+        for Sat/Sun) instead of 8:00;
+      * "Add time" defaults to 3h after the last window, not a duplicate that
+        save silently dropped;
+      * the schedule-type picker is a menu, so it doesn't truncate at large
+        text sizes.
+  - Validation alerts are titled "Check the schedule", not "Something went
+    wrong".
+
+ADDED
+
+  - Pause with an end: Just today / For 3 days / For a week / Until a date /
+    Until I turn it back on. The banner reads "Check-ins paused until Fri
+    Oct 2, 12:00 AM (MST)". 00056 adds nullable paused_until; dispatch ends
+    expired pauses. The trigger clears paused_until whenever the row is not
+    paused, so an old client's later pause can't inherit a stale end. On a
+    server without 00056, the rest is saved and the owner is told the pause
+    won't end by itself.
+  - The escalation footer is a concrete timeline built from the pickers and
+    the first check-in: "8:30 AM — a reminder to Mom · 9:00 AM — you're
+    alerted (notification and text) · 9:30 AM — Sarah and Tom alerted ·
+    10:00 AM — marked Missed". It mirrors escalation_tick.
+  - Turning Escalation Alerts off asks first ("No one will be told if Mom
+    doesn't answer").
+  - The receiver detail has a "Right Now" section: check on them, and Care
+    notes. Owner dashboard cards get a "Schedule & alerts" link, so a card
+    showing "Escalation is off" or "paused" is one tap from the fix. The
+    Simple Mode section is renamed "Display & Accessibility" and is hidden
+    in Kid mode unless already on.
+  - 00056 dispatch compares due times as absolute instants, so a 02:00–02:50
+    window on spring-forward day is asked at about 03:30 instead of being
+    lost.
+
+BACKEND (additive, CLAUDE.md §A)
+
+  supabase/migrations/00056_receiver_detail_schedule_integrity.sql:
+  - Nullable receiver_settings.paused_until.
+  - Trigger receiver_settings_normalize: unwraps string custom_schedule,
+    clears paused_until when not paused.
+  - One-time repair of string rows.
+  - dispatch_scheduled_checkins: same signature, new body (auto-resume,
+    quiet-hours deferral, DST-safe instants, guards non-object schedules).
+  - Trigger trg_care_notes_guard: client roles only, silent pinning. No RLS
+    policy, RPC signature or API shape changed. Android ignores the new
+    column: its model already lacks several columns the server sends.
+
+  Verified on local Postgres 16 with pg_cron/pg_net stubs: 00001–00056 apply
+  on a fresh DB and 00056 replays. Scenarios checked:
+    * a string schedule is stored as an object and dispatched;
+    * a quiet-hours window is deferred, both for a same-day range and for a
+      range that wraps midnight;
+    * no request is created during quiet hours;
+    * an expired pause resumes and dispatches, and the next run creates no
+      duplicate;
+    * a future pause is skipped;
+    * unpausing clears paused_until;
+    * the care note byline and timestamps are pinned on insert, family and
+      author are pinned on update, and the service role is untouched.
+
+TESTS
+
+  ModelTests covers:
+  - decoding: the string-encoded custom schedule (flags repair), an object
+    schedule (no repair), an unreadable schedule (the row still decodes),
+    paused_until with fractional seconds;
+  - the patch: custom_schedule is encoded as an object with nulls for
+    quiet hours off; only changed fields are sent; switching schedule type
+    sends its details; quiet hours are sent as a pair; the pause end is sent
+    only when it changes and is cleared on resume;
+  - quiet-hours conflicts: wrapping and same-day ranges, every custom window,
+    the weekend time;
+  - escalation step offsets;
+  - "Just today" resumes at the receiver's midnight.
+  Note: the pre-existing testReceiverSettingsDecoding omits fields the
+  decoder requires (location_*, geofence_radius_meters) and looks like it
+  already fails. It is not touched here.
+
+DEFERRED
+
+  - Location section (share location, home point, radius, leave-home
+    alert). The backend exists, but it needs a map/home picker and a
+    decision about receiver-side background location. The false promise
+    was removed instead.
+  - Subscription gating of Kid mode, Custom schedule and SMS
+    (SubscriptionService.hasAccess has no callers). This is a product call:
+    it must not silently switch off what existing families already use, and
+    server-side SMS gating belongs in escalation-tick.
+  - SMS amplification: a server floor on grace/interval, a per-family daily
+    SMS cap, and texting only when push failed. These change escalation-tick
+    behaviour and SMS cost/consent policy, so they need a product decision.
+  - Auto-cancelling an in-flight escalation when pausing. The copy now says
+    to use Stop alerts. An automatic stand-down is a side effect worth
+    deciding on explicitly.
+  - care_notes: the INSERT check that receiver_id is a receiver of
+    family_id, the UPDATE membership check, and a body length cap. Each of
+    these rejects or truncates requests, so it is a tightening that needs a
+    release boundary.
+  - At-a-glance status header on the detail screen (status, next check-in,
+    phone health). The dashboard card already has all of it and now links
+    here.
+  - Care notes: pinned "key info", unread badge, co-caregiver push on a new
+    note, "Away until…" template tied to pause.
+  - Creating the receiver_settings row at invite time, so owners can
+    configure a receiver before they join.
+  - A window whose quiet hours run past midnight (e.g. a 23:00 check-in with
+    quiet hours 22:00–07:00) is still skipped server-side. The app blocks
+    saving it; Android does not validate it yet.
+  - The dashboard's "Due at" and "paused" lines don't yet reflect
+    quiet-hours deferral or the pause end.
+
+  Not compiled (no Xcode, no swiftc, no deno). The tree-sitter Swift grammar
+  parses every changed Swift file cleanly, apart from the `if let x = try?
+  await` construct it already fails on in committed code. SQL was run on a
+  local Postgres 16.

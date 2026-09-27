@@ -168,7 +168,10 @@ final class ModelTests: XCTestCase {
             "quiet_hours_end": "07:00",
             "mood_tracking_enabled": true,
             "sms_escalation_enabled": false,
-            "is_active": true
+            "is_active": true,
+            "location_tracking_enabled": false,
+            "geofence_radius_meters": 500,
+            "location_alert_enabled": false
         }
         """.data(using: .utf8)!
 
@@ -373,5 +376,200 @@ final class ModelTests: XCTestCase {
         """.data(using: .utf8)!
         let settings = try JSONDecoder().decode(ReceiverSettings.self, from: json)
         XCTAssertEqual(settings.scheduleType, .daily)
+    }
+
+    // MARK: - Receiver detail: custom schedule wire shape, form diff, schedule checks
+
+    private func settingsJSON(customSchedule: String?, extra: String = "") -> Data {
+        """
+        {
+            "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+            "family_member_id": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+            "checkin_time": "08:00:00",
+            "timezone": "America/Chicago",
+            "grace_period_minutes": 30,
+            "reminder_interval_minutes": 15,
+            "escalation_enabled": true,
+            "mood_tracking_enabled": false,
+            "sms_escalation_enabled": false,
+            "is_active": true,
+            "location_tracking_enabled": false,
+            "geofence_radius_meters": 500,
+            "location_alert_enabled": false,
+            "schedule_type": "custom",
+            "custom_schedule": \(customSchedule ?? "null")\(extra)
+        }
+        """.data(using: .utf8)!
+    }
+
+    /// Rows written by older iOS builds hold the schedule as a JSON string.
+    /// That used to throw and fail every receiver's settings decode.
+    func testReceiverSettingsDecodesStringEncodedCustomSchedule() throws {
+        let data = settingsJSON(customSchedule: #""{\"mon\":\"08:00\",\"multiTimes\":{\"tue\":[\"07:00\",\"19:00\"]}}""#)
+        let settings = try JSONDecoder().decode(ReceiverSettings.self, from: data)
+        XCTAssertEqual(settings.customSchedule?.mon, "08:00")
+        XCTAssertEqual(settings.customSchedule?.times(forDayKey: "tue"), ["07:00", "19:00"])
+        XCTAssertTrue(settings.customScheduleNeedsRepair)
+    }
+
+    func testReceiverSettingsDecodesObjectCustomScheduleWithoutRepair() throws {
+        let data = settingsJSON(customSchedule: #"{"wed":"09:30"}"#)
+        let settings = try JSONDecoder().decode(ReceiverSettings.self, from: data)
+        XCTAssertEqual(settings.customSchedule?.wed, "09:30")
+        XCTAssertFalse(settings.customScheduleNeedsRepair)
+    }
+
+    func testReceiverSettingsUnreadableCustomScheduleDoesNotFailTheRow() throws {
+        let data = settingsJSON(customSchedule: "42")
+        let settings = try JSONDecoder().decode(ReceiverSettings.self, from: data)
+        XCTAssertNil(settings.customSchedule)
+        XCTAssertEqual(settings.scheduleType, .custom)
+    }
+
+    func testReceiverSettingsDecodesPausedUntil() throws {
+        let data = settingsJSON(customSchedule: nil, extra: #", "schedule_paused": true, "paused_until": "2026-09-28T05:00:00.123+00:00""#)
+        let settings = try JSONDecoder().decode(ReceiverSettings.self, from: data)
+        XCTAssertTrue(settings.schedulePaused)
+        XCTAssertEqual(settings.pausedUntil?.timeIntervalSince1970 ?? 0, 1_790_571_600.123, accuracy: 0.01)
+    }
+
+    private func makeForm(
+        scheduleType: ScheduleType = .daily,
+        checkinTime: String = "08:00",
+        customSchedule: DaySchedule? = nil,
+        quiet: (String, String)? = nil
+    ) -> ReceiverSettingsForm {
+        ReceiverSettingsForm(
+            checkinTime: checkinTime,
+            gracePeriodMinutes: 30,
+            reminderIntervalMinutes: 30,
+            escalationEnabled: true,
+            moodTrackingEnabled: false,
+            smsEscalationEnabled: false,
+            notifyOwnerOnCheckin: true,
+            receiverMode: .standard,
+            scheduleType: scheduleType,
+            schedulePaused: false,
+            pausedUntil: nil,
+            simpleMode: false,
+            audioConfirmationEnabled: false,
+            weekendCheckinTime: scheduleType == .weekdayWeekend ? "10:00" : nil,
+            customSchedule: customSchedule,
+            quietHoursStart: quiet?.0,
+            quietHoursEnd: quiet?.1
+        )
+    }
+
+    private func encodedObject(_ patch: ReceiverSettingsPatch) throws -> [String: Any] {
+        let data = try JSONEncoder().encode(patch)
+        return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    /// The critical bug: custom_schedule must go over the wire as an object.
+    func testPatchEncodesCustomScheduleAsJSONObject() throws {
+        var schedule = DaySchedule.defaultSchedule(time: "07:30")
+        schedule.multiTimes = ["mon": ["07:30", "19:00"]]
+        let form = makeForm(scheduleType: .custom, customSchedule: schedule)
+        let json = try encodedObject(form.patch(from: nil))
+        let custom = try XCTUnwrap(json["custom_schedule"] as? [String: Any], "custom_schedule must be an object, not a string")
+        XCTAssertEqual(custom["mon"] as? String, "07:30")
+        XCTAssertEqual((custom["multiTimes"] as? [String: [String]])?["mon"], ["07:30", "19:00"])
+        XCTAssertEqual(json["grace_period_minutes"] as? Int, 30)
+        XCTAssertEqual(json["escalation_enabled"] as? Bool, true)
+        // Quiet hours off → explicit nulls, so turning it off persists.
+        XCTAssertTrue(json["quiet_hours_start"] is NSNull)
+        XCTAssertTrue(json["quiet_hours_end"] is NSNull)
+    }
+
+    /// Only changed fields are sent: an owner who didn't touch Simple Mode
+    /// never overwrites what the receiver set on their own phone.
+    func testPatchSendsOnlyChangedFields() throws {
+        let original = makeForm()
+        var edited = original
+        edited.checkinTime = "09:15"
+        let patch = edited.patch(from: original)
+        XCTAssertEqual(Set(patch.fields.keys), ["checkin_time"])
+        XCTAssertEqual(patch["checkin_time"], .string("09:15"))
+        XCTAssertTrue(original.patch(from: original).isEmpty)
+    }
+
+    func testPatchSendsScheduleDetailsWhenSwitchingType() throws {
+        let original = makeForm()
+        var edited = original
+        edited.scheduleType = .custom
+        edited.customSchedule = DaySchedule(mon: "08:00")
+        let patch = edited.patch(from: original)
+        XCTAssertEqual(Set(patch.fields.keys), ["schedule_type", "custom_schedule"])
+        XCTAssertEqual(patch["custom_schedule"], .schedule(DaySchedule(mon: "08:00")))
+    }
+
+    func testPatchSendsQuietHoursAsAPair() throws {
+        let original = makeForm(quiet: ("22:00", "07:00"))
+        var edited = original
+        edited.quietHoursEnd = "06:00"
+        let patch = edited.patch(from: original)
+        XCTAssertEqual(patch["quiet_hours_start"], .string("22:00"))
+        XCTAssertEqual(patch["quiet_hours_end"], .string("06:00"))
+    }
+
+    func testPatchPauseEndSentOnlyWhenItChanges() throws {
+        let original = makeForm()
+        var paused = original
+        paused.schedulePaused = true
+        XCTAssertEqual(Set(paused.patch(from: original).fields.keys), ["schedule_paused"])
+
+        let end = Date(timeIntervalSince1970: 1_790_571_600)
+        paused.pausedUntil = end
+        let withEnd = paused.patch(from: original)
+        XCTAssertEqual(withEnd["paused_until"], .string("2026-09-28T05:00:00Z"))
+
+        // Resuming a pause that had an end clears it explicitly.
+        var resumed = paused
+        resumed.schedulePaused = false
+        XCTAssertEqual(resumed.patch(from: paused)["paused_until"], .null)
+    }
+
+    func testTimesInsideWrappingQuietHours() {
+        let form = makeForm(checkinTime: "06:30", quiet: ("22:00", "07:00"))
+        XCTAssertEqual(form.timesInsideQuietHours, ["06:30"])
+        XCTAssertEqual(makeForm(checkinTime: "07:00", quiet: ("22:00", "07:00")).timesInsideQuietHours, [])
+        XCTAssertEqual(makeForm(checkinTime: "21:59", quiet: ("22:00", "07:00")).timesInsideQuietHours, [])
+        XCTAssertEqual(makeForm(checkinTime: "22:00", quiet: ("22:00", "07:00")).timesInsideQuietHours, ["22:00"])
+        XCTAssertEqual(makeForm(checkinTime: "06:30").timesInsideQuietHours, [])
+    }
+
+    func testTimesInsideSameDayQuietHoursChecksEveryCustomWindow() {
+        var schedule = DaySchedule(mon: "08:00", sat: "13:30")
+        schedule.multiTimes = ["mon": ["08:00", "14:00"]]
+        let form = makeForm(scheduleType: .custom, customSchedule: schedule, quiet: ("13:00", "15:00"))
+        XCTAssertEqual(form.timesInsideQuietHours, ["13:30", "14:00"])
+    }
+
+    func testWeekendTimeIsCheckedAgainstQuietHours() {
+        var form = makeForm(scheduleType: .weekdayWeekend, checkinTime: "09:00", quiet: ("22:00", "09:30"))
+        form.weekendCheckinTime = "10:00"
+        XCTAssertEqual(form.timesInsideQuietHours, ["09:00"])
+    }
+
+    func testEscalationStepsMirrorEscalationTick() {
+        let steps = ReceiverSettingsForm.escalationSteps(gracePeriodMinutes: 30, reminderIntervalMinutes: 15)
+        XCTAssertEqual(steps.map { $0.offsetMinutes }, [0, 30, 45, 60, 75])
+        XCTAssertEqual(steps.map { $0.kind }, [.asked, .reminder, .ownerAlerted, .viewersAlerted, .missed])
+    }
+
+    func testPauseJustTodayResumesAtReceiversMidnight() throws {
+        var receiverCal = Calendar(identifier: .gregorian)
+        receiverCal.timeZone = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+        // 2026-09-27 20:00 in Los Angeles.
+        let now = try XCTUnwrap(receiverCal.date(from: DateComponents(year: 2026, month: 9, day: 27, hour: 20)))
+        let resume = try XCTUnwrap(ReceiverSettingsForm.resumeDate(
+            for: .tomorrow, now: now, chosenDay: now, receiverCalendar: receiverCal))
+        let parts = receiverCal.dateComponents([.year, .month, .day, .hour, .minute], from: resume)
+        XCTAssertEqual(parts.year, 2026)
+        XCTAssertEqual(parts.month, 9)
+        XCTAssertEqual(parts.day, 28)
+        XCTAssertEqual(parts.hour, 0)
+        XCTAssertEqual(parts.minute, 0)
+        XCTAssertNil(ReceiverSettingsForm.resumeDate(for: .untilResumed, now: now, chosenDay: now, receiverCalendar: receiverCal))
     }
 }

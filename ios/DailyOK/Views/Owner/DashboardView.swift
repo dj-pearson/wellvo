@@ -204,7 +204,8 @@ struct DashboardView: View {
                             await viewModel.standDownEscalation(for: card.id)
                         },
                         familyId: viewModel.family?.id,
-                        handledBy: handledBy(for: card)
+                        handledBy: handledBy(for: card),
+                        settingsMember: isOwner ? viewModel.receiverMembers[card.id] : nil
                     )
                     .id(card.id)
                     .transition(.asymmetric(
@@ -642,6 +643,9 @@ struct ReceiverStatusCardView: View {
     var familyId: UUID? = nil
     /// A caregiver who claimed today's urgent alert ("I've got this").
     var handledBy: String? = nil
+    /// Owner only: the receiver's membership row, which opens their schedule
+    /// & alerts from the card. Nil hides the link (viewers).
+    var settingsMember: FamilyMember? = nil
 
     /// Transient state for the "Check on" button so a send gives visible and
     /// haptic feedback and the button can't be mashed into duplicates.
@@ -779,6 +783,25 @@ struct ReceiverStatusCardView: View {
                     .frame(minHeight: 44)
                 }
                 .accessibilityHint("Open the shared care notes for \(card.name).")
+            }
+
+            // The card says "Escalation is off" / "Check-ins are paused"; the
+            // fix is one tap away instead of on another tab.
+            if let settingsMember {
+                NavigationLink {
+                    ReceiverSettingsView(member: settingsMember)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "slider.horizontal.3")
+                        Text("Schedule & alerts")
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                    .frame(minHeight: 44)
+                }
+                .accessibilityHint("Change \(card.name)'s check-in schedule, pause and alerts.")
             }
         }
         .padding()

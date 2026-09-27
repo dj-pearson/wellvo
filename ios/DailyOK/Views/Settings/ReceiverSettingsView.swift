@@ -1,12 +1,25 @@
 import SwiftUI
 import Supabase
 
+/// Owner's detail screen for one receiver: schedule, pause, escalation, quiet
+/// hours, a manual "check on them now", and the way into their care notes.
+///
+/// What it guarantees:
+/// - Nothing on screen is invented: the form only appears once the real row
+///   has loaded; a failed load shows an inline retry, not editable defaults.
+/// - Save writes only what the owner changed (a receiver's own Simple Mode /
+///   Spoken Confirmation choices survive), writes `custom_schedule` as a JSON
+///   object, and only reports "Saved" when a row was actually updated.
+/// - Edits are never lost silently: Back asks to save or discard.
+/// - A check-in that could never be asked (all days off, or inside quiet
+///   hours) can't be saved.
 struct ReceiverSettingsView: View {
     let member: FamilyMember
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.dismiss) private var dismiss
     @State private var settings: ReceiverSettings?
-    @State private var checkinTime = Date()
+    @State private var checkinTime = Calendar.current.date(from: DateComponents(hour: 8)) ?? Date()
     @State private var gracePeriod = 30
     @State private var reminderInterval = 30
     @State private var escalationEnabled = true
@@ -18,23 +31,41 @@ struct ReceiverSettingsView: View {
     @State private var notifyOwnerOnCheckin = true
     @State private var isLoading = false
     /// True only after settings have been successfully loaded from the server.
-    /// Gates Save so the on-screen @State defaults can never overwrite real config
-    /// before/without a successful load.
+    /// The form (and Save) only exist after this, so on-screen defaults can
+    /// never be shown as real or written over the server row.
     @State private var hasLoaded = false
-    /// True when the initial load failed — show Retry instead of Save.
+    /// True when the load failed — the screen shows an inline retry.
     @State private var loadFailed = false
     @State private var isSaving = false
     @State private var showSavedConfirmation = false
+    /// A failed save or manual check-in.
     @State private var errorMessage: String?
+    /// A schedule the server couldn't act on (shown as "Check the schedule").
+    @State private var validationMessage: String?
+    /// Informational note after a save (e.g. auto-resume unsupported).
+    @State private var saveNote: String?
     @State private var receiverMode: ReceiverMode = .standard
     @State private var simpleMode = false
     @State private var audioConfirmationEnabled = false
+    /// The form as loaded (or last saved). Save diffs against it; Back warns
+    /// when the form differs from it.
+    @State private var loadedForm: ReceiverSettingsForm?
+    @State private var showUnsavedChangesDialog = false
+    @State private var showEscalationOffConfirm = false
+    /// The loaded row is Custom but holds no readable schedule, so no
+    /// check-in is being sent until the owner saves one.
+    @State private var customScheduleMissing = false
+    /// Title for `errorMessage` ("Couldn't save" / "Couldn't send").
+    @State private var errorTitle = String(localized: "Couldn't save")
+    /// Owner + viewers, for the escalation timeline and the owner's phone.
+    @State private var careTeam: [FamilyMember] = []
 
     // Schedule fields
     @State private var scheduleType: ScheduleType = .daily
     @State private var weekendCheckinTime = Calendar.current.date(from: DateComponents(hour: 10)) ?? Date()
-    @State private var customSchedule = DaySchedule.defaultSchedule()
     @State private var schedulePaused = false
+    @State private var pauseLength: ReceiverSettingsForm.PauseLength = .untilResumed
+    @State private var pauseResumeDay = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
     @State private var dayEnabled: [String: Bool] = [
         "mon": true, "tue": true, "wed": true, "thu": true, "fri": true, "sat": true, "sun": true
     ]
@@ -52,10 +83,32 @@ struct ReceiverSettingsView: View {
     private let maxTimesPerDay = 4
 
     // Manual check-in
+    private enum ManualResult: Equatable {
+        case sent, resent, noDevice
+    }
     @State private var isSendingManual = false
-    @State private var showManualSent = false
+    @State private var manualResult: ManualResult?
+    @State private var manualSentAt: Date?
 
-    private let gracePeriodOptions = [15, 30, 45, 60, 90, 120]
+    private let baseIntervalOptions = [5, 10, 15, 30, 45, 60, 90, 120]
+
+    /// Options for a picker, always including the stored value so a value set
+    /// elsewhere (Android, an invite) never shows as a blank selection.
+    private func intervalOptions(including value: Int) -> [Int] {
+        baseIntervalOptions.contains(value) ? baseIntervalOptions : (baseIntervalOptions + [value]).sorted()
+    }
+
+    /// Readable deep tints: system green/orange on white fall near 2:1.
+    private static let successText = Color(UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? .systemGreen
+            : UIColor(red: 0.082, green: 0.502, blue: 0.239, alpha: 1)
+    })
+    private static let warningText = Color(UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? .systemOrange
+            : UIColor(red: 0.62, green: 0.33, blue: 0.0, alpha: 1)
+    })
 
     /// Quiet-hours start and end must differ (compared at minute granularity);
     /// equal values silently disable the feature server-side (US-IOS111).
@@ -75,26 +128,334 @@ struct ReceiverSettingsView: View {
         return f
     }()
 
+    private var name: String {
+        let n = member.user?.displayName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return n.isEmpty ? String(localized: "this person") : n
+    }
+
+    // MARK: - Derived state
+
+    /// The form as currently edited, in wire format.
+    private var currentForm: ReceiverSettingsForm {
+        ReceiverSettingsForm(
+            checkinTime: timeFormatter.string(from: checkinTime),
+            gracePeriodMinutes: gracePeriod,
+            reminderIntervalMinutes: reminderInterval,
+            escalationEnabled: escalationEnabled,
+            moodTrackingEnabled: moodTrackingEnabled,
+            smsEscalationEnabled: smsEscalationEnabled,
+            notifyOwnerOnCheckin: notifyOwnerOnCheckin,
+            receiverMode: receiverMode,
+            scheduleType: scheduleType,
+            schedulePaused: schedulePaused,
+            pausedUntil: schedulePaused ? pauseResumeDate : nil,
+            simpleMode: simpleMode,
+            audioConfirmationEnabled: audioConfirmationEnabled,
+            weekendCheckinTime: scheduleType == .weekdayWeekend ? timeFormatter.string(from: weekendCheckinTime) : nil,
+            customSchedule: scheduleType == .custom ? buildCustomSchedule() : nil,
+            quietHoursStart: quietHoursEnabled ? timeFormatter.string(from: quietHoursStart) : nil,
+            quietHoursEnd: quietHoursEnabled ? timeFormatter.string(from: quietHoursEnd) : nil
+        )
+    }
+
+    private var hasUnsavedChanges: Bool {
+        guard hasLoaded, let loadedForm else { return false }
+        return currentForm != loadedForm
+    }
+
+    /// The zone dispatch actually uses (receiver_settings.timezone), falling
+    /// back to the user row, then this device.
+    private var receiverTimeZone: TimeZone {
+        if let id = settings?.timezone, let tz = TimeZone(identifier: id) { return tz }
+        if let id = member.user?.timezone, let tz = TimeZone(identifier: id) { return tz }
+        return .current
+    }
+
+    private var receiverCalendar: Calendar {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = receiverTimeZone
+        return cal
+    }
+
+    private var zoneDiffersFromMine: Bool {
+        receiverTimeZone.secondsFromGMT() != TimeZone.current.secondsFromGMT()
+    }
+
+    private var receiverZoneName: String {
+        receiverTimeZone.localizedName(for: .generic, locale: .current) ?? receiverTimeZone.identifier
+    }
+
+    private var pauseResumeDate: Date? {
+        ReceiverSettingsForm.resumeDate(
+            for: pauseLength,
+            now: Date(),
+            chosenDay: pauseResumeDay,
+            receiverCalendar: receiverCalendar
+        )
+    }
+
+    /// Scheduled times that fall inside quiet hours (never asked at their time).
+    private var quietHourConflicts: [String] {
+        guard quietHoursEnabled, quietHoursValid else { return [] }
+        return currentForm.timesInsideQuietHours
+    }
+
+    private var owner: FamilyMember? {
+        careTeam.first { $0.role == .owner }
+    }
+
+    private var ownerPhone: String? {
+        guard let phone = owner?.user?.phone?.trimmingCharacters(in: .whitespaces), !phone.isEmpty else { return nil }
+        return phone
+    }
+
+    private var viewerNames: [String] {
+        careTeam
+            .filter { $0.role == .viewer && $0.status == .active }
+            .compactMap { $0.user?.displayName }
+            .filter { !$0.isEmpty }
+            .sorted()
+    }
+
+    // MARK: - Body
+
     var body: some View {
-        Form {
-            // Pause Banner
-            if schedulePaused {
-                Section {
-                    HStack(spacing: 10) {
-                        Image(systemName: "pause.circle.fill")
-                            .font(.title3)
-                            .foregroundStyle(.orange)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Notifications Paused")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                            Text("Scheduled check-in notifications are currently paused. Toggle off to resume.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+        content
+            .scrollContentBackground(.hidden)
+            .background(AmbientBackground(tone: .neutral))
+            .navigationTitle(member.user?.displayName ?? String(localized: "Settings"))
+            .navigationBarTitleDisplayMode(.inline)
+            // Leaving with unsaved edits asks first; the swipe-back gesture is
+            // disabled along with the system back button.
+            .navigationBarBackButtonHidden(hasUnsavedChanges)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if hasUnsavedChanges {
+                        Button {
+                            showUnsavedChangesDialog = true
+                        } label: {
+                            Label("Back", systemImage: "chevron.backward")
+                                .labelStyle(.titleAndIcon)
                         }
+                        .accessibilityHint("You have unsaved changes")
                     }
-                    .padding(.vertical, 4)
                 }
+                ToolbarItem(placement: .confirmationAction) {
+                    if hasLoaded {
+                        Button {
+                            Task { await saveSettings() }
+                        } label: {
+                            if isSaving {
+                                ProgressView()
+                            } else {
+                                Text("Save")
+                            }
+                        }
+                        .disabled(isSaving || isLoading || !hasUnsavedChanges)
+                    }
+                }
+            }
+            .overlay {
+                if showSavedConfirmation {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Settings saved")
+                        }
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        // Deep green so the white label passes 4.5:1.
+                        .background(DailyOKColor.green700, in: Capsule())
+                        .padding(.bottom, 40)
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transaction { t in if reduceMotion { t.animation = nil } }
+                }
+            }
+            // Load once per screen. `.task` re-runs every time the view
+            // reappears (e.g. after switching tabs), and reloading then threw
+            // away some edits but not others.
+            .task {
+                if !hasLoaded && member.status != .invited { await loadSettings() }
+            }
+            .alert(
+                errorTitle,
+                isPresented: Binding(
+                    get: { errorMessage != nil },
+                    set: { if !$0 { errorMessage = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
+            }
+            .alert(
+                "Check the schedule",
+                isPresented: Binding(
+                    get: { validationMessage != nil },
+                    set: { if !$0 { validationMessage = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) { validationMessage = nil }
+            } message: {
+                Text(validationMessage ?? "")
+            }
+            .alert(
+                "Saved",
+                isPresented: Binding(
+                    get: { saveNote != nil },
+                    set: { if !$0 { saveNote = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) { saveNote = nil }
+            } message: {
+                Text(saveNote ?? "")
+            }
+            .confirmationDialog(
+                "Save changes to \(name)'s settings?",
+                isPresented: $showUnsavedChangesDialog,
+                titleVisibility: .visible
+            ) {
+                Button("Save") {
+                    Task {
+                        if await saveSettings() { dismiss() }
+                    }
+                }
+                Button("Discard Changes", role: .destructive) { dismiss() }
+                Button("Keep Editing", role: .cancel) {}
+            }
+            .confirmationDialog(
+                "Turn off alerts for \(name)?",
+                isPresented: $showEscalationOffConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Turn Off Alerts", role: .destructive) { escalationEnabled = false }
+                Button("Keep Alerts On", role: .cancel) {}
+            } message: {
+                Text("No one will be told if \(name) doesn't answer a check-in.")
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if member.status == .invited {
+            notJoinedState
+        } else if hasLoaded {
+            settingsForm
+        } else if loadFailed {
+            loadErrorState
+        } else {
+            VStack(spacing: 12) {
+                ProgressView()
+                Text("Loading \(name)'s settings…")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private var notJoinedState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "person.crop.circle.badge.clock")
+                .font(.system(size: 44))
+                .foregroundStyle(.secondary)
+            Text("\(name) hasn't joined yet")
+                .font(.headline)
+            Text("Their check-in time comes from the invite. Once they join, you can change their schedule and alerts here.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var loadErrorState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 40))
+                .foregroundStyle(.secondary)
+            Text("Couldn't load \(name)'s settings")
+                .font(.headline)
+                .multilineTextAlignment(.center)
+            Text("Check your connection and try again. Nothing has been changed.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button {
+                Task { await loadSettings() }
+            } label: {
+                if isLoading {
+                    ProgressView()
+                } else {
+                    Text("Try Again")
+                }
+            }
+            .buttonStyle(.bordered)
+            .frame(minHeight: 44)
+            .disabled(isLoading)
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Form
+
+    private var settingsForm: some View {
+        Form {
+            if member.status != .active {
+                Section {
+                    Label("\(name) isn't active in your family, so these settings won't take effect.",
+                          systemImage: "person.crop.circle.badge.xmark")
+                        .font(.subheadline)
+                        .foregroundStyle(Self.warningText)
+                }
+            }
+
+            if schedulePaused {
+                pauseBanner
+            }
+
+            rightNowSection
+
+            scheduleTypeSection
+
+            // Schedule Details (varies by type)
+            switch scheduleType {
+            case .daily:
+                dailyScheduleSection
+            case .weekdayWeekend:
+                weekdayWeekendSection
+            case .custom:
+                customScheduleSection
+            }
+
+            timezoneSection
+
+            pauseSection
+
+            escalationSection
+
+            smsSection
+
+            quietHoursSection
+
+            // Check-In Confirmations
+            Section {
+                Toggle("Notify Me When They Check In", isOn: $notifyOwnerOnCheckin)
+                    .accessibilityLabel("Notify me when \(name) checks in")
+                    .accessibilityHint("Sends you a push notification each time they tap I'm OK")
+            } header: {
+                Text("Check-In Confirmations")
+            } footer: {
+                Text("Get a notification when \(name) checks in, so you know they're OK without opening the app.")
             }
 
             // Receiver Mode
@@ -108,176 +469,24 @@ struct ReceiverSettingsView: View {
             } header: {
                 Text("Receiver Mode")
             } footer: {
-                Text("Kid mode provides a fun, engaging experience with expanded mood options and location sharing.")
+                Text("Kid mode shows a playful check-in screen with kid-friendly replies and more mood choices.")
             }
 
-            // Senior Accessibility (Simple Mode)
-            Section {
-                Toggle("Simple Mode", isOn: $simpleMode)
-                    .accessibilityLabel("Simple mode")
-                    .accessibilityHint("Shows an extra-large, low-clutter check-in screen")
+            // Display & accessibility (Simple Mode)
+            if receiverMode != .kid || simpleMode || audioConfirmationEnabled {
+                Section {
+                    Toggle("Simple Mode", isOn: $simpleMode)
+                        .accessibilityLabel("Simple mode")
+                        .accessibilityHint("Shows an extra-large, low-clutter check-in screen")
 
-                Toggle("Speak Confirmation", isOn: $audioConfirmationEnabled)
-                    .accessibilityLabel("Speak confirmation aloud")
-                    .accessibilityHint("Says a confirmation out loud after a successful check-in")
-            } header: {
-                Text("Senior Accessibility")
-            } footer: {
-                Text("Simple Mode gives \(member.user?.displayName ?? "them") an extra-large, calm, emoji-free check-in button. Speak Confirmation reads a short confirmation aloud — helpful for low vision. (Spoken confirmation is skipped automatically when VoiceOver is on.)")
-            }
-
-            // Pause & Manual Notifications
-            Section {
-                Toggle("Pause Notifications", isOn: $schedulePaused)
-                    .accessibilityLabel("Pause scheduled notifications")
-                    .accessibilityHint("When enabled, no scheduled check-in notifications will be sent")
-
-                Button {
-                    Task { await sendManualCheckIn() }
-                } label: {
-                    HStack {
-                        Image(systemName: "bell.badge")
-                        Text("Send Check-In Now")
-                        Spacer()
-                        if isSendingManual {
-                            ProgressView()
-                        } else if showManualSent {
-                            // Not icon-only — pair the checkmark with a word so it
-                            // reads for everyone (US-IOS105).
-                            Label("Sent", systemImage: "checkmark.circle.fill")
-                                .labelStyle(.titleAndIcon)
-                                .font(.subheadline)
-                                .foregroundStyle(.green)
-                        }
-                    }
+                    Toggle("Speak Confirmation", isOn: $audioConfirmationEnabled)
+                        .accessibilityLabel("Speak confirmation aloud")
+                        .accessibilityHint("Says a confirmation out loud after a successful check-in")
+                } header: {
+                    Text("Display & Accessibility")
+                } footer: {
+                    Text("Simple Mode gives \(name) an extra-large, calm, emoji-free check-in button. Speak Confirmation reads a short confirmation aloud — helpful for low vision. (Spoken confirmation is skipped automatically when VoiceOver is on.) \(name) can also change these on their own phone.")
                 }
-                .disabled(isSendingManual)
-                // Announce the success to VoiceOver (US-IOS105).
-                .announce(showManualSent) { $0 ? "Check-in request sent" : nil }
-            } header: {
-                Text("Notification Controls")
-            } footer: {
-                Text("Pause stops all scheduled notifications. Use \"Send Check-In Now\" to manually trigger a check-in request at any time.")
-            }
-
-            // Schedule Type Picker
-            Section {
-                Picker("Schedule", selection: $scheduleType) {
-                    ForEach(ScheduleType.allCases, id: \.self) { type in
-                        VStack(alignment: .leading) {
-                            Text(type.label)
-                        }
-                        .tag(type)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .accessibilityLabel("Notification schedule type")
-
-                Text(scheduleType.description)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } header: {
-                Text("Check-In Schedule")
-            }
-            // Populate a default time for every enabled day the moment the user
-            // switches to Custom, so the DatePickers are backed by real (stable)
-            // state and edits stick — instead of relying on a per-render fallback.
-            .onChange(of: scheduleType) { _, newValue in
-                if newValue == .custom { ensureCustomTimesPopulated() }
-            }
-
-            // Schedule Details (varies by type)
-            switch scheduleType {
-            case .daily:
-                dailyScheduleSection
-            case .weekdayWeekend:
-                weekdayWeekendSection
-            case .custom:
-                customScheduleSection
-            }
-
-            // Timezone
-            Section {
-                HStack {
-                    Text("Timezone")
-                    Spacer()
-                    Text(member.user?.timezone ?? TimeZone.current.identifier)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            // Check-In Confirmations
-            Section {
-                Toggle("Notify Me When They Check In", isOn: $notifyOwnerOnCheckin)
-                    .accessibilityLabel("Notify me when they check in")
-                    .accessibilityHint("Sends you a push notification each time they tap I'm OK")
-            } header: {
-                Text("Check-In Confirmations")
-            } footer: {
-                Text("Get a push notification when \(member.user?.displayName ?? "they") check in, so you know they're OK without opening the app.")
-            }
-
-            // Escalation Chain
-            Section {
-                Toggle("Escalation Alerts", isOn: $escalationEnabled)
-                    .accessibilityLabel("Escalation alerts")
-                    .accessibilityHint("When enabled, alerts fire if check-in is missed")
-
-                if escalationEnabled {
-                    Picker("Grace Period", selection: $gracePeriod) {
-                        ForEach(gracePeriodOptions, id: \.self) { minutes in
-                            Text("\(minutes) min").tag(minutes)
-                        }
-                    }
-
-                    Picker("Reminder Interval", selection: $reminderInterval) {
-                        ForEach(gracePeriodOptions, id: \.self) { minutes in
-                            Text("\(minutes) min").tag(minutes)
-                        }
-                    }
-                }
-            } header: {
-                Text("Escalation Chain")
-            } footer: {
-                if escalationEnabled {
-                    Text("If \(member.user?.displayName ?? "they") don't check in within \(gracePeriod) minutes, a reminder is sent. After another \(reminderInterval) minutes, you'll be alerted.")
-                } else {
-                    Text("Escalation is disabled. You won't receive alerts for missed check-ins.")
-                }
-            }
-
-            // Quiet Hours
-            Section {
-                Toggle("Quiet Hours", isOn: $quietHoursEnabled)
-                    .accessibilityLabel("Quiet hours")
-                    .accessibilityHint("When enabled, no notifications during specified hours")
-
-                if quietHoursEnabled {
-                    DatePicker("Start", selection: $quietHoursStart, displayedComponents: .hourAndMinute)
-                    DatePicker("End", selection: $quietHoursEnd, displayedComponents: .hourAndMinute)
-                }
-            } header: {
-                Text("Quiet Hours")
-            } footer: {
-                // Start == End would silently disable the feature server-side, so
-                // warn and block Save until they differ (US-IOS111).
-                if quietHoursEnabled && !quietHoursValid {
-                    Text("Start and end times must be different.")
-                        .foregroundStyle(.orange)
-                } else {
-                    Text("No notifications will be sent during quiet hours.")
-                }
-            }
-
-            // SMS Escalation
-            Section {
-                Toggle("SMS Fallback", isOn: $smsEscalationEnabled)
-                    .accessibilityLabel("SMS escalation fallback")
-                    .accessibilityHint("Send SMS when push notifications fail during escalation")
-            } header: {
-                Text("SMS Escalation")
-            } footer: {
-                Text("When enabled, an SMS alert is sent to you and viewers if push notifications fail during escalation. Requires a phone number on your account. Msg & data rates may apply. Reply STOP to any message to opt out, or HELP for assistance.")
             }
 
             // Mood Tracking
@@ -288,79 +497,160 @@ struct ReceiverSettingsView: View {
             } header: {
                 Text("Mood Tracking")
             } footer: {
-                Text("After checking in, \(member.user?.displayName ?? "they") can optionally share how they're feeling.")
+                Text("After checking in, \(name) can optionally share how they're feeling.")
             }
-        }
-        .scrollContentBackground(.hidden)
-        .background(AmbientBackground(tone: .neutral))
-        .navigationTitle(member.user?.displayName ?? "Settings")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                if loadFailed {
-                    // Don't offer Save when we never loaded the real settings —
-                    // saving here would write @State defaults over the server row.
-                    Button("Retry") {
-                        Task { await loadSettings() }
-                    }
-                    .disabled(isLoading)
-                } else {
-                    Button {
-                        Task { await saveSettings() }
-                    } label: {
-                        if isSaving {
-                            ProgressView()
-                        } else {
-                            Text("Save")
-                        }
-                    }
-                    .disabled(isSaving || isLoading || !hasLoaded || (quietHoursEnabled && !quietHoursValid))
-                }
-            }
-        }
-        .overlay {
-            if showSavedConfirmation {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Image(systemName: "checkmark.circle.fill")
-                        Text("Settings saved")
-                    }
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(.green, in: Capsule())
-                    .padding(.bottom, 40)
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .transaction { t in if reduceMotion { t.animation = nil } }
-            }
-        }
-        .task { await loadSettings() }
-        // errorMessage was assigned on load/manual-check-in/save but never shown,
-        // so a failed save looked identical to a success. Surface it.
-        .alert(
-            "Something went wrong",
-            isPresented: Binding(
-                get: { errorMessage != nil },
-                set: { if !$0 { errorMessage = nil } }
-            )
-        ) {
-            Button("OK", role: .cancel) { errorMessage = nil }
-        } message: {
-            Text(errorMessage ?? "")
         }
     }
 
-    // MARK: - Schedule Sections
+    // MARK: - Sections
+
+    private var pauseBanner: some View {
+        Section {
+            HStack(spacing: 10) {
+                Image(systemName: "pause.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(Self.warningText)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(pauseBannerTitle)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Text(loadedForm?.schedulePaused == true
+                         ? String(localized: "\(name) isn't being asked to check in, and no one is alerted.")
+                         : String(localized: "Will pause when you tap Save."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.vertical, 4)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private var pauseBannerTitle: String {
+        if let resume = pauseResumeDate {
+            return String(localized: "Check-ins paused until \(formatResume(resume))")
+        }
+        return String(localized: "Check-ins paused")
+    }
+
+    private func formatResume(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.timeZone = receiverTimeZone
+        f.setLocalizedDateFormatFromTemplate("EEE MMM d j:mm")
+        var text = f.string(from: date)
+        if zoneDiffersFromMine, let abbr = receiverTimeZone.abbreviation(for: date) {
+            text += " \(abbr)"
+        }
+        return text
+    }
+
+    private var rightNowSection: some View {
+        Section {
+            Button {
+                guard !isSendingManual else { return }
+                isSendingManual = true
+                Task { await sendManualCheckIn() }
+            } label: {
+                HStack {
+                    Image(systemName: "bell.badge")
+                    Text("Check on \(name) now")
+                    Spacer()
+                    if isSendingManual {
+                        ProgressView()
+                    }
+                }
+                .frame(minHeight: 44)
+            }
+            .disabled(isSendingManual || member.status != .active)
+            .accessibilityHint("Sends \(name) a check-in request right away")
+
+            if let manualResult {
+                manualResultRow(manualResult)
+            }
+
+            NavigationLink {
+                CareNotesView(familyId: member.familyId, receiverId: member.userId, receiverName: name)
+            } label: {
+                Label("Care notes", systemImage: "note.text")
+            }
+            .accessibilityHint("Open the shared care notes for \(name)")
+        } header: {
+            Text("Right Now")
+        } footer: {
+            Text("Asks \(name) to check in now, with the same reminders and alerts as a scheduled check-in.")
+        }
+    }
+
+    @ViewBuilder
+    private func manualResultRow(_ result: ManualResult) -> some View {
+        let at = manualSentAt.map { $0.formatted(date: .omitted, time: .shortened) } ?? ""
+        switch result {
+        case .sent:
+            Label("Sent at \(at) · waiting for an answer", systemImage: "checkmark.circle.fill")
+                .font(.subheadline)
+                .foregroundStyle(Self.successText)
+        case .resent:
+            Label("Already asked a moment ago — reminder re-sent at \(at)", systemImage: "arrow.clockwise.circle.fill")
+                .font(.subheadline)
+                .foregroundStyle(Self.successText)
+        case .noDevice:
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Saved, but \(name)'s phone couldn't be notified. Call instead?",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(Self.warningText)
+                ContactQuickActions(name: name, phone: member.user?.phone)
+            }
+        }
+    }
+
+    private var scheduleTypeSection: some View {
+        Section {
+            Picker("Schedule", selection: $scheduleType) {
+                ForEach(ScheduleType.allCases, id: \.self) { type in
+                    Text(type.label).tag(type)
+                }
+            }
+            .pickerStyle(.menu)
+            .accessibilityLabel("Check-in schedule type")
+
+            Text(scheduleType.description)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } header: {
+            Text("Check-In Schedule")
+        }
+        // Populate times for every enabled day the moment the user switches to
+        // Custom, seeded from the times already chosen (not a flat 8:00).
+        .onChange(of: scheduleType) { oldValue, newValue in
+            if newValue == .custom {
+                ensureCustomTimesPopulated(useWeekendTime: oldValue == .weekdayWeekend)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var quietConflictWarning: some View {
+        if !quietHourConflicts.isEmpty {
+            Text(quietConflictText)
+                .foregroundStyle(Self.warningText)
+        }
+    }
+
+    private var quietConflictText: String {
+        let times = ListFormatter.localizedString(byJoining: quietHourConflicts.map { displayTime($0) })
+        let range = "\(displayTime(timeFormatter.string(from: quietHoursStart)))–\(displayTime(timeFormatter.string(from: quietHoursEnd)))"
+        return String(localized: "\(times) is inside quiet hours (\(range)), so \(name) wouldn't be asked then. Move the check-in or change quiet hours.")
+    }
 
     private var dailyScheduleSection: some View {
         Section {
             DatePicker("Check-In Time", selection: $checkinTime, displayedComponents: .hourAndMinute)
         } footer: {
-            Text("A push notification will be sent at this time every day.")
+            VStack(alignment: .leading, spacing: 4) {
+                quietConflictWarning
+                Text("\(name) is asked at this time every day.")
+            }
         }
     }
 
@@ -369,7 +659,10 @@ struct ReceiverSettingsView: View {
             DatePicker("Weekday Time (Mon\u{2013}Fri)", selection: $checkinTime, displayedComponents: .hourAndMinute)
             DatePicker("Weekend Time (Sat\u{2013}Sun)", selection: $weekendCheckinTime, displayedComponents: .hourAndMinute)
         } footer: {
-            Text("Different check-in times for weekdays and weekends.")
+            VStack(alignment: .leading, spacing: 4) {
+                quietConflictWarning
+                Text("Different check-in times for weekdays and weekends.")
+            }
         }
     }
 
@@ -383,7 +676,7 @@ struct ReceiverSettingsView: View {
                             dayEnabled[day.key] = isOn
                             // Ensure an enabled day always has at least one time.
                             if isOn && (dayTimes[day.key]?.isEmpty ?? true) {
-                                dayTimes[day.key] = [TimeEntry(time: defaultTimeDate())]
+                                dayTimes[day.key] = [TimeEntry(time: seedTime(forDayKey: day.key))]
                             }
                         }
                     )) {
@@ -392,25 +685,21 @@ struct ReceiverSettingsView: View {
                     }
 
                     if dayEnabled[day.key] ?? true {
-                        // Read dayTimes directly — it's populated proactively on
-                        // load and when switching to Custom (ensureCustomTimesPopulated).
-                        // The old `?? [TimeEntry(...)]` fallback synthesized a
-                        // NEW-identity entry every render, which churned ForEach
-                        // identity AND made the DatePicker setter a no-op (its
-                        // `guard var arr = dayTimes[day.key]` was nil), so edits
-                        // were silently discarded until a day was toggled off/on.
+                        // Read dayTimes directly — it's populated on load and
+                        // when switching to Custom (ensureCustomTimesPopulated),
+                        // so every picker is backed by stable state.
                         let entries = dayTimes[day.key] ?? []
                         // Keyed by entry.id (stable), not array offset, so removing
                         // a middle window doesn't rebind the wrong row (US-IOS104).
-                        ForEach(entries) { entry in
+                        ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                             HStack {
                                 Spacer()
                                 DatePicker(
-                                    "",
+                                    "\(day.label) check-in \(index + 1)",
                                     selection: Binding(
                                         get: {
                                             dayTimes[day.key]?.first(where: { $0.id == entry.id })?.time
-                                                ?? defaultTimeDate()
+                                                ?? seedTime(forDayKey: day.key)
                                         },
                                         set: { newVal in
                                             guard var arr = dayTimes[day.key],
@@ -422,7 +711,7 @@ struct ReceiverSettingsView: View {
                                     displayedComponents: .hourAndMinute
                                 )
                                 .labelsHidden()
-                                .frame(width: 100)
+                                .accessibilityLabel("\(day.label) check-in \(index + 1)")
 
                                 if entries.count > 1 {
                                     Button {
@@ -434,7 +723,7 @@ struct ReceiverSettingsView: View {
                                             .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.borderless)
-                                    .accessibilityLabel("Remove this time")
+                                    .accessibilityLabel("Remove \(day.label) \(entry.time.formatted(date: .omitted, time: .shortened)) check-in")
                                 }
                             }
                         }
@@ -442,7 +731,7 @@ struct ReceiverSettingsView: View {
                         if entries.count < maxTimesPerDay {
                             Button {
                                 var arr = dayTimes[day.key] ?? []
-                                arr.append(TimeEntry(time: defaultTimeDate()))
+                                arr.append(TimeEntry(time: nextAddedTime(after: arr.map(\.time))))
                                 dayTimes[day.key] = arr
                             } label: {
                                 Label("Add time", systemImage: "plus.circle")
@@ -452,31 +741,287 @@ struct ReceiverSettingsView: View {
                             }
                             .buttonStyle(.borderless)
                             .frame(maxWidth: .infinity, alignment: .trailing)
+                            .accessibilityLabel("Add another \(day.label) check-in time")
                         }
                     }
                 }
             }
         } footer: {
-            Text("Toggle off days where no check-in is needed. Add more than one time for days that need several check-ins.")
+            VStack(alignment: .leading, spacing: 4) {
+                if customScheduleMissing {
+                    Text("No custom schedule is saved yet, so \(name) isn't being asked to check in. Review the times and tap Save.")
+                        .foregroundStyle(Self.warningText)
+                }
+                quietConflictWarning
+                Text("Toggle off days where no check-in is needed. Add more than one time for days that need several check-ins.")
+            }
         }
+    }
+
+    private var timezoneSection: some View {
+        Section {
+            HStack {
+                Text("\(name)'s time zone")
+                Spacer()
+                Text(receiverZoneName)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+            }
+            .accessibilityElement(children: .combine)
+        } footer: {
+            Text(timezoneFooter)
+        }
+    }
+
+    private var timezoneFooter: String {
+        let nowThere = Date().formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: receiverTimeZone))
+        var text = String(localized: "Check-in times and quiet hours are in \(name)'s local time (it's \(nowThere) there now).")
+        if zoneDiffersFromMine, let first = currentForm.scheduledTimes.first,
+           let mine = ownerLocalEquivalent(of: first) {
+            text += " " + String(localized: "\(displayTime(first)) for \(name) is \(mine) for you.")
+        }
+        return text
+    }
+
+    private var pauseSection: some View {
+        Section {
+            Toggle("Pause check-ins for \(name)", isOn: $schedulePaused)
+                .accessibilityHint("While paused, \(name) isn't asked to check in and no one is alerted")
+
+            if schedulePaused {
+                Picker("How long", selection: $pauseLength) {
+                    ForEach(ReceiverSettingsForm.PauseLength.allCases) { length in
+                        Text(length.label).tag(length)
+                    }
+                }
+                if pauseLength == .onDate {
+                    DatePicker(
+                        "Resume on",
+                        selection: $pauseResumeDay,
+                        // Start of tomorrow, so a day pinned from a saved
+                        // pause (noon) is never below the range and clamped.
+                        in: Calendar.current.startOfDay(
+                            for: Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+                        )...,
+                        displayedComponents: .date
+                    )
+                }
+            }
+        } header: {
+            Text("Pause")
+        } footer: {
+            Text("While paused, \(name) isn't asked and no one is alerted about missed check-ins. A check-in that has already been sent keeps its reminders and alerts — use Stop alerts on the dashboard for that.")
+        }
+    }
+
+    private var escalationSection: some View {
+        Section {
+            Toggle("Escalation Alerts", isOn: Binding(
+                get: { escalationEnabled },
+                set: { newValue in
+                    // Turning alerts off removes the app's safety net for this
+                    // person — confirm it.
+                    if newValue { escalationEnabled = true } else { showEscalationOffConfirm = true }
+                }
+            ))
+            .accessibilityLabel("Escalation alerts")
+            .accessibilityHint("When on, you and your viewers are alerted if a check-in is missed")
+
+            if escalationEnabled {
+                Picker("First reminder after", selection: $gracePeriod) {
+                    ForEach(intervalOptions(including: gracePeriod), id: \.self) { minutes in
+                        Text("\(minutes) min").tag(minutes)
+                    }
+                }
+
+                Picker("Then every", selection: $reminderInterval) {
+                    ForEach(intervalOptions(including: reminderInterval), id: \.self) { minutes in
+                        Text("\(minutes) min").tag(minutes)
+                    }
+                }
+            }
+        } header: {
+            Text("Escalation Chain")
+        } footer: {
+            if escalationEnabled {
+                Text(escalationTimelineText)
+            } else {
+                Text("Escalation is off. No one will be alerted if \(name) misses a check-in.")
+            }
+        }
+    }
+
+    /// A concrete timeline from the current pickers: who hears, and when.
+    private var escalationTimelineText: String {
+        let base = currentForm.scheduledTimes.first.flatMap(ReceiverSettingsForm.minutesOfDay)
+        func when(_ offset: Int) -> String {
+            guard let base else {
+                return offset == 0 ? String(localized: "At check-in time") : String(localized: "After \(offset) min")
+            }
+            return displayTime(minutesOfDay: base + offset)
+        }
+        var lines: [String] = []
+        if let first = currentForm.scheduledTimes.first {
+            lines.append(String(localized: "If \(name) doesn't answer the \(displayTime(first)) check-in:"))
+        } else {
+            lines.append(String(localized: "If \(name) doesn't answer:"))
+        }
+        let viewers = viewerNames
+        let textsYou = smsEscalationEnabled && ownerPhone != nil
+        for step in ReceiverSettingsForm.escalationSteps(gracePeriodMinutes: gracePeriod, reminderIntervalMinutes: reminderInterval) {
+            let time = when(step.offsetMinutes)
+            switch step.kind {
+            case .asked:
+                continue
+            case .reminder:
+                lines.append(String(localized: "\(time) — a reminder to \(name)"))
+            case .ownerAlerted:
+                lines.append(textsYou
+                             ? String(localized: "\(time) — you're alerted (notification and text)")
+                             : String(localized: "\(time) — you're alerted"))
+            case .viewersAlerted:
+                if viewers.isEmpty {
+                    lines.append(String(localized: "\(time) — viewers would be alerted (you have none yet)"))
+                } else {
+                    let names = ListFormatter.localizedString(byJoining: viewers)
+                    lines.append(String(localized: "\(time) — \(names) alerted"))
+                }
+            case .missed:
+                lines.append(String(localized: "\(time) — marked Missed"))
+            }
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private var smsSection: some View {
+        Section {
+            Toggle("Text Alerts", isOn: $smsEscalationEnabled)
+                .disabled(!escalationEnabled)
+                .accessibilityLabel("Text message alerts")
+                .accessibilityHint("Also sends a text message when a check-in is missed")
+        } header: {
+            Text("Text Message Alerts")
+        } footer: {
+            VStack(alignment: .leading, spacing: 4) {
+                if !escalationEnabled {
+                    Text("Turn on Escalation Alerts to use text alerts.")
+                } else if smsEscalationEnabled && ownerPhone == nil && !careTeam.isEmpty {
+                    Text("Your account has no phone number, so texts can't reach you. Add one in your account settings.")
+                        .foregroundStyle(Self.warningText)
+                } else if smsEscalationEnabled, let ownerPhone {
+                    Text("Texts to you go to \(ownerPhone).")
+                }
+                Text("When a check-in is missed, you — and viewers with a phone number — also get a text, in addition to the notification. Msg & data rates may apply. Reply STOP to any message to opt out, or HELP for assistance.")
+            }
+        }
+    }
+
+    private var quietHoursSection: some View {
+        Section {
+            Toggle("Quiet Hours", isOn: $quietHoursEnabled)
+                .accessibilityLabel("Quiet hours")
+                .accessibilityHint("When on, no scheduled check-ins are sent during these hours")
+
+            if quietHoursEnabled {
+                DatePicker("Start", selection: $quietHoursStart, displayedComponents: .hourAndMinute)
+                DatePicker("End", selection: $quietHoursEnd, displayedComponents: .hourAndMinute)
+            }
+        } header: {
+            Text("Quiet Hours")
+        } footer: {
+            VStack(alignment: .leading, spacing: 4) {
+                // Start == End would silently disable the feature server-side (US-IOS111).
+                if quietHoursEnabled && !quietHoursValid {
+                    Text("Start and end times must be different.")
+                        .foregroundStyle(Self.warningText)
+                }
+                quietConflictWarning
+                Text("No scheduled check-ins are sent during quiet hours. Reminders and alerts for a check-in that's already overdue still go out.")
+            }
+        }
+    }
+
+    // MARK: - Time helpers
+
+    /// "08:00" → "8:00 AM" in the user's locale (a wall-clock time).
+    private func displayTime(_ hhmm: String) -> String {
+        guard let m = ReceiverSettingsForm.minutesOfDay(hhmm) else { return hhmm }
+        return displayTime(minutesOfDay: m)
+    }
+
+    private func displayTime(minutesOfDay: Int) -> String {
+        let m = ((minutesOfDay % 1440) + 1440) % 1440
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC") ?? .current
+        let date = cal.date(from: DateComponents(year: 2000, month: 1, day: 1, hour: m / 60, minute: m % 60)) ?? Date()
+        return date.formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: cal.timeZone))
+    }
+
+    /// The owner's clock time for a receiver-local "HH:mm" today.
+    private func ownerLocalEquivalent(of hhmm: String) -> String? {
+        guard let m = ReceiverSettingsForm.minutesOfDay(hhmm) else { return nil }
+        let cal = receiverCalendar
+        var comps = cal.dateComponents([.year, .month, .day], from: Date())
+        comps.hour = m / 60
+        comps.minute = m % 60
+        guard let instant = cal.date(from: comps) else { return nil }
+        return instant.formatted(date: .omitted, time: .shortened)
+    }
+
+    /// Seed for a custom day: the time the owner already chose (the weekend
+    /// time for Sat/Sun when coming from Weekday/Weekend), so switching to
+    /// Custom keeps it instead of resetting every day to 8:00.
+    private func seedTime(forDayKey key: String, useWeekendTime: Bool = false) -> Date {
+        if useWeekendTime, key == "sat" || key == "sun" {
+            return weekendCheckinTime
+        }
+        return checkinTime
+    }
+
+    /// A new window defaults to three hours after the latest existing one
+    /// (capped at 23:00), not a duplicate that save would silently drop.
+    private func nextAddedTime(after existing: [Date]) -> Date {
+        let cal = Calendar.current
+        guard let latest = existing.max() else { return checkinTime }
+        let comps = cal.dateComponents([.hour, .minute], from: latest)
+        let minutes = min(((comps.hour ?? 8) * 60 + (comps.minute ?? 0)) + 180, 23 * 60)
+        return cal.date(from: DateComponents(hour: minutes / 60, minute: minutes % 60)) ?? latest
     }
 
     // MARK: - Manual Check-In
 
     private func sendManualCheckIn() async {
-        isSendingManual = true
+        // isSendingManual is set by the button before this task starts, so a
+        // double tap can't send twice.
+        defer { isSendingManual = false }
+        manualResult = nil
         do {
-            try await CheckInService.shared.sendOnDemandCheckIn(
+            let result = try await CheckInService.shared.requestOnDemandCheckIn(
                 receiverId: member.userId,
                 familyId: member.familyId
             )
-            showManualSent = true
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            showManualSent = false
+            manualSentAt = Date()
+            if result.deliveredDevices == 0 {
+                manualResult = .noDevice
+                DailyOKHaptics.warning()
+                UIAccessibility.post(notification: .announcement,
+                                     argument: String(localized: "Request saved, but \(name)'s phone couldn't be notified"))
+            } else if result.deduplicated == true {
+                manualResult = .resent
+                DailyOKHaptics.success()
+                UIAccessibility.post(notification: .announcement,
+                                     argument: String(localized: "\(name) was already asked a moment ago. Reminder re-sent."))
+            } else {
+                manualResult = .sent
+                DailyOKHaptics.success()
+                UIAccessibility.post(notification: .announcement,
+                                     argument: String(localized: "Check-in request sent to \(name)"))
+            }
         } catch {
-            errorMessage = error.localizedDescription
+            DailyOKHaptics.error()
+            errorTitle = String(localized: "Couldn't send")
+            errorMessage = String(localized: "Couldn't ask \(name) to check in: \(error.localizedDescription)")
         }
-        isSendingManual = false
     }
 
     // MARK: - Data
@@ -484,6 +1029,7 @@ struct ReceiverSettingsView: View {
     private func loadSettings() async {
         isLoading = true
         loadFailed = false
+        defer { isLoading = false }
         do {
             let loaded: ReceiverSettings = try await SupabaseService.shared.client
                 .from("receiver_settings")
@@ -493,165 +1039,215 @@ struct ReceiverSettingsView: View {
                 .execute()
                 .value
 
-            settings = loaded
-
-            // Parse wire-format time strings from the backend. POSIX-locked so
-            // parsing the fixed 24h format never fails under a user locale (US-IOS044).
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            // Accept both HH:mm:ss and HH:mm — if the backend ever returns a
-            // seconds-less time, the strict single-format parse returned nil and
-            // left checkinTime at its current-wall-clock default, which a later
-            // Save would then persist as the daily time (matches the weekend /
-            // quiet-hours fields, which already try both).
-            formatter.dateFormat = "HH:mm:ss"
-            if let time = formatter.date(from: loaded.checkinTime) {
-                checkinTime = time
-            } else {
-                formatter.dateFormat = "HH:mm"
-                if let time = formatter.date(from: loaded.checkinTime) {
-                    checkinTime = time
-                }
-            }
-
-            gracePeriod = loaded.gracePeriodMinutes
-            reminderInterval = loaded.reminderIntervalMinutes
-            escalationEnabled = loaded.escalationEnabled
-            moodTrackingEnabled = loaded.moodTrackingEnabled
-            smsEscalationEnabled = loaded.smsEscalationEnabled
-            notifyOwnerOnCheckin = loaded.notifyOwnerOnCheckin
-            receiverMode = loaded.receiverMode
-            simpleMode = loaded.simpleMode
-            audioConfirmationEnabled = loaded.audioConfirmationEnabled
-
-            // Schedule fields
-            scheduleType = loaded.scheduleType
-            schedulePaused = loaded.schedulePaused
-
-            if let weekendTime = loaded.weekendCheckinTime {
-                formatter.dateFormat = "HH:mm:ss"
-                if let wt = formatter.date(from: weekendTime) {
-                    weekendCheckinTime = wt
-                } else {
-                    formatter.dateFormat = "HH:mm"
-                    if let wt = formatter.date(from: weekendTime) {
-                        weekendCheckinTime = wt
-                    }
-                }
-            }
-
-            // Load custom schedule. Dual-read each day's times (multiTimes,
-            // falling back to the legacy single field) via DaySchedule.times.
-            if let custom = loaded.customSchedule {
-                customSchedule = custom
-                formatter.dateFormat = "HH:mm"
-                for day in DaySchedule.allDays {
-                    let timeStrings = custom.times(forDayKey: day.key)
-                    dayEnabled[day.key] = !timeStrings.isEmpty
-                    let dates = timeStrings.compactMap { formatter.date(from: $0) }
-                    if !dates.isEmpty {
-                        dayTimes[day.key] = dates.map { TimeEntry(time: $0) }
-                    }
-                }
-            }
-
-            if let qStart = loaded.quietHoursStart, let qEnd = loaded.quietHoursEnd {
-                quietHoursEnabled = true
-                formatter.dateFormat = "HH:mm:ss"
-                if let start = formatter.date(from: qStart) { quietHoursStart = start }
-                if let end = formatter.date(from: qEnd) { quietHoursEnd = end }
-            }
-            // If the loaded schedule is custom but carried no per-day times (e.g.
-            // schedule_type=custom with an empty custom_schedule), seed defaults so
-            // the pickers are editable rather than dead.
-            if scheduleType == .custom { ensureCustomTimesPopulated() }
+            apply(loaded)
+            // Snapshot from on-screen state (not the raw row) so formats match
+            // exactly and an untouched form is never "changed".
+            var snapshot = currentForm
+            // A Custom row with no readable schedule sends nothing (dispatch
+            // skips it), but apply() seeds editable times. Record what the
+            // server really holds so those times show as unsaved: Save is
+            // enabled and Back warns, instead of looking already scheduled.
+            customScheduleMissing = loaded.scheduleType == .custom && loaded.customSchedule == nil
+            if customScheduleMissing { snapshot.customSchedule = nil }
+            loadedForm = snapshot
             hasLoaded = true
+
+            // Rows saved by older iOS builds hold custom_schedule as a JSON
+            // string, which dispatch can't read: no custom check-in was ever
+            // sent. Rewrite it as an object now (00056 also repairs it
+            // server-side; this covers a server without that migration).
+            if loaded.customScheduleNeedsRepair, let schedule = loaded.customSchedule {
+                var repair = ReceiverSettingsPatch()
+                repair.set("custom_schedule", .schedule(schedule))
+                try? await applyPatch(repair)
+            }
         } catch {
-            errorMessage = DailyOKError.network(error).localizedDescription
             loadFailed = true
         }
-        isLoading = false
+
+        // Best effort: names for the escalation timeline, the owner's phone
+        // for the text-alert status.
+        if let team = try? await FamilyService.shared.getFamilyMembers(familyId: member.familyId) {
+            careTeam = team
+        }
+    }
+
+    /// Replace every field from the server row, so nothing from a previous
+    /// state (or the defaults) survives a load.
+    private func apply(_ loaded: ReceiverSettings) {
+        settings = loaded
+
+        checkinTime = Self.parseTime(loaded.checkinTime) ?? Calendar.current.date(from: DateComponents(hour: 8)) ?? checkinTime
+        gracePeriod = loaded.gracePeriodMinutes
+        reminderInterval = loaded.reminderIntervalMinutes
+        escalationEnabled = loaded.escalationEnabled
+        moodTrackingEnabled = loaded.moodTrackingEnabled
+        smsEscalationEnabled = loaded.smsEscalationEnabled
+        notifyOwnerOnCheckin = loaded.notifyOwnerOnCheckin
+        receiverMode = loaded.receiverMode
+        simpleMode = loaded.simpleMode
+        audioConfirmationEnabled = loaded.audioConfirmationEnabled
+
+        scheduleType = loaded.scheduleType
+        schedulePaused = loaded.schedulePaused
+        if let until = loaded.pausedUntil {
+            pinPauseChoice(to: until)
+        } else {
+            pauseLength = .untilResumed
+        }
+
+        // Dispatch runs weekends at COALESCE(weekend_checkin_time, checkin_time).
+        // Show that same time for a Weekday/Weekend row with no weekend time,
+        // not an invented 10:00 the server would never use.
+        if let weekend = loaded.weekendCheckinTime.flatMap(Self.parseTime) {
+            weekendCheckinTime = weekend
+        } else if loaded.scheduleType == .weekdayWeekend {
+            weekendCheckinTime = checkinTime
+        } else {
+            weekendCheckinTime = Calendar.current.date(from: DateComponents(hour: 10)) ?? weekendCheckinTime
+        }
+
+        // Custom schedule: dual-read each day's times (multiTimes, falling
+        // back to the legacy single field) via DaySchedule.times.
+        dayTimes = [:]
+        for day in DaySchedule.allDays { dayEnabled[day.key] = true }
+        if let custom = loaded.customSchedule {
+            for day in DaySchedule.allDays {
+                let dates = custom.times(forDayKey: day.key).compactMap(Self.parseTime)
+                dayEnabled[day.key] = !dates.isEmpty
+                if !dates.isEmpty {
+                    dayTimes[day.key] = dates.map { TimeEntry(time: $0) }
+                }
+            }
+        }
+
+        if let qStart = loaded.quietHoursStart.flatMap(Self.parseTime),
+           let qEnd = loaded.quietHoursEnd.flatMap(Self.parseTime) {
+            quietHoursEnabled = true
+            quietHoursStart = qStart
+            quietHoursEnd = qEnd
+        } else {
+            quietHoursEnabled = false
+        }
+
+        // A custom schedule with no per-day times gets editable pickers.
+        if scheduleType == .custom { ensureCustomTimesPopulated() }
+    }
+
+    /// Show a pause end as "Until a date…" with that day selected. The
+    /// receiver-calendar day is carried into the picker's calendar so it
+    /// round-trips to the same instant.
+    private func pinPauseChoice(to until: Date) {
+        pauseLength = .onDate
+        var noon = receiverCalendar.dateComponents([.year, .month, .day], from: until)
+        noon.hour = 12
+        pauseResumeDay = Calendar.current.date(from: noon) ?? until
+    }
+
+    /// Server "HH:mm:ss" or "HH:mm" → a Date on the picker's calendar.
+    private static func parseTime(_ raw: String) -> Date? {
+        guard let m = ReceiverSettingsForm.minutesOfDay(raw) else { return nil }
+        return Calendar.current.date(from: DateComponents(hour: m / 60, minute: m % 60))
     }
 
     /// Ensure every enabled day has at least one editable check-in window when a
     /// custom schedule is active. Backs the DatePickers with real, stable state
-    /// (keyed by TimeEntry.id) so edits persist, rather than a body-level
-    /// fallback that re-mints identity each render.
-    private func ensureCustomTimesPopulated() {
+    /// (keyed by TimeEntry.id) so edits persist.
+    private func ensureCustomTimesPopulated(useWeekendTime: Bool = false) {
         for day in DaySchedule.allDays where (dayEnabled[day.key] ?? true) {
             if dayTimes[day.key]?.isEmpty ?? true {
-                dayTimes[day.key] = [TimeEntry(time: defaultTimeDate())]
+                dayTimes[day.key] = [TimeEntry(time: seedTime(forDayKey: day.key, useWeekendTime: useWeekendTime))]
             }
         }
     }
 
-    private func saveSettings() async {
-        // Block a custom schedule with every day toggled off: it would persist an
-        // empty schedule, meaning the receiver silently never gets a check-in
-        // request. Warn instead of saving a broken configuration. (Matches the
-        // `?? false` semantics buildCustomSchedule actually persists.)
+    private struct IdRow: Decodable { let id: UUID }
+
+    private enum SaveFailure: Error { case nothingUpdated }
+
+    /// PATCH the row and confirm it was actually updated. RLS turns a write
+    /// the caller may no longer make (ownership moved, member removed) into a
+    /// silent 0-row success, which used to show "Settings saved".
+    private func applyPatch(_ patch: ReceiverSettingsPatch) async throws {
+        let rows: [IdRow] = try await SupabaseService.shared.client
+            .from("receiver_settings")
+            .update(patch)
+            .eq("family_member_id", value: member.id.uuidString)
+            .select("id")
+            .execute()
+            .value
+        guard !rows.isEmpty else { throw SaveFailure.nothingUpdated }
+    }
+
+    /// PostgREST reports an unknown column as PGRST204 naming it.
+    private static func isMissingColumn(_ error: Error, _ column: String) -> Bool {
+        let text = "\(error) \(error.localizedDescription)"
+        return text.contains(column)
+    }
+
+    /// Returns true when everything was saved.
+    @discardableResult
+    private func saveSettings() async -> Bool {
+        guard !isSaving else { return false }
+
+        // A custom schedule with every day off persists an empty schedule: the
+        // receiver silently never gets a check-in request.
         if scheduleType == .custom,
            !DaySchedule.allDays.contains(where: { dayEnabled[$0.key] ?? false }) {
-            errorMessage = String(localized: "Turn on at least one day — otherwise this person will never get a check-in request.")
+            validationMessage = String(localized: "Turn on at least one day — otherwise \(name) will never get a check-in request.")
             DailyOKHaptics.error()
             UIAccessibility.post(notification: .announcement, argument: String(localized: "Select at least one check-in day"))
-            return
+            return false
+        }
+        if quietHoursEnabled && !quietHoursValid {
+            validationMessage = String(localized: "Quiet hours need different start and end times.")
+            DailyOKHaptics.error()
+            return false
+        }
+        // Dispatch sends nothing during quiet hours, so a check-in timed inside
+        // them is not asked (and never escalates) — block it.
+        if !quietHourConflicts.isEmpty {
+            validationMessage = quietConflictText
+            DailyOKHaptics.error()
+            UIAccessibility.post(notification: .announcement, argument: quietConflictText)
+            return false
+        }
+
+        let form = currentForm
+        var patch = form.patch(from: loadedForm)
+        guard !patch.isEmpty else {
+            loadedForm = form
+            return true
         }
 
         isSaving = true
+        defer { isSaving = false }
 
-        let timeString = timeFormatter.string(from: checkinTime)
-
-        // Nullable values so disabling quiet hours can explicitly null the columns
-        // (omitting them left stale values that silently re-enabled the toggle).
-        var updates: [String: String?] = [
-            "checkin_time": timeString,
-            "grace_period_minutes": String(gracePeriod),
-            "reminder_interval_minutes": String(reminderInterval),
-            "escalation_enabled": String(escalationEnabled),
-            "mood_tracking_enabled": String(moodTrackingEnabled),
-            "sms_escalation_enabled": String(smsEscalationEnabled),
-            "notify_owner_on_checkin": String(notifyOwnerOnCheckin),
-            "receiver_mode": receiverMode.rawValue,
-            "schedule_type": scheduleType.rawValue,
-            "schedule_paused": String(schedulePaused),
-            "simple_mode": String(simpleMode),
-            "audio_confirmation_enabled": String(audioConfirmationEnabled),
-        ]
-
-        // Schedule-specific fields
-        switch scheduleType {
-        case .weekdayWeekend:
-            updates["weekend_checkin_time"] = timeFormatter.string(from: weekendCheckinTime)
-        case .custom:
-            // Build custom schedule JSON
-            let schedule = buildCustomSchedule()
-            if let jsonData = try? JSONEncoder().encode(schedule),
-               let jsonString = String(data: jsonData, encoding: .utf8) {
-                updates["custom_schedule"] = jsonString
-            }
-        case .daily:
-            break
-        }
-
-        if quietHoursEnabled {
-            updates["quiet_hours_start"] = timeFormatter.string(from: quietHoursStart)
-            updates["quiet_hours_end"] = timeFormatter.string(from: quietHoursEnd)
-        } else {
-            // Explicitly clear so turning Quiet Hours off actually persists.
-            updates["quiet_hours_start"] = String?.none
-            updates["quiet_hours_end"] = String?.none
-        }
-
+        var pauseEndUnsupported = false
         do {
-            try await SupabaseService.shared.client
-                .from("receiver_settings")
-                .update(updates)
-                .eq("family_member_id", value: member.id.uuidString)
-                .execute()
+            do {
+                try await applyPatch(patch)
+            } catch {
+                // Server without 00056: save everything else and say that the
+                // pause won't end by itself.
+                guard patch["paused_until"] != nil, Self.isMissingColumn(error, "paused_until") else { throw error }
+                patch.remove("paused_until")
+                if !patch.isEmpty { try await applyPatch(patch) }
+                pauseEndUnsupported = true
+            }
 
-            // Confirm the save for sighted, haptic, AND VoiceOver users — the
-            // green capsule alone is invisible to VoiceOver.
+            if pauseEndUnsupported {
+                pauseLength = .untilResumed
+                saveNote = String(localized: "Check-ins for \(name) are paused, but they can't resume by themselves yet. Turn Pause off here when you're ready.")
+            } else if schedulePaused, let saved = form.pausedUntil, pauseLength != .onDate {
+                // Pin a relative choice ("For 3 days") to the date just saved,
+                // so it doesn't drift — and read as unsaved — tomorrow.
+                pinPauseChoice(to: saved)
+            }
+            loadedForm = currentForm
+            customScheduleMissing = false
+
+            // Confirm the save for sighted, haptic, AND VoiceOver users.
             DailyOKHaptics.success()
             UIAccessibility.post(notification: .announcement, argument: String(localized: "Settings saved"))
             if reduceMotion {
@@ -659,19 +1255,25 @@ struct ReceiverSettingsView: View {
             } else {
                 withAnimation { showSavedConfirmation = true }
             }
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            if reduceMotion {
-                showSavedConfirmation = false
-            } else {
-                withAnimation { showSavedConfirmation = false }
+            Task {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                if reduceMotion {
+                    showSavedConfirmation = false
+                } else {
+                    withAnimation { showSavedConfirmation = false }
+                }
             }
+            return true
+        } catch SaveFailure.nothingUpdated {
+            errorTitle = String(localized: "Couldn't save")
+            errorMessage = String(localized: "Nothing was changed — you may no longer manage \(name)'s settings. Go back to the Family tab and refresh.")
         } catch {
+            errorTitle = String(localized: "Couldn't save")
             errorMessage = DailyOKError.network(error).localizedDescription
-            DailyOKHaptics.error()
-            UIAccessibility.post(notification: .announcement, argument: String(localized: "Couldn't save settings"))
         }
-
-        isSaving = false
+        DailyOKHaptics.error()
+        UIAccessibility.post(notification: .announcement, argument: String(localized: "Couldn't save settings"))
+        return false
     }
 
     private func buildCustomSchedule() -> DaySchedule {
@@ -683,7 +1285,7 @@ struct ReceiverSettingsView: View {
                 continue
             }
             // Sorted, de-duplicated "HH:mm" times for the day.
-            let times = (dayTimes[day.key] ?? [TimeEntry(time: defaultTimeDate())])
+            let times = (dayTimes[day.key] ?? [TimeEntry(time: seedTime(forDayKey: day.key))])
                 .map { timeFormatter.string(from: $0.time) }
             let unique = Array(Set(times)).sorted()
             // Dual-write: legacy single field = earliest time (so old clients
@@ -697,9 +1299,5 @@ struct ReceiverSettingsView: View {
         }
         schedule.multiTimes = multi.isEmpty ? nil : multi
         return schedule
-    }
-
-    private func defaultTimeDate() -> Date {
-        Calendar.current.date(from: DateComponents(hour: 8, minute: 0)) ?? Date()
     }
 }
