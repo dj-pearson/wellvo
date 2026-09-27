@@ -16,18 +16,32 @@
  * future floors should be >= it.
  */
 
+/**
+ * Env read that tolerates a missing --allow-env: CI's `deno test` runs with no
+ * permissions and config_test imports this module. The server always runs with
+ * --allow-env, so production reads are unchanged; unreadable reads as unset
+ * (the dormant "0.0.0" floors).
+ */
+function readEnv(name: string): string | undefined {
+  try {
+    return Deno.env.get(name);
+  } catch {
+    return undefined;
+  }
+}
+
 export const MIN_SUPPORTED_IOS_APP_VERSION =
-  Deno.env.get("MIN_SUPPORTED_IOS_APP_VERSION")?.trim() || "0.0.0";
+  readEnv("MIN_SUPPORTED_IOS_APP_VERSION")?.trim() || "0.0.0";
 
 export const MIN_SUPPORTED_ANDROID_APP_VERSION =
-  Deno.env.get("MIN_SUPPORTED_ANDROID_APP_VERSION")?.trim() || "0.0.0";
+  readEnv("MIN_SUPPORTED_ANDROID_APP_VERSION")?.trim() || "0.0.0";
 
 export const IOS_APP_STORE_URL =
-  Deno.env.get("IOS_APP_STORE_URL")?.trim() ||
+  readEnv("IOS_APP_STORE_URL")?.trim() ||
   "https://apps.apple.com/us/app/dailyok-daily-check-in/id6760836697";
 
 export const ANDROID_STORE_URL =
-  Deno.env.get("ANDROID_STORE_URL")?.trim() ||
+  readEnv("ANDROID_STORE_URL")?.trim() ||
   "https://play.google.com/store/apps/details?id=net.dailyok.android";
 
 /**
@@ -96,6 +110,6 @@ export function appConfigPayload(): Record<string, unknown> {
  * acted on. Env-overridable for tuning without a deploy.
  */
 export const UNDO_GRACE_SECONDS = (() => {
-  const raw = parseInt(Deno.env.get("CHECKIN_UNDO_GRACE_SECONDS") ?? "", 10);
+  const raw = parseInt(readEnv("CHECKIN_UNDO_GRACE_SECONDS") ?? "", 10);
   return Number.isFinite(raw) && raw > 0 ? raw : 180;
 })();

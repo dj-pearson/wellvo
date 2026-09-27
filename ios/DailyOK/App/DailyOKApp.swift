@@ -39,6 +39,14 @@ struct DailyOKApp: App {
                 .onChange(of: scenePhase) { _, newPhase in
                     handleScenePhaseChange(newPhase)
                 }
+                // Launch check of the version floor. onChange above does not
+                // fire for the initial value, so a scene that is already
+                // .active when this view appears would otherwise skip it until
+                // the first return from background. Throttled inside, so the
+                // .active path doesn't fetch twice.
+                .task {
+                    await ForceUpdateState.shared.refreshFromServer()
+                }
         }
     }
 
