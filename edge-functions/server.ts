@@ -58,6 +58,7 @@ import { handleGenerateNextArticle } from "./functions/generate-next-article/ind
 import { handleIngestMetrics } from "./functions/ingest-metrics/index.ts";
 import { handleSendDigest } from "./functions/send-digest/index.ts";
 import { handleAppStoreNotification } from "./functions/app-store-notifications/index.ts";
+import { handleGooglePlayNotification } from "./functions/google-play-notifications/index.ts";
 
 type FunctionHandler = (req: Request, auth: AuthResult) => Promise<Response>;
 
@@ -81,6 +82,14 @@ const webhookSecretRoutes: Record<string, string> = {
 // signature, which must chain to Apple Root CA - G3 (shared/app-store-jws.ts).
 const appleSignedRoutes = new Set([
   "/app-store-notifications",
+]);
+
+// Google Play real-time developer notifications (Pub/Sub push). Also no
+// bearer token: the handler never trusts the push body, it re-reads the
+// purchase from the Play Developer API (shared/google-play.ts), and an
+// optional GOOGLE_PLAY_RTDN_TOKEN query secret is checked in the handler.
+const playNotificationRoutes = new Set([
+  "/google-play-notifications",
 ]);
 
 // All routes
@@ -110,6 +119,7 @@ const routes: Record<string, FunctionHandler> = {
   "/ingest-metrics": handleIngestMetrics,
   "/send-digest": handleSendDigest,
   "/app-store-notifications": handleAppStoreNotification,
+  "/google-play-notifications": handleGooglePlayNotification,
 };
 
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://dailyok.net";
@@ -210,12 +220,13 @@ async function handler(req: Request): Promise<Response> {
   let auth: AuthResult;
   const secretEnvVar = webhookSecretRoutes[path];
   const appleSigned = appleSignedRoutes.has(path);
-  if (appleSigned) {
+  const playNotification = playNotificationRoutes.has(path);
+  if (appleSigned || playNotification) {
     // Not a user and not the service role: the handler verifies the payload.
     // Its own rate-limit bucket: sharing the service-role counters would let
     // a flood of junk here throttle pg_cron's check-in dispatch.
     auth = { authenticated: true, isServiceRole: false };
-    const rateLimitResult = checkRateLimit("__apple_notifications__", path);
+    const rateLimitResult = checkRateLimit(appleSigned ? "__apple_notifications__" : "__play_notifications__", path);
     if (!rateLimitResult.allowed) {
       return jsonWithCors({ error: "Too many requests" }, 429, req, {
         "Retry-After": String(rateLimitResult.retryAfterSeconds),
@@ -262,7 +273,7 @@ async function handler(req: Request): Promise<Response> {
   // served. Only applies to authenticated client (JWT) traffic — never service
   // role or webhook calls. Fails open when the version header is absent (older
   // builds) or the floor is disabled, so nothing breaks until a floor is set.
-  if (!auth.isServiceRole && !secretEnvVar && !appleSigned) {
+  if (!auth.isServiceRole && !secretEnvVar && !appleSigned && !playNotification) {
     const clientVersion = req.headers.get("X-App-Version");
     const clientPlatform = req.headers.get("X-App-Platform");
     if (isBelowMinimum(clientPlatform, clientVersion)) {

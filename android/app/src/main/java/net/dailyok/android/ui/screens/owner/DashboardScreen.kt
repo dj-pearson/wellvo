@@ -140,6 +140,7 @@ fun DashboardScreen(
     val successMessage by viewModel.successMessage.collectAsState()
     val sendingCheckInFor by viewModel.sendingCheckInFor.collectAsState()
     val cooldownUntil by viewModel.cooldownUntil.collectAsState()
+    val actingOn by viewModel.actingOn.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
 
@@ -201,11 +202,11 @@ fun DashboardScreen(
             }
         ) {
             when {
-                isLoading && receiverCards.isEmpty -> {
+                isLoading && receiverCards.isEmpty() -> {
                     net.dailyok.android.ui.components.DashboardSkeletonView()
                 }
 
-                receiverCards.isEmpty && !isLoading && errorMessage != null -> {
+                receiverCards.isEmpty() && !isLoading && errorMessage != null -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -240,7 +241,7 @@ fun DashboardScreen(
                     }
                 }
 
-                receiverCards.isEmpty && !isLoading -> {
+                receiverCards.isEmpty() && !isLoading -> {
                     // Auto-present the walkthrough once when the owner lands on
                     // an empty Dashboard for the first time. The CTA below stays
                     // available for re-opens after dismissal.
@@ -278,7 +279,11 @@ fun DashboardScreen(
                             item {
                                 AlertsBanner(
                                     alerts = alerts,
-                                    onDismiss = { viewModel.dismissAlert(it) }
+                                    onDismiss = { viewModel.dismissAlert(it) },
+                                    currentUserId = userId,
+                                    busy = actingOn,
+                                    onAcknowledge = { alert, release -> viewModel.acknowledgeAlert(alert, release) },
+                                    canDismiss = !isViewer
                                 )
                             }
                         }
@@ -295,12 +300,20 @@ fun DashboardScreen(
 
                         // Receiver Status Cards
                         items(receiverCards, key = { it.id }) { card ->
+                            // Co-caregivers can say "I'm on it" (any active
+                            // caregiver may claim, 00062). "Check on" and
+                            // "Stop alerts" stay owner-only, as on iOS:
+                            // on-demand-checkin and cancel-escalation refuse
+                            // anyone but the owner (403).
                             ReceiverStatusCardView(
-                                card = card,
+                                card = if (isViewer) card.copy(canStopAlerts = false) else card,
                                 isSending = if (isViewer) false else card.id in sendingCheckInFor,
                                 cooldownEndMs = if (isViewer) 0L else cooldownUntil[card.id] ?: 0L,
                                 onCheckOn = { viewModel.sendOnDemandCheckIn(card.id) },
-                                showCheckOnButton = !isViewer
+                                showCheckOnButton = !isViewer,
+                                busy = actingOn,
+                                onStopAlerts = { viewModel.stopAlerts(card.id) },
+                                onClaim = { release -> viewModel.claimCheckIn(card.id, release) }
                             )
                         }
 
@@ -631,7 +644,15 @@ private fun ReceiverTimelineComposable(card: ReceiverStatusCard) {
 // -- Alerts Banner --
 
 @Composable
-private fun AlertsBanner(alerts: List<DailyOKAlert>, onDismiss: (DailyOKAlert) -> Unit) {
+private fun AlertsBanner(
+    alerts: List<DailyOKAlert>,
+    onDismiss: (DailyOKAlert) -> Unit,
+    currentUserId: String = "",
+    busy: Set<String> = emptySet(),
+    onAcknowledge: (DailyOKAlert, Boolean) -> Unit = { _, _ -> },
+    /** Only the owner can mark alerts read (00006 RLS); a co-caregiver's dismiss did nothing. */
+    canDismiss: Boolean = true
+) {
     val haptic = LocalHapticFeedback.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         alerts.forEach { alert ->
@@ -667,7 +688,7 @@ private fun AlertsBanner(alerts: List<DailyOKAlert>, onDismiss: (DailyOKAlert) -
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        val driftHours = alert.data?.get("drift_hours")
+                        val driftHours = alert.number("drift_hours")
                         if (driftHours != null) {
                             Text(
                                 text = "Shifted by ${"%.1f".format(driftHours)} hours",
@@ -675,17 +696,46 @@ private fun AlertsBanner(alerts: List<DailyOKAlert>, onDismiss: (DailyOKAlert) -
                                 color = Color(0xFFF97316)
                             )
                         }
+                        // A help request: say who is on it, so caregivers
+                        // don't all call at once — or none of them does.
+                        if (alert.isUrgent) {
+                            val mine = alert.acknowledgedBy != null && alert.acknowledgedBy == currentUserId
+                            Spacer(modifier = Modifier.height(6.dp))
+                            if (alert.acknowledgedBy != null) {
+                                Text(
+                                    text = if (mine) "You're handling this"
+                                        else "${alert.acknowledgedByName ?: "A caregiver"} is handling this",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            if (alert.acknowledgedBy == null || mine) {
+                                OutlinedButton(
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        onAcknowledge(alert, mine)
+                                    },
+                                    enabled = "alert:${alert.id}" !in busy
+                                ) {
+                                    Text(if (mine) "Release" else "I'm on it")
+                                }
+                            }
+                        }
                     }
 
-                    IconButton(onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onDismiss(alert)
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = stringResource(R.string.dashboard_dismiss_alert),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    // An urgent alert stays until someone has taken it on.
+                    if (canDismiss && (!alert.isUrgent || alert.acknowledgedBy != null)) {
+                        IconButton(onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onDismiss(alert)
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(R.string.dashboard_dismiss_alert),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
@@ -701,7 +751,10 @@ private fun ReceiverStatusCardView(
     isSending: Boolean = false,
     cooldownEndMs: Long = 0L,
     onCheckOn: () -> Unit,
-    showCheckOnButton: Boolean = true
+    showCheckOnButton: Boolean = true,
+    busy: Set<String> = emptySet(),
+    onStopAlerts: () -> Unit = {},
+    onClaim: (release: Boolean) -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
     val currentTimeMs = remember { mutableStateOf(System.currentTimeMillis()) }
@@ -1025,6 +1078,60 @@ private fun ReceiverStatusCardView(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Check on ${card.name}")
+                    }
+                }
+            }
+
+            // Who is on it, and the caregiver actions for an open check-in:
+            // "I'm on it" (so the others know) and "Stop alerts" (reached
+            // them another way). Owner and co-caregivers alike.
+            card.claimLine?.let { line ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = line,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            if (card.alertsStopped) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Alerts stopped. The check-in stays open until ${card.name} answers.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            val showClaim = card.canClaim && (card.claimLine == null || card.claimedByMe)
+            if (showClaim || card.canStopAlerts) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (showClaim) {
+                        OutlinedButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onClaim(card.claimedByMe)
+                            },
+                            enabled = "claim:${card.id}" !in busy,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(if (card.claimedByMe) "Release" else "I'm on it")
+                        }
+                    }
+                    if (card.canStopAlerts) {
+                        OutlinedButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onStopAlerts()
+                            },
+                            enabled = "stop:${card.id}" !in busy,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Stop alerts")
+                        }
                     }
                 }
             }

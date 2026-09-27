@@ -44,7 +44,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,10 +63,43 @@ import net.dailyok.android.viewmodels.SettingsViewModel
 fun ViewerSettingsScreen(
     viewModel: SettingsViewModel,
     userId: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Left the family: the app re-routes (to the start screen). */
+    onLeftFamily: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val user by viewModel.user.collectAsState()
+    val isLeaving by viewModel.isLeaving.collectAsState()
+    val leftFamily by viewModel.leftFamily.collectAsState()
+    var showLeaveConfirmation by remember { mutableStateOf(false) }
+
+    LaunchedEffect(leftFamily) {
+        if (leftFamily) {
+            viewModel.onLeftFamilyHandled()
+            onLeftFamily()
+        }
+    }
+
+    if (showLeaveConfirmation) {
+        net.dailyok.android.ui.components.GlassAlertDialog(
+            onDismissRequest = { showLeaveConfirmation = false },
+            title = { Text("Leave this family?") },
+            text = {
+                Text("You'll stop seeing check-ins and stop getting alerts. The owner will be told. To come back, they'll need to invite you again.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLeaveConfirmation = false
+                    viewModel.leaveFamily(userId)
+                }) {
+                    Text("Leave", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLeaveConfirmation = false }) { Text("Cancel") }
+            }
+        )
+    }
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val successMessage by viewModel.successMessage.collectAsState()
@@ -211,7 +246,7 @@ fun ViewerSettingsScreen(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "Viewer",
+                                        text = "Co-caregiver",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.SemiBold,
                                         color = Color(0xFF3B82F6)
@@ -271,6 +306,19 @@ fun ViewerSettingsScreen(
                             Text("Terms of Service", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
                         }
                     }
+                }
+
+                // Leave the family (co-caregiver). Signing out only stops
+                // alerts on this phone; leaving ends the membership.
+                androidx.compose.material3.OutlinedButton(
+                    onClick = { showLeaveConfirmation = true },
+                    enabled = !isLeaving,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = if (isLeaving) "Leaving…" else "Leave family",
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
 
                 // Sign Out

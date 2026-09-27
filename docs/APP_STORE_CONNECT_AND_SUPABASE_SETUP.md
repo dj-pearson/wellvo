@@ -638,6 +638,28 @@ sends and applies only what Apple's signed answer says. Builds from 2026-09-27 o
 send the signed transaction itself. In `log` mode an unverifiable request is still
 accepted (expiry capped at one yearly term) so shipped builds keep working.
 
+**Google Play verification (Android).** The same endpoint verifies an Android
+`purchase_token` with the Play Developer API (`purchases.subscriptionsv2.get`) when a
+service account is configured, and stores Google's product and expiry (so Android plans
+lapse). Values live in the Coolify secrets, never in the repo:
+
+| Env var                            | Value                                                                  |
+| ---------------------------------- | ---------------------------------------------------------------------- |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | The service account key file's JSON (raw or base64). In Play Console → Users and permissions, give that account access to the app's financial data / subscriptions. |
+| `GOOGLE_PLAY_PACKAGE_NAME`         | Optional; defaults to `net.dailyok.android`                           |
+| `GOOGLE_PLAY_RTDN_TOKEN`           | Optional shared secret for the notification push URL below            |
+
+Without the service account the endpoint behaves as before (unverified, log mode) whatever
+`SUBSCRIPTION_VERIFY_MODE` says. With it, `enforce` refuses an Android purchase Google
+doesn't know (400), or answers 503 when Google can't be reached.
+
+Real-time developer notifications: Play Console → Monetization setup → Real-time developer
+notifications → a Pub/Sub topic whose push subscription points at
+`https://functions.dailyok.net/google-play-notifications?token=<GOOGLE_PLAY_RTDN_TOKEN>`.
+The handler re-reads each purchase from Google (it never trusts the push body), then
+renews, starts the seven-day grace period on hold / expiry / refund, or marks a payment
+issue, the same way `/app-store-notifications` does for Apple.
+
 **Notification types to handle:**
 
 - `DID_CHANGE_RENEWAL_STATUS` — Subscription auto-renew toggled
@@ -942,6 +964,7 @@ curl https://functions.dailyok.net/health
 | `/on-demand-checkin`         | POST   | User JWT     | Owner taps "Check on [Name]"      |
 | `/subscription-webhook`      | POST   | User JWT     | App after a purchase / restore (verified with Apple) |
 | `/app-store-notifications`   | POST   | Apple Signed | App Store Server Notifications V2 |
+| `/google-play-notifications` | POST   | Re-verified with Google (optional `?token=`) | Play real-time developer notifications (Pub/Sub push) |
 | `/invite-receiver`           | POST   | User JWT     | Owner invites a receiver          |
 | `/subscription-cancellation` | POST   | Service Role | Subscription lifecycle            |
 | `/health`                    | GET    | None         | Monitoring                        |

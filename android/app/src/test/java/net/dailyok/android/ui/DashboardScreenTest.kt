@@ -41,6 +41,7 @@ class DashboardScreenTest {
             every { successMessage } returns MutableStateFlow(null)
             every { sendingCheckInFor } returns MutableStateFlow(emptySet())
             every { cooldownUntil } returns MutableStateFlow(emptyMap())
+            every { actingOn } returns MutableStateFlow(emptySet())
             every { this@mockk.alerts } returns MutableStateFlow(alerts)
         }
     }

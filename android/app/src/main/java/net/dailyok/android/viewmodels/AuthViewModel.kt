@@ -17,6 +17,8 @@ import net.dailyok.android.data.models.AppUser
 import net.dailyok.android.network.ApiService
 import net.dailyok.android.network.AutoJoinResult
 import net.dailyok.android.network.DailyOKError
+import net.dailyok.android.network.JoinPreviewOutcome
+import net.dailyok.android.network.JoinPreviews
 import net.dailyok.android.services.AnalyticsService
 import net.dailyok.android.services.AuthService
 import net.dailyok.android.services.BiometricService
@@ -214,9 +216,29 @@ class AuthViewModel @Inject constructor(
         }
 
         cacheRole(userId, null)
-        checkAutoJoin()
+        if (checkAutoJoin()) {
+            // A server that predates `preview` joined at once: route by the
+            // role it actually made instead of asking about a done join.
+            val joinedRole = runCatching { authService.currentMembershipRole() }.getOrNull()
+            if (joinedRole != null) {
+                setMember(userId, joinedRole)
+                resolvedForUserId = userId
+                return
+            }
+        }
         _membership.value = Membership.None
         resolvedForUserId = userId
+    }
+
+    /**
+     * This user's membership changed from inside the app (ownership handed
+     * to a co-caregiver, or they left the family): ask the server again.
+     */
+    fun onMembershipChanged() {
+        _setupChoice.value = SetupChoice.None
+        _pendingAutoJoin.value = null
+        _membership.value = Membership.Resolving
+        viewModelScope.launch { resolveMembership() }
     }
 
     /**
@@ -278,12 +300,40 @@ class AuthViewModel @Inject constructor(
         else secureStorage.save("cached_role_$userId", role.name)
     }
 
-    private suspend fun checkAutoJoin() {
-        try {
-            val response = apiService.autoJoin()
-            _pendingAutoJoin.value = apiService.checkAutoJoinResult(response)
+    /**
+     * Is there an invite for this account's verified phone number? Asks
+     * without joining (auto-join `preview`, edge pass 6): the join used to
+     * happen here, before the person had seen whose family it was. The
+     * receiver onboarding screen shows the family and joins on "Join".
+     *
+     * Returns true when the server joined anyway (one that predates
+     * `preview`, or they were already in the family).
+     */
+    private suspend fun checkAutoJoin(): Boolean {
+        return try {
+            when (val outcome = JoinPreviews.interpret(apiService.previewAutoJoin())) {
+                is JoinPreviewOutcome.AskFirst -> {
+                    val preview = outcome.preview
+                    _pendingAutoJoin.value = AutoJoinResult(
+                        familyId = preview.familyId ?: "",
+                        role = preview.role ?: "receiver",
+                        checkinTime = preview.checkinTime,
+                        preview = preview
+                    )
+                    false
+                }
+                is JoinPreviewOutcome.AlreadyJoined -> {
+                    _pendingAutoJoin.value = null
+                    true
+                }
+                is JoinPreviewOutcome.NoInvite -> {
+                    _pendingAutoJoin.value = null
+                    false
+                }
+            }
         } catch (_: Exception) {
             _pendingAutoJoin.value = null
+            false
         }
     }
 

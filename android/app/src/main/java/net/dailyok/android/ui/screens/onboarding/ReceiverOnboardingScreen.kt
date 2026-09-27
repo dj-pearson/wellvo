@@ -52,18 +52,17 @@ import net.dailyok.android.viewmodels.ReceiverOnboardingViewModel
 @Composable
 fun ReceiverOnboardingScreen(
     inviteToken: String?,
+    /** An invite matching this user's phone number, not yet joined. */
+    autoJoin: net.dailyok.android.network.AutoJoinResult? = null,
     onComplete: () -> Unit = {},
     onCancel: () -> Unit = {},
     viewModel: ReceiverOnboardingViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(inviteToken) {
-        if (inviteToken != null) {
-            viewModel.acceptInvite(inviteToken)
-        } else {
-            viewModel.loadReceiverSettings()
-        }
+    // Shows the family first; nothing is joined until they tap "Join".
+    LaunchedEffect(inviteToken, autoJoin?.familyId) {
+        viewModel.start(inviteToken, autoJoin)
     }
 
     if (state.isComplete) {
@@ -97,6 +96,14 @@ fun ReceiverOnboardingScreen(
                                 isLoading = state.isLoading,
                                 onRetry = viewModel::retryJoin,
                                 onBack = onCancel
+                            )
+                        } else if (state.consent != null) {
+                            JoinConsentContent(
+                                preview = state.consent!!,
+                                isLoading = state.isLoading,
+                                errorMessage = state.errorMessage,
+                                onJoin = viewModel::confirmJoin,
+                                onNotNow = onCancel
                             )
                         } else {
                             WelcomeStep(

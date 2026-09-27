@@ -10,11 +10,18 @@ import {
 import type { AppStoreTransaction } from "../../shared/app-store-jws.ts";
 import {
   applyEntitlement,
+  bindPlayReceipt,
   bindReceipt,
   findBillingFamily,
   unverifiedOriginalIdIsSafe,
   verifyAppleClaim,
 } from "../../shared/subscription-billing.ts";
+import { type PlayVerdict, verifyGoogleClaim } from "../../shared/google-play.ts";
+
+/** "SUBSCRIPTION_STATE_ON_HOLD" → "play_on_hold" (the reason a Play purchase wasn't applied). */
+export function playReason(state: string): string {
+  return "play_" + state.replace(/^SUBSCRIPTION_STATE_/, "").toLowerCase();
+}
 
 interface SubscriptionUpdate {
   product_id: string;
@@ -44,6 +51,10 @@ interface SubscriptionUpdate {
  * Switch to "enforce" once APPSTORE_* is configured, or once
  * MIN_SUPPORTED_IOS_APP_VERSION includes the build that sends
  * signed_transaction (CLAUDE.md §B).
+ *
+ * Android follows the same mode once GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is set
+ * (purchases verified with Google). Without it Android stays as before,
+ * unverified, in either mode: there is nothing to verify against.
  */
 const VERIFY_MODE = (Deno.env.get("SUBSCRIPTION_VERIFY_MODE") ?? "log").trim().toLowerCase();
 
@@ -128,6 +139,7 @@ export async function handleSubscriptionWebhook(req: Request, auth: AuthResult):
   let expiresAt: Date | null;
   let originalTransactionId: string | null = null;
   let verifiedTx: AppStoreTransaction | null = null;
+  let verifiedPlay: { key: string; linkedKey: string | null; verdict: PlayVerdict } | null = null;
 
   if (platform === "ios") {
     const claim = await verifyAppleClaim(body);
@@ -201,10 +213,49 @@ export async function handleSubscriptionWebhook(req: Request, auth: AuthResult):
         : null;
     }
   } else {
-    // Android: purchase_token is not verified with the Play Developer API yet
-    // (deferred), and shipped Android builds send no expiry, so NULL is kept
-    // for them as before (a lapse arrives via the app's own restore flow).
-    expiresAt = capUnverifiedExpiry(body.expiration_date, now);
+    // Android: ask Google (purchases.subscriptionsv2) what was sold, when a
+    // service account is configured (shared/google-play.ts).
+    const claim = await verifyGoogleClaim(body, now);
+    if (claim.kind === "verified") {
+      const v = claim.verdict;
+      // An account id set at purchase (setObfuscatedAccountId) that names a
+      // different live account: someone else's purchase. Shipped Android
+      // builds set none.
+      const account = v.accountId?.toLowerCase();
+      if (account && UUID_REGEX.test(account) && account !== userId && !auth.isServiceRole) {
+        if (await userExists(account)) {
+          logWarn("Refused a Play purchase made for another account", { path: "/subscription-webhook", userId });
+          return json({ error: "This purchase belongs to another Daily OK account" }, 403);
+        }
+      }
+      productId = v.productId ?? productId;
+      expiresAt = v.expiresAt;
+      originalTransactionId = claim.key;
+      verifiedPlay = { key: claim.key, linkedKey: claim.linkedKey, verdict: v };
+      if (!v.entitled) {
+        // Pending payment, on hold, paused or over: nothing to grant. 200 so
+        // the app treats the request as handled.
+        return json({ success: true, applied: false, reason: playReason(v.state), verified: true });
+      }
+    } else if (claim.kind === "not_configured") {
+      // No service account: exactly as before. Shipped Android builds send no
+      // expiry, so NULL is kept (a lapse arrives via the app's restore flow).
+      expiresAt = capUnverifiedExpiry(body.expiration_date, now);
+    } else {
+      logWarn("Android subscription not verified", {
+        path: "/subscription-webhook",
+        userId,
+        reason: claim.kind === "unsigned" ? "unsigned" : `${claim.kind}:${claim.reason}`,
+      });
+      // Same rule as Apple: refuse only in enforce mode; in log mode keep the
+      // previous (unverified) behaviour.
+      if (VERIFY_MODE === "enforce") {
+        if (claim.kind === "unavailable") return json({ error: "verification_unavailable" }, 503);
+        if (claim.kind === "invalid") return json({ error: "verification_failed", reason: claim.reason }, 400);
+        return json({ error: "verification_required" }, 403);
+      }
+      expiresAt = capUnverifiedExpiry(body.expiration_date, now);
+    }
   }
 
   const tierInfo = tierForProduct(productId);
@@ -220,12 +271,24 @@ export async function handleSubscriptionWebhook(req: Request, auth: AuthResult):
   const family = await findBillingFamily(userId);
   if (!family) return json({ error: "No family found for this user" }, 404);
 
-  const verified = verifiedTx !== null;
+  const verified = verifiedTx !== null || verifiedPlay !== null;
   if (verifiedTx) {
     const bound = await bindReceipt({
       tx: verifiedTx,
       userId,
       familyId: family.id,
+    });
+    if (bound === "bound_to_other_user") {
+      return json({ error: "This purchase is already linked to another Daily OK account" }, 409);
+    }
+  }
+  if (verifiedPlay) {
+    const bound = await bindPlayReceipt({
+      key: verifiedPlay.key,
+      linkedKey: verifiedPlay.linkedKey,
+      userId,
+      familyId: family.id,
+      verdict: verifiedPlay.verdict,
     });
     if (bound === "bound_to_other_user") {
       return json({ error: "This purchase is already linked to another Daily OK account" }, 409);
@@ -242,6 +305,7 @@ export async function handleSubscriptionWebhook(req: Request, auth: AuthResult):
       platform,
       verified,
       now,
+      replacesTransactionId: verifiedPlay?.linkedKey ?? null,
     });
     if (!result.applied) {
       // 200: the app should finish the transaction; nothing is wrong with it.

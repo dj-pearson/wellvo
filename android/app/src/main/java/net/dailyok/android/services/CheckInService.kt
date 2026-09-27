@@ -35,7 +35,10 @@ class CheckInService @Inject constructor(
         longitude: Double? = null,
         locationAccuracy: Double? = null,
         kidResponseType: String? = null,
-        occurredAt: String? = null
+        occurredAt: String? = null,
+        /** "ok" (server default), "need_help" or "call_me". */
+        responseType: String? = null,
+        locationLabel: String? = null
     ): String {
         try {
             // Pass both the request id (if responding to a scheduled/on-demand
@@ -53,7 +56,9 @@ class CheckInService @Inject constructor(
                     longitude = longitude,
                     locationAccuracyMeters = locationAccuracy,
                     kidResponseType = kidResponseType,
-                    occurredAt = occurredAt
+                    occurredAt = occurredAt,
+                    responseType = responseType,
+                    locationLabel = locationLabel
                 )
             )
         } catch (e: DailyOKError) {
@@ -216,7 +221,9 @@ class CheckInService @Inject constructor(
                 }
                 .decodeSingleOrNull()
         } catch (e: Exception) {
-            null
+            // `null` alone here was a statement, not a return: this function
+            // did not compile ("missing return statement").
+            return null
         }
     }
 

@@ -28,16 +28,129 @@ data class ReceiverOnboardingUiState(
     /** The invite couldn't be redeemed; offer Try Again / Back, never "all set". */
     val joinFailed: Boolean = false,
     /** Who they joined, from the server ("Mom", "The Smiths"). */
-    val ownerName: String? = null
+    val ownerName: String? = null,
+    /**
+     * The family they were invited to, waiting for "Join". Nothing has been
+     * joined while this is set.
+     */
+    val consent: net.dailyok.android.network.JoinPreview? = null
 )
 
 @HiltViewModel
 class ReceiverOnboardingViewModel @Inject constructor(
     private val supabase: SupabaseClient,
-    private val familyService: net.dailyok.android.services.FamilyService
+    private val familyService: net.dailyok.android.services.FamilyService,
+    private val apiService: net.dailyok.android.network.ApiService
 ) : ViewModel() {
 
     private var lastToken: String? = null
+
+    /** The phone-match invite being asked about (auto-join), if any. */
+    private var autoJoinFamilyId: String? = null
+
+    /**
+     * Start from what brought them here: an invite link ([token]) or an invite
+     * matching their phone number ([autoJoin]). Either way the family is shown
+     * first and nothing is joined until they tap "Join".
+     */
+    fun start(token: String?, autoJoin: net.dailyok.android.network.AutoJoinResult?) {
+        when {
+            token != null -> previewInvite(token)
+            autoJoin?.preview != null -> {
+                autoJoinFamilyId = autoJoin.familyId.takeIf { it.isNotBlank() }
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = null,
+                    joinFailed = false,
+                    consent = autoJoin.preview
+                )
+            }
+            else -> loadReceiverSettings()
+        }
+    }
+
+    private fun previewInvite(token: String) {
+        lastToken = token
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null, joinFailed = false)
+            try {
+                when (val outcome = net.dailyok.android.network.JoinPreviews.interpret(apiService.previewInvite(token))) {
+                    is net.dailyok.android.network.JoinPreviewOutcome.AskFirst ->
+                        _uiState.value = _uiState.value.copy(isLoading = false, consent = outcome.preview)
+                    // Already in, or an older server that joined at once.
+                    is net.dailyok.android.network.JoinPreviewOutcome.AlreadyJoined ->
+                        onJoined(role = outcome.role, ownerName = null, checkinTime = null)
+                    is net.dailyok.android.network.JoinPreviewOutcome.NoInvite ->
+                        _uiState.value = _uiState.value.copy(isLoading = false, joinFailed = true, errorMessage = null)
+                }
+            } catch (e: net.dailyok.android.network.DailyOKError.Rejected) {
+                if (e.status == 409) {
+                    onJoined(role = null, ownerName = null, checkinTime = null)
+                } else {
+                    _uiState.value = _uiState.value.copy(isLoading = false, joinFailed = true, errorMessage = e.message)
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    joinFailed = true,
+                    errorMessage = e.message ?: "Couldn't load the invite. Check your connection and try again."
+                )
+            }
+        }
+    }
+
+    /** "Join" on the consent card. */
+    fun confirmJoin() {
+        val token = lastToken
+        if (token != null) {
+            acceptInvite(token)
+            return
+        }
+        val familyId = autoJoinFamilyId
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            try {
+                val response = apiService.autoJoin(familyId)
+                if (response.matched) {
+                    onJoined(role = response.role, ownerName = _uiState.value.consent?.presentableOwner, checkinTime = response.checkinTime)
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        consent = null,
+                        joinFailed = true,
+                        errorMessage = if (response.reason == "limit_reached") {
+                            "This family has no free places right now. Ask the person who invited you to make room, then try again."
+                        } else {
+                            "This invite is no longer valid. Ask the person who invited you to send a new one."
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = e.message ?: "Couldn't join. Check your connection and try again."
+                )
+            }
+        }
+    }
+
+    /**
+     * Joined: follow the role the server made. A co-caregiver has no check-in
+     * schedule or check-in steps, so they go straight on (the app then routes
+     * them to the co-caregiver screens).
+     */
+    private fun onJoined(role: String?, ownerName: String?, checkinTime: String?) {
+        if (role == "viewer") {
+            _uiState.value = _uiState.value.copy(isLoading = false, consent = null, isComplete = true)
+            return
+        }
+        _uiState.value = _uiState.value.copy(
+            consent = null,
+            checkinTime = checkinTime?.let { formatTime(it) } ?: _uiState.value.checkinTime,
+            ownerName = ownerName?.takeIf { it.isNotBlank() && it != "User" } ?: _uiState.value.ownerName
+        )
+        loadReceiverSettings()
+    }
 
     private val _uiState = MutableStateFlow(ReceiverOnboardingUiState())
     val uiState: StateFlow<ReceiverOnboardingUiState> = _uiState.asStateFlow()
@@ -102,30 +215,28 @@ class ReceiverOnboardingViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null, joinFailed = false)
             try {
                 val joined = familyService.acceptInvite(token)
-                _uiState.value = _uiState.value.copy(
-                    checkinTime = joined.checkinTime?.let { formatTime(it) },
-                    ownerName = joined.ownerName?.takeIf { it.isNotBlank() && it != "User" }
-                )
-                loadReceiverSettings()
+                onJoined(role = joined.role, ownerName = joined.ownerName, checkinTime = joined.checkinTime)
             } catch (e: net.dailyok.android.network.DailyOKError.Rejected) {
                 if (e.status == 409) {
                     // "Already a member of this family" — the link tapped twice.
-                    loadReceiverSettings()
+                    onJoined(role = null, ownerName = null, checkinTime = null)
                 } else {
-                    _uiState.value = _uiState.value.copy(isLoading = false, joinFailed = true, errorMessage = e.message)
+                    _uiState.value = _uiState.value.copy(isLoading = false, joinFailed = true, consent = null, errorMessage = e.message)
                 }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     joinFailed = true,
+                    consent = null,
                     errorMessage = e.message ?: "Couldn't join. Check your connection and try again."
                 )
             }
         }
     }
 
+    /** Try Again after a failure: show the family again rather than joining blind. */
     fun retryJoin() {
-        lastToken?.let { acceptInvite(it) }
+        lastToken?.let { previewInvite(it) }
     }
 
     fun advance() {

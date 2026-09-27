@@ -50,8 +50,49 @@ data class ReceiverUiState(
     val showLocationSelector: Boolean = false,
     val showKidResponseButtons: Boolean = false,
     val streakDays: Int = 0,
-    val consistencyPercent: Int = 0
+    val consistencyPercent: Int = 0,
+    /** A help request / call-me / SOS / kid reply is on its way. */
+    val isSendingHelp: Boolean = false,
+    /** What was sent, in the receiver's words ("We told your family you need help."). */
+    val helpSentMessage: String? = null,
+    /** A help send that failed. Never queued: shown with "call instead". */
+    val helpFailureMessage: String? = null
 )
+
+/**
+ * Something the receiver sends besides "I'm OK". Help / call-me / SOS page the
+ * family at once; pick-up and stay-longer are kid quick replies. All of them
+ * go through process-checkin-response, which records them and alerts the
+ * family — never a direct database write (that alerted nobody) and never the
+ * offline queue (a help request delivered hours later is worse than one the
+ * receiver knows didn't send). Same set as iOS ReceiverHelpKind.
+ */
+enum class ReceiverHelpKind(
+    /** process-checkin-response `response_type`. */
+    val responseType: String,
+    /** process-checkin-response `kid_response_type`, if any. */
+    val kidResponseType: String?
+) {
+    NeedHelp("need_help", null),
+    CallMe("call_me", null),
+    Sos("ok", "sos"),
+    PickMeUp("ok", "picking_me_up"),
+    StayLonger("ok", "can_stay_longer");
+
+    /** Pages the family with an urgent alert. Confirmed before sending. */
+    val isUrgent: Boolean get() = this == NeedHelp || this == CallMe || this == Sos
+
+    fun sentMessage(): String = when (this) {
+        NeedHelp, Sos -> "We told your family you need help."
+        CallMe -> "We asked your family to call you."
+        PickMeUp -> "We told your family you'd like to be picked up."
+        StayLonger -> "We asked your family if you can stay longer."
+    }
+
+    companion object {
+        fun fromKidResponse(raw: String): ReceiverHelpKind? = entries.firstOrNull { it.kidResponseType == raw }
+    }
+}
 
 @HiltViewModel
 class ReceiverViewModel @Inject constructor(
@@ -274,26 +315,82 @@ class ReceiverViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(selectedKidResponse = response)
     }
 
+    /**
+     * A kid quick reply after checking in (pick me up / can I stay longer /
+     * SOS). Sent through process-checkin-response like every help signal, so
+     * the family is actually told. It used to be a direct UPDATE of the
+     * check-in row: the dashboard showed a badge, but no alert and no push
+     * went out — an SOS reached nobody.
+     */
     fun submitKidResponse() {
         val response = _uiState.value.selectedKidResponse ?: return
-        val checkIn = _uiState.value.lastCheckIn ?: return
+        val kind = ReceiverHelpKind.fromKidResponse(response) ?: return
+        sendHelp(kind)
+    }
+
+    /**
+     * Send a help request, call-me, SOS or kid reply. Live only: an urgent
+     * signal is never queued for silent later delivery. A failure says so and
+     * suggests calling instead.
+     */
+    fun sendHelp(kind: ReceiverHelpKind) {
+        val state = _uiState.value
+        val familyId = state.familyId ?: return
+        val receiverId = state.receiverId ?: return
+        if (state.isSendingHelp) return
 
         viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isSendingHelp = true,
+                helpSentMessage = null,
+                helpFailureMessage = null
+            )
             try {
-                supabase.postgrest.from("checkins")
-                    .update(kotlinx.serialization.json.buildJsonObject {
-                        put("kid_response_type", kotlinx.serialization.json.JsonPrimitive(response))
-                    }) {
-                        filter { eq("id", checkIn.id) }
-                    }
-                _uiState.value = _uiState.value.copy(
-                    showKidResponseButtons = false,
-                    lastCheckIn = checkIn.copy(kidResponseType = response)
+                checkInService.checkIn(
+                    familyId = familyId,
+                    receiverId = receiverId,
+                    // Not tied to a pending request: the server records a
+                    // check-in if there is none today, or applies this as a
+                    // follow-up to today's and alerts the family either way.
+                    requestId = null,
+                    source = "app",
+                    kidResponseType = kind.kidResponseType,
+                    responseType = kind.responseType,
+                    locationLabel = _uiState.value.lastCheckIn?.locationLabel
                 )
-            } catch (_: Exception) {
-                _uiState.value = _uiState.value.copy(showKidResponseButtons = false)
+                analyticsService.track(AnalyticsService.CHECK_IN_COMPLETED, mapOf("help" to kind.name))
+                val refreshed = try {
+                    checkInService.todayCheckInStatus(receiverId, familyId)
+                } catch (_: Exception) { null }
+                val current = _uiState.value
+                _uiState.value = current.copy(
+                    isSendingHelp = false,
+                    hasCheckedInToday = true,
+                    pendingRequestId = null,
+                    lastCheckIn = refreshed ?: current.lastCheckIn?.let { row ->
+                        if (kind.kidResponseType != null) row.copy(kidResponseType = kind.kidResponseType) else row
+                    },
+                    showKidResponseButtons = false,
+                    selectedKidResponse = null,
+                    helpSentMessage = kind.sentMessage()
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isSendingHelp = false,
+                    helpFailureMessage = helpFailureMessage(e)
+                )
             }
         }
+    }
+
+    fun clearHelpMessages() {
+        _uiState.value = _uiState.value.copy(helpSentMessage = null, helpFailureMessage = null)
+    }
+
+    private fun helpFailureMessage(e: Exception): String = when (e) {
+        is DailyOKError.Offline, is DailyOKError.Network ->
+            "Not sent — your phone is offline. Call your family instead."
+        else -> "Not sent — Daily OK couldn't be reached. Call your family instead."
     }
 
     fun skipKidResponse() {

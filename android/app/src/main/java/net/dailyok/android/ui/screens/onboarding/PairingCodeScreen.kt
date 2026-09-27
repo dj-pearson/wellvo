@@ -62,8 +62,33 @@ fun PairingCodeScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // Whose family the code is for, and as what, before joining it.
             AnimatedVisibility(
-                visible = !uiState.success,
+                visible = !uiState.success && uiState.consent != null,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    style = DailyOKGlassStyle.Regular,
+                    shape = RoundedCornerShape(DailyOKGlass.RadiusLarge),
+                    elevation = DailyOKElevation.level3,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(24.dp)
+                ) {
+                    uiState.consent?.let { preview ->
+                        JoinConsentContent(
+                            preview = preview,
+                            isLoading = uiState.isLoading,
+                            errorMessage = uiState.errorMessage,
+                            onJoin = viewModel::confirmJoin,
+                            onNotNow = viewModel::declineJoin
+                        )
+                    }
+                }
+            }
+
+            AnimatedVisibility(
+                visible = !uiState.success && uiState.consent == null,
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {

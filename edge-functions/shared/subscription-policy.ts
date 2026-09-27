@@ -101,6 +101,13 @@ export interface IncomingEntitlement {
    * is a lower tier — otherwise the owner is charged and nothing changes.
    */
   ownerTakeover?: boolean;
+  /**
+   * The subscription this one replaces (Google Play: an upgrade or downgrade
+   * issues a new purchase token whose linkedPurchaseToken is the old one).
+   * If the family is billed to that one, this is the same subscription
+   * changing plan, not a different one.
+   */
+  replacesTransactionId?: string | null;
 }
 
 export type ApplyDecision = { apply: true } | { apply: false; reason: "already_expired" | "higher_plan_active" };
@@ -127,7 +134,8 @@ export function decideApply(current: FamilyBillingState, incoming: IncomingEntit
     (Number.isNaN(currentExpiry) ? current.subscription_tier !== "free" : currentExpiry > now.getTime());
   const differentSubscription = !!current.billing_original_transaction_id &&
     !!incoming.originalTransactionId &&
-    current.billing_original_transaction_id !== incoming.originalTransactionId;
+    current.billing_original_transaction_id !== incoming.originalTransactionId &&
+    current.billing_original_transaction_id !== (incoming.replacesTransactionId ?? null);
   if (
     !incoming.ownerTakeover && currentRunning && differentSubscription &&
     tierRank(incoming.tier) < tierRank(current.subscription_tier)

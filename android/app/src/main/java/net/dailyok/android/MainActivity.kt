@@ -283,9 +283,9 @@ fun DailyOKApp(
     }
 
     val hasAutoJoin = pendingAutoJoin != null
-    // A link's token is redeemed by ReceiverOnboarding. After a phone-number
-    // auto-join there is no token — the join already happened server-side.
-    // (It used to pass the family id as the token, which then failed to redeem.)
+    // A link's token, or an invite matching this phone number (auto-join
+    // preview), goes to ReceiverOnboarding, which shows the family first and
+    // joins only on "Join". Nothing has been joined yet in either case.
     val showReceiverOnboarding = deepLinkInviteToken != null || hasAutoJoin
 
     if (uiState.showReauthPrompt) {
@@ -338,6 +338,8 @@ fun DailyOKApp(
                 onLeaveOwnerSetup = authViewModel::leaveOwnerSetup,
                 onRetryMembership = authViewModel::retryMembership,
                 onSignOut = authViewModel::signOut,
+                onMembershipChanged = authViewModel::onMembershipChanged,
+                pendingAutoJoin = pendingAutoJoin,
                 modifier = Modifier.padding(innerPadding)
             )
         }
