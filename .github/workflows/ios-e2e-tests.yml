@@ -14,7 +14,10 @@ on:
 jobs:
   swiftlint:
     name: SwiftLint
-    runs-on: macos-15
+    runs-on: ${{ vars.RUNNER_MACOS || 'macos-15' }}
+    # GitHub-hosted minutes are used up; this runs only once a self-hosted macOS runner
+    # is registered and its label set as the repo variable RUNNER_MACOS.
+    if: vars.RUNNER_MACOS != ''
     timeout-minutes: 10
     steps:
       - name: Checkout code
@@ -59,7 +62,7 @@ jobs:
 
   api-integration-tests:
     name: API Integration Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LINUX || 'ubuntu-latest' }}
     timeout-minutes: 10
 
     steps:
@@ -99,7 +102,10 @@ jobs:
 
   ios-ui-tests:
     name: iOS UI Tests (Simulator)
-    runs-on: macos-15
+    runs-on: ${{ vars.RUNNER_MACOS || 'macos-15' }}
+    # GitHub-hosted minutes are used up; this runs only once a self-hosted macOS runner
+    # is registered and its label set as the repo variable RUNNER_MACOS.
+    if: vars.RUNNER_MACOS != ''
     timeout-minutes: 45
 
     steps:

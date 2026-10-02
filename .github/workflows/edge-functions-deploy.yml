@@ -14,7 +14,7 @@ env:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LINUX || 'ubuntu-latest' }}
     permissions:
       contents: read
       packages: write
@@ -101,7 +101,7 @@ jobs:
 
   deploy:
     needs: build-and-push
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LINUX || 'ubuntu-latest' }}
     steps:
       - name: Load secrets from Infisical
         uses: Infisical/secrets-action@v1.0.7
@@ -136,7 +136,7 @@ jobs:
 
   notify-failure:
     needs: [build-and-push, deploy]
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LINUX || 'ubuntu-latest' }}
     if: failure()
     permissions:
       issues: write

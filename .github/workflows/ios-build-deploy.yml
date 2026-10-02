@@ -23,7 +23,10 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: macos-15
+    runs-on: ${{ vars.RUNNER_MACOS || 'macos-15' }}
+    # GitHub-hosted minutes are used up; this runs only once a self-hosted macOS runner
+    # is registered and its label set as the repo variable RUNNER_MACOS.
+    if: vars.RUNNER_MACOS != ''
     timeout-minutes: 45
 
     steps:
@@ -296,7 +299,7 @@ jobs:
   # Notify on failure — create GitHub issue
   notify-failure:
     needs: build-and-deploy
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LINUX || 'ubuntu-latest' }}
     if: failure()
     permissions:
       issues: write
