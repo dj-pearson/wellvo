@@ -14,7 +14,10 @@ on:
 jobs:
   swiftlint:
     name: SwiftLint
-    runs-on: macos-15
+    runs-on: ${{ vars.RUNNER_MACOS || 'macos-15' }}
+    # Only runs once a self-hosted macOS runner is registered and its label is
+    # set as the repo variable RUNNER_MACOS; skips cleanly until then.
+    if: vars.RUNNER_MACOS != ''
     timeout-minutes: 10
     steps:
       - name: Checkout code
@@ -99,7 +102,10 @@ jobs:
 
   ios-ui-tests:
     name: iOS UI Tests (Simulator)
-    runs-on: macos-15
+    runs-on: ${{ vars.RUNNER_MACOS || 'macos-15' }}
+    # Only runs once a self-hosted macOS runner is registered and its label is
+    # set as the repo variable RUNNER_MACOS; skips cleanly until then.
+    if: vars.RUNNER_MACOS != ''
     timeout-minutes: 45
 
     steps:
