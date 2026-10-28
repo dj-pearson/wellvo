@@ -49,6 +49,48 @@ export function hasGlobalPrivacyControlOptOut(): boolean {
 
 let gaLoaded = false
 
+type Gtag = (...args: unknown[]) => void
+
+/**
+ * The page_location / page_path GA should see for a URL. Query strings and
+ * fragments are dropped on every page (they carry nothing we report on), and
+ * any /invite/<token> path collapses to /invite/ — the token and its ?code=
+ * together join a family, so they must never leave the browser.
+ */
+export function scrubAnalyticsUrl(href: string): { page_location: string; page_path: string } {
+  let url: URL
+  try {
+    url = new URL(href)
+  } catch {
+    return { page_location: '', page_path: '/' }
+  }
+  const path = url.pathname === '/invite' || url.pathname.startsWith('/invite/') ? '/invite/' : url.pathname
+  return { page_location: `${url.origin}${path}`, page_path: path }
+}
+
+function scrubbedReferrer(): string {
+  // Same-origin referrers can be an invite URL after in-site navigation.
+  if (typeof document === 'undefined' || !document.referrer) return ''
+  try {
+    const ref = new URL(document.referrer)
+    return ref.origin === window.location.origin ? scrubAnalyticsUrl(ref.href).page_location : ref.origin + '/'
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * Re-point GA at the current (scrubbed) URL. Called on every SPA route change
+ * so events — including any history-based page_view GA's enhanced measurement
+ * sends — carry the scrubbed location, not window.location. No-op until GA
+ * has been loaded with consent.
+ */
+export function syncAnalyticsPage(): void {
+  if (!gaLoaded || typeof window === 'undefined') return
+  const gtag = (window as unknown as { gtag?: Gtag }).gtag
+  gtag?.('set', scrubAnalyticsUrl(window.location.href))
+}
+
 /**
  * Inject and initialize GA4. Idempotent and safe to call more than once.
  * Only call after consent === 'granted'.
@@ -62,7 +104,7 @@ export function loadGoogleAnalytics(): void {
   script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`
   document.head.appendChild(script)
 
-  const w = window as unknown as { dataLayer: unknown[]; gtag: (...args: unknown[]) => void }
+  const w = window as unknown as { dataLayer: unknown[]; gtag: Gtag }
   w.dataLayer = w.dataLayer || []
   w.gtag = function gtag() {
     // GA expects the raw `arguments` object pushed onto dataLayer.
@@ -70,5 +112,9 @@ export function loadGoogleAnalytics(): void {
     w.dataLayer.push(arguments)
   }
   w.gtag('js', new Date())
-  w.gtag('config', GA_MEASUREMENT_ID, { anonymize_ip: true })
+  // Overriding page_location/page_path (and the referrer) keeps the default
+  // page_view from sending the raw URL — see scrubAnalyticsUrl().
+  const page = scrubAnalyticsUrl(window.location.href)
+  w.gtag('set', { ...page, page_referrer: scrubbedReferrer() })
+  w.gtag('config', GA_MEASUREMENT_ID, { anonymize_ip: true, ...page })
 }

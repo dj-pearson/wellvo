@@ -80,6 +80,17 @@ const CF_BEACON = (() => {
  * is the variable font, so 400-700 costs one 48 KB request instead of the
  * four static weights the Google URL asked for.
  */
+/*
+ * Receiver invite pages carry a family-join token in the path and a code in
+ * the query (/invite/<token>?code=…). public/_redirects serves every one of
+ * them the prerendered /invite shell, so leaving the beacon out of that one
+ * page keeps the token out of Cloudflare's analytics entirely. GA4 gets the
+ * same treatment at runtime in src/lib/consent.ts.
+ */
+function isInvitePath(pathname: string): boolean {
+  return pathname === '/invite' || pathname.startsWith('/invite/')
+}
+
 const STATIC_HEAD = `
     <meta charset="UTF-8" />
     <!--
@@ -217,7 +228,7 @@ const STATIC_HEAD = `
         "inLanguage": "en-US"
       }
     ]
-    </script>${CF_BEACON}`
+    </script>`
 
 const DEFAULT_TITLE = '<title>Daily OK — Senior Check-In App for Aging Parents</title>'
 const DEFAULT_DESCRIPTION = '<meta name="description" content="Daily OK is the senior check-in app: a once-a-day &quot;I&#39;m OK&quot; for an aging parent, with escalating alerts if they miss it. No pendant, no GPS tracking. Works for teens and any loved one too." />'
@@ -294,10 +305,12 @@ export default async function onRenderHtml(pageContext: PageContextServer) {
     helmet?.script?.toString() ?? '',
   ].filter(Boolean).join('\n    ')
 
+  const beacon = isInvitePath(pageContext.urlPathname ?? '/') ? '' : CF_BEACON
+
   return escapeInject`<!DOCTYPE html>
 <html lang="en">
   <head>
-    ${dangerouslySkipEscape(STATIC_HEAD)}
+    ${dangerouslySkipEscape(STATIC_HEAD)}${dangerouslySkipEscape(beacon)}
     ${dangerouslySkipEscape(helmetFallback)}
     ${dangerouslySkipEscape(headHtml)}
   </head>
