@@ -6,7 +6,7 @@ import { isSupabaseConfigured } from '../lib/supabaseConfig'
 import { buildPostSchemas } from '../lib/schemaMarkup'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { useBlogSeed } from '../lib/blogSeedContext'
-import { BLOG_HTML_ALLOWLIST, POST_COLUMNS, type PublicPost } from '../lib/blogTypes'
+import { BLOG_HTML_ALLOWLIST, POST_COLUMNS, hardenBlogLinks, type PublicPost } from '../lib/blogTypes'
 import { canonicalUrl } from '../lib/canonical'
 
 
@@ -67,7 +67,7 @@ export default function BlogPost() {
     // second pass over identical markup and risk a hydration mismatch, so the
     // browser only sanitizes what it fetched itself.
     if (seeded && post === seeded) return post.content_html
-    return DOMPurify.sanitize(post.content_html, {
+    return hardenBlogLinks(DOMPurify).sanitize(post.content_html, {
       ALLOWED_TAGS: [...BLOG_HTML_ALLOWLIST.ALLOWED_TAGS],
       ALLOWED_ATTR: [...BLOG_HTML_ALLOWLIST.ALLOWED_ATTR],
     })

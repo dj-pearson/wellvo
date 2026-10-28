@@ -7,6 +7,7 @@
  * columns the components read — a drift between the two silently produces
  * prerendered pages that are missing fields the client then re-fetches.
  */
+import type { DOMPurify } from 'dompurify'
 
 /** Columns the /blog index card needs. */
 export interface PublicPostSummary {
@@ -54,3 +55,40 @@ export const BLOG_HTML_ALLOWLIST = {
   ],
   ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'rel', 'target'],
 } as const
+
+/** rel applied to every new-tab link in post bodies. */
+export const BLOG_BLANK_TARGET_REL = 'noopener noreferrer nofollow ugc'
+
+/**
+ * Purifier instances that already carry the link hook. A WeakSet keyed on the
+ * instance keeps registration idempotent across re-renders and HMR without
+ * holding the instance alive.
+ */
+const hardened = new WeakSet<DOMPurify>()
+
+/**
+ * Registers an afterSanitizeAttributes hook so any `<a target="_blank">` that
+ * survives the allowlist leaves with `rel="noopener noreferrer nofollow ugc"`.
+ * The allowlist permits `target` and `rel` because authors use them, but post
+ * bodies are author- and LLM-written, so the rel cannot be trusted to be
+ * present or correct (reverse tabnabbing, and link equity to arbitrary sites).
+ * Any author-supplied rel on such a link is replaced, not merged.
+ *
+ * Call it on every DOMPurify instance that sanitizes `content_html` — the
+ * browser default instance in BlogPost.tsx and the jsdom-backed one in
+ * pages/fetchBlogForPrerender.ts. Safe to call more than once per instance.
+ */
+export function hardenBlogLinks(purify: DOMPurify): DOMPurify {
+  if (hardened.has(purify)) return purify
+  purify.addHook('afterSanitizeAttributes', (node) => {
+    // nodeName, not instanceof: the prerender instance runs against jsdom's
+    // window, whose Element is not this realm's Element.
+    if (node.nodeName !== 'A') return
+    const el = node as Element
+    if ((el.getAttribute('target') ?? '').toLowerCase() === '_blank') {
+      el.setAttribute('rel', BLOG_BLANK_TARGET_REL)
+    }
+  })
+  hardened.add(purify)
+  return purify
+}
