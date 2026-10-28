@@ -15,25 +15,5 @@ export default defineConfig(({ mode }) => {
 
   return {
   plugins: [react(), vike()],
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id: string) {
-          if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/') || id.includes('node_modules/react-router-dom')) {
-            return 'vendor';
-          }
-          if (id.includes('node_modules/lucide-react')) {
-            return 'icons';
-          }
-          if (id.includes('node_modules/@supabase')) {
-            return 'supabase';
-          }
-          if (id.includes('node_modules/@tiptap') || id.includes('node_modules/prosemirror')) {
-            return 'editor';
-          }
-        },
-      },
-    },
-  },
   }
 })
