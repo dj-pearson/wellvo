@@ -9,7 +9,7 @@ import type { PageContextServer } from 'vike/types'
 import Page from './+Page'
 
 import '../src/index.css'
-import '../src/App.css'
+import '../src/pageStyles.css'
 
 interface HelmetContext {
   helmet?: HelmetServerState

@@ -5,7 +5,6 @@ import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { isSupabaseConfigured } from '../lib/supabaseConfig'
 import { useBlogSeed } from '../lib/blogSeedContext'
 import { POST_SUMMARY_COLUMNS, type PublicPostSummary } from '../lib/blogTypes'
-import './Blog.css'
 
 export default function Blog() {
   // Seeded at build time by +onBeforePrerenderStart.ts so the prerendered

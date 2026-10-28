@@ -2,9 +2,6 @@ import { Link } from 'react-router-dom'
 import SEO from '../components/SEO'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { whatToDoPages, LAST_UPDATED } from '../data/whatToDo'
-import './ElderlyCare.css'
-import './Landing.css'
-import './WhatToDo.css'
 
 export default function WhatToDoIndex() {
   const jsonLd = buildBreadcrumbJsonLd([

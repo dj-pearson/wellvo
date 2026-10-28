@@ -15,7 +15,6 @@ import {
   Camera,
   Mic,
 } from 'lucide-react'
-import './Home.css'
 
 export default function Home() {
   return (

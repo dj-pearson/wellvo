@@ -1,0 +1,38 @@
+/*
+ * Every public page's stylesheet, bundled into one file that ships in the
+ * prerendered <head> of every page.
+ *
+ * All routes are lazy() chunks behind the single catch-all vike page, and
+ * vike only emits <link rel="stylesheet"> for CSS in the static import graph.
+ * A page's own CSS therefore used to arrive only once its JS chunk loaded:
+ * the prerendered HTML painted unstyled, then jumped (FOUC + CLS). This file
+ * is imported from pages/+onRenderHtml.tsx next to index.css, so the CSS is
+ * in the HTML while the page *JS* stays lazy. The page components no longer
+ * import their own CSS — this is the single source.
+ *
+ * Why @import into one file rather than one JS import per stylesheet: vike
+ * emits the links for separately imported CSS in alphabetical order, not
+ * import order, which silently reorders the cascade (Accessibility.css must
+ * follow Legal.css to win `.accessibility-features li`). Vite inlines these
+ * @imports, so this is one request with a fixed order. It is ~10 KB gzipped
+ * and cached across pages.
+ *
+ * Because every rule is now global, a page stylesheet must not define a bare
+ * class that another page uses differently — scope it under the page's own
+ * wrapper class. Shared building blocks go in shared.css. Admin CSS is
+ * deliberately absent: it stays in the lazy admin chunks.
+ */
+@import './shared.css';
+@import './pages/Home.css';
+@import './pages/Pricing.css';
+@import './pages/Support.css';
+@import './pages/Legal.css';
+@import './pages/Accessibility.css';
+@import './pages/ElderlyCare.css';
+@import './pages/Landing.css';
+@import './pages/WhatToDo.css';
+@import './pages/ChildSafety.css';
+@import './pages/Compare.css';
+@import './pages/Blog.css';
+@import './pages/Invite.css';
+@import './pages/NotFound.css';

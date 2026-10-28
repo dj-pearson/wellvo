@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { Mail, MessageCircle, FileText, HelpCircle } from 'lucide-react'
 import { trackEvent } from '../utils/analytics'
 import SEO from '../components/SEO'
-import './Support.css'
 
 const faqs = [
   {

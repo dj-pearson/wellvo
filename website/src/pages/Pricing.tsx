@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { Check, ArrowRight } from 'lucide-react'
 import { trackEvent } from '../utils/analytics'
 import SEO, { APP_STORE_URL } from '../components/SEO'
-import './Pricing.css'
 
 const plans = [
   {

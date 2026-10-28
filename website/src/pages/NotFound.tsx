@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import SEO from '../components/SEO'
-import './NotFound.css'
 
 /**
  * The 404 page (US-SEO016).

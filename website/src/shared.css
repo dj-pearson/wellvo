@@ -1,0 +1,205 @@
+/*
+ * Classes shared across public pages.
+ *
+ * These used to live in pages/Home.css (hero/section/CTA pieces) and
+ * pages/Support.css (FAQ accordion), but ElderlyCare, ChildSafety, Pricing,
+ * Support, WhatToDo and the landing pages all use them without importing
+ * those files — so they only rendered correctly after the visitor had
+ * happened to load Home or Support first. They are global now, loaded with
+ * index.css from pages/+onRenderHtml.tsx. Page-specific overrides (e.g.
+ * `.ec-faq .faq-list`, `.not-surveillance .section-header h2`) stay in the
+ * page stylesheets and win on specificity.
+ */
+
+/* Hero pieces */
+.hero-badge {
+  display: inline-block;
+  padding: 6px 16px;
+  background: var(--green-100);
+  color: var(--green-700);
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 24px;
+}
+
+.hero-highlight {
+  color: var(--green-500);
+}
+
+.hero-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-lg {
+  padding: 16px 32px;
+  font-size: 17px;
+  border-radius: 14px;
+}
+
+/* Section headers */
+.section-header {
+  text-align: center;
+  margin-bottom: 56px;
+}
+
+.section-header h2 {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 12px;
+  letter-spacing: -0.5px;
+}
+
+.section-header p {
+  font-size: 18px;
+  color: var(--gray-600);
+}
+
+/* CTA */
+.cta-section {
+  background: var(--gray-50);
+}
+
+.cta-card {
+  text-align: center;
+  background: linear-gradient(135deg, var(--green-500), #27ae60);
+  color: white;
+  border-radius: 24px;
+  padding: 64px 40px;
+}
+
+.cta-card h2 {
+  font-size: 36px;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 12px;
+}
+
+.cta-card p {
+  font-size: 18px;
+  opacity: 0.9;
+  margin-bottom: 32px;
+}
+
+.cta-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.cta-card .btn-primary {
+  background: white;
+  color: var(--green-700);
+}
+.cta-card .btn-primary:hover {
+  background: var(--green-50);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.cta-card .btn-outline {
+  border-color: rgba(255, 255, 255, 0.4);
+  color: white;
+}
+.cta-card .btn-outline:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.6);
+  color: white;
+}
+
+/*
+ * Contextual footnote under a CTA card's buttons (US-WEB011).
+ *
+ * Carries in-content links out to the cornerstone landing pages. Those pages
+ * were previously reachable only from the footer, which Google reads as
+ * boilerplate — all three had zero impressions while the homepage ranked in
+ * their place for their own target phrases.
+ *
+ * Colours are tinted from the green card surface rather than a flat gray,
+ * which would read as muddy on a saturated ground. The .cta-card prefix is needed to beat `.cta-card p`.
+ */
+.cta-footnote {
+  max-width: 62ch;
+  margin: 20px auto 0;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.cta-card .cta-footnote {
+  margin-bottom: 0;
+  color: #e8f6ee;
+  opacity: 1;
+}
+
+.cta-card .cta-footnote a {
+  color: #ffffff;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cta-card .cta-footnote a:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* FAQ accordion */
+.faq-list {
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.faq-item-detail {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.faq-item-detail summary {
+  padding: 20px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-900);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.faq-item-detail summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-item-detail summary::after {
+  content: '+';
+  font-size: 20px;
+  color: var(--gray-400);
+  font-weight: 400;
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+.faq-item-detail[open] summary::after {
+  content: '−';
+}
+
+.faq-item-detail p {
+  padding: 0 24px 20px;
+  font-size: 15px;
+  color: var(--gray-600);
+  line-height: 1.7;
+}
+
+@media (max-width: 768px) {
+  .section-header h2 {
+    font-size: 28px;
+  }
+}

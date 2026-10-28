@@ -5,7 +5,6 @@ import { competitors, getCompetitor, type FeatureRow } from '../data/competitors
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { rotatingSiblings } from '../lib/siblings'
 import { buildEditorialArticleJsonLd } from '../lib/articleSchema'
-import './Compare.css'
 
 const SLUG_PREFIX = 'daily-ok-vs-'
 

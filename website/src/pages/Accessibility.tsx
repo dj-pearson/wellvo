@@ -1,6 +1,4 @@
 import SEO from '../components/SEO'
-import './Legal.css'
-import './Accessibility.css'
 
 export default function Accessibility() {
   return (

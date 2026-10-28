@@ -8,7 +8,6 @@ import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { useBlogSeed } from '../lib/blogSeedContext'
 import { BLOG_HTML_ALLOWLIST, POST_COLUMNS, type PublicPost } from '../lib/blogTypes'
 import { canonicalUrl } from '../lib/canonical'
-import './Blog.css'
 
 
 export default function BlogPost() {

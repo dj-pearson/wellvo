@@ -11,7 +11,6 @@ import {
   TrendingUp,
   Smartphone,
 } from 'lucide-react'
-import './ElderlyCare.css'
 
 const faqs = [
   {

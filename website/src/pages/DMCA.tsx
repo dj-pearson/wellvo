@@ -1,5 +1,4 @@
 import SEO from '../components/SEO'
-import './Legal.css'
 
 export default function DMCA() {
   return (

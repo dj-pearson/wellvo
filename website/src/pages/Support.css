@@ -68,57 +68,6 @@
   margin-bottom: 8px;
 }
 
-.faq-list {
-  max-width: 760px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.faq-item-detail {
-  background: var(--white);
-  border: 1px solid var(--gray-100);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.faq-item-detail summary {
-  padding: 20px 24px;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--gray-900);
-  cursor: pointer;
-  list-style: none;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.faq-item-detail summary::-webkit-details-marker {
-  display: none;
-}
-
-.faq-item-detail summary::after {
-  content: '+';
-  font-size: 20px;
-  color: var(--gray-400);
-  font-weight: 400;
-  flex-shrink: 0;
-  margin-left: 16px;
-}
-
-.faq-item-detail[open] summary::after {
-  content: '−';
-}
-
-.faq-item-detail p {
-  padding: 0 24px 20px;
-  font-size: 15px;
-  color: var(--gray-600);
-  line-height: 1.7;
-}
-
 /* CTA */
 .support-cta-card {
   text-align: center;

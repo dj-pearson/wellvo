@@ -12,7 +12,6 @@ import {
   Camera,
   Mic,
 } from 'lucide-react'
-import './ChildSafety.css'
 
 const faqs = [
   {

@@ -6,9 +6,6 @@ import { getWhatToDoPage, whatToDoPages, LAST_UPDATED } from '../data/whatToDo'
 import { rotatingSiblings } from '../lib/siblings'
 import { buildEditorialArticleJsonLd } from '../lib/articleSchema'
 import { ArrowRight, Phone, ShieldAlert, Clock, ClipboardList } from 'lucide-react'
-import './ElderlyCare.css'
-import './Landing.css'
-import './WhatToDo.css'
 
 /**
  * The landing page that best fits each relationship (US-WEB011).

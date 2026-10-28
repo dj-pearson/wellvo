@@ -2,7 +2,6 @@ import { useMemo, useSyncExternalStore } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import SEO from '../components/SEO'
 import { APP_STORE_URL, PLAY_STORE_URL, detectPlatform, readInvite, type Platform } from '../lib/invite'
-import './Invite.css'
 
 /**
  * Landing page for the link an owner texts to a receiver:

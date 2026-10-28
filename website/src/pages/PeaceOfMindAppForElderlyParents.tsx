@@ -3,8 +3,6 @@ import { trackEvent } from '../utils/analytics'
 import SEO, { APP_STORE_URL } from '../components/SEO'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { Heart, Bell, Shield, Users, TrendingUp, Smartphone, ArrowRight, CheckCircle } from 'lucide-react'
-import './ElderlyCare.css'
-import './Landing.css'
 
 const faqs = [
   {
