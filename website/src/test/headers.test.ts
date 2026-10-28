@@ -95,4 +95,38 @@ describe('content security policy', () => {
     const connect = csp?.match(/connect-src ([^;]+)/)?.[1].split(/\s+/) ?? []
     expect(connect).toContain('https://*.ingest.us.sentry.io')
   })
+
+  function cspFor(path: string): string | undefined {
+    return rulesFor(path)
+      .find((r) => r.toLowerCase().startsWith('content-security-policy:'))
+      ?.slice('content-security-policy:'.length)
+      .trim()
+  }
+
+  function directive(csp: string | undefined, name: string): string[] {
+    return csp?.match(new RegExp(`(?:^|;)\\s*${name} ([^;]+)`))?.[1].trim().split(/\s+/) ?? []
+  }
+
+  it('does not allow inline script', () => {
+    // Prerendered HTML carries only external scripts and JSON data blocks, and
+    // GA is injected by URL (src/lib/consent.ts), so inline script is never
+    // needed — allowing it only helps an injected payload run.
+    const scriptSrc = directive(cspFor('/*'), 'script-src')
+    expect(scriptSrc).toContain("'self'")
+    expect(scriptSrc).not.toContain("'unsafe-inline'")
+    expect(scriptSrc).toContain('https://*.googletagmanager.com')
+  })
+
+  it('layers a stricter policy and no-store on the admin surface', () => {
+    for (const path of ['/admin', '/admin/*']) {
+      const csp = cspFor(path)
+      expect(csp, `${path} has no CSP`).toBeDefined()
+      expect(directive(csp, 'script-src')).toEqual(["'self'"])
+      const connect = directive(csp, 'connect-src')
+      expect(connect).toContain("'self'")
+      expect(connect).toContain('https://api.dailyok.net')
+      expect(connect).not.toContain('https://*.google-analytics.com')
+      expect(cacheControlFor(path)).toBe('no-store')
+    }
+  })
 })
