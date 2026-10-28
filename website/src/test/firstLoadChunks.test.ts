@@ -61,4 +61,13 @@ describe('first-load JS', () => {
       expect(src, file).not.toMatch(/GoTrueClient|PostgrestClient/)
     }
   })
+
+  // src/lib/sentry.ts imports @sentry/react dynamically once the browser is
+  // idle; a static import would put ~28 KB gz back on every page's first load.
+  it.skipIf(!existsSync(builtHome))('home page does not load the Sentry SDK', () => {
+    for (const file of firstLoadScripts(builtHome)) {
+      const src = readFileSync(resolve(client, '.' + file), 'utf-8')
+      expect(src, file).not.toMatch(/sentry_key|__sentry_instrumentation_handlers__/)
+    }
+  })
 })

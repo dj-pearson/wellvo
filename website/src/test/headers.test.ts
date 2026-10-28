@@ -87,3 +87,12 @@ describe('robots headers', () => {
     }
   })
 })
+
+describe('content security policy', () => {
+  it('lets the browser reach the Sentry ingest host', () => {
+    // Without this every error event from src/lib/sentry.ts is CSP-blocked.
+    const csp = rulesFor('/*').find((r) => r.toLowerCase().startsWith('content-security-policy:'))
+    const connect = csp?.match(/connect-src ([^;]+)/)?.[1].split(/\s+/) ?? []
+    expect(connect).toContain('https://*.ingest.us.sentry.io')
+  })
+})

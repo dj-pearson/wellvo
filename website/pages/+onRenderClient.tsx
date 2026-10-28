@@ -9,8 +9,9 @@ import { seedFromPageContext } from '../src/lib/blogSeedContext'
 import type { PageContextClient } from 'vike/types'
 import Page from './+Page'
 
-// Route browser errors to the Daily OK Sentry project. Runs once on first
-// client render; prerender/SSR (onRenderHtml) never calls this.
+// Route browser errors to the Daily OK Sentry project. This only buffers
+// early errors and schedules the SDK import for when the browser is idle, so
+// Sentry stays off the hydration critical path. Prerender/SSR never calls it.
 initSentry()
 
 let rendered = false
