@@ -17,30 +17,16 @@
   max-width: 300px;
 }
 
+/* The real wordmark, white variant for the gray-900 footer. Logo-White.svg is
+   1200x400; the width/height attrs reserve the 3:1 box before it loads. */
 .footer-logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   margin-bottom: 12px;
 }
 
-.footer-logo .logo-icon {
-  width: 32px;
-  height: 32px;
-  background: var(--green-accessible);
-  color: white;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 16px;
-}
-
-.footer-logo .logo-text {
-  font-weight: 700;
-  font-size: 20px;
-  color: var(--white);
+.footer-logo img {
+  display: block;
+  height: 40px;
+  width: auto;
 }
 
 .footer-tagline {

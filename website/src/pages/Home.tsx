@@ -267,7 +267,7 @@ export default function Home() {
               <p>
                 Location is off unless your loved one chooses to share it. If they do, a
                 location pin rides along with their check-in. It is never sold, and they can
-                turn it off at any time. <a href="/privacy/">Read how we handle your data</a>.
+                turn it off at any time. <Link to="/privacy/">Read how we handle your data</Link>.
               </p>
             </div>
             <div className="no-track-item">

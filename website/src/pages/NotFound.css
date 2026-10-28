@@ -64,3 +64,11 @@
     font-size: 84px;
   }
 }
+
+/* Two ways out: get the app, or go home. Wraps to a stack on narrow screens. */
+.not-found-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}

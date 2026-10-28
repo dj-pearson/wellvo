@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import SEO from '../components/SEO'
+import SEO, { APP_STORE_URL } from '../components/SEO'
+import { trackEvent } from '../utils/analytics'
 
 /**
  * The 404 page (US-SEO016).
@@ -62,7 +63,18 @@ export default function NotFound() {
           </li>
         </ul>
 
-        <Link to="/" className="btn btn-primary">Back to Home</Link>
+        <div className="not-found-actions">
+          <a
+            href={APP_STORE_URL}
+            className="btn btn-primary"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackEvent('download_cta_click')}
+          >
+            Download for iPhone
+          </a>
+          <Link to="/" className="btn btn-outline">Back to Home</Link>
+        </div>
       </div>
     </div>
   )
