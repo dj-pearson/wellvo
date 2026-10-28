@@ -18,7 +18,7 @@
 
 .legal-updated {
   font-size: 14px;
-  color: var(--gray-400);
+  color: var(--gray-600);
   margin-bottom: 48px;
   padding-bottom: 24px;
   border-bottom: 1px solid var(--gray-100);
@@ -63,7 +63,7 @@
 }
 
 .legal-content a {
-  color: var(--green-600);
+  color: var(--green-accessible);
   text-decoration: underline;
   text-decoration-color: var(--green-200);
   text-underline-offset: 2px;

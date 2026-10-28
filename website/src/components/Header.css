@@ -39,7 +39,7 @@
   background: var(--gray-50);
 }
 .nav-link.active {
-  color: var(--green-700);
+  color: var(--green-800);
   background: var(--green-50);
 }
 

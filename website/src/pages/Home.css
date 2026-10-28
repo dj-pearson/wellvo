@@ -29,7 +29,7 @@
 .hero-note {
   margin-top: 16px;
   font-size: 14px;
-  color: var(--gray-400);
+  color: var(--gray-600);
 }
 
 /* Social proof */
@@ -56,7 +56,7 @@
 
 .proof-item strong {
   font-size: 24px;
-  color: var(--green-600);
+  color: var(--green-accessible);
   font-weight: 700;
 }
 
@@ -91,7 +91,7 @@
 .step-number {
   width: 32px;
   height: 32px;
-  background: var(--green-500);
+  background: var(--green-accessible);
   color: white;
   border-radius: 50%;
   display: flex;
@@ -147,7 +147,7 @@
   width: 48px;
   height: 48px;
   background: var(--green-50);
-  color: var(--green-600);
+  color: var(--green-accessible);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -199,7 +199,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--green-600);
+  color: var(--green-accessible);
   margin-bottom: 8px;
 }
 
@@ -230,7 +230,7 @@
 }
 
 .side-card li svg {
-  color: var(--green-500);
+  color: var(--green-accessible);
   flex-shrink: 0;
 }
 
@@ -329,13 +329,13 @@
   margin-top: 12px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--green-600);
+  color: var(--green-accessible);
   text-decoration: none;
 }
 
 .use-case-link:hover {
   text-decoration: underline;
-  color: var(--green-700);
+  color: var(--green-accessible-hover);
 }
 
 /* Responsive */

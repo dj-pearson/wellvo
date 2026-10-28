@@ -54,7 +54,7 @@
   top: -12px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--green-500);
+  background: var(--green-accessible);
   color: white;
   padding: 4px 16px;
   border-radius: 100px;
@@ -86,7 +86,7 @@
 
 .price-period {
   font-size: 16px;
-  color: var(--gray-400);
+  color: var(--gray-600);
 }
 
 .plan-yearly {
@@ -100,7 +100,7 @@
 
 .yearly-badge {
   background: var(--green-100);
-  color: var(--green-700);
+  color: var(--green-800);
   padding: 2px 8px;
   border-radius: 100px;
   font-size: 12px;
@@ -148,7 +148,7 @@
 }
 
 .plan-features li svg {
-  color: var(--green-500);
+  color: var(--green-accessible);
   flex-shrink: 0;
 }
 

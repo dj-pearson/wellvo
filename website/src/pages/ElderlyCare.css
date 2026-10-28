@@ -75,7 +75,7 @@
   height: 56px;
   border-radius: 16px;
   background: var(--green-50);
-  color: var(--green-600);
+  color: var(--green-accessible);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -118,7 +118,7 @@
 
 .ec-dementia-item svg {
   flex-shrink: 0;
-  color: var(--green-600);
+  color: var(--green-accessible);
   margin-top: 2px;
 }
 

@@ -27,7 +27,7 @@
 .footer-logo .logo-icon {
   width: 32px;
   height: 32px;
-  background: var(--green-500);
+  background: var(--green-accessible);
   color: white;
   border-radius: 8px;
   display: flex;

@@ -16,7 +16,7 @@
   display: inline-block;
   padding: 6px 16px;
   background: var(--green-100);
-  color: var(--green-700);
+  color: var(--green-800);
   border-radius: 100px;
   font-size: 14px;
   font-weight: 600;
@@ -24,7 +24,7 @@
 }
 
 .hero-highlight {
-  color: var(--green-500);
+  color: var(--green-accessible);
 }
 
 .hero-actions {
@@ -66,7 +66,9 @@
 
 .cta-card {
   text-align: center;
-  background: linear-gradient(135deg, var(--green-500), #27ae60);
+  /* Flat --green-accessible: white on the old #2ECC71 to #27ae60 gradient
+     was only 2.1 to 2.9:1. White on this is 5.06:1. */
+  background: var(--green-accessible);
   color: white;
   border-radius: 24px;
   padding: 64px 40px;
@@ -81,7 +83,6 @@
 
 .cta-card p {
   font-size: 18px;
-  opacity: 0.9;
   margin-bottom: 32px;
 }
 
@@ -94,7 +95,7 @@
 
 .cta-card .btn-primary {
   background: white;
-  color: var(--green-700);
+  color: var(--green-800);
 }
 .cta-card .btn-primary:hover {
   background: var(--green-50);
@@ -106,7 +107,7 @@
   color: white;
 }
 .cta-card .btn-outline:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--green-accessible-hover);
   border-color: rgba(255, 255, 255, 0.6);
   color: white;
 }
@@ -131,8 +132,13 @@
 
 .cta-card .cta-footnote {
   margin-bottom: 0;
-  color: #e8f6ee;
+  color: var(--green-50);
   opacity: 1;
+}
+
+/* The global green focus ring would vanish on the green card surface. */
+.cta-card :focus-visible {
+  outline-color: var(--white);
 }
 
 .cta-card .cta-footnote a {
@@ -181,7 +187,7 @@
 .faq-item-detail summary::after {
   content: '+';
   font-size: 20px;
-  color: var(--gray-400);
+  color: var(--gray-600);
   font-weight: 400;
   flex-shrink: 0;
   margin-left: 16px;

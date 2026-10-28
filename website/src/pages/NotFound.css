@@ -12,7 +12,7 @@
 .not-found-code {
   font-size: 120px;
   font-weight: 700;
-  color: var(--green-600);
+  color: var(--green-accessible);
   line-height: 1;
   margin-bottom: 16px;
 }

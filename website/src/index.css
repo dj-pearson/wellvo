@@ -176,7 +176,9 @@ img {
 
 /* Accessibility: focus-visible ring for all interactive elements */
 :focus-visible {
-  outline: 2px solid var(--green-500);
+  /* --green-accessible clears 3:1 against white and the light green tints
+     (brand --green-500 was ~2.1:1, failing WCAG 1.4.11). */
+  outline: 3px solid var(--green-accessible);
   outline-offset: 2px;
 }
 
@@ -193,7 +195,7 @@ img {
   left: 16px;
   z-index: 1000;
   padding: 12px 24px;
-  background: var(--green-500);
+  background: var(--green-accessible);
   color: var(--white);
   border-radius: 8px;
   font-weight: 600;

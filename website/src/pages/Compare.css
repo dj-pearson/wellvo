@@ -14,7 +14,7 @@
   margin-bottom: 16px;
 }
 .compare-breadcrumb a { color: var(--gray-600); }
-.compare-breadcrumb a:hover { color: var(--green-600); }
+.compare-breadcrumb a:hover { color: var(--green-accessible); }
 
 .compare-lede {
   font-size: 18px;
