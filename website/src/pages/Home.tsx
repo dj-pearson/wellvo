@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { trackEvent } from '../utils/analytics'
 import SEO, { APP_STORE_URL } from '../components/SEO'
+import AppStoreInstall from '../components/AppStoreInstall'
 import {
   Heart,
   Shield,
@@ -28,34 +29,46 @@ export default function Home() {
 
       {/* Hero */}
       <section className="hero">
-        <div className="container hero-inner">
-          <div className="hero-badge">Senior Check-In App for Aging Parents</div>
-          <h1 className="hero-title">
-            Know your aging parent is OK —{' '}
-            <span className="hero-highlight">every single day</span>
-          </h1>
-          <p className="hero-subtitle">
-            Daily OK gives you a reliable daily signal that your aging parent is OK — one
-            notification, one tap, no pendant, and location stays off unless they choose to
-            share it. The same gentle daily check-in
-            works for a teen or anyone else you worry about, too.
-          </p>
-          <div className="hero-actions">
-            <a
-              href={APP_STORE_URL}
-              className="btn btn-primary btn-lg"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => trackEvent('download_cta_click')}
-            >
-              Download for iPhone
-              <ArrowRight size={18} />
-            </a>
-            <Link to="/pricing/" className="btn btn-secondary btn-lg">
-              View Pricing
-            </Link>
+        <div className="container hero-inner hero-split">
+          <div className="hero-copy">
+            <div className="hero-badge">Senior Check-In App for Aging Parents</div>
+            <h1 className="hero-title">
+              Know your aging parent is OK —{' '}
+              <span className="hero-highlight">every single day</span>
+            </h1>
+            <p className="hero-subtitle">
+              Daily OK gives you a reliable daily signal that your aging parent is OK — one
+              notification, one tap, no pendant, and location stays off unless they choose to
+              share it. The same gentle daily check-in
+              works for a teen or anyone else you worry about, too.
+            </p>
+            <div className="hero-actions">
+              <a
+                href={APP_STORE_URL}
+                className="btn btn-primary btn-lg"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackEvent('download_cta_click')}
+              >
+                Download for iPhone
+                <ArrowRight size={18} />
+              </a>
+              <Link to="/pricing/" className="btn btn-secondary btn-lg">
+                View Pricing
+              </Link>
+            </div>
+            <p className="hero-note">7-day free trial on every plan. Cancel anytime.</p>
+            <AppStoreInstall className="hero-install" />
           </div>
-          <p className="hero-note">7-day free trial on every plan. Cancel anytime.</p>
+          {/* Decorative: pure HTML/CSS (no image request), so it never competes
+              with the headline for LCP. Hidden on phones. */}
+          <div className="hero-visual" aria-hidden="true">
+            <div className="lp-phone">
+              <div className="lp-phone-time">Today, 10:00 AM</div>
+              <div className="lp-phone-prompt">Good morning! Tap to let your family know you're OK.</div>
+              <div className="lp-phone-btn">I'm OK</div>
+            </div>
+          </div>
         </div>
       </section>
 

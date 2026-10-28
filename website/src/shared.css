@@ -209,3 +209,67 @@
     font-size: 28px;
   }
 }
+
+/* Desktop install path (AppStoreInstall): badge + QR, hidden on phones,
+   where the page's own App Store buttons are the install path. */
+.app-install {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+}
+
+.app-install-qr {
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  border: 1px solid var(--gray-200);
+  background: var(--white);
+}
+
+.app-install-text p {
+  font-size: 15px;
+  color: var(--gray-700);
+  margin-bottom: 8px;
+}
+
+.app-store-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px 7px 12px;
+  background: var(--black);
+  color: var(--white);
+  border-radius: 12px;
+  text-decoration: none;
+  line-height: 1.1;
+  transition: background 0.2s;
+}
+.app-store-badge:hover {
+  background: var(--gray-800);
+}
+.app-store-badge:focus-visible {
+  outline: 3px solid var(--green-accessible);
+  outline-offset: 3px;
+}
+
+.app-store-badge-text {
+  display: flex;
+  flex-direction: column;
+}
+.app-store-badge-small {
+  font-size: 11px;
+  font-weight: 500;
+}
+.app-store-badge-large {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+@media (max-width: 768px) {
+  .app-install {
+    display: none;
+  }
+}

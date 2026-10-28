@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Check, ArrowRight } from 'lucide-react'
 import { trackEvent } from '../utils/analytics'
 import SEO, { APP_STORE_URL } from '../components/SEO'
+import AppStoreInstall from '../components/AppStoreInstall'
 
 const plans = [
   {
@@ -22,7 +23,7 @@ const plans = [
       '90-day check-in history',
       'SMS fallback alerts',
     ],
-    cta: 'Start 7-Day Free Trial',
+    cta: 'Start free trial on the App Store',
     highlight: true,
   },
   {
@@ -41,7 +42,7 @@ const plans = [
       'Kid mode for teen Receivers',
       'Custom check-in schedules',
     ],
-    cta: 'Start 7-Day Free Trial',
+    cta: 'Start free trial on the App Store',
     highlight: false,
   },
   {
@@ -59,10 +60,16 @@ const plans = [
       'Unlimited check-in history',
       'Priority support',
     ],
-    cta: 'Start 7-Day Free Trial',
+    cta: 'Start free trial on the App Store',
     highlight: false,
   },
 ]
+
+/** "$29.99/year" → "$2.50": the yearly plan's effective monthly price. */
+function yearlyPerMonth(yearlyPrice: string): string {
+  const total = Number(yearlyPrice.replace(/[^0-9.]/g, ''))
+  return `$${(total / 12).toFixed(2)}`
+}
 
 const addons = [
   {
@@ -142,8 +149,13 @@ export default function Pricing() {
                   </div>
                   {plan.yearlyPrice && (
                     <div className="plan-yearly">
-                      <span>{plan.yearlyPrice}</span>
-                      <span className="yearly-badge">{plan.yearlySaving}</span>
+                      <p className="plan-yearly-monthly">
+                        or <strong>{yearlyPerMonth(plan.yearlyPrice)}/mo</strong> billed yearly
+                      </p>
+                      <p className="plan-yearly-total">
+                        <span>{plan.yearlyPrice}</span>
+                        <span className="yearly-badge">{plan.yearlySaving}</span>
+                      </p>
                     </div>
                   )}
                   <p className="plan-desc">{plan.description}</p>
@@ -179,6 +191,7 @@ export default function Pricing() {
               </div>
             ))}
           </div>
+          <AppStoreInstall className="pricing-install" />
         </div>
       </section>
 

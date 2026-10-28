@@ -32,6 +32,49 @@
   color: var(--gray-600);
 }
 
+/* Desktop hero: copy on the left, the "I'm OK" phone mock (Landing.css
+   .lp-phone) on the right. Phones keep the centred, text-only hero. */
+.hero-visual {
+  display: none;
+}
+
+@media (min-width: 769px) {
+  .hero-split {
+    max-width: 1120px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 240px;
+    gap: 56px;
+    align-items: center;
+    text-align: left;
+  }
+  .hero-split .hero-subtitle {
+    margin-left: 0;
+  }
+  .hero-split .hero-actions {
+    justify-content: flex-start;
+  }
+  .hero-install {
+    margin-top: 28px;
+  }
+  .hero-visual {
+    display: block;
+  }
+  .hero-visual .lp-phone {
+    width: 240px;
+    background: var(--white);
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .hero-split {
+    grid-template-columns: minmax(0, 1fr) 200px;
+    gap: 32px;
+  }
+  .hero-visual .lp-phone {
+    width: 200px;
+  }
+}
+
 /* Social proof */
 .social-proof {
   border-top: 1px solid var(--gray-100);
