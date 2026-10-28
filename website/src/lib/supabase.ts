@@ -18,12 +18,14 @@ export function getSupabase(): SupabaseClient {
         autoRefreshToken: true,
         detectSessionInUrl: true,
         storageKey: 'dailyok-admin-auth',
+        // PKCE: the magic link returns a one-time ?code= that only this
+        // browser (holding the verifier) can exchange, instead of tokens in
+        // the URL fragment.
+        flowType: 'pkce',
       },
     })
   }
   return cachedClient
 }
 
-export function isSupabaseConfigured(): boolean {
-  return !!(url && anonKey)
-}
+export { isSupabaseConfigured } from './supabaseConfig'

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import SEO from '../components/SEO'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
-import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
+import { isSupabaseConfigured } from '../lib/supabaseConfig'
 import { useBlogSeed } from '../lib/blogSeedContext'
 import { POST_SUMMARY_COLUMNS, type PublicPostSummary } from '../lib/blogTypes'
 import './Blog.css'
@@ -29,8 +29,8 @@ export default function Blog() {
 
   useEffect(() => {
     if (!needsFetch) return
-    const supabase = getSupabase()
-    supabase
+    // Lazy so supabase-js only loads when the prerender had no seed for us.
+    import('../lib/supabasePublic').then(({ getPublicSupabase }) => getPublicSupabase()
       .from('blog_posts')
       .select(POST_SUMMARY_COLUMNS)
       .eq('status', 'published')
@@ -44,6 +44,10 @@ export default function Blog() {
           return
         }
         setPosts((data as PublicPostSummary[]) ?? [])
+        setLoading(false)
+      }))
+      .catch((err: unknown) => {
+        setFetchError(err instanceof Error ? err.message : 'Could not load the blog')
         setLoading(false)
       })
   }, [needsFetch])

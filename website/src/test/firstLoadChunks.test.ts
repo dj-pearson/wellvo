@@ -51,4 +51,14 @@ describe('first-load JS', () => {
       expect(src, file).not.toMatch(/ProseMirror|@tiptap/)
     }
   })
+
+  // AdminAuthProvider used to wrap every page, so supabase-js (~48 KB gz) and
+  // a getSession() call shipped to public visitors. It now mounts only under
+  // the lazy /admin route; blog pages import their client lazily too.
+  it.skipIf(!existsSync(builtHome))('home page does not load supabase-js', () => {
+    for (const file of firstLoadScripts(builtHome)) {
+      const src = readFileSync(resolve(client, '.' + file), 'utf-8')
+      expect(src, file).not.toMatch(/GoTrueClient|PostgrestClient/)
+    }
+  })
 })

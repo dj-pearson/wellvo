@@ -68,7 +68,9 @@ export default function AdminLogin() {
       const supabase = getSupabase()
       const { error: otpErr } = await supabase.auth.signInWithOtp({
         email,
-        options: { emailRedirectTo: `${window.location.origin}/admin` },
+        // shouldCreateUser: false — the login form must never mint new auth
+        // users; only existing accounts can receive a link.
+        options: { emailRedirectTo: `${window.location.origin}/admin`, shouldCreateUser: false },
       })
       if (otpErr) throw otpErr
       setInfo('Check your email for a sign-in link.')

@@ -2,7 +2,6 @@ import { escapeInject, dangerouslySkipEscape } from 'vike/server'
 import { renderToReadableStream } from 'react-dom/server'
 import { StaticRouter } from 'react-router-dom'
 import { HelmetProvider, type HelmetServerState } from 'react-helmet-async'
-import { AdminAuthProvider } from '../src/admin/AdminAuthProvider'
 import ErrorBoundary from '../src/components/ErrorBoundary'
 import { BlogSeedProvider } from '../src/lib/blogSeed'
 import { seedFromPageContext } from '../src/lib/blogSeedContext'
@@ -263,11 +262,9 @@ export default async function onRenderHtml(pageContext: PageContextServer) {
     <ErrorBoundary>
       <HelmetProvider context={helmetContext}>
         <BlogSeedProvider seed={blogSeed}>
-          <AdminAuthProvider>
-            <StaticRouter location={pageContext.urlOriginal ?? '/'}>
-              <Page />
-            </StaticRouter>
-          </AdminAuthProvider>
+          <StaticRouter location={pageContext.urlOriginal ?? '/'}>
+            <Page />
+          </StaticRouter>
         </BlogSeedProvider>
       </HelmetProvider>
     </ErrorBoundary>

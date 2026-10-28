@@ -2,7 +2,6 @@ import { hydrateRoot, createRoot } from 'react-dom/client'
 import { StrictMode } from 'react'
 import { BrowserRouter } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
-import { AdminAuthProvider } from '../src/admin/AdminAuthProvider'
 import ErrorBoundary from '../src/components/ErrorBoundary'
 import { initSentry } from '../src/lib/sentry'
 import { BlogSeedProvider } from '../src/lib/blogSeed'
@@ -29,11 +28,9 @@ export default async function onRenderClient(pageContext: PageContextClient) {
       <ErrorBoundary>
         <HelmetProvider>
           <BlogSeedProvider seed={blogSeed}>
-            <AdminAuthProvider>
-              <BrowserRouter>
-                <Page />
-              </BrowserRouter>
-            </AdminAuthProvider>
+            <BrowserRouter>
+              <Page />
+            </BrowserRouter>
           </BlogSeedProvider>
         </HelmetProvider>
       </ErrorBoundary>
