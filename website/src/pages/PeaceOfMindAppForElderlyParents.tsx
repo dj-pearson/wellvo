@@ -217,7 +217,7 @@ export default function PeaceOfMindAppForElderlyParents() {
               <CheckCircle size={20} />
               <div>
                 <h3>No tracking</h3>
-                <p>No location, camera, or microphone. It's reassurance, not surveillance.</p>
+                <p>No camera or microphone, and location is off unless your parent chooses to share it. It's reassurance, not surveillance.</p>
               </div>
             </div>
             <div className="ec-dementia-item">

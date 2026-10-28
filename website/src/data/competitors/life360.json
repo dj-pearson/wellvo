@@ -4,8 +4,8 @@
   "tagline": "Family location-sharing app focused on teen-driving and whereabouts",
   "company_url": "https://www.life360.com",
   "last_verified": "2026-04-22",
-  "meta_description": "Life360 tracks where your parent is. Daily OK only asks whether they're OK — one daily tap, alerts if it's missed, no GPS. Presence without surveillance.",
-  "daily_ok_verdict": "Life360 and Daily OK sit in different philosophical camps. Life360 is built around continuous GPS location-sharing — useful for teen drivers and commute visibility, but widely described as intrusive when pointed at an aging parent. Daily OK is consent-based and location-free: one gentle morning tap, no GPS, no location history, no in-home cameras. If you already use Life360 for your teens and want a separate, privacy-respecting tool for an aging parent, Daily OK is purpose-built for that job. If you want location tracking, Life360 is the right choice — and Daily OK does not and will not offer it.",
+  "meta_description": "Life360 tracks where your parent is. Daily OK asks whether they're OK: one daily tap, alerts if it's missed, location only if they share it.",
+  "daily_ok_verdict": "Life360 and Daily OK sit in different philosophical camps. Life360 is built around continuous GPS location-sharing — useful for teen drivers and commute visibility, but widely described as intrusive when pointed at an aging parent. Daily OK is consent-based: one gentle morning tap, no in-home cameras, and location stays off unless your parent chooses to share it. If you already use Life360 for your teens and want a separate, privacy-respecting tool for an aging parent, Daily OK is purpose-built for that job. If you want location tracking, Life360 is the right choice — Daily OK does not offer it.",
   "best_for_daily_ok": [
     "Families who want to check on an aging parent without GPS tracking",
     "Parents who would feel surveilled by continuous location-sharing",
@@ -62,7 +62,7 @@
     },
     {
       "feature": "Privacy posture",
-      "daily_ok": "No GPS, no cameras, no location history",
+      "daily_ok": "No cameras; location off unless your parent shares it",
       "competitor": "Location-sharing by design",
       "winner": "different"
     },
@@ -80,9 +80,9 @@
     },
     {
       "feature": "Works on iOS and Android",
-      "daily_ok": "Yes",
+      "daily_ok": "iPhone only for now",
       "competitor": "Yes",
-      "winner": "tie"
+      "winner": "competitor"
     },
     {
       "feature": "Escalation when a parent misses check-in",
@@ -134,7 +134,7 @@
     },
     {
       "q": "Is Daily OK a privacy-focused Life360 alternative?",
-      "a": "It's not a like-for-like alternative. Daily OK does not offer GPS, location history, or real-time whereabouts at all — that's a deliberate product choice. If you want those features, Life360 is the right tool. If you explicitly don't want them, Daily OK is."
+      "a": "It's not a like-for-like alternative. Daily OK does not offer continuous GPS tracking or real-time whereabouts — location is off unless your parent chooses to share it with a check-in. That's a deliberate product choice. If you want those features, Life360 is the right tool. If you explicitly don't want them, Daily OK is."
     },
     {
       "q": "Why would an aging parent prefer Daily OK over Life360?",
@@ -142,7 +142,7 @@
     },
     {
       "q": "Does Daily OK track where my parent is?",
-      "a": "No. Daily OK has no GPS, no location history, and no in-home cameras. The app only knows whether the daily check-in was tapped."
+      "a": "No. Daily OK does not track your parent continuously and has no in-home cameras. Location is off unless your parent chooses to share it; otherwise the app only knows whether the daily check-in was tapped."
     },
     {
       "q": "Is Life360 bad for elderly parents?",

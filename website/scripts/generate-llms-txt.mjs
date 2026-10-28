@@ -39,10 +39,11 @@ const PREAMBLE = `# Daily OK — Senior Check-In App
 > Daily OK is a senior check-in app. An adult child sets up a once-a-day "I'm OK"
 > for an aging parent, who taps one large button (or replies straight from the
 > notification). If the parent misses the check-in, Daily OK fires escalating alerts
-> to a chosen circle of family members. No pendant, no GPS tracking, no cameras, no
-> wearables — presence without surveillance. The same gentle daily check-in also
-> works for teens and any loved one you worry about. Plans run $3.99–$9.99 per month
-> with a free trial. Available on iOS and Android.
+> to a chosen circle of family members. No pendant, no cameras, no wearables, and
+> location is off unless your loved one chooses to share it — presence without
+> surveillance. The same gentle daily check-in also works for teens and any loved
+> one you worry about. Plans run $3.99–$9.99 per month with a 7-day free trial.
+> Available on iPhone.
 
 This file is generated from the site's prerendered pages at build time, so it
 cannot list a page that does not exist or omit one that does. Full long-form

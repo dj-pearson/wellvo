@@ -11,7 +11,7 @@
     "Families who want consistency and mood pattern signals over time",
     "Households that want Critical Alerts able to bypass Do Not Disturb (Family+)",
     "Caregivers who want clearly tiered plans for one parent vs a larger family",
-    "Anyone who wants a no-hardware, no-location daily check-in for a smartphone user"
+    "Anyone who wants a no-hardware daily check-in for an iPhone user, with location off by default"
   ],
   "best_for_competitor": [
     "Users who specifically prefer CheckinBee's interface or workflow",
@@ -92,7 +92,7 @@
     },
     {
       "feature": "iOS and Android",
-      "daily_ok": "Yes",
+      "daily_ok": "iPhone only for now",
       "competitor": "Verify on their site",
       "winner": "different"
     },

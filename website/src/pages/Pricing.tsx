@@ -86,13 +86,13 @@ export default function Pricing() {
 
   const pricingFaqs = [
     { q: 'Who pays for the subscription?', a: 'Only the Owner (the person managing the family group) pays. Receivers and Viewers never see billing or need to pay anything.' },
-    { q: 'Can I try before I buy?', a: 'Yes. Every plan includes a 7-day free trial on monthly, or a 14-day free trial on yearly. You won\'t be charged until the trial ends, and you can cancel anytime from your Apple ID or Google Play settings.' },
+    { q: 'Can I try before I buy?', a: 'Yes. Every plan includes a 7-day free trial, on both monthly and yearly billing. You won\'t be charged until the trial ends, and you can cancel anytime from your Apple ID subscription settings.' },
     { q: 'Which plan is right for a parent with dementia?', a: 'The Caregiver plan. It\'s sized for exactly that situation — one Receiver (the parent) and up to 3 Viewers (you and your siblings who all want peace of mind). Pattern alerts are included, which help you spot changes in daily routine that can signal dementia progression.' },
     { q: 'How does Daily OK compare to medical alert devices?', a: 'Medical alerts like Life Alert or Medical Guardian cost $30–50/month and are designed for emergency response. Daily OK is for daily connection and early warning — a fraction of the price, no hardware, and built around one simple tap instead of a call center.' },
     { q: 'What happens if I cancel?', a: 'Your plan stays active until the end of your billing period. After that, check-ins stop being sent. Your data is retained per our data retention policy and you can export or delete it anytime.' },
     { q: 'Can I switch plans?', a: 'Yes, you can upgrade or downgrade anytime. Changes take effect at your next billing date. Upgrades are prorated.' },
     { q: 'What are Critical Alerts?', a: 'On the Family+ plan, missed check-in alerts can bypass Do Not Disturb mode on your iPhone — so you\'ll never miss a 3 AM escalation because your phone was on silent.' },
-    { q: 'Is my data safe?', a: 'Absolutely. We\'re GDPR and CCPA compliant with full data export and deletion controls. No location tracking, no microphone access, no third-party tracking SDKs.' },
+    { q: 'Is my data safe?', a: 'Absolutely. We\'re GDPR and CCPA compliant with full data export and deletion controls. Location is off unless your loved one chooses to share it. No microphone access, no third-party tracking SDKs.' },
   ]
 
   const faqJsonLd = {
@@ -198,13 +198,13 @@ export default function Pricing() {
             <strong>Subscription details (please read before subscribing):</strong>
             <ul style={{ marginTop: 8, paddingLeft: 20 }}>
               <li>
-                Subscriptions are billed through the Apple App Store or Google Play and{' '}
+                Subscriptions are billed through the Apple App Store and{' '}
                 <strong>renew automatically</strong> at the price and interval shown above
                 (monthly or yearly) until you cancel. We don't bill your card directly.
               </li>
               <li>
                 You can <strong>cancel anytime in two taps</strong> — Settings &rarr; Apple ID
-                Subscriptions (iOS) or Google Play &rarr; Subscriptions (Android). No phone
+                &rarr; Subscriptions on your iPhone. No phone
                 call, email, or "retention offer" required. Cancellation takes effect at the
                 end of the current billing period and you keep access until then.
               </li>

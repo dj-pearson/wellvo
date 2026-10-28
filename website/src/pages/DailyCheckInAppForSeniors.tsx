@@ -19,7 +19,7 @@ const faqs = [
   },
   {
     q: 'Will the check-in feel like being monitored?',
-    a: 'It is deliberately the opposite of surveillance. There is no location tracking, no camera, no microphone — just a daily yes/no the senior controls by tapping a button. Many older adults prefer it precisely because it preserves autonomy: it proves "I\'m fine on my own" rather than implying they can\'t be.',
+    a: 'It is deliberately the opposite of surveillance. There is no camera and no microphone, and location is off unless the senior chooses to share it — just a daily yes/no the senior controls by tapping a button. Many older adults prefer it precisely because it preserves autonomy: it proves "I\'m fine on my own" rather than implying they can\'t be.',
   },
   {
     q: 'What if a senior forgets to check in some days?',
@@ -184,8 +184,8 @@ export default function DailyCheckInAppForSeniors() {
             <div className="ec-dementia-item">
               <CheckCircle size={20} />
               <div>
-                <h3>No location, ever</h3>
-                <p>The app cannot see where the senior is. It only knows "tapped" or "didn't".</p>
+                <h3>Location only if they share it</h3>
+                <p>Location is off unless the senior chooses to share it. Otherwise the app only knows "tapped" or "didn't".</p>
               </div>
             </div>
             <div className="ec-dementia-item">

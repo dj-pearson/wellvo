@@ -1,8 +1,5 @@
 /** Helpers for the receiver invite page (pages/Invite.tsx). */
 
-export const APP_STORE_URL = 'https://apps.apple.com/us/app/dailyok-daily-check-in/id6760836697'
-export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=net.dailyok.android'
-
 const TOKEN_RE = /^[0-9a-f]{16,128}$/i
 const CODE_RE = /^\d{6}$/
 

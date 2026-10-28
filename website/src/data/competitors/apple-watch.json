@@ -10,7 +10,6 @@
   "best_for_daily_ok": [
     "Parents who don't own or won't consistently wear/charge an Apple Watch",
     "Families who want proactive daily confirmation, not only fall reaction",
-    "Households on Android or basic smartphones",
     "Caregivers who want a simple shared status, not just an SOS call",
     "Anyone who wants early pattern signals over weeks, not just incident alerts"
   ],
@@ -41,12 +40,6 @@
       "feature": "Hardware required",
       "daily_ok": "None — uses existing smartphone",
       "competitor": "Apple Watch + iPhone",
-      "winner": "daily_ok"
-    },
-    {
-      "feature": "Works on Android",
-      "daily_ok": "Yes",
-      "competitor": "No — Apple ecosystem only",
       "winner": "daily_ok"
     },
     {
@@ -93,7 +86,7 @@
     },
     {
       "feature": "Location privacy",
-      "daily_ok": "No location by design",
+      "daily_ok": "Location off unless your parent shares it",
       "competitor": "Location used for SOS",
       "winner": "different"
     },
@@ -130,7 +123,7 @@
     },
     {
       "q": "What if my parent uses Android?",
-      "a": "Apple Watch requires an iPhone. Daily OK works on both iOS and Android, so it's the option that doesn't depend on the Apple ecosystem."
+      "a": "Neither fits an Android household today. Apple Watch requires an iPhone, and Daily OK is currently available on iPhone only."
     },
     {
       "q": "Is the device price shown here?",

@@ -3,10 +3,11 @@
 > Daily OK is a senior check-in app. An adult child sets up a once-a-day "I'm OK"
 > for an aging parent, who taps one large button (or replies straight from the
 > notification). If the parent misses the check-in, Daily OK fires escalating alerts
-> to a chosen circle of family members. No pendant, no GPS tracking, no cameras, no
-> wearables — presence without surveillance. The same gentle daily check-in also
-> works for teens and any loved one you worry about. Plans run $3.99–$9.99 per month
-> with a free trial. Available on iOS and Android.
+> to a chosen circle of family members. No pendant, no cameras, no wearables, and
+> location is off unless your loved one chooses to share it — presence without
+> surveillance. The same gentle daily check-in also works for teens and any loved
+> one you worry about. Plans run $3.99–$9.99 per month with a 7-day free trial.
+> Available on iPhone.
 
 Source of truth: https://dailyok.net/ — content below is summarized from the
 canonical pages listed in https://dailyok.net/llms.txt. For the live page,
@@ -30,7 +31,7 @@ If they do not respond within the configured window, Daily OK escalates:
 repeated reminders to the Receiver, then alerts to the Owner and Viewers.
 Family+ plan alerts can bypass Do Not Disturb / silent mode so a 3 AM
 escalation is not missed. Daily OK does not require any hardware, pendant, or
-wearable — it is a phone app on iOS and Android. Optional mood tracking and
+wearable — it is an iPhone app. Optional mood tracking and
 pattern alerts surface gradual changes in routine that can signal e.g.
 dementia progression.
 
@@ -77,7 +78,7 @@ monitoring. This is a secondary use case — Daily OK leads as a senior check-in
   OK suits proactive daily reassurance; a pendant suits in-the-moment fall SOS.
 - **vs Life360 (https://dailyok.net/compare/daily-ok-vs-life360/)** — Life360 is
   continuous family location tracking; Daily OK is a consented daily check-in
-  with no live location. Choose Daily OK for privacy-respecting reassurance,
+  with no live tracking; location is off unless the parent chooses to share it. Choose Daily OK for privacy-respecting reassurance,
   Life360 for real-time whereabouts.
 - **vs Snug Safety (https://dailyok.net/compare/daily-ok-vs-snug-safety/)** — Both
   are daily check-in apps; compared on escalation chain, pricing, and privacy.

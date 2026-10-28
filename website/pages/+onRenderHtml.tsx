@@ -165,8 +165,8 @@ const STATIC_HEAD = `
         ],
         "applicationCategory": "HealthApplication",
         "applicationSubCategory": "Caregiving",
-        "operatingSystem": "iOS, Android",
-        "description": "Daily OK is a senior check-in app: adult children set up a once-a-day \\"I'm OK\\" for an aging parent and get escalating alerts the moment they miss it. No pendant, no GPS tracking, no cameras, no wearables. The same gentle daily check-in also works for teens and any loved one you worry about.",
+        "operatingSystem": "iOS",
+        "description": "Daily OK is a senior check-in app: adult children set up a once-a-day \\"I'm OK\\" for an aging parent and get escalating alerts the moment they miss it. No pendant, no cameras, no wearables, and location is off unless your loved one chooses to share it. The same gentle daily check-in also works for teens and any loved one you worry about.",
         "url": "https://dailyok.net",
         "publisher": { "@id": "https://dailyok.net/#organization" },
         "downloadUrl": "https://apps.apple.com/us/app/dailyok-daily-check-in/id6760836697",
@@ -179,7 +179,7 @@ const STATIC_HEAD = `
         "featureList": [
           "Once-a-day one-tap \\"I'm OK\\" check-in",
           "Escalating alerts when a check-in is missed",
-          "No GPS tracking, cameras, or wearables",
+          "No cameras or wearables; location off unless your loved one shares it",
           "Large-button, senior-friendly receiver screen",
           "Check-in history, streaks, and mood trends",
           "Shareable PDF reports for healthcare providers"
@@ -231,7 +231,7 @@ const STATIC_HEAD = `
     </script>`
 
 const DEFAULT_TITLE = '<title>Daily OK — Senior Check-In App for Aging Parents</title>'
-const DEFAULT_DESCRIPTION = '<meta name="description" content="Daily OK is the senior check-in app: a once-a-day &quot;I&#39;m OK&quot; for an aging parent, with escalating alerts if they miss it. No pendant, no GPS tracking. Works for teens and any loved one too." />'
+const DEFAULT_DESCRIPTION = '<meta name="description" content="Daily OK is the senior check-in app: a once-a-day &quot;I&#39;m OK&quot; for an aging parent, with escalating alerts if they miss it. No pendant, no cameras. Works for teens and any loved one too." />'
 
 /**
  * React Helmet Async's server-side capture doesn't reliably fire under

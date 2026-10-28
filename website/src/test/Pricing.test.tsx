@@ -52,6 +52,12 @@ describe('Pricing page', () => {
     expect(screen.getByText('Who pays for the subscription?')).toBeInTheDocument()
   })
 
+  it('states a 7-day trial on monthly and yearly, cancelled via Apple ID', () => {
+    renderPricing()
+    expect(screen.getByText(/7-day free trial, on both monthly and yearly billing/)).toBeInTheDocument()
+    expect(screen.queryByText(/Google Play/)).not.toBeInTheDocument()
+  })
+
   it('shows dementia-specific FAQ entry', () => {
     renderPricing()
     expect(

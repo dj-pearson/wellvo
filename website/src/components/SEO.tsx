@@ -1,7 +1,6 @@
 import { Helmet } from 'react-helmet-async'
 import { canonicalUrl } from '../lib/canonical'
-
-const APP_STORE_URL = 'https://apps.apple.com/us/app/dailyok-daily-check-in/id6760836697'
+import { APP_STORE_URL } from '../lib/appStore'
 const SITE_URL = 'https://dailyok.net'
 const DEFAULT_IMAGE = `${SITE_URL}/og-image.png`
 const DEFAULT_IMAGE_ALT =

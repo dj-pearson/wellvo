@@ -109,8 +109,8 @@
       "winner": "daily_ok"
     },
     {
-      "feature": "Works on iOS and Android",
-      "daily_ok": "Yes",
+      "feature": "Phone platforms",
+      "daily_ok": "iPhone only for now",
       "competitor": "Companion app yes; core is device",
       "winner": "different"
     },
@@ -145,7 +145,7 @@
     },
     {
       "q": "Does Daily OK track location?",
-      "a": "No. Daily OK has no location, camera, or microphone access. It only records whether the daily check-in was tapped."
+      "a": "No. Location is off unless your parent chooses to share it, and Daily OK has no camera or microphone access. Otherwise it only records whether the daily check-in was tapped."
     },
     {
       "q": "Can I use both?",

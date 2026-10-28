@@ -109,8 +109,8 @@
       "winner": "different"
     },
     {
-      "feature": "Works on iOS and Android",
-      "daily_ok": "Yes",
+      "feature": "Phone platforms",
+      "daily_ok": "iPhone only for now",
       "competitor": "N/A — hardware-based",
       "winner": "different"
     },

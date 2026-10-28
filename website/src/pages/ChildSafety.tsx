@@ -58,7 +58,7 @@ export default function ChildSafety() {
     <>
       <SEO
         title="Daily Check-In App for Kids & Teen Safety"
-        description="Stay connected with kids walking home, playing outside or home alone. One tap a day, alerts if it is missed. No GPS tracking."
+        description="Stay connected with kids walking home, playing outside or home alone. One tap a day, alerts if it is missed. Location off by default."
         path="/child-safety"
         keywords="child safety check-in app, kids check-in app, teen safety app, latchkey kid app, child wellness check app, kids playing outside safety, after school check-in app, parent child check-in, child safety app no tracking, teen check-in app for parents, kid home alone safety app"
         jsonLd={faqJsonLd}
@@ -75,7 +75,7 @@ export default function ChildSafety() {
           <p className="cs-hero-subtitle">
             Whether they're playing outside, walking home from school, or staying home
             alone — Daily OK lets you check in with your children every day. One notification.
-            One tap. No GPS tracking, no surveillance. Just a simple "I'm OK."
+            One tap. No surveillance, and location stays off unless they choose to share it. Just a simple "I'm OK."
           </p>
           <div className="hero-actions">
             <a
@@ -186,8 +186,8 @@ export default function ChildSafety() {
           <div className="cs-privacy-grid">
             <div className="cs-privacy-item">
               <div className="no-icon"><MapPin size={24} /></div>
-              <h3>No GPS tracking</h3>
-              <p>We never access your child's location</p>
+              <h3>Location off by default</h3>
+              <p>Location is off unless your child chooses to share it</p>
             </div>
             <div className="cs-privacy-item">
               <div className="no-icon"><Camera size={24} /></div>

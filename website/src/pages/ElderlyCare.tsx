@@ -57,7 +57,7 @@ export default function ElderlyCare() {
     <>
       <SEO
         title="Check-In App for Elderly Parents & Dementia Care"
-        description="For adult children of a parent living alone, dementia included. One tap a day, escalating alerts if it is missed. No location tracking."
+        description="For adult children of a parent living alone, dementia included. One tap a day, escalating alerts if it is missed. Location off by default."
         path="/elderly-care"
         keywords="elderly parent check-in app, dementia caregiver app, alzheimers check-in app, aging parent safety, senior daily check-in, check on elderly parents app, dementia daily wellness check, aging in place app, elderly living alone safety, caregiver peace of mind app, senior wellness monitoring, daily check-in for seniors"
         jsonLd={faqJsonLd}
@@ -187,8 +187,8 @@ export default function ElderlyCare() {
               <div className="ec-solution-icon"><Heart size={28} /></div>
               <h3>Dignity-first design</h3>
               <p>
-                No location tracking. No cameras. No microphone access. No wearables.
-                Daily OK preserves your parent's independence while giving you peace of mind.
+                No cameras. No microphone access. No wearables. Location is off unless your
+                parent chooses to share it. Daily OK preserves your parent's independence while giving you peace of mind.
               </p>
             </div>
           </div>

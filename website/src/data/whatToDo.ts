@@ -229,7 +229,7 @@ export const whatToDoPages: WhatToDoPage[] = [
       'Her contacts also cannot reach her and last-seen details are genuinely worrying — then non-emergency police.',
     ],
     prevention:
-      "The durable answer for a teen is a consented habit, not tracking. With Daily OK she taps \"I'm OK\" at agreed times with no location sharing — reassurance for you, autonomy for her. Presented as a way to reduce check-up calls rather than to monitor, it builds trust instead of the cat-and-mouse dynamic covert tracking creates.",
+      "The durable answer for a teen is a consented habit, not tracking. With Daily OK she taps \"I'm OK\" at agreed times, with location off unless she chooses to share it — reassurance for you, autonomy for her. Presented as a way to reduce check-up calls rather than to monitor, it builds trust instead of the cat-and-mouse dynamic covert tracking creates.",
     variants: [
       {
         heading: 'Keep the response proportionate',
@@ -248,7 +248,7 @@ export const whatToDoPages: WhatToDoPage[] = [
       { q: 'Is secret location tracking a good idea?', a: 'It generally erodes trust once discovered and teaches avoidance. A consent-based check-in at agreed times is more sustainable and still gives you reassurance.' },
       { q: 'When should police be involved?', a: 'When she is well past a concrete expected time, contacts cannot account for her, and there is real concern. Use the non-emergency line unless there is a specific immediate-danger sign.' },
       { q: 'Her phone is always on silent — how do I get reliability?', a: 'Expecting answered calls is unreliable for teens. A single-tap agreed check-in habit is far more dependable and does not feel like surveillance.' },
-      { q: "She'll think a check-in means I don't trust her — how do I frame it?", a: 'Frame it honestly: a one-tap, no-location check-in exists so you do not have to call and hover. Most teens accept that trade because it gives them more space, not less.' },
+      { q: "She'll think a check-in means I don't trust her — how do I frame it?", a: 'Frame it honestly: a one-tap check-in, with location off unless she chooses to share it, exists so you do not have to call and hover. Most teens accept that trade because it gives them more space, not less.' },
     ],
   },
   {
@@ -284,13 +284,13 @@ export const whatToDoPages: WhatToDoPage[] = [
       'Campus contacts cannot confirm safety — escalate to campus police for a room welfare check.',
     ],
     prevention:
-      "For a college student the fix is the lowest-friction reassurance possible, because anything heavy-handed gets ignored. Daily OK is a one-tap, no-location check-in at a time they choose — reassurance for you without intruding on their independence or asking roommates and RAs to be your eyes. It replaces the awkward \"why didn't you call me back\" loop with a habit they actually keep.",
+      "For a college student the fix is the lowest-friction reassurance possible, because anything heavy-handed gets ignored. Daily OK is a one-tap check-in at a time they choose, with location off unless they choose to share it — reassurance for you without intruding on their independence or asking roommates and RAs to be your eyes. It replaces the awkward \"why didn't you call me back\" loop with a habit they actually keep.",
     faqs: [
       { q: 'How long should I wait before worrying about a college student?', a: 'Usually longer than you instinctively want to. A day of silence during a normal semester is common. Concern is more justified when it clearly breaks their established pattern or coincides with a specific worry.' },
       { q: 'Can I get someone to check their dorm?', a: "Yes. The residence hall front desk or Resident Advisor can often do an informal check, and campus police can perform a formal welfare check on university housing. Have their full name, dorm, and room number ready." },
       { q: 'Is it 911 or campus police?', a: 'For a specific immediate-danger concern, 911. For "I cannot reach my student and I am worried," campus police or the dean of students / wellness office is the appropriate, proportionate route.' },
       { q: "They're an adult — will the school even talk to me?", a: 'Schools generally will accept a welfare-concern request and check on a student even when privacy rules limit what they can share back. You can ask them to confirm contact was made without expecting detailed information.' },
-      { q: "They find daily contact smothering — what's realistic?", a: 'A single daily tap with no location and no call is about the least intrusive option that still gives reassurance. Framed as replacing check-up calls, most students tolerate it far better than phone expectations.' },
+      { q: "They find daily contact smothering — what's realistic?", a: 'A single daily tap, with no call and location off unless they share it, is about the least intrusive option that still gives reassurance. Framed as replacing check-up calls, most students tolerate it far better than phone expectations.' },
     ],
   },
   {
@@ -368,12 +368,12 @@ export const whatToDoPages: WhatToDoPage[] = [
       'Their household contacts cannot confirm safety and the situation is genuinely worrying — then non-emergency police.',
     ],
     prevention:
-      "With an independent adult child the fix has to be light enough not to feel like parenting. Daily OK is a one-tap, no-location, mutually framed check-in — they tap once on agreed days, you are alerted only if it is missed. Presented as \"so I do not call and worry,\" it gives you reassurance while explicitly respecting that they run their own life.",
+      "With an independent adult child the fix has to be light enough not to feel like parenting. Daily OK is a one-tap, mutually framed check-in with location off unless they choose to share it — they tap once on agreed days, you are alerted only if it is missed. Presented as \"so I do not call and worry,\" it gives you reassurance while explicitly respecting that they run their own life.",
     faqs: [
       { q: 'How long before I worry about an adult child?', a: 'Generally a good while. Adults are not obliged to answer promptly, and a day of silence is often nothing. Concern is more justified when it clearly breaks their pattern or there is a specific reason.' },
       { q: 'Is it overstepping to call their workplace or partner?', a: 'For a single missed call, usually yes. For a genuine, specific concern when you cannot reach them, contacting their partner or a close contact is reasonable — lead with concern, not accusation.' },
       { q: 'When is a welfare check or 911 appropriate?', a: 'A specific immediate-danger reason → 911. A specific genuine concern with no way to confirm safety → non-emergency police welfare check. Avoid escalating purely on an unanswered call.' },
-      { q: 'They feel I worry too much — how do I handle that?', a: 'Acknowledge it and shift to the lowest-friction option: a single agreed daily tap with no location and no call replaces anxious phoning with a habit, which most adult children find less intrusive, not more.' },
+      { q: 'They feel I worry too much — how do I handle that?', a: 'Acknowledge it and shift to the lowest-friction option: a single agreed daily tap, with no call and location off unless they share it, replaces anxious phoning with a habit, which most adult children find less intrusive, not more.' },
       { q: "Won't a check-in feel like I'm treating them like a kid?", a: 'Only if it is framed as control. Framed as mutual and minimal — one tap, no tracking, so you stop calling to check — it reads as respect for their time rather than distrust.' },
     ],
   },

@@ -98,7 +98,7 @@
     },
     {
       "feature": "Privacy footprint",
-      "daily_ok": "No location, mic, or camera",
+      "daily_ok": "No mic or camera; location opt-in",
       "competitor": "Mic + ambient sensors in home",
       "winner": "daily_ok"
     },
@@ -109,8 +109,8 @@
       "winner": "tie"
     },
     {
-      "feature": "Works on iOS and Android",
-      "daily_ok": "Yes",
+      "feature": "Phone platforms",
+      "daily_ok": "iPhone only for now",
       "competitor": "App yes; core is hardware",
       "winner": "different"
     },
@@ -145,7 +145,7 @@
     },
     {
       "q": "Does Daily OK use in-home sensors or a microphone?",
-      "a": "No. Daily OK has no location, microphone, camera, or ambient sensors. It only knows whether your parent tapped the daily check-in."
+      "a": "No. Daily OK has no microphone, camera, or ambient sensors, and location is off unless your parent chooses to share it. Otherwise it only knows whether your parent tapped the daily check-in."
     },
     {
       "q": "Can I use both?",
