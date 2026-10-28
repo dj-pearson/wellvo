@@ -5,6 +5,7 @@ import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { isSupabaseConfigured } from '../lib/supabaseConfig'
 import { useBlogSeed } from '../lib/blogSeedContext'
 import { POST_SUMMARY_COLUMNS, type PublicPostSummary } from '../lib/blogTypes'
+import { formatPostDate } from '../lib/blogDate'
 
 export default function Blog() {
   // Seeded at build time by +onBeforePrerenderStart.ts so the prerendered
@@ -77,10 +78,10 @@ export default function Blog() {
 
       <section className="section">
         <div className="container">
-          {loading && <div className="blog-empty">Loading…</div>}
-          {error && <div className="blog-empty">{error}</div>}
+          {loading && <div className="blog-empty" role="status" aria-live="polite">Loading…</div>}
+          {error && <div className="blog-empty" role="alert">{error}</div>}
           {!loading && !error && posts.length === 0 && (
-            <div className="blog-empty">No posts yet. Check back soon.</div>
+            <div className="blog-empty" role="status" aria-live="polite">No posts yet. Check back soon.</div>
           )}
 
           <div className="blog-grid">
@@ -93,11 +94,9 @@ export default function Blog() {
                   {p.category && <span className="blog-card-cat">{p.category}</span>}
                   <h2>{p.title}</h2>
                   {p.excerpt && <p>{p.excerpt}</p>}
-                  <div className="blog-card-meta">
-                    {new Date(p.published_at).toLocaleDateString(undefined, {
-                      year: 'numeric', month: 'short', day: 'numeric',
-                    })}
-                  </div>
+                  <time className="blog-card-meta" dateTime={p.published_at}>
+                    {formatPostDate(p.published_at, 'short')}
+                  </time>
                 </div>
               </Link>
             ))}

@@ -120,8 +120,17 @@
 }
 .blog-article-hero {
   width: 100%;
+  aspect-ratio: 1200 / 630;
   border-radius: 16px;
+  overflow: hidden;
   margin-bottom: 32px;
+  background-color: var(--gray-100);
+}
+.blog-article-hero img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .blog-article-body {
   font-size: 17px;
@@ -144,9 +153,10 @@
 .blog-article-body ul, .blog-article-body ol { margin: 16px 0; padding-left: 28px; }
 .blog-article-body li { margin: 6px 0; }
 .blog-article-body blockquote {
-  border-left: 4px solid var(--green-500);
-  padding: 6px 18px;
-  color: var(--gray-600);
+  background: var(--green-50);
+  border-radius: 12px;
+  padding: 14px 20px;
+  color: var(--green-900);
   margin: 20px 0;
   font-style: italic;
 }

@@ -8,6 +8,7 @@ import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { useBlogSeed } from '../lib/blogSeedContext'
 import { BLOG_HTML_ALLOWLIST, POST_COLUMNS, hardenBlogLinks, type PublicPost } from '../lib/blogTypes'
 import { canonicalUrl } from '../lib/canonical'
+import { formatPostDate } from '../lib/blogDate'
 
 
 export default function BlogPost() {
@@ -98,7 +99,7 @@ export default function BlogPost() {
   if (loading) {
     return (
       <section className="section">
-        <div className="container"><div className="blog-empty">Loading…</div></div>
+        <div className="container"><div className="blog-empty" role="status" aria-live="polite">Loading…</div></div>
       </section>
     )
   }
@@ -108,7 +109,7 @@ export default function BlogPost() {
       <section className="section">
         <div className="container">
           <div className="blog-empty">
-            <h2>Post not found</h2>
+            <h1>Post not found</h1>
             <p><Link to="/blog/">Back to blog</Link></p>
           </div>
         </div>
@@ -155,13 +156,18 @@ export default function BlogPost() {
         <div className="container" style={{ maxWidth: 760 }}>
           <div className="blog-article-meta">
             <Link to="/blog/">← All posts</Link>
-            <span>{new Date(post.published_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <time dateTime={post.published_at}>{formatPostDate(post.published_at)}</time>
           </div>
           {post.category && <span className="blog-card-cat" style={{ marginBottom: 10 }}>{post.category}</span>}
           <h1>{post.title}</h1>
           {post.excerpt && <p className="blog-article-lede">{post.excerpt}</p>}
           {post.featured_image_url && (
-            <img src={post.featured_image_url} alt={post.title} className="blog-article-hero" />
+            // alt="" — the <h1> above already says what this is; repeating the
+            // title to a screen reader adds nothing. fetchPriority because
+            // it is usually the LCP element; the frame reserves its box.
+            <div className="blog-article-hero">
+              <img src={post.featured_image_url} alt="" fetchPriority="high" decoding="async" />
+            </div>
           )}
 
           <div className="blog-article-body" dangerouslySetInnerHTML={{ __html: safeHtml }} />
