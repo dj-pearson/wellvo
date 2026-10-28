@@ -1,6 +1,6 @@
 /* Elderly Care Hero */
 .ec-hero {
-  background: linear-gradient(135deg, var(--green-50) 0%, var(--white) 50%, #f0faf6 100%);
+  background: var(--green-50);
   padding: 100px 0 80px;
   text-align: center;
 }

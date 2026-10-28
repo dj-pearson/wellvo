@@ -1,5 +1,5 @@
 .pricing-hero {
-  background: linear-gradient(135deg, var(--green-50) 0%, var(--white) 100%);
+  background: var(--green-50);
   padding: 80px 0 48px;
   text-align: center;
 }
@@ -32,7 +32,7 @@
 .plan-card {
   background: var(--white);
   border: 2px solid var(--gray-100);
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   padding: 36px;
   position: relative;
   transition: all 0.2s;
@@ -41,9 +41,9 @@
   border-color: var(--gray-200);
 }
 
+/* Elevation is declared once: the green border carries the emphasis, no shadow. */
 .plan-highlight {
   border-color: var(--green-400);
-  box-shadow: 0 8px 32px rgba(46, 204, 113, 0.12);
 }
 .plan-highlight:hover {
   border-color: var(--green-500);
@@ -261,4 +261,20 @@
     grid-template-columns: 1fr;
     gap: 24px;
   }
+}
+
+/* Subscription terms box (App Store auto-renew disclosure). */
+.pricing-terms {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  padding: 20px 24px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--gray-700);
+  background: var(--gray-50);
+}
+
+.pricing-terms ul {
+  margin-top: 8px;
+  padding-left: 20px;
 }

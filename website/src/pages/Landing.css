@@ -5,11 +5,11 @@
 
 .lp-breadcrumb {
   font-size: 0.85rem;
-  color: #6b7280;
+  color: var(--gray-600);
   margin-bottom: 1rem;
 }
 .lp-breadcrumb a {
-  color: #6b7280;
+  color: var(--gray-600);
   text-decoration: none;
 }
 .lp-breadcrumb a:hover {
@@ -17,21 +17,20 @@
 }
 
 .lp-tldr {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: var(--green-50);
+  border: 1px solid var(--green-200);
   border-radius: 12px;
   padding: 1.1rem 1.4rem;
   margin: 1.5rem auto 0;
   max-width: 640px;
   font-size: 1.02rem;
   line-height: 1.55;
-  color: #14532d;
+  color: var(--green-900);
 }
 .lp-tldr strong {
   display: block;
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: 0.9rem;
+  font-weight: 600;
   color: var(--green-accessible);
   margin-bottom: 0.35rem;
 }
@@ -43,7 +42,7 @@
 .lp-prose p {
   font-size: 1.05rem;
   line-height: 1.7;
-  color: #374151;
+  color: var(--gray-700);
   margin-bottom: 1.1rem;
 }
 .lp-prose h2 {
@@ -63,43 +62,43 @@
 }
 .lp-compare-table th,
 .lp-compare-table td {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--gray-200);
   padding: 0.7rem 0.9rem;
   text-align: left;
   vertical-align: top;
 }
 .lp-compare-table thead th {
-  background: #f9fafb;
+  background: var(--gray-50);
   font-weight: 600;
 }
 .lp-compare-table td:first-child {
   font-weight: 500;
-  color: #111827;
+  color: var(--gray-900);
 }
 
 .lp-phone {
   margin: 0 auto;
   width: 220px;
-  border: 10px solid #111827;
+  border: 10px solid var(--gray-900);
   border-radius: 36px;
-  background: #ecfdf5;
+  background: var(--green-50);
   padding: 2.5rem 1rem;
   text-align: center;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
 }
 .lp-phone-time {
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--gray-600);
   margin-bottom: 1.5rem;
 }
 .lp-phone-prompt {
   font-size: 1rem;
-  color: #374151;
+  color: var(--gray-700);
   margin-bottom: 1.5rem;
 }
 .lp-phone-btn {
   background: var(--green-accessible);
-  color: #fff;
+  color: var(--white);
   border-radius: 999px;
   padding: 1.1rem 1rem;
   font-size: 1.3rem;
@@ -108,7 +107,7 @@
 .lp-phone-caption {
   text-align: center;
   font-size: 0.85rem;
-  color: #6b7280;
+  color: var(--gray-600);
   margin-top: 0.9rem;
 }
 

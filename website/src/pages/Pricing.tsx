@@ -184,19 +184,9 @@ export default function Pricing() {
 
       <section className="section">
         <div className="container">
-          <div
-            style={{
-              border: '1px solid var(--gray-200, #e5e7eb)',
-              borderRadius: 12,
-              padding: '20px 24px',
-              fontSize: 14,
-              lineHeight: 1.6,
-              color: 'var(--gray-700, #374151)',
-              background: 'var(--gray-50, #f9fafb)',
-            }}
-          >
+          <div className="pricing-terms">
             <strong>Subscription details (please read before subscribing):</strong>
-            <ul style={{ marginTop: 8, paddingLeft: 20 }}>
+            <ul>
               <li>
                 Subscriptions are billed through the Apple App Store and{' '}
                 <strong>renew automatically</strong> at the price and interval shown above

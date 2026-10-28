@@ -1,5 +1,5 @@
 .support-hero {
-  background: linear-gradient(135deg, var(--green-50) 0%, var(--white) 100%);
+  background: var(--green-50);
   padding: 80px 0 48px;
   text-align: center;
 }
@@ -73,7 +73,7 @@
   text-align: center;
   background: var(--green-50);
   border: 1px solid var(--green-100);
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   padding: 48px 40px;
 }
 

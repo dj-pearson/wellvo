@@ -68,6 +68,18 @@
   --red-600: #dc2626;
   --red-700: #b91c1c;
 
+  /*
+    Warm neutral surface: a quiet off-white with a hint of warmth, used where
+    a section needs to read as distinct from both white and the green tints
+    (e.g. the Receiver side of the home page "two sides" cards).
+  */
+  --warm-50: #faf8f5;
+  --warm-200: #e9e4dc;
+
+  /* Card radii (house style: 12-16px). */
+  --radius-card: 16px;
+  --radius-sm: 12px;
+
   --white: #ffffff;
   --black: #000000;
 

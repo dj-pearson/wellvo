@@ -70,7 +70,7 @@
      was only 2.1 to 2.9:1. White on this is 5.06:1. */
   background: var(--green-accessible);
   color: white;
-  border-radius: 24px;
+  border-radius: var(--radius-card);
   padding: 64px 40px;
 }
 

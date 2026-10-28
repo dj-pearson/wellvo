@@ -75,11 +75,13 @@ export default function CookieConsent() {
             <Link to="/privacy/">Privacy Policy</Link>.
           </p>
         </div>
+        {/* Equal visual weight for both choices: declining must be as easy to
+            see and press as accepting (EDPB/ICO guidance on consent banners). */}
         <div className="cookie-consent-actions">
-          <button type="button" className="btn btn-outline" onClick={decline}>
+          <button type="button" className="btn btn-secondary" onClick={decline}>
             Decline
           </button>
-          <button type="button" className="btn btn-primary" onClick={accept}>
+          <button type="button" className="btn btn-secondary" onClick={accept}>
             Accept analytics
           </button>
         </div>

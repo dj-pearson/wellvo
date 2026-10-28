@@ -1,6 +1,6 @@
 /* Hero */
 .hero {
-  background: linear-gradient(135deg, var(--green-50) 0%, var(--white) 50%, #f0faf6 100%);
+  background: var(--green-50);
   padding: 100px 0 80px;
   text-align: center;
 }
@@ -140,7 +140,6 @@
 }
 .feature-card:hover {
   border-color: var(--green-200);
-  box-shadow: 0 4px 16px rgba(46, 204, 113, 0.08);
 }
 
 .feature-icon {
@@ -180,31 +179,30 @@
 }
 
 .side-card {
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   padding: 40px;
 }
 
 .owner-side {
-  background: linear-gradient(135deg, var(--green-50), #e8faf0);
+  background: var(--green-50);
   border: 1px solid var(--green-100);
 }
 
+/* Receiver side is told apart by a warm neutral surface, not a second hue. */
 .receiver-side {
-  background: linear-gradient(135deg, #f0f4ff, #e8ecf8);
-  border: 1px solid #dde3f0;
+  background: var(--warm-50);
+  border: 1px solid var(--warm-200);
 }
 
 .side-label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   color: var(--green-accessible);
   margin-bottom: 8px;
 }
 
 .receiver-side .side-label {
-  color: #5b6abf;
+  color: var(--gray-700);
 }
 
 .side-card h3 {
@@ -235,7 +233,7 @@
 }
 
 .receiver-side li svg {
-  color: #7c8ae6;
+  color: var(--gray-600);
 }
 
 /* Not surveillance */
