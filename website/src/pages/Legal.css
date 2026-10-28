@@ -4,7 +4,8 @@
 }
 
 .legal-content {
-  max-width: 760px;
+  /* ~68 characters per line: easier to track line-to-line for older readers. */
+  max-width: 68ch;
   margin: 0 auto;
 }
 
@@ -44,7 +45,7 @@
 }
 
 .legal-content p {
-  font-size: 15px;
+  font-size: 16px;
   color: var(--gray-600);
   line-height: 1.75;
   margin-bottom: 12px;
@@ -56,7 +57,7 @@
 }
 
 .legal-content li {
-  font-size: 15px;
+  font-size: 16px;
   color: var(--gray-600);
   line-height: 1.75;
   margin-bottom: 6px;

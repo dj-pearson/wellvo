@@ -20,7 +20,7 @@
 }
 
 .wtd-list {
-  max-width: 760px;
+  max-width: 68ch;
   margin: 0.5rem auto 1.5rem;
   padding-left: 1.3rem;
 }
@@ -32,7 +32,7 @@
 }
 
 .wtd-script {
-  max-width: 760px;
+  max-width: 68ch;
   margin: 1rem auto 1.4rem;
   background: var(--green-50);
   border-radius: var(--radius-sm);

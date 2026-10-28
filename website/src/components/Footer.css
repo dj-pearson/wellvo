@@ -57,19 +57,23 @@
 .footer-col {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 2px;
 }
 
 .footer-col h2 {
   color: var(--white);
   font-size: 15px;
   font-weight: 600;
-  margin-bottom: 4px;
+  margin-bottom: 0;
 }
 
 .footer-col a {
   color: var(--gray-400);
-  font-size: 14px;
+  font-size: 15px;
+  /* Padding, not gap, so each link is a >=44px tap target (WCAG 2.5.8 / 2.5.5). */
+  display: flex;
+  align-items: center;
+  min-height: 44px;
   transition: color 0.2s;
 }
 .footer-col a:hover {

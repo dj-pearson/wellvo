@@ -36,7 +36,8 @@
 }
 
 .lp-prose {
-  max-width: 760px;
+  /* 68ch of text plus the .container's 24px side padding. */
+  max-width: calc(68ch + 48px);
   margin: 0 auto;
 }
 .lp-prose p {

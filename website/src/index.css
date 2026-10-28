@@ -2,10 +2,7 @@
   Self-hosted Inter (US-WEB020). Variable font, weights 400-700 in one file,
   so the whole type scale costs a single 48 KB request instead of four static
   weights fetched from fonts.gstatic.com. font-display: swap keeps text
-  painted in the system stack while it loads; size-adjust and the metric
-  overrides are omitted deliberately because the fallback stack below is
-  already close enough that the swap does not shift layout meaningfully at
-  our body size, and guessing at metrics would make it worse.
+  painted in the fallback stack while it loads.
 */
 @font-face {
   font-family: 'Inter';
@@ -29,7 +26,23 @@
     U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
+/*
+  Metric-matched fallback: local Arial scaled to Inter's advance widths and
+  vertical metrics, so the swap to Inter barely moves text (cuts CLS).
+*/
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial');
+  size-adjust: 107.12%;
+  ascent-override: 90.44%;
+  descent-override: 22.52%;
+  line-gap-override: 0%;
+}
+
 :root {
+  /* Light-only site: keep form controls and scrollbars light under dark OS themes. */
+  color-scheme: light;
+
   --green-50: #f0fdf4;
   --green-100: #dcfce7;
   --green-200: #bbf7d0;
@@ -83,7 +96,7 @@
   --white: #ffffff;
   --black: #000000;
 
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Inter', 'Inter Fallback', system-ui, -apple-system, sans-serif;
 
   font-family: var(--font-sans);
   line-height: 1.6;
