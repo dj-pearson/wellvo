@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import SEO from '../components/SEO'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
-import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
+import { isSupabaseConfigured } from '../lib/supabaseConfig'
 import { useBlogSeed } from '../lib/blogSeedContext'
 import { POST_SUMMARY_COLUMNS, type PublicPostSummary } from '../lib/blogTypes'
-import './Blog.css'
+import { formatPostDate } from '../lib/blogDate'
 
 export default function Blog() {
   // Seeded at build time by +onBeforePrerenderStart.ts so the prerendered
@@ -29,8 +29,8 @@ export default function Blog() {
 
   useEffect(() => {
     if (!needsFetch) return
-    const supabase = getSupabase()
-    supabase
+    // Lazy so supabase-js only loads when the prerender had no seed for us.
+    import('../lib/supabasePublic').then(({ getPublicSupabase }) => getPublicSupabase()
       .from('blog_posts')
       .select(POST_SUMMARY_COLUMNS)
       .eq('status', 'published')
@@ -44,6 +44,10 @@ export default function Blog() {
           return
         }
         setPosts((data as PublicPostSummary[]) ?? [])
+        setLoading(false)
+      }))
+      .catch((err: unknown) => {
+        setFetchError(err instanceof Error ? err.message : 'Could not load the blog')
         setLoading(false)
       })
   }, [needsFetch])
@@ -74,10 +78,10 @@ export default function Blog() {
 
       <section className="section">
         <div className="container">
-          {loading && <div className="blog-empty">Loading…</div>}
-          {error && <div className="blog-empty">{error}</div>}
+          {loading && <div className="blog-empty" role="status" aria-live="polite">Loading…</div>}
+          {error && <div className="blog-empty" role="alert">{error}</div>}
           {!loading && !error && posts.length === 0 && (
-            <div className="blog-empty">No posts yet. Check back soon.</div>
+            <div className="blog-empty" role="status" aria-live="polite">No posts yet. Check back soon.</div>
           )}
 
           <div className="blog-grid">
@@ -90,11 +94,9 @@ export default function Blog() {
                   {p.category && <span className="blog-card-cat">{p.category}</span>}
                   <h2>{p.title}</h2>
                   {p.excerpt && <p>{p.excerpt}</p>}
-                  <div className="blog-card-meta">
-                    {new Date(p.published_at).toLocaleDateString(undefined, {
-                      year: 'numeric', month: 'short', day: 'numeric',
-                    })}
-                  </div>
+                  <time className="blog-card-meta" dateTime={p.published_at}>
+                    {formatPostDate(p.published_at, 'short')}
+                  </time>
                 </div>
               </Link>
             ))}

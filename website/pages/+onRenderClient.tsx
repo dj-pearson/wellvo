@@ -2,7 +2,6 @@ import { hydrateRoot, createRoot } from 'react-dom/client'
 import { StrictMode } from 'react'
 import { BrowserRouter } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
-import { AdminAuthProvider } from '../src/admin/AdminAuthProvider'
 import ErrorBoundary from '../src/components/ErrorBoundary'
 import { initSentry } from '../src/lib/sentry'
 import { BlogSeedProvider } from '../src/lib/blogSeed'
@@ -10,8 +9,9 @@ import { seedFromPageContext } from '../src/lib/blogSeedContext'
 import type { PageContextClient } from 'vike/types'
 import Page from './+Page'
 
-// Route browser errors to the Daily OK Sentry project. Runs once on first
-// client render; prerender/SSR (onRenderHtml) never calls this.
+// Route browser errors to the Daily OK Sentry project. This only buffers
+// early errors and schedules the SDK import for when the browser is idle, so
+// Sentry stays off the hydration critical path. Prerender/SSR never calls it.
 initSentry()
 
 let rendered = false
@@ -29,11 +29,9 @@ export default async function onRenderClient(pageContext: PageContextClient) {
       <ErrorBoundary>
         <HelmetProvider>
           <BlogSeedProvider seed={blogSeed}>
-            <AdminAuthProvider>
-              <BrowserRouter>
-                <Page />
-              </BrowserRouter>
-            </AdminAuthProvider>
+            <BrowserRouter>
+              <Page />
+            </BrowserRouter>
           </BlogSeedProvider>
         </HelmetProvider>
       </ErrorBoundary>

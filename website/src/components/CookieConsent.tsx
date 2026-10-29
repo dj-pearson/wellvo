@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import {
   getStoredConsent,
   storeConsent,
   loadGoogleAnalytics,
   hasGlobalPrivacyControlOptOut,
+  syncAnalyticsPage,
 } from '../lib/consent'
 import './CookieConsent.css'
 
@@ -15,6 +16,13 @@ import './CookieConsent.css'
  */
 export default function CookieConsent() {
   const [visible, setVisible] = useState(false)
+  const location = useLocation()
+
+  // Keep GA's page_location scrubbed across SPA navigations (no-op until GA
+  // has loaded with consent).
+  useEffect(() => {
+    syncAnalyticsPage()
+  }, [location.pathname])
 
   useEffect(() => {
     // Honor an existing choice or a Global Privacy Control opt-out signal.
@@ -67,11 +75,13 @@ export default function CookieConsent() {
             <Link to="/privacy/">Privacy Policy</Link>.
           </p>
         </div>
+        {/* Equal visual weight for both choices: declining must be as easy to
+            see and press as accepting (EDPB/ICO guidance on consent banners). */}
         <div className="cookie-consent-actions">
-          <button type="button" className="btn btn-outline" onClick={decline}>
+          <button type="button" className="btn btn-secondary" onClick={decline}>
             Decline
           </button>
-          <button type="button" className="btn btn-primary" onClick={accept}>
+          <button type="button" className="btn btn-secondary" onClick={accept}>
             Accept analytics
           </button>
         </div>

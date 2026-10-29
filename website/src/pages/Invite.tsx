@@ -1,8 +1,8 @@
 import { useMemo, useSyncExternalStore } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import SEO from '../components/SEO'
-import { APP_STORE_URL, PLAY_STORE_URL, detectPlatform, readInvite, type Platform } from '../lib/invite'
-import './Invite.css'
+import { APP_STORE_URL } from '../lib/appStore'
+import { detectPlatform, readInvite, type Platform } from '../lib/invite'
 
 /**
  * Landing page for the link an owner texts to a receiver:
@@ -11,7 +11,7 @@ import './Invite.css'
  * When Universal Links / App Links are set up and the app is installed, the OS
  * opens the app directly and this page is never seen. Otherwise this is where
  * the receiver lands, so it has one job: get them into the app, already linked.
- *   1. Get the app — the store for their phone first.
+ *   1. Get the app — iPhone only for now, so Android visitors are told so.
  *   2. Open it — a `dailyok://invite?token=…` button hands the invite to the
  *      app (works without any domain association).
  *   3. The setup code, large, for when the app asks for it.
@@ -28,7 +28,8 @@ export default function Invite() {
   const { token, code } = useMemo(() => readInvite(pathToken, search), [pathToken, search])
 
   // Prerendered HTML can't know the visitor's phone, so the server snapshot
-  // shows both stores; after hydration the matching one moves first.
+  // renders the iPhone copy; after hydration an Android visitor is told
+  // plainly that there is no Android app yet instead of a dead-end store link.
   const platform: Platform = useSyncExternalStore(
     noSubscribe,
     () => detectPlatform(navigator.userAgent),
@@ -36,26 +37,6 @@ export default function Invite() {
   )
 
   const openInAppHref = token ? `dailyok://invite?token=${token}` : 'dailyok://'
-
-  const appStore = (
-    <a
-      className={`btn ${platform === 'android' ? 'btn-outline' : 'btn-primary'} invite-store`}
-      href={APP_STORE_URL}
-      key="ios"
-    >
-      Get it on the App Store
-    </a>
-  )
-  const playStore = (
-    <a
-      className={`btn ${platform === 'android' ? 'btn-primary' : 'btn-outline'} invite-store`}
-      href={PLAY_STORE_URL}
-      key="android"
-    >
-      Get it on Google Play
-    </a>
-  )
-  const stores = platform === 'android' ? [playStore, appStore] : [appStore, playStore]
 
   return (
     <div className="invite section">
@@ -76,7 +57,16 @@ export default function Invite() {
         <ol className="invite-steps">
           <li>
             <h2>Get the app</h2>
-            <div className="invite-stores">{stores}</div>
+            <div className="invite-stores">
+              <a className="btn btn-primary invite-store" href={APP_STORE_URL}>
+                Get it on the App Store
+              </a>
+            </div>
+            <p className="invite-note">
+              {platform === 'android'
+                ? "Daily OK is iPhone-only for now, so it won't install on this phone. Open this invite on an iPhone or iPad instead."
+                : 'Daily OK is available for iPhone and iPad.'}
+            </p>
           </li>
 
           <li>

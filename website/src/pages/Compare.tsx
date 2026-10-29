@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom'
 import SEO from '../components/SEO'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { competitors } from '../data/competitors'
-import './Compare.css'
 
 export default function Compare() {
   return (

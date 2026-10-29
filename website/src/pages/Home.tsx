@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { trackEvent } from '../utils/analytics'
 import SEO, { APP_STORE_URL } from '../components/SEO'
+import AppStoreInstall from '../components/AppStoreInstall'
 import {
   Heart,
   Shield,
@@ -15,47 +16,59 @@ import {
   Camera,
   Mic,
 } from 'lucide-react'
-import './Home.css'
 
 export default function Home() {
   return (
     <>
       <SEO
         title="Daily OK — Senior Check-In App for Aging Parents"
-        description="One tap a day says your aging parent is OK. Miss it and family is alerted. No pendant, no GPS, no cameras. From $3.99/mo with a free trial."
+        description="One tap a day says your aging parent is OK. Miss it and family is alerted. No pendant, no cameras, location off by default. From $3.99/mo, free trial."
         path="/"
         keywords="senior check-in app, check-in app for elderly, daily check-in app for seniors, check-in app for elderly parents, elderly safety app, aging parent check-in, wellness check app, welfare check elderly parent, medical alert alternative, aging in place app, dementia caregiver app, caregiver app for elderly, check on elderly parents, teen check-in app"
       />
 
       {/* Hero */}
       <section className="hero">
-        <div className="container hero-inner">
-          <div className="hero-badge">Senior Check-In App for Aging Parents</div>
-          <h1 className="hero-title">
-            Know your aging parent is OK —{' '}
-            <span className="hero-highlight">every single day</span>
-          </h1>
-          <p className="hero-subtitle">
-            Daily OK gives you a reliable daily signal that your aging parent is OK — one
-            notification, one tap, no pendant or GPS tracking. The same gentle daily check-in
-            works for a teen or anyone else you worry about, too.
-          </p>
-          <div className="hero-actions">
-            <a
-              href={APP_STORE_URL}
-              className="btn btn-primary btn-lg"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => trackEvent('download_cta_click')}
-            >
-              Download for iPhone
-              <ArrowRight size={18} />
-            </a>
-            <Link to="/pricing/" className="btn btn-secondary btn-lg">
-              View Pricing
-            </Link>
+        <div className="container hero-inner hero-split">
+          <div className="hero-copy">
+            <div className="hero-badge">Senior Check-In App for Aging Parents</div>
+            <h1 className="hero-title">
+              Know your aging parent is OK —{' '}
+              <span className="hero-highlight">every single day</span>
+            </h1>
+            <p className="hero-subtitle">
+              Daily OK gives you a reliable daily signal that your aging parent is OK — one
+              notification, one tap, no pendant, and location stays off unless they choose to
+              share it. The same gentle daily check-in
+              works for a teen or anyone else you worry about, too.
+            </p>
+            <div className="hero-actions">
+              <a
+                href={APP_STORE_URL}
+                className="btn btn-primary btn-lg"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackEvent('download_cta_click')}
+              >
+                Download for iPhone
+                <ArrowRight size={18} />
+              </a>
+              <Link to="/pricing/" className="btn btn-secondary btn-lg">
+                View Pricing
+              </Link>
+            </div>
+            <p className="hero-note">7-day free trial on every plan. Cancel anytime.</p>
+            <AppStoreInstall className="hero-install" />
           </div>
-          <p className="hero-note">7-day free trial on every plan. Cancel anytime.</p>
+          {/* Decorative: pure HTML/CSS (no image request), so it never competes
+              with the headline for LCP. Hidden on phones. */}
+          <div className="hero-visual" aria-hidden="true">
+            <div className="lp-phone">
+              <div className="lp-phone-time">Today, 10:00 AM</div>
+              <div className="lp-phone-prompt">Good morning! Tap to let your family know you're OK.</div>
+              <div className="lp-phone-btn">I'm OK</div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -265,9 +278,9 @@ export default function Home() {
               <div className="no-icon"><MapPin size={24} /></div>
               <h3>Location Is Optional</h3>
               <p>
-                Receivers can choose to attach a location pin to their check-in. Location is
-                only collected with your permission, never sold, and can be turned off at any
-                time. <a href="/privacy/">Read how we handle your data</a>.
+                Location is off unless your loved one chooses to share it. If they do, a
+                location pin rides along with their check-in. It is never sold, and they can
+                turn it off at any time. <Link to="/privacy/">Read how we handle your data</Link>.
               </p>
             </div>
             <div className="no-track-item">

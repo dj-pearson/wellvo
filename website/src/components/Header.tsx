@@ -1,19 +1,27 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
 import { APP_STORE_URL } from './SEO'
 import './Header.css'
 
 export default function Header() {
-  const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
+  // The menu remembers which pathname it was opened on, so any navigation
+  // (nav links, back/forward, in-page links) closes it without an effect.
+  const [openedOn, setOpenedOn] = useState<string | null>(null)
+  const menuOpen = openedOn === location.pathname
+  const setMenuOpen = (open: boolean) => setOpenedOn(open ? location.pathname : null)
+  const toggleRef = useRef<HTMLButtonElement>(null)
 
   const isActive = (path: string) => location.pathname === path
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && menuOpen) {
-        setMenuOpen(false)
+        setOpenedOn(null)
+        // Focus was likely inside the menu that's now hidden — hand it back
+        // to the control that opened it.
+        toggleRef.current?.focus()
       }
     }
     document.addEventListener('keydown', handleKeyDown)
@@ -24,7 +32,7 @@ export default function Header() {
     <header className="header">
       <div className="container header-inner">
         <Link to="/" className="logo">
-          <img src="/Logo.svg" alt="Daily OK" style={{ height: '36px', width: 'auto' }} />
+          <img src="/Logo.svg" alt="Daily OK" className="logo-img" width={108} height={36} />
         </Link>
 
         <nav id="primary-navigation" className={`nav ${menuOpen ? 'nav-open' : ''}`} role="navigation" aria-label="Main navigation">
@@ -95,6 +103,7 @@ export default function Header() {
         </nav>
 
         <button
+          ref={toggleRef}
           className="menu-toggle"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Toggle menu"

@@ -3,8 +3,6 @@ import { trackEvent } from '../utils/analytics'
 import SEO, { APP_STORE_URL } from '../components/SEO'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { Heart, Bell, Shield, Users, TrendingUp, Smartphone, ArrowRight, CheckCircle } from 'lucide-react'
-import './ElderlyCare.css'
-import './Landing.css'
 
 const faqs = [
   {
@@ -219,7 +217,7 @@ export default function PeaceOfMindAppForElderlyParents() {
               <CheckCircle size={20} />
               <div>
                 <h3>No tracking</h3>
-                <p>No location, camera, or microphone. It's reassurance, not surveillance.</p>
+                <p>No camera or microphone, and location is off unless your parent chooses to share it. It's reassurance, not surveillance.</p>
               </div>
             </div>
             <div className="ec-dementia-item">

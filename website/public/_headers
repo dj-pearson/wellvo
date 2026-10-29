@@ -1,3 +1,11 @@
+# CSP notes. script-src carries no 'unsafe-inline': every <script> in the
+# prerendered HTML is either external (src=) or a non-executable data block
+# (application/json, application/ld+json), and GA is injected as an external
+# script by src/lib/consent.ts. Google host wildcards follow Google's GA4 CSP
+# guidance (regional *.google-analytics.com / *.analytics.google.com endpoints).
+# img-src already allows any https: origin, which covers the GA pixel.
+# No report-uri/report-to: there is no CSP report endpoint yet — add one here
+# when it exists rather than pointing at a guess.
 /*
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
   X-Frame-Options: DENY
@@ -7,7 +15,7 @@
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
   X-Permitted-Cross-Domain-Policies: none
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https: blob:; connect-src 'self' https://cloudflareinsights.com https://api.dailyok.net wss://api.dailyok.net https://functions.dailyok.net https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com https://*.googletagmanager.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https: blob:; connect-src 'self' https://cloudflareinsights.com https://api.dailyok.net wss://api.dailyok.net https://functions.dailyok.net https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.ingest.us.sentry.io; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
 
 # Universal Links: AASA must be served as JSON with no redirect (US-IOS109).
 /.well-known/apple-app-site-association
@@ -60,13 +68,27 @@
   Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 /Icon.svg
   Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+/app-store-qr.svg
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 
 # Admin is a client-only SPA surface that _redirects rewrites to the homepage
 # shell, so a crawler that reached it would be served the homepage's HTML under
 # an /admin URL (US-SEO010). robots.txt already disallows it and the footer link
 # is nofollowed; this is the third layer, and the only one that still applies if
 # the Disallow is ever relaxed.
+#
+# The admin session holds a Supabase JWT, so the authenticated surface gets a
+# second, stricter CSP on top of the site-wide one. Cloudflare Pages sends
+# both (joined into one comma-separated header) and browsers enforce every
+# policy, so the effective rule is the intersection: no third-party script
+# (GA, the Cloudflare beacon) runs here, and fetches can only reach this
+# origin, the Supabase/edge-function hosts and Sentry. no-store keeps the
+# authenticated admin view out of shared caches and the back/forward cache.
 /admin/*
   X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store
+  Content-Security-Policy: script-src 'self'; connect-src 'self' https://api.dailyok.net wss://api.dailyok.net https://functions.dailyok.net https://*.ingest.us.sentry.io; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
 /admin
   X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store
+  Content-Security-Policy: script-src 'self'; connect-src 'self' https://api.dailyok.net wss://api.dailyok.net https://functions.dailyok.net https://*.ingest.us.sentry.io; object-src 'none'; base-uri 'self'; frame-ancestors 'none'

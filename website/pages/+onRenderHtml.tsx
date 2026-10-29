@@ -2,7 +2,6 @@ import { escapeInject, dangerouslySkipEscape } from 'vike/server'
 import { renderToReadableStream } from 'react-dom/server'
 import { StaticRouter } from 'react-router-dom'
 import { HelmetProvider, type HelmetServerState } from 'react-helmet-async'
-import { AdminAuthProvider } from '../src/admin/AdminAuthProvider'
 import ErrorBoundary from '../src/components/ErrorBoundary'
 import { BlogSeedProvider } from '../src/lib/blogSeed'
 import { seedFromPageContext } from '../src/lib/blogSeedContext'
@@ -10,7 +9,7 @@ import type { PageContextServer } from 'vike/types'
 import Page from './+Page'
 
 import '../src/index.css'
-import '../src/App.css'
+import '../src/pageStyles.css'
 
 interface HelmetContext {
   helmet?: HelmetServerState
@@ -64,8 +63,8 @@ const CF_BEACON = (() => {
  * copied byte-for-byte into the document, so the only comment syntax that
  * works inside it is an HTML comment — a `{/* … *\/}` block is not stripped
  * by anything, it just ships as visible text in the head of all 34 pages
- * (US-SEO003). Commentary that should not reach the browser, like the note
- * below, belongs out here in TypeScript.
+ * (US-SEO003). An HTML comment is valid there but still ships to every
+ * visitor, so all commentary, like the notes here, belongs out in TypeScript.
  *
  * Why Inter is self-hosted from /fonts rather than fetched from Google
  * (US-WEB020) — two reasons, both load-bearing:
@@ -81,31 +80,85 @@ const CF_BEACON = (() => {
  * is the variable font, so 400-700 costs one 48 KB request instead of the
  * four static weights the Google URL asked for.
  */
+/*
+ * Receiver invite pages carry a family-join token in the path and a code in
+ * the query (/invite/<token>?code=…). public/_redirects serves every one of
+ * them the prerendered /invite shell, so leaving the beacon out of that one
+ * page keeps the token out of Cloudflare's analytics entirely. GA4 gets the
+ * same treatment at runtime in src/lib/consent.ts.
+ */
+function isInvitePath(pathname: string): boolean {
+  return pathname === '/invite' || pathname.startsWith('/invite/')
+}
+
+/*
+ * Google Analytics is intentionally NOT loaded here. GA4 sets cookies and
+ * requires prior opt-in consent under the EU ePrivacy Directive / GDPR, so it
+ * is injected client-side only after the visitor accepts via the cookie
+ * consent banner. See src/lib/consent.ts and src/components/CookieConsent.tsx.
+ *
+ * Search-engine ownership verification: paste the token from each console and
+ * add the matching tag to STATIC_HEAD (or verify via DNS instead). IndexNow
+ * (Bing + Yandex instant indexing) is wired via
+ * /582a8472440f4527fa1c063dc552bde1.txt and the deploy ping — see
+ * docs/SEO_STRATEGY.md §5 and scripts/indexnow-ping.mjs.
+ *   Google Search Console:  <meta name="google-site-verification" content="PASTE_GSC_TOKEN" />
+ *   Bing Webmaster Tools:   <meta name="msvalidate.01" content="PASTE_BING_TOKEN" />
+ *   Yandex Webmaster:       <meta name="yandex-verification" content="PASTE_YANDEX_TOKEN" />
+ *
+ * Sitewide entity graph (the JSON-LD at the end of STATIC_HEAD). The
+ * alternateName lists are load-bearing, not decoration (US-WEB012): Search
+ * Console shows the site ranking only 2.13 for its own exact brand name
+ * "dailyok", and bleeding 35 impressions to "daily keeper" — an unrelated
+ * company. The variants are the ones real users actually type, taken from the
+ * Search Console query export: "dailyok", "daily ok", "ok daily". The App
+ * Store slug (dailyok-daily-check-in) implies a third written form, so that is
+ * covered too — one entity, every spelling.
+ *
+ * Each node carries a stable @id (US-SEO015) so that a page-level Article can
+ * name this Organization by reference instead of declaring a second, partial
+ * copy of it. Two Organization nodes on one page describing the same company
+ * is the ambiguity US-WEB012 exists to remove. The same three strings live in
+ * src/lib/entityIds.ts, which this literal cannot import;
+ * src/test/entityGraph.test.ts asserts they stay identical.
+ *
+ * Deliberately ABSENT, so nobody adds them back by reflex:
+ *   * SearchAction / Sitelinks Searchbox — there is no on-site search.
+ *     Declaring one Google cannot exercise is a false claim about the site.
+ *     Add it only if a real /search endpoint ships.
+ *   * Play Store and social profiles in sameAs — none exist yet. sameAs must
+ *     only list profiles we actually control; an invented URL is worse than a
+ *     short list. Add the Play listing here when Android goes live.
+ *
+ * None of this is written as an HTML comment inside the template: those ship
+ * byte-for-byte in every prerendered document (they were ~2.6 KB per page
+ * until they moved out here).
+ */
+
+/*
+ * The first tags in <head>, ahead of Vike's injected stylesheet links.
+ * <meta charset> must sit inside the first 1024 bytes of the document or the
+ * browser may guess an encoding and re-parse, and viewport belongs before
+ * anything that can trigger layout. Vike injects its CSS right after the
+ * opening <head> unless the document carries its ASSETS_FIRST placeholder, in
+ * which case the assets go there instead — so the placeholder sits directly
+ * after these two tags. src/test/head.test.ts checks the installed Vike still
+ * honours it; if it ever stops, the string would ship literally.
+ */
+const VIKE_ASSETS_FIRST = '__VITE_PLUGIN_SSR__ASSETS_FIRST__'
+
+const HEAD_FIRST = `<meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    ${VIKE_ASSETS_FIRST}`
+
 const STATIC_HEAD = `
-    <meta charset="UTF-8" />
-    <!--
-      Google Analytics is intentionally NOT loaded here. GA4 sets cookies and
-      requires prior opt-in consent under the EU ePrivacy Directive / GDPR, so
-      it is injected client-side only after the visitor accepts via the cookie
-      consent banner. See src/lib/consent.ts and src/components/CookieConsent.tsx.
-    -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#2ECC71" />
     <meta name="apple-itunes-app" content="app-id=6760836697, app-argument=https://dailyok.net" />
-    <!--
-      Search-engine ownership verification. Paste the token from each console and
-      uncomment the matching line (or verify via DNS instead). IndexNow (Bing +
-      Yandex instant indexing) is wired via /582a8472440f4527fa1c063dc552bde1.txt
-      and the deploy ping — see docs/SEO_STRATEGY.md §5 and scripts/indexnow-ping.mjs.
-      Google Search Console:  <meta name="google-site-verification" content="PASTE_GSC_TOKEN" />
-      Bing Webmaster Tools:   <meta name="msvalidate.01" content="PASTE_BING_TOKEN" />
-      Yandex Webmaster:       <meta name="yandex-verification" content="PASTE_YANDEX_TOKEN" />
-    -->
     <link
       rel="preload"
       as="font"
@@ -113,31 +166,6 @@ const STATIC_HEAD = `
       href="/fonts/inter-v20-latin.woff2"
       crossOrigin="anonymous"
     />
-    <!--
-      Sitewide entity graph. The alternateName lists are load-bearing, not
-      decoration (US-WEB012): Search Console shows the site ranking only 2.13
-      for its own exact brand name "dailyok", and bleeding 35 impressions to
-      "daily keeper" — an unrelated company. The variants below are the ones
-      real users actually type, taken from the Search Console query export:
-      "dailyok", "daily ok", "ok daily". The App Store slug
-      (dailyok-daily-check-in) implies a third written form, so that is covered
-      too — one entity, every spelling.
-
-      Each node carries a stable @id (US-SEO015) so that a page-level Article
-      can name this Organization by reference instead of declaring a second,
-      partial copy of it. Two Organization nodes on one page describing the
-      same company is the ambiguity US-WEB012 exists to remove. The same three
-      strings live in src/lib/entityIds.ts, which this literal cannot import;
-      src/test/entityGraph.test.ts asserts they stay identical.
-
-      Deliberately ABSENT, so nobody adds them back by reflex:
-        * SearchAction / Sitelinks Searchbox — there is no on-site search.
-          Declaring one Google cannot exercise is a false claim about the site.
-          Add it only if a real /search endpoint ships.
-        * Play Store and social profiles in sameAs — none exist yet. sameAs
-          must only list profiles we actually control; an invented URL is worse
-          than a short list. Add the Play listing here when Android goes live.
-    -->
     <script type="application/ld+json">
     [
       {
@@ -155,8 +183,8 @@ const STATIC_HEAD = `
         ],
         "applicationCategory": "HealthApplication",
         "applicationSubCategory": "Caregiving",
-        "operatingSystem": "iOS, Android",
-        "description": "Daily OK is a senior check-in app: adult children set up a once-a-day \\"I'm OK\\" for an aging parent and get escalating alerts the moment they miss it. No pendant, no GPS tracking, no cameras, no wearables. The same gentle daily check-in also works for teens and any loved one you worry about.",
+        "operatingSystem": "iOS",
+        "description": "Daily OK is a senior check-in app: adult children set up a once-a-day \\"I'm OK\\" for an aging parent and get escalating alerts the moment they miss it. No pendant, no cameras, no wearables, and location is off unless your loved one chooses to share it. The same gentle daily check-in also works for teens and any loved one you worry about.",
         "url": "https://dailyok.net",
         "publisher": { "@id": "https://dailyok.net/#organization" },
         "downloadUrl": "https://apps.apple.com/us/app/dailyok-daily-check-in/id6760836697",
@@ -169,7 +197,7 @@ const STATIC_HEAD = `
         "featureList": [
           "Once-a-day one-tap \\"I'm OK\\" check-in",
           "Escalating alerts when a check-in is missed",
-          "No GPS tracking, cameras, or wearables",
+          "No cameras or wearables; location off unless your loved one shares it",
           "Large-button, senior-friendly receiver screen",
           "Check-in history, streaks, and mood trends",
           "Shareable PDF reports for healthcare providers"
@@ -218,10 +246,10 @@ const STATIC_HEAD = `
         "inLanguage": "en-US"
       }
     ]
-    </script>${CF_BEACON}`
+    </script>`
 
 const DEFAULT_TITLE = '<title>Daily OK — Senior Check-In App for Aging Parents</title>'
-const DEFAULT_DESCRIPTION = '<meta name="description" content="Daily OK is the senior check-in app: a once-a-day &quot;I&#39;m OK&quot; for an aging parent, with escalating alerts if they miss it. No pendant, no GPS tracking. Works for teens and any loved one too." />'
+const DEFAULT_DESCRIPTION = '<meta name="description" content="Daily OK is the senior check-in app: a once-a-day &quot;I&#39;m OK&quot; for an aging parent, with escalating alerts if they miss it. No pendant, no cameras. Works for teens and any loved one too." />'
 
 /**
  * React Helmet Async's server-side capture doesn't reliably fire under
@@ -263,11 +291,9 @@ export default async function onRenderHtml(pageContext: PageContextServer) {
     <ErrorBoundary>
       <HelmetProvider context={helmetContext}>
         <BlogSeedProvider seed={blogSeed}>
-          <AdminAuthProvider>
-            <StaticRouter location={pageContext.urlOriginal ?? '/'}>
-              <Page />
-            </StaticRouter>
-          </AdminAuthProvider>
+          <StaticRouter location={pageContext.urlOriginal ?? '/'}>
+            <Page />
+          </StaticRouter>
         </BlogSeedProvider>
       </HelmetProvider>
     </ErrorBoundary>
@@ -297,10 +323,13 @@ export default async function onRenderHtml(pageContext: PageContextServer) {
     helmet?.script?.toString() ?? '',
   ].filter(Boolean).join('\n    ')
 
+  const beacon = isInvitePath(pageContext.urlPathname ?? '/') ? '' : CF_BEACON
+
   return escapeInject`<!DOCTYPE html>
 <html lang="en">
   <head>
-    ${dangerouslySkipEscape(STATIC_HEAD)}
+    ${dangerouslySkipEscape(HEAD_FIRST)}
+    ${dangerouslySkipEscape(STATIC_HEAD)}${dangerouslySkipEscape(beacon)}
     ${dangerouslySkipEscape(helmetFallback)}
     ${dangerouslySkipEscape(headHtml)}
   </head>

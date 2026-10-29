@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Check, ArrowRight } from 'lucide-react'
 import { trackEvent } from '../utils/analytics'
 import SEO, { APP_STORE_URL } from '../components/SEO'
-import './Pricing.css'
+import AppStoreInstall from '../components/AppStoreInstall'
 
 const plans = [
   {
@@ -23,7 +23,7 @@ const plans = [
       '90-day check-in history',
       'SMS fallback alerts',
     ],
-    cta: 'Start 7-Day Free Trial',
+    cta: 'Start free trial on the App Store',
     highlight: true,
   },
   {
@@ -42,7 +42,7 @@ const plans = [
       'Kid mode for teen Receivers',
       'Custom check-in schedules',
     ],
-    cta: 'Start 7-Day Free Trial',
+    cta: 'Start free trial on the App Store',
     highlight: false,
   },
   {
@@ -60,10 +60,16 @@ const plans = [
       'Unlimited check-in history',
       'Priority support',
     ],
-    cta: 'Start 7-Day Free Trial',
+    cta: 'Start free trial on the App Store',
     highlight: false,
   },
 ]
+
+/** "$29.99/year" → "$2.50": the yearly plan's effective monthly price. */
+function yearlyPerMonth(yearlyPrice: string): string {
+  const total = Number(yearlyPrice.replace(/[^0-9.]/g, ''))
+  return `$${(total / 12).toFixed(2)}`
+}
 
 const addons = [
   {
@@ -87,13 +93,13 @@ export default function Pricing() {
 
   const pricingFaqs = [
     { q: 'Who pays for the subscription?', a: 'Only the Owner (the person managing the family group) pays. Receivers and Viewers never see billing or need to pay anything.' },
-    { q: 'Can I try before I buy?', a: 'Yes. Every plan includes a 7-day free trial on monthly, or a 14-day free trial on yearly. You won\'t be charged until the trial ends, and you can cancel anytime from your Apple ID or Google Play settings.' },
+    { q: 'Can I try before I buy?', a: 'Yes. Every plan includes a 7-day free trial, on both monthly and yearly billing. You won\'t be charged until the trial ends, and you can cancel anytime from your Apple ID subscription settings.' },
     { q: 'Which plan is right for a parent with dementia?', a: 'The Caregiver plan. It\'s sized for exactly that situation — one Receiver (the parent) and up to 3 Viewers (you and your siblings who all want peace of mind). Pattern alerts are included, which help you spot changes in daily routine that can signal dementia progression.' },
     { q: 'How does Daily OK compare to medical alert devices?', a: 'Medical alerts like Life Alert or Medical Guardian cost $30–50/month and are designed for emergency response. Daily OK is for daily connection and early warning — a fraction of the price, no hardware, and built around one simple tap instead of a call center.' },
     { q: 'What happens if I cancel?', a: 'Your plan stays active until the end of your billing period. After that, check-ins stop being sent. Your data is retained per our data retention policy and you can export or delete it anytime.' },
     { q: 'Can I switch plans?', a: 'Yes, you can upgrade or downgrade anytime. Changes take effect at your next billing date. Upgrades are prorated.' },
     { q: 'What are Critical Alerts?', a: 'On the Family+ plan, missed check-in alerts can bypass Do Not Disturb mode on your iPhone — so you\'ll never miss a 3 AM escalation because your phone was on silent.' },
-    { q: 'Is my data safe?', a: 'Absolutely. We\'re GDPR and CCPA compliant with full data export and deletion controls. No location tracking, no microphone access, no third-party tracking SDKs.' },
+    { q: 'Is my data safe?', a: 'Absolutely. We\'re GDPR and CCPA compliant with full data export and deletion controls. Location is off unless your loved one chooses to share it. No microphone access, no third-party tracking SDKs.' },
   ]
 
   const faqJsonLd = {
@@ -143,8 +149,13 @@ export default function Pricing() {
                   </div>
                   {plan.yearlyPrice && (
                     <div className="plan-yearly">
-                      <span>{plan.yearlyPrice}</span>
-                      <span className="yearly-badge">{plan.yearlySaving}</span>
+                      <p className="plan-yearly-monthly">
+                        or <strong>{yearlyPerMonth(plan.yearlyPrice)}/mo</strong> billed yearly
+                      </p>
+                      <p className="plan-yearly-total">
+                        <span>{plan.yearlyPrice}</span>
+                        <span className="yearly-badge">{plan.yearlySaving}</span>
+                      </p>
                     </div>
                   )}
                   <p className="plan-desc">{plan.description}</p>
@@ -180,32 +191,23 @@ export default function Pricing() {
               </div>
             ))}
           </div>
+          <AppStoreInstall className="pricing-install" />
         </div>
       </section>
 
       <section className="section">
         <div className="container">
-          <div
-            style={{
-              border: '1px solid var(--gray-200, #e5e7eb)',
-              borderRadius: 12,
-              padding: '20px 24px',
-              fontSize: 14,
-              lineHeight: 1.6,
-              color: 'var(--gray-700, #374151)',
-              background: 'var(--gray-50, #f9fafb)',
-            }}
-          >
+          <div className="pricing-terms">
             <strong>Subscription details (please read before subscribing):</strong>
-            <ul style={{ marginTop: 8, paddingLeft: 20 }}>
+            <ul>
               <li>
-                Subscriptions are billed through the Apple App Store or Google Play and{' '}
+                Subscriptions are billed through the Apple App Store and{' '}
                 <strong>renew automatically</strong> at the price and interval shown above
                 (monthly or yearly) until you cancel. We don't bill your card directly.
               </li>
               <li>
                 You can <strong>cancel anytime in two taps</strong> — Settings &rarr; Apple ID
-                Subscriptions (iOS) or Google Play &rarr; Subscriptions (Android). No phone
+                &rarr; Subscriptions on your iPhone. No phone
                 call, email, or "retention offer" required. Cancellation takes effect at the
                 end of the current billing period and you keep access until then.
               </li>

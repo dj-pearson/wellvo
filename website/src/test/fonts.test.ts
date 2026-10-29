@@ -41,6 +41,17 @@ describe('self-hosted Inter', () => {
     expect(css).toContain('font-display: swap')
   })
 
+  it('puts a metric-matched local fallback right after Inter (CLS)', () => {
+    const css = read('src/index.css')
+    expect(css).toMatch(/font-family: 'Inter Fallback';[\s\S]*?src: local\('Arial'\)/)
+    expect(css).toContain('size-adjust: 107.12%')
+    expect(css).toMatch(/--font-sans: 'Inter', 'Inter Fallback',/)
+  })
+
+  it('declares the site as light-only so UA widgets stay light', () => {
+    expect(read('src/index.css')).toMatch(/:root\s*\{[\s\S]*?color-scheme: light;/)
+  })
+
   it('preloads the latin subset from the document head', () => {
     const head = read('pages/+onRenderHtml.tsx')
     expect(head).toMatch(/rel="preload"[\s\S]*inter-v20-latin\.woff2/)

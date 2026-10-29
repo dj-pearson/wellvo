@@ -3,7 +3,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
 import { describe, it, expect } from 'vitest'
 import Invite from '../pages/Invite'
-import { APP_STORE_URL, PLAY_STORE_URL, readInvite } from '../lib/invite'
+import { APP_STORE_URL } from '../lib/appStore'
+import { detectPlatform, readInvite } from '../lib/invite'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
@@ -32,10 +33,16 @@ describe('Invite page', () => {
     )
   })
 
-  it('links both stores to the real apps', () => {
+  it('links the App Store and offers no Android store (iPhone only for now)', () => {
     renderAt(`/invite/${TOKEN}`)
     expect(screen.getByRole('link', { name: /App Store/ })).toHaveAttribute('href', APP_STORE_URL)
-    expect(screen.getByRole('link', { name: /Google Play/ })).toHaveAttribute('href', PLAY_STORE_URL)
+    expect(screen.queryByRole('link', { name: /Google Play/ })).not.toBeInTheDocument()
+    expect(document.querySelector('a[href*="play.google.com"]')).toBeNull()
+  })
+
+  it('still recognises an Android visitor so the page can say so', () => {
+    expect(detectPlatform('Mozilla/5.0 (Linux; Android 14; Pixel 8)')).toBe('android')
+    expect(detectPlatform('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)')).toBe('ios')
   })
 
   it('accepts the older /invite?token= form', () => {

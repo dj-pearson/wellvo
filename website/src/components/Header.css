@@ -20,6 +20,13 @@
   text-decoration: none;
 }
 
+/* Logo.svg is 1200x400; width/height attrs reserve the 3:1 box before load. */
+.logo-img {
+  display: block;
+  height: 36px;
+  width: auto;
+}
+
 .nav {
   display: flex;
   align-items: center;
@@ -39,7 +46,7 @@
   background: var(--gray-50);
 }
 .nav-link.active {
-  color: var(--green-700);
+  color: var(--green-800);
   background: var(--green-50);
 }
 
@@ -56,9 +63,14 @@
   cursor: pointer;
   color: var(--gray-700);
   padding: 8px;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
 }
 
-@media (max-width: 768px) {
+/* Logo + 7 links + CTA need ~1030px, so collapse well before that. */
+@media (max-width: 1080px) {
   .menu-toggle {
     display: flex;
   }

@@ -2,10 +2,7 @@
   Self-hosted Inter (US-WEB020). Variable font, weights 400-700 in one file,
   so the whole type scale costs a single 48 KB request instead of four static
   weights fetched from fonts.gstatic.com. font-display: swap keeps text
-  painted in the system stack while it loads; size-adjust and the metric
-  overrides are omitted deliberately because the fallback stack below is
-  already close enough that the swap does not shift layout meaningfully at
-  our body size, and guessing at metrics would make it worse.
+  painted in the fallback stack while it loads.
 */
 @font-face {
   font-family: 'Inter';
@@ -29,7 +26,23 @@
     U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
+/*
+  Metric-matched fallback: local Arial scaled to Inter's advance widths and
+  vertical metrics, so the swap to Inter barely moves text (cuts CLS).
+*/
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial');
+  size-adjust: 107.12%;
+  ascent-override: 90.44%;
+  descent-override: 22.52%;
+  line-gap-override: 0%;
+}
+
 :root {
+  /* Light-only site: keep form controls and scrollbars light under dark OS themes. */
+  color-scheme: light;
+
   --green-50: #f0fdf4;
   --green-100: #dcfce7;
   --green-200: #bbf7d0;
@@ -68,10 +81,22 @@
   --red-600: #dc2626;
   --red-700: #b91c1c;
 
+  /*
+    Warm neutral surface: a quiet off-white with a hint of warmth, used where
+    a section needs to read as distinct from both white and the green tints
+    (e.g. the Receiver side of the home page "two sides" cards).
+  */
+  --warm-50: #faf8f5;
+  --warm-200: #e9e4dc;
+
+  /* Card radii (house style: 12-16px). */
+  --radius-card: 16px;
+  --radius-sm: 12px;
+
   --white: #ffffff;
   --black: #000000;
 
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Inter', 'Inter Fallback', system-ui, -apple-system, sans-serif;
 
   font-family: var(--font-sans);
   line-height: 1.6;
@@ -176,7 +201,9 @@ img {
 
 /* Accessibility: focus-visible ring for all interactive elements */
 :focus-visible {
-  outline: 2px solid var(--green-500);
+  /* --green-accessible clears 3:1 against white and the light green tints
+     (brand --green-500 was ~2.1:1, failing WCAG 1.4.11). */
+  outline: 3px solid var(--green-accessible);
   outline-offset: 2px;
 }
 
@@ -193,7 +220,7 @@ img {
   left: 16px;
   z-index: 1000;
   padding: 12px 24px;
-  background: var(--green-500);
+  background: var(--green-accessible);
   color: var(--white);
   border-radius: 8px;
   font-weight: 600;
@@ -217,41 +244,4 @@ img {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-}
-
-/*
- * Contextual footnote under a CTA card's buttons (US-WEB011).
- *
- * Carries in-content links out to the cornerstone landing pages. Those pages
- * were previously reachable only from the footer, which Google reads as
- * boilerplate — all three had zero impressions while the homepage ranked in
- * their place for their own target phrases.
- *
- * Lives here rather than in Home.css because ElderlyCare and ChildSafety use
- * .cta-card without importing that stylesheet. Colours are tinted from the
- * green card surface rather than a flat gray, which would read as muddy on a
- * saturated ground. The .cta-card prefix is needed to beat `.cta-card p`.
- */
-.cta-footnote {
-  max-width: 62ch;
-  margin: 20px auto 0;
-  font-size: 15px;
-  line-height: 1.6;
-}
-
-.cta-card .cta-footnote {
-  margin-bottom: 0;
-  color: #e8f6ee;
-  opacity: 1;
-}
-
-.cta-card .cta-footnote a {
-  color: #ffffff;
-  font-weight: 500;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.cta-card .cta-footnote a:hover {
-  text-decoration-thickness: 2px;
 }

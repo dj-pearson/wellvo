@@ -5,7 +5,6 @@ import { competitors, getCompetitor, type FeatureRow } from '../data/competitors
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { rotatingSiblings } from '../lib/siblings'
 import { buildEditorialArticleJsonLd } from '../lib/articleSchema'
-import './Compare.css'
 
 const SLUG_PREFIX = 'daily-ok-vs-'
 
@@ -202,7 +201,7 @@ export default function ComparePost() {
           <div className="compare-footer-cta">
             <h3>Ready to try Daily OK?</h3>
             <p>
-              Plans start at $3.99/month. No pendant, no GPS, no cameras — just one gentle morning
+              Plans start at $3.99/month. No pendant and no cameras — just one gentle morning
               prompt and a calm family-first alert chain if it's missed. Setup is designed to take
               under two minutes on your phone.
             </p>

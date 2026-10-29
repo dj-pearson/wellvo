@@ -1,0 +1,275 @@
+/*
+ * Classes shared across public pages.
+ *
+ * These used to live in pages/Home.css (hero/section/CTA pieces) and
+ * pages/Support.css (FAQ accordion), but ElderlyCare, ChildSafety, Pricing,
+ * Support, WhatToDo and the landing pages all use them without importing
+ * those files — so they only rendered correctly after the visitor had
+ * happened to load Home or Support first. They are global now, loaded with
+ * index.css from pages/+onRenderHtml.tsx. Page-specific overrides (e.g.
+ * `.ec-faq .faq-list`, `.not-surveillance .section-header h2`) stay in the
+ * page stylesheets and win on specificity.
+ */
+
+/* Hero pieces */
+.hero-badge {
+  display: inline-block;
+  padding: 6px 16px;
+  background: var(--green-100);
+  color: var(--green-800);
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 24px;
+}
+
+.hero-highlight {
+  color: var(--green-accessible);
+}
+
+.hero-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-lg {
+  padding: 16px 32px;
+  font-size: 17px;
+  border-radius: 14px;
+}
+
+/* Section headers */
+.section-header {
+  text-align: center;
+  margin-bottom: 56px;
+}
+
+.section-header h2 {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 12px;
+  letter-spacing: -0.5px;
+}
+
+.section-header p {
+  font-size: 18px;
+  color: var(--gray-600);
+}
+
+/* CTA */
+.cta-section {
+  background: var(--gray-50);
+}
+
+.cta-card {
+  text-align: center;
+  /* Flat --green-accessible: white on the old #2ECC71 to #27ae60 gradient
+     was only 2.1 to 2.9:1. White on this is 5.06:1. */
+  background: var(--green-accessible);
+  color: white;
+  border-radius: var(--radius-card);
+  padding: 64px 40px;
+}
+
+.cta-card h2 {
+  font-size: 36px;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 12px;
+}
+
+.cta-card p {
+  font-size: 18px;
+  margin-bottom: 32px;
+}
+
+.cta-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.cta-card .btn-primary {
+  background: white;
+  color: var(--green-800);
+}
+.cta-card .btn-primary:hover {
+  background: var(--green-50);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.cta-card .btn-outline {
+  border-color: rgba(255, 255, 255, 0.4);
+  color: white;
+}
+.cta-card .btn-outline:hover {
+  background: var(--green-accessible-hover);
+  border-color: rgba(255, 255, 255, 0.6);
+  color: white;
+}
+
+/*
+ * Contextual footnote under a CTA card's buttons (US-WEB011).
+ *
+ * Carries in-content links out to the cornerstone landing pages. Those pages
+ * were previously reachable only from the footer, which Google reads as
+ * boilerplate — all three had zero impressions while the homepage ranked in
+ * their place for their own target phrases.
+ *
+ * Colours are tinted from the green card surface rather than a flat gray,
+ * which would read as muddy on a saturated ground. The .cta-card prefix is needed to beat `.cta-card p`.
+ */
+.cta-footnote {
+  max-width: 62ch;
+  margin: 20px auto 0;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.cta-card .cta-footnote {
+  margin-bottom: 0;
+  color: var(--green-50);
+  opacity: 1;
+}
+
+/* The global green focus ring would vanish on the green card surface. */
+.cta-card :focus-visible {
+  outline-color: var(--white);
+}
+
+.cta-card .cta-footnote a {
+  color: #ffffff;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cta-card .cta-footnote a:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* FAQ accordion */
+.faq-list {
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.faq-item-detail {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.faq-item-detail summary {
+  padding: 20px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-900);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.faq-item-detail summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-item-detail summary::after {
+  content: '+';
+  font-size: 20px;
+  color: var(--gray-600);
+  font-weight: 400;
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+.faq-item-detail[open] summary::after {
+  content: '−';
+}
+
+.faq-item-detail p {
+  padding: 0 24px 20px;
+  font-size: 15px;
+  color: var(--gray-600);
+  line-height: 1.7;
+}
+
+@media (max-width: 768px) {
+  .section-header h2 {
+    font-size: 28px;
+  }
+}
+
+/* Desktop install path (AppStoreInstall): badge + QR, hidden on phones,
+   where the page's own App Store buttons are the install path. */
+.app-install {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+}
+
+.app-install-qr {
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  border: 1px solid var(--gray-200);
+  background: var(--white);
+}
+
+.app-install-text p {
+  font-size: 15px;
+  color: var(--gray-700);
+  margin-bottom: 8px;
+}
+
+.app-store-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px 7px 12px;
+  background: var(--black);
+  color: var(--white);
+  border-radius: 12px;
+  text-decoration: none;
+  line-height: 1.1;
+  transition: background 0.2s;
+}
+.app-store-badge:hover {
+  background: var(--gray-800);
+}
+.app-store-badge:focus-visible {
+  outline: 3px solid var(--green-accessible);
+  outline-offset: 3px;
+}
+
+.app-store-badge-text {
+  display: flex;
+  flex-direction: column;
+}
+.app-store-badge-small {
+  font-size: 11px;
+  font-weight: 500;
+}
+.app-store-badge-large {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+@media (max-width: 768px) {
+  .app-install {
+    display: none;
+  }
+}

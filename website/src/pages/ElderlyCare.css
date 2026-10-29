@@ -1,6 +1,6 @@
 /* Elderly Care Hero */
 .ec-hero {
-  background: linear-gradient(135deg, var(--green-50) 0%, var(--white) 50%, #f0faf6 100%);
+  background: var(--green-50);
   padding: 100px 0 80px;
   text-align: center;
 }
@@ -75,7 +75,7 @@
   height: 56px;
   border-radius: 16px;
   background: var(--green-50);
-  color: var(--green-600);
+  color: var(--green-accessible);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -118,7 +118,7 @@
 
 .ec-dementia-item svg {
   flex-shrink: 0;
-  color: var(--green-600);
+  color: var(--green-accessible);
   margin-top: 2px;
 }
 

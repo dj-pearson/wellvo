@@ -3,8 +3,6 @@ import { trackEvent } from '../utils/analytics'
 import SEO, { APP_STORE_URL } from '../components/SEO'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { Bell, Smartphone, Shield, TrendingUp, Users, Heart, ArrowRight, CheckCircle } from 'lucide-react'
-import './ElderlyCare.css'
-import './Landing.css'
 
 const faqs = [
   {
@@ -54,7 +52,7 @@ export default function CheckInAppForElderly() {
     <>
       <SEO
         title="Check-In App for Elderly Parents — One Tap a Day"
-        description="Your aging parent taps 'I'm OK' once a day; family is alerted automatically if they do not. No hardware, no location tracking. From $3.99/mo."
+        description="Your aging parent taps 'I'm OK' once a day; family is alerted automatically if they do not. No hardware; location off by default. From $3.99/mo."
         path="/check-in-app-for-elderly"
         keywords="check in app for elderly, check in app for elderly parents, elderly check in app, daily check in for elderly, app to check on elderly parent, senior check in app, wellness check app for seniors, elderly safety app no hardware"
         jsonLd={jsonLd}
@@ -73,7 +71,7 @@ export default function CheckInAppForElderly() {
             <strong>In short</strong>
             Your elderly parent taps one "I'm OK" button each day. If they miss it,
             Daily OK escalates a reminder to them, then alerts you and your family
-            automatically. No pendant, no GPS, no daily phone call required.
+            automatically. No pendant, no daily phone call required.
           </div>
           <div className="hero-actions" style={{ marginTop: '1.5rem' }}>
             <a
@@ -208,7 +206,7 @@ export default function CheckInAppForElderly() {
               <CheckCircle size={20} />
               <div>
                 <h3>Dignity by design</h3>
-                <p>No location, camera, or microphone access — ever.</p>
+                <p>No camera or microphone access, ever. Location is off unless your parent chooses to share it.</p>
               </div>
             </div>
           </div>
@@ -238,7 +236,7 @@ export default function CheckInAppForElderly() {
             <div className="ec-solution-card">
               <div className="ec-solution-icon"><Smartphone size={28} /></div>
               <h3>No hardware</h3>
-              <p>Works on the phone your parent already owns — iPhone or Android.</p>
+              <p>Works on the iPhone your parent already owns.</p>
             </div>
             <div className="ec-solution-card">
               <div className="ec-solution-icon"><Heart size={28} /></div>

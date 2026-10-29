@@ -11,8 +11,7 @@ export default function Footer() {
         <div className="footer-grid">
           <div className="footer-brand">
             <div className="footer-logo">
-              <div className="logo-icon">D</div>
-              <span className="logo-text">Daily OK</span>
+              <img src="/Logo-White.svg" alt="Daily OK" width={120} height={40} loading="lazy" />
             </div>
             <p className="footer-tagline">One tap. Peace of mind.</p>
             <p className="footer-desc">

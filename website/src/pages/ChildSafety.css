@@ -1,6 +1,6 @@
 /* Child Safety Hero */
 .cs-hero {
-  background: linear-gradient(135deg, var(--green-50) 0%, var(--white) 50%, #f0faf6 100%);
+  background: var(--green-50);
   padding: 100px 0 80px;
   text-align: center;
 }
@@ -119,12 +119,12 @@
 
 .cs-compare-old li::before {
   content: '\2717';
-  color: var(--gray-400);
+  color: var(--gray-600);
   margin-right: 4px;
 }
 
 .cs-compare-new li svg {
-  color: var(--green-600);
+  color: var(--green-accessible);
   flex-shrink: 0;
 }
 
@@ -145,7 +145,7 @@
   height: 56px;
   border-radius: 50%;
   background: var(--green-50);
-  color: var(--green-600);
+  color: var(--green-accessible);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -185,7 +185,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--green-600);
+  background: var(--green-accessible);
   color: var(--white);
   font-weight: 700;
   font-size: 14px;
@@ -200,7 +200,7 @@
   height: 56px;
   border-radius: 16px;
   background: var(--white);
-  color: var(--green-600);
+  color: var(--green-accessible);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -1,5 +1,4 @@
 import SEO from '../components/SEO'
-import './Legal.css'
 
 export default function Terms() {
   return (
@@ -12,7 +11,7 @@ export default function Terms() {
       <div className="container">
         <div className="legal-content">
           <h1>Terms of Use</h1>
-          <p className="legal-updated">Last updated: August 18, 2026</p>
+          <p className="legal-updated">Last updated: October 28, 2026</p>
 
           <p>
             <strong>Important notice.</strong> These Terms include a binding individual
@@ -86,8 +85,8 @@ export default function Terms() {
             </p>
             <ul>
               <li>
-                <strong>Free Trial:</strong> Where offered, free trials last 7 days for
-                monthly plans and 14 days for yearly plans. You will not be charged during
+                <strong>Free Trial:</strong> Where offered, free trials last 7 days on both
+                monthly and yearly plans. You will not be charged during
                 the trial. If you do not cancel before the trial ends, you authorize the app
                 store to charge the recurring subscription price.
               </li>

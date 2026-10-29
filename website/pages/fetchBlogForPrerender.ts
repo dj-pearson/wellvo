@@ -23,6 +23,7 @@ import {
   BLOG_HTML_ALLOWLIST,
   POST_COLUMNS,
   POST_SUMMARY_COLUMNS,
+  hardenBlogLinks,
   type PublicPost,
   type PublicPostSummary,
 } from '../src/lib/blogTypes'
@@ -48,7 +49,9 @@ const MAX_POSTS = 100
 function makeSanitizer(): (html: string) => string {
   try {
     const { window } = new JSDOM('')
-    const purify = createDOMPurify(window as unknown as Window & typeof globalThis)
+    const purify = hardenBlogLinks(
+      createDOMPurify(window as unknown as Window & typeof globalThis),
+    )
     if (!purify.isSupported) throw new Error('DOMPurify reports isSupported = false')
     return (html: string) =>
       purify.sanitize(html, {

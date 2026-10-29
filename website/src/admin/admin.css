@@ -385,9 +385,10 @@
 .admin-editor-surface p { margin: 10px 0; }
 .admin-editor-surface ul, .admin-editor-surface ol { margin: 10px 0; padding-left: 24px; }
 .admin-editor-surface blockquote {
-  border-left: 3px solid var(--green-500);
-  padding-left: 14px;
-  color: var(--gray-600);
+  background: var(--green-50);
+  border-radius: 12px;
+  padding: 14px 20px;
+  color: var(--green-900);
   margin: 12px 0;
 }
 .admin-editor-surface a { color: var(--green-700); text-decoration: underline; }

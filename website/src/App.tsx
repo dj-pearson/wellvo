@@ -1,7 +1,6 @@
 import { lazy, Suspense, useEffect, useRef } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import Layout from './components/Layout'
-import { AdminAuthProvider } from './admin/AdminAuthProvider'
 
 /**
  * On client-side navigation, scroll to top and move focus to the main
@@ -49,6 +48,7 @@ const BlogPost = lazy(() => import('./pages/BlogPost'))
 const Compare = lazy(() => import('./pages/Compare'))
 const ComparePost = lazy(() => import('./pages/ComparePost'))
 
+const AdminShell = lazy(() => import('./admin/AdminShell'))
 const AdminLogin = lazy(() => import('./admin/AdminLogin'))
 const AdminLayout = lazy(() => import('./admin/AdminLayout'))
 const AdminDashboard = lazy(() => import('./admin/AdminDashboard'))
@@ -79,7 +79,7 @@ function LoadingSpinner() {
 
 function App() {
   return (
-    <AdminAuthProvider>
+    <>
       <RouteFocusManager />
       <Suspense fallback={<LoadingSpinner />}>
         <Routes>
@@ -110,24 +110,27 @@ function App() {
             <Route path="*" element={<NotFound />} />
           </Route>
 
-          {/* Admin — standalone chrome, its own auth guard */}
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="blog" element={<AdminBlog />} />
-            <Route path="blog/templates" element={<AdminBlogTemplates />} />
-            <Route path="blog/refresh" element={<AdminBlogRefresh />} />
-            <Route path="blog/assets" element={<AdminBlogAssets />} />
-            <Route path="blog/new" element={<AdminBlogEditor />} />
-            <Route path="blog/:id" element={<AdminBlogEditor />} />
-            <Route path="blog/:id/history" element={<AdminBlogHistory />} />
-            <Route path="social" element={<AdminSocial />} />
-            <Route path="analytics" element={<AdminAnalytics />} />
+          {/* Admin — standalone chrome, its own auth guard. AdminShell mounts
+              the auth provider (and supabase-js) for this subtree only. */}
+          <Route path="/admin" element={<AdminShell />}>
+            <Route path="login" element={<AdminLogin />} />
+            <Route element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="blog" element={<AdminBlog />} />
+              <Route path="blog/templates" element={<AdminBlogTemplates />} />
+              <Route path="blog/refresh" element={<AdminBlogRefresh />} />
+              <Route path="blog/assets" element={<AdminBlogAssets />} />
+              <Route path="blog/new" element={<AdminBlogEditor />} />
+              <Route path="blog/:id" element={<AdminBlogEditor />} />
+              <Route path="blog/:id/history" element={<AdminBlogHistory />} />
+              <Route path="social" element={<AdminSocial />} />
+              <Route path="analytics" element={<AdminAnalytics />} />
+            </Route>
           </Route>
         </Routes>
       </Suspense>
-    </AdminAuthProvider>
+    </>
   )
 }
 

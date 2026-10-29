@@ -4,9 +4,6 @@ import SEO from '../components/SEO'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { buildEditorialArticleJsonLd } from '../lib/articleSchema'
 import { LAST_UPDATED } from '../data/whatToDo'
-import './ElderlyCare.css'
-import './Landing.css'
-import './WhatToDo.css'
 
 /**
  * Welfare-check pillar page (US-WEB015).

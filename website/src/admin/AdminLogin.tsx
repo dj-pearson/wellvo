@@ -2,9 +2,30 @@ import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
 import { useAdminAuth } from './adminAuthContext'
+import SEO from '../components/SEO'
 import './admin.css'
 
+/*
+ * /admin/login is prerendered (pages/+onBeforePrerenderStart.ts), so without
+ * its own tags it went out with the homepage title and description and no
+ * robots meta. noindex keeps it out of search, the
+ * sitemap and llms.txt; robots.txt already disallows crawling it.
+ */
 export default function AdminLogin() {
+  return (
+    <>
+      <SEO
+        title="Admin sign in"
+        description="Sign-in for Daily OK site administrators."
+        path="/admin/login"
+        noindex
+      />
+      <AdminLoginForm />
+    </>
+  )
+}
+
+function AdminLoginForm() {
   const { session, loading, isAdmin, adminCheckDone, signOut } = useAdminAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -68,7 +89,9 @@ export default function AdminLogin() {
       const supabase = getSupabase()
       const { error: otpErr } = await supabase.auth.signInWithOtp({
         email,
-        options: { emailRedirectTo: `${window.location.origin}/admin` },
+        // shouldCreateUser: false — the login form must never mint new auth
+        // users; only existing accounts can receive a link.
+        options: { emailRedirectTo: `${window.location.origin}/admin`, shouldCreateUser: false },
       })
       if (otpErr) throw otpErr
       setInfo('Check your email for a sign-in link.')

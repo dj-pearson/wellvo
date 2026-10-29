@@ -8,6 +8,7 @@ import {
   LogOut,
 } from 'lucide-react'
 import { useAdminAuth } from './adminAuthContext'
+import SEO from '../components/SEO'
 import './admin.css'
 
 export default function AdminLayout() {
@@ -32,6 +33,8 @@ export default function AdminLayout() {
 
   return (
     <div className="admin-app">
+      {/* Client-only, but keep the tab title honest and the page noindex. */}
+      <SEO title="Admin" description="Daily OK site administration." path="/admin" noindex />
       <aside className="admin-sidebar">
         <div className="admin-sidebar-brand">
           <span className="admin-sidebar-brand-dot" />

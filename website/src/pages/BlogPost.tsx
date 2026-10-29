@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import SEO from '../components/SEO'
 import DOMPurify from 'dompurify'
-import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
+import { isSupabaseConfigured } from '../lib/supabaseConfig'
 import { buildPostSchemas } from '../lib/schemaMarkup'
 import { buildBreadcrumbJsonLd } from '../lib/breadcrumb'
 import { useBlogSeed } from '../lib/blogSeedContext'
-import { BLOG_HTML_ALLOWLIST, POST_COLUMNS, type PublicPost } from '../lib/blogTypes'
+import { BLOG_HTML_ALLOWLIST, POST_COLUMNS, hardenBlogLinks, type PublicPost } from '../lib/blogTypes'
 import { canonicalUrl } from '../lib/canonical'
-import './Blog.css'
+import { formatPostDate } from '../lib/blogDate'
 
 
 export default function BlogPost() {
@@ -33,8 +33,8 @@ export default function BlogPost() {
 
   useEffect(() => {
     if (!needsFetch) return
-    const supabase = getSupabase()
-    supabase
+    // Lazy so supabase-js only loads when the prerender had no seed for us.
+    import('../lib/supabasePublic').then(({ getPublicSupabase }) => getPublicSupabase()
       .from('blog_posts')
       .select(POST_COLUMNS)
       .eq('slug', slug)
@@ -54,6 +54,10 @@ export default function BlogPost() {
         }
         setPost(data as PublicPost)
         setLoading(false)
+      }))
+      .catch((err: unknown) => {
+        setFetchError(err instanceof Error ? err.message : 'Could not load the blog')
+        setLoading(false)
       })
   }, [needsFetch, slug])
 
@@ -64,7 +68,7 @@ export default function BlogPost() {
     // second pass over identical markup and risk a hydration mismatch, so the
     // browser only sanitizes what it fetched itself.
     if (seeded && post === seeded) return post.content_html
-    return DOMPurify.sanitize(post.content_html, {
+    return hardenBlogLinks(DOMPurify).sanitize(post.content_html, {
       ALLOWED_TAGS: [...BLOG_HTML_ALLOWLIST.ALLOWED_TAGS],
       ALLOWED_ATTR: [...BLOG_HTML_ALLOWLIST.ALLOWED_ATTR],
     })
@@ -95,7 +99,7 @@ export default function BlogPost() {
   if (loading) {
     return (
       <section className="section">
-        <div className="container"><div className="blog-empty">Loading…</div></div>
+        <div className="container"><div className="blog-empty" role="status" aria-live="polite">Loading…</div></div>
       </section>
     )
   }
@@ -105,7 +109,7 @@ export default function BlogPost() {
       <section className="section">
         <div className="container">
           <div className="blog-empty">
-            <h2>Post not found</h2>
+            <h1>Post not found</h1>
             <p><Link to="/blog/">Back to blog</Link></p>
           </div>
         </div>
@@ -152,13 +156,18 @@ export default function BlogPost() {
         <div className="container" style={{ maxWidth: 760 }}>
           <div className="blog-article-meta">
             <Link to="/blog/">← All posts</Link>
-            <span>{new Date(post.published_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <time dateTime={post.published_at}>{formatPostDate(post.published_at)}</time>
           </div>
           {post.category && <span className="blog-card-cat" style={{ marginBottom: 10 }}>{post.category}</span>}
           <h1>{post.title}</h1>
           {post.excerpt && <p className="blog-article-lede">{post.excerpt}</p>}
           {post.featured_image_url && (
-            <img src={post.featured_image_url} alt={post.title} className="blog-article-hero" />
+            // alt="" — the <h1> above already says what this is; repeating the
+            // title to a screen reader adds nothing. fetchPriority because
+            // it is usually the LCP element; the frame reserves its box.
+            <div className="blog-article-hero">
+              <img src={post.featured_image_url} alt="" fetchPriority="high" decoding="async" />
+            </div>
           )}
 
           <div className="blog-article-body" dangerouslySetInnerHTML={{ __html: safeHtml }} />

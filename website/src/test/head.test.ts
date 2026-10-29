@@ -29,6 +29,16 @@ function staticHead(): string {
   return source.slice(from, end)
 }
 
+/** The HEAD_FIRST template literal's contents, verbatim. */
+function headFirst(): string {
+  const start = source.indexOf('const HEAD_FIRST = `')
+  expect(start).toBeGreaterThan(-1)
+  const from = start + 'const HEAD_FIRST = `'.length
+  const end = source.indexOf('`', from)
+  expect(end).toBeGreaterThan(from)
+  return source.slice(from, end)
+}
+
 describe('the static <head> template', () => {
   it('contains no JSX comment syntax', () => {
     // `{/*` would be emitted literally; so would a bare `*/}`.
@@ -36,20 +46,44 @@ describe('the static <head> template', () => {
     expect(staticHead()).not.toContain('*/}')
   })
 
-  it('balances every HTML comment it opens', () => {
-    const head = staticHead()
-    const opened = (head.match(/<!--/g) ?? []).length
-    const closed = (head.match(/-->/g) ?? []).length
-    expect(opened).toBe(closed)
-    expect(opened).toBeGreaterThan(0)
+  it('ships no HTML comments', () => {
+    // An HTML comment is valid inside the template but is copied into every
+    // prerendered document. The commentary lives in TypeScript instead.
+    expect(staticHead()).not.toContain('<!--')
+    expect(headFirst()).not.toContain('<!--')
   })
 
   it('still carries the tags it exists to carry', () => {
     const head = staticHead()
-    expect(head).toContain('<meta charset="UTF-8" />')
-    expect(head).toContain('name="viewport"')
     expect(head).toContain('rel="manifest"')
     expect(head).toContain('application/ld+json')
+  })
+
+  it('opens <head> with charset and viewport, ahead of the stylesheets', () => {
+    const first = headFirst()
+    expect(first.indexOf('<meta charset="UTF-8" />')).toBe(0)
+    expect(first).toContain('name="viewport"')
+    // Vike injects its stylesheet links at this placeholder rather than
+    // straight after <head>, so it must come after the two tags above.
+    expect(first.trimEnd().endsWith('${VIKE_ASSETS_FIRST}')).toBe(true)
+    expect(source).toContain("const VIKE_ASSETS_FIRST = '__VITE_PLUGIN_SSR__ASSETS_FIRST__'")
+    expect(source).toMatch(/<head>\s*\$\{dangerouslySkipEscape\(HEAD_FIRST\)\}/)
+    // Neither tag is repeated further down.
+    expect(staticHead()).not.toContain('charset')
+    expect(staticHead()).not.toContain('name="viewport"')
+  })
+
+  it('relies on a placeholder the installed Vike still honours', () => {
+    // If Vike drops the placeholder, it would ship as literal text and the
+    // stylesheets would land back in front of <meta charset>.
+    const injector = readFileSync(
+      resolve(
+        root,
+        'node_modules/vike/dist/server/runtime/renderPageServer/html/injectAssets/injectHtmlTags.js',
+      ),
+      'utf-8',
+    )
+    expect(injector).toContain("'__VITE_PLUGIN_SSR__ASSETS_FIRST__'")
   })
 
   it('ships no placeholder analytics token', () => {

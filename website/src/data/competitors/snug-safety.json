@@ -85,9 +85,9 @@
     },
     {
       "feature": "Works on iOS and Android",
-      "daily_ok": "Yes",
+      "daily_ok": "iPhone only for now",
       "competitor": "Yes",
-      "winner": "tie"
+      "winner": "competitor"
     },
     {
       "feature": "Hardware required",
@@ -97,7 +97,7 @@
     },
     {
       "feature": "Privacy posture",
-      "daily_ok": "No GPS, no cameras, no location",
+      "daily_ok": "No cameras; location off unless shared",
       "competitor": "Similar category posture",
       "winner": "tie"
     },
