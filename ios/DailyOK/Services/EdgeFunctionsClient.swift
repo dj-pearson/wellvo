@@ -93,6 +93,12 @@ enum EdgeFunctionsClient {
         }
     }
 
+    /// Per-request timeout for every edge call. The `URLRequest` default is
+    /// 60s; with up to three attempts per check-in that alone could outlast the
+    /// ~30s iOS gives a background notification action several times over.
+    /// 15s comfortably covers a slow cellular round trip to the edge server.
+    static let requestTimeout: TimeInterval = 15
+
     /// 426 force-update payload from the server (see edge-functions/shared/config.ts).
     private struct ForceUpdateResponse: Decodable {
         let force_update: Bool?
@@ -191,6 +197,7 @@ enum EdgeFunctionsClient {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.timeoutInterval = requestTimeout
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(Configuration.supabaseAnonKey, forHTTPHeaderField: "apikey")
         // Let the backend enforce MIN_SUPPORTED_IOS_APP_VERSION (force-update).

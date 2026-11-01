@@ -354,11 +354,21 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         // reads the slot from the request itself, which is authoritative.
         let slotKey = userInfo["slot_key"] as? String
 
+        // From the Lock Screen the app runs in the background with roughly 30s
+        // before iOS suspends it. Bound ALL the network work below by one
+        // overall deadline; when it passes, the "I'm OK" is queued offline
+        // instead of being cut off mid-request. In the foreground (an
+        // urgent `.foreground` action, or a banner action while the app is
+        // open) nothing suspends us, so the normal retries run unbounded.
+        let deadline: Date? = UIApplication.shared.applicationState == .active
+            ? nil
+            : Date().addingTimeInterval(NetworkRetry.backgroundActionBudget)
+
         guard let requestId = userInfo["checkin_request_id"] as? String else {
             // The app's own local fallback reminder carries no request id. Its
             // "I'm OK" used to do nothing at all (masked while the action opened
             // the app); check in directly instead.
-            await checkInWithoutRequest(responseType: responseType, slotKey: slotKey)
+            await checkInWithoutRequest(responseType: responseType, slotKey: slotKey, deadline: deadline)
             return
         }
 
@@ -375,13 +385,17 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             let batteryLevel = UIDevice.current.batteryLevel
             let battery: Double? = batteryLevel >= 0 ? Double(batteryLevel) : nil
 
-            try await CheckInService.shared.respondToCheckIn(
-                requestId: requestId,
-                source: .notification,
-                responseType: responseType,
-                location: location,
-                batteryLevel: battery
-            )
+            // On deadline this throws NetworkError.deadlineExceeded, which has
+            // no HTTP status, so the catch below queues it offline.
+            try await NetworkRetry.withDeadline(deadline) {
+                try await CheckInService.shared.respondToCheckIn(
+                    requestId: requestId,
+                    source: .notification,
+                    responseType: responseType,
+                    location: location,
+                    batteryLevel: battery
+                )
+            }
             await ReceiverCheckInAftermath.record(at: Date())
         } catch {
             Log.checkIn.error("Notification check-in response failed: \(error.localizedDescription, privacy: .public)")
@@ -405,14 +419,17 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 // still tapped "I'm OK" for today: check in directly against
                 // the family from the shared snapshot. That path queues offline
                 // on a connectivity failure and alerts on anything else.
-                await checkInWithoutRequest(responseType: .ok, slotKey: slotKey)
+                // Shares the same overall deadline (whatever is left of it).
+                await checkInWithoutRequest(responseType: .ok, slotKey: slotKey, deadline: deadline)
             } else if let status, SyncDisposition.permanentRejectionStatuses.contains(status) {
                 // 400/403/409/410/422: the server will reject this identically
                 // forever, and the offline sync would drop a queued copy — so
                 // queueing would only fake success. Tell the receiver.
                 await PushNotificationService.shared.presentCheckInResponseFailed(urgent: false)
             } else if await queueOfflineCheckIn(slotKey: slotKey) {
-                // Connectivity, 5xx after retries, 401, 426, pinning cancel:
+                // Connectivity, background deadline, captive portal
+                // (PinningError.trustUnevaluable), 5xx after retries, 401, 426,
+                // pinning cancel:
                 // persist so it syncs later (the sync path retries all of
                 // these). The per-slot, per-day dedup on both the queue
                 // (US-IOS137) and the edge function keeps this from duplicating
@@ -469,7 +486,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     /// Check in from a notification that isn't tied to a server request (the
     /// local fallback reminder).
     @MainActor
-    private func checkInWithoutRequest(responseType: CheckInResponseType, slotKey: String?) async {
+    private func checkInWithoutRequest(responseType: CheckInResponseType, slotKey: String?, deadline: Date? = nil) async {
         guard let familyId = cachedReceiverFamilyId() else {
             // Nothing to check in to on this device (not a receiver, or the app
             // has never loaded). The receiver must hear that it didn't send.
@@ -478,10 +495,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         }
         if responseType == .ok {
             do {
+                // Past `deadline` this queues and throws NetworkError, below.
                 _ = try await OfflineCheckInService.shared.performCheckIn(
                     familyId: familyId,
                     source: .notification,
-                    slotKey: slotKey
+                    slotKey: slotKey,
+                    deadline: deadline
                 )
                 await ReceiverCheckInAftermath.record(at: Date())
             } catch is NetworkError {

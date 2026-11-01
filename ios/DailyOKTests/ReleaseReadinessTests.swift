@@ -198,6 +198,20 @@ final class ReleaseReadinessTests: XCTestCase {
         XCTAssertEqual(SyncDisposition(for: URLError(.notConnectedToInternet)), .retryLater)
     }
 
+    /// Captive portal: the queued row / unfinished transaction must survive
+    /// until the user signs in to the Wi-Fi (iOS loop 6).
+    func testUnevaluableTrustIsRetriedLater() {
+        XCTAssertEqual(SyncDisposition(for: PinningError.trustUnevaluable), .retryLater)
+        XCTAssertEqual(SyncDisposition(for: DailyOKError.network(PinningError.trustUnevaluable)), .retryLater)
+        XCTAssertEqual(SyncDisposition(for: NetworkError.deadlineExceeded), .retryLater)
+    }
+
+    /// Retrying a captive portal inside the loop only burns background time;
+    /// it must fail fast so the check-in is queued while time remains.
+    func testUnevaluableTrustIsNonRetryableInTheLoop() {
+        XCTAssertTrue(NetworkRetry.isNonRetryable(PinningError.trustUnevaluable))
+    }
+
     func testUnrecognizedErrorsAreRetriedLater() {
         XCTAssertEqual(SyncDisposition(for: NetworkError.offline), .retryLater)
         XCTAssertEqual(SyncDisposition(for: CheckInError.notAuthenticated), .retryLater)

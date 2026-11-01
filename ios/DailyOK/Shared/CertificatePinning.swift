@@ -135,28 +135,131 @@ private extension Array {
     }
 }
 
+/// Thrown by `PinnedURLSession` when the server trust could not be evaluated at
+/// all (`CertificatePinning.Evaluation.unevaluable`) — the typical captive
+/// portal (hotel / airport Wi-Fi intercepting TLS before sign-in), a broken
+/// chain, or a network that drops mid-handshake.
+///
+/// Before this existed the delegate cancelled the challenge and the caller saw
+/// a bare `NSURLErrorCancelled`, which nothing classified as "offline" — so an
+/// "I'm OK" on hotel Wi-Fi was surfaced as a hard error instead of being queued
+/// for later sync. Callers treat this as a connectivity failure
+/// (`OfflineCheckInService.isConnectivityError`) and the durable sync paths as
+/// `SyncDisposition.retryLater`.
+///
+/// A genuine pin MISMATCH (system-trusted chain, no pinned key) is NOT this
+/// error: it still fails closed as a cancelled request, unchanged.
+enum PinningError: LocalizedError, Equatable {
+    case trustUnevaluable
+
+    var errorDescription: String? {
+        switch self {
+        case .trustUnevaluable:
+            return "Couldn't establish a secure connection. If you're on public Wi-Fi, you may need to sign in to it first."
+        }
+    }
+}
+
 /// A `URLSession` whose delegate enforces certificate pinning on the TLS
 /// handshake of every request — replacing `URLSession.shared` for the sessions
 /// that carry tokens and PII. A genuine pin mismatch fails the request closed; a
-/// transient "couldn't evaluate" is allowed to surface as an ordinary network
-/// error so a captive portal isn't mistaken for an attack.
+/// transient "couldn't evaluate" surfaces as `PinningError.trustUnevaluable` so
+/// a captive portal isn't mistaken for an attack (and is queued as offline).
 final class PinnedURLSession {
     static let shared = PinnedURLSession()
 
     private let session: URLSession
+    private let delegate: PinningDelegate
 
     private init() {
         let delegate = PinningDelegate()
+        self.delegate = delegate
         session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
     }
 
+    /// Same contract as `URLSession.data(for:)` (including throwing
+    /// `NSURLErrorCancelled` when the calling task is cancelled), except that a
+    /// trust that couldn't be evaluated throws `PinningError.trustUnevaluable`.
+    ///
+    /// Built on a completion-handler data task rather than the async
+    /// `data(for:)` so the failure can be matched to the task whose challenge
+    /// was unevaluable (by `taskIdentifier`) — concurrent requests can't
+    /// misattribute each other's outcome.
     func data(for request: URLRequest) async throws -> (Data, URLResponse) {
-        try await session.data(for: request)
+        let handle = TaskHandle()
+        let delegate = self.delegate
+        let session = self.session
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(Data, URLResponse), Error>) in
+                let task = session.dataTask(with: request) { data, response, error in
+                    let unevaluable = handle.identifier.map { delegate.takeUnevaluable(taskIdentifier: $0) } ?? false
+                    if let error {
+                        continuation.resume(throwing: unevaluable ? PinningError.trustUnevaluable : error)
+                        return
+                    }
+                    guard let data, let response else {
+                        continuation.resume(throwing: URLError(.badServerResponse))
+                        return
+                    }
+                    continuation.resume(returning: (data, response))
+                }
+                handle.start(task)
+            }
+        } onCancel: {
+            handle.cancel()
+        }
     }
 
-    private final class PinningDelegate: NSObject, URLSessionDelegate {
+    /// Holds the data task so the cancellation handler (which may run before
+    /// the task exists, or concurrently with its creation) can cancel it.
+    private final class TaskHandle: @unchecked Sendable {
+        private let lock = NSLock()
+        private var task: URLSessionTask?
+        private var cancelled = false
+
+        var identifier: Int? {
+            lock.lock(); defer { lock.unlock() }
+            return task?.taskIdentifier
+        }
+
+        /// Record and resume the task; cancel it at once if the calling Swift
+        /// task was already cancelled.
+        func start(_ task: URLSessionTask) {
+            lock.lock()
+            self.task = task
+            let alreadyCancelled = cancelled
+            lock.unlock()
+            task.resume()
+            if alreadyCancelled { task.cancel() }
+        }
+
+        func cancel() {
+            lock.lock()
+            cancelled = true
+            let task = self.task
+            lock.unlock()
+            task?.cancel()
+        }
+    }
+
+    /// Implements only the TASK-level challenge method. Per the URLSession
+    /// contract, a server-trust challenge goes to the session-level
+    /// `urlSession(_:didReceive:completionHandler:)` only if the delegate
+    /// implements it; otherwise it is delivered here, with the task — which is
+    /// what lets an unevaluable trust be attributed to the right request.
+    private final class PinningDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+        private let lock = NSLock()
+        private var unevaluableTasks: Set<Int> = []
+
+        /// Whether `taskIdentifier`'s challenge was unevaluable; clears the mark.
+        func takeUnevaluable(taskIdentifier: Int) -> Bool {
+            lock.lock(); defer { lock.unlock() }
+            return unevaluableTasks.remove(taskIdentifier) != nil
+        }
+
         func urlSession(
             _ session: URLSession,
+            task: URLSessionTask,
             didReceive challenge: URLAuthenticationChallenge,
             completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
         ) {
@@ -169,9 +272,17 @@ final class PinnedURLSession {
             switch CertificatePinning.evaluate(serverTrust, host: challenge.protectionSpace.host) {
             case .pinned:
                 completionHandler(.useCredential, URLCredential(trust: serverTrust))
-            case .mismatch, .unevaluable:
-                // Fail closed. The error surfaces to the caller as a transport
-                // failure; the caller distinguishes "couldn't verify" copy.
+            case .mismatch:
+                // Fail closed: possible interception by a device-trusted rogue
+                // CA. Surfaces as a cancelled request, never queued as offline.
+                completionHandler(.cancelAuthenticationChallenge, nil)
+            case .unevaluable:
+                // Still fail closed — nothing is sent over a connection we
+                // couldn't verify — but mark the task so `data(for:)` throws
+                // `PinningError.trustUnevaluable` instead of a bare cancel.
+                lock.lock()
+                unevaluableTasks.insert(task.taskIdentifier)
+                lock.unlock()
                 completionHandler(.cancelAuthenticationChallenge, nil)
             }
         }

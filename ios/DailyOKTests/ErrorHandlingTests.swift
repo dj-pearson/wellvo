@@ -79,6 +79,93 @@ final class ErrorHandlingTests: XCTestCase {
         XCTAssertTrue(error.localizedDescription.contains("offline"))
     }
 
+    func testNetworkErrorDeadlineExceededHasDescription() {
+        XCTAssertNotNil(NetworkError.deadlineExceeded.errorDescription)
+    }
+
+    // MARK: - Background budget (iOS loop 6)
+
+    /// Per-request timeout plus the overall deadline must leave headroom inside
+    /// the ~30s iOS grants a background notification action.
+    func testTimeoutsFitTheBackgroundBudget() {
+        XCTAssertLessThanOrEqual(EdgeFunctionsClient.requestTimeout, 15)
+        XCTAssertLessThan(NetworkRetry.backgroundActionBudget, 30)
+        XCTAssertGreaterThanOrEqual(NetworkRetry.backgroundActionBudget, EdgeFunctionsClient.requestTimeout)
+    }
+
+    func testWithDeadlineReturnsAFastResult() async throws {
+        let value = try await NetworkRetry.withDeadline(Date().addingTimeInterval(5)) { 42 }
+        XCTAssertEqual(value, 42)
+    }
+
+    func testWithNilDeadlineRunsUnbounded() async throws {
+        let value = try await NetworkRetry.withDeadline(nil) { "ok" }
+        XCTAssertEqual(value, "ok")
+    }
+
+    func testWithDeadlineThrowsDeadlineExceededForASlowOperation() async {
+        let start = Date()
+        do {
+            _ = try await NetworkRetry.withDeadline(Date().addingTimeInterval(0.2)) { () async throws -> Int in
+                try await Task.sleep(nanoseconds: 10_000_000_000)
+                return 1
+            }
+            XCTFail("expected deadlineExceeded")
+        } catch NetworkError.deadlineExceeded {
+            // The slow operation was cancelled rather than awaited to completion.
+            XCTAssertLessThan(Date().timeIntervalSince(start), 5)
+        } catch {
+            XCTFail("unexpected error \(error)")
+        }
+    }
+
+    func testWithPastDeadlineThrowsWithoutRunning() async {
+        let ran = LockedFlag()
+        do {
+            try await NetworkRetry.withDeadline(Date().addingTimeInterval(-1)) { ran.set() }
+            XCTFail("expected deadlineExceeded")
+        } catch NetworkError.deadlineExceeded {
+            XCTAssertFalse(ran.value)
+        } catch {
+            XCTFail("unexpected error \(error)")
+        }
+    }
+
+    func testOperationErrorWinsOverDeadline() async {
+        do {
+            _ = try await NetworkRetry.withDeadline(Date().addingTimeInterval(5)) { () async throws -> Int in
+                throw NetworkError.offline
+            }
+            XCTFail("expected offline")
+        } catch NetworkError.offline {
+            // expected
+        } catch {
+            XCTFail("unexpected error \(error)")
+        }
+    }
+
+    /// Cancelling the caller during the backoff sleep must stop the retry loop
+    /// (it used to `try?` the sleep and fire the next attempt immediately).
+    func testRetryLoopPropagatesCancellation() async {
+        let attempts = LockedCounter()
+        let task = Task {
+            try await NetworkRetry.execute(maxAttempts: 3, initialDelay: 5) { () async throws -> Int in
+                attempts.increment()
+                throw NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut)
+            }
+        }
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        task.cancel()
+        let result = await task.result
+        switch result {
+        case .success:
+            XCTFail("expected cancellation")
+        case .failure(let error):
+            XCTAssertTrue(error is CancellationError, "got \(error)")
+        }
+        XCTAssertEqual(attempts.value, 1)
+    }
+
     // MARK: - SubscriptionError
 
     func testSubscriptionVerificationFailed() {
@@ -91,4 +178,19 @@ final class ErrorHandlingTests: XCTestCase {
         let error = SubscriptionError.purchaseFailed
         XCTAssertTrue(error.localizedDescription.contains("completed"))
     }
+}
+
+/// Tiny thread-safe helpers for the async NetworkRetry tests.
+private final class LockedFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var flag = false
+    func set() { lock.lock(); flag = true; lock.unlock() }
+    var value: Bool { lock.lock(); defer { lock.unlock() }; return flag }
+}
+
+private final class LockedCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    func increment() { lock.lock(); count += 1; lock.unlock() }
+    var value: Int { lock.lock(); defer { lock.unlock() }; return count }
 }
