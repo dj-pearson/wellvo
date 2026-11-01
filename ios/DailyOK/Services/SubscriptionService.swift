@@ -57,8 +57,9 @@ final class SubscriptionService: ObservableObject {
         /// Network or server-side failure. The transaction must be left
         /// unfinished so `Transaction.updates` redelivers it.
         case transientFailure
-        /// The backend rejected it deterministically (4xx). Retrying is futile
-        /// and holding it open means redelivery on every launch, forever.
+        /// The backend rejected it deterministically (a validation 4xx per
+        /// `SyncDisposition` — never 401/426). Retrying is futile and holding
+        /// it open means redelivery on every launch, forever.
         case permanentlyRejected
 
         /// Whether it is safe to call `transaction.finish()`.
@@ -415,22 +416,29 @@ final class SubscriptionService: ObservableObject {
             )
             return .synced
         } catch {
-            // A deterministic rejection (400/403/404) will never succeed, so
-            // neither retrying nor holding the transaction open helps — the same
-            // dead-letter reasoning as the offline check-in queue (US-IOS099).
-            // Without this, an unfinishable transaction would be redelivered by
-            // StoreKit on every single launch, forever.
-            if NetworkRetry.isNonRetryable(error) {
+            // A deterministic validation rejection (400/403/404/409/410/422)
+            // will never succeed, so neither retrying nor holding the
+            // transaction open helps — the same dead-letter reasoning as the
+            // offline check-in queue (US-IOS099). Without this, an unfinishable
+            // transaction would be redelivered by StoreKit on every launch.
+            //
+            // 401 (transient auth-service failure / expired session) and 426
+            // (force update) are NOT permanent: finishing the transaction then
+            // would lose a paid entitlement the backend never recorded. They
+            // fall through to .transientFailure so StoreKit redelivers it.
+            if SyncDisposition(for: error) == .dropPermanently {
                 Log.subscription.error("Subscription sync permanently rejected: \(error.localizedDescription, privacy: .public)")
                 errorMessage = String(localized: "We couldn't activate your subscription. Please contact support.")
                 return .permanentlyRejected
             }
-            if attempt < maxRetries {
+            // Retrying within this call can't fix a 401/426/cancellation, so
+            // skip the backoff loop for those and leave the transaction open.
+            if attempt < maxRetries && !NetworkRetry.isNonRetryable(error) {
                 let delay = UInt64(pow(2.0, Double(attempt))) * 1_000_000_000 // exponential backoff
                 try? await Task.sleep(nanoseconds: delay)
                 return await syncSubscriptionToBackend(transaction, attempt: attempt + 1)
             }
-            Log.subscription.error("Failed to sync subscription after \(maxRetries, privacy: .public) attempts: \(error.localizedDescription, privacy: .public)")
+            Log.subscription.error("Failed to sync subscription after \(attempt, privacy: .public) attempt(s): \(error.localizedDescription, privacy: .public)")
             errorMessage = String(localized: "Subscription activated. We're still finishing setup and will retry shortly.")
             return .transientFailure
         }

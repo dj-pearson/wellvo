@@ -74,6 +74,41 @@ enum NetworkRetry {
     }
 }
 
+/// What a durable sync path (the offline check-in queue, the StoreKit
+/// entitlement push) should do with a row/transaction whose upload failed.
+///
+/// This is deliberately stricter than `NetworkRetry.isNonRetryable`, which only
+/// answers "is retrying *right now, in this loop* pointless?". Dropping is
+/// irreversible — a dropped check-in is a false escalation, a finished
+/// unsynced transaction is a paid subscription the backend never hears about —
+/// so it is reserved for failures that are provably about the payload itself.
+///
+/// - `dropPermanently`: the server validated the request and rejected it
+///   (400, 403, 404, 409, 410, 422). It will fail identically forever.
+/// - `retryLater`: everything else. Notably 401 (the edge server returns it for
+///   transient auth-service failures and expired sessions that refresh), 426
+///   (force update — the row must survive until the user updates), 408, 429,
+///   every 5xx, connectivity / cancellation, and any unrecognized error.
+///
+/// Pure and not actor-isolated so both `@MainActor` services and unit tests
+/// can call it directly.
+enum SyncDisposition: Equatable, Sendable {
+    case retryLater
+    case dropPermanently
+
+    /// HTTP statuses that mean "this exact request will never be accepted".
+    static let permanentRejectionStatuses: Set<Int> = [400, 403, 404, 409, 410, 422]
+
+    init(for error: Error) {
+        if let httpError = error as? EdgeFunctionsClient.HTTPError,
+           Self.permanentRejectionStatuses.contains(httpError.status) {
+            self = .dropPermanently
+        } else {
+            self = .retryLater
+        }
+    }
+}
+
 enum NetworkError: LocalizedError {
     case maxRetriesExceeded
     case offline

@@ -360,19 +360,22 @@ final class OfflineCheckInService: ObservableObject {
                 try context.save()
                 syncedAny = true
             } catch {
-                if NetworkRetry.isNonRetryable(error) {
-                    // Deterministic server rejection (e.g. 400/403/404) — this row
-                    // will NEVER succeed, so dead-letter it (mark synced so it
-                    // leaves the queue) and keep going. Otherwise one poison row
+                if SyncDisposition(for: error) == .dropPermanently {
+                    // Deterministic validation rejection (400/403/404/409/410/422)
+                    // — this row will NEVER succeed, so dead-letter it (remove it
+                    // from the queue) and keep going. Otherwise one poison row
                     // would stall every later queued check-in forever (US-IOS099).
+                    // 401 (transient auth / expired session) and 426 (force
+                    // update) are NOT in this set: those rows must survive until
+                    // the session refreshes or the user updates the app.
                     Log.offline.error("Dropping un-syncable queued check-in: \(error.localizedDescription, privacy: .public)")
                     context.delete(offlineCheckIn)
                     try? context.save()
                     continue
                 }
                 Log.offline.error("Sync failed (will retry): \(error.localizedDescription, privacy: .public)")
-                // Transient (connectivity / 5xx): stop and retry the rest of the
-                // queue on the next trigger.
+                // Transient (connectivity / 5xx / 401 / 426 / 429 …): stop and
+                // retry the rest of the queue on the next trigger.
                 break
             }
         }
