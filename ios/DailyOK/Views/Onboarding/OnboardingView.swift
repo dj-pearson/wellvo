@@ -2,7 +2,7 @@ import SwiftUI
 
 struct OnboardingView: View {
     @StateObject private var viewModel = OnboardingViewModel()
-    @StateObject private var subscriptionService = SubscriptionService.shared
+    @ObservedObject private var subscriptionService = SubscriptionService.shared
     @EnvironmentObject var appState: AppState
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @ScaledMetric(relativeTo: .largeTitle) private var largeIconSize: CGFloat = 80

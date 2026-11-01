@@ -615,9 +615,20 @@ struct ReceiverSettingsView: View {
             "receiver_mode": receiverMode.rawValue,
             "schedule_type": scheduleType.rawValue,
             "schedule_paused": String(schedulePaused),
-            "simple_mode": String(simpleMode),
-            "audio_confirmation_enabled": String(audioConfirmationEnabled),
         ]
+
+        // simple_mode / audio_confirmation_enabled are also toggled by the
+        // receiver on their own device. Sending the values captured when this
+        // screen opened would silently overwrite a change they made since, so
+        // only write the ones the owner actually changed here.
+        let changedSimpleMode = settings.map { $0.simpleMode != simpleMode } ?? false
+        let changedAudioConfirmation = settings.map { $0.audioConfirmationEnabled != audioConfirmationEnabled } ?? false
+        if changedSimpleMode {
+            updates["simple_mode"] = String(simpleMode)
+        }
+        if changedAudioConfirmation {
+            updates["audio_confirmation_enabled"] = String(audioConfirmationEnabled)
+        }
 
         // Schedule-specific fields
         switch scheduleType {
@@ -650,6 +661,15 @@ struct ReceiverSettingsView: View {
                 .eq("family_member_id", value: member.id.uuidString)
                 .execute()
 
+            // Advance the baseline so a second Save only sends what changed
+            // after this one.
+            if changedSimpleMode { settings?.simpleMode = simpleMode }
+            if changedAudioConfirmation { settings?.audioConfirmationEnabled = audioConfirmationEnabled }
+
+            // The write is done — re-enable Save now rather than holding it
+            // disabled through the 2s confirmation below.
+            isSaving = false
+
             // Confirm the save for sighted, haptic, AND VoiceOver users — the
             // green capsule alone is invisible to VoiceOver.
             DailyOKHaptics.success()
@@ -669,9 +689,8 @@ struct ReceiverSettingsView: View {
             errorMessage = DailyOKError.network(error).localizedDescription
             DailyOKHaptics.error()
             UIAccessibility.post(notification: .announcement, argument: String(localized: "Couldn't save settings"))
+            isSaving = false
         }
-
-        isSaving = false
     }
 
     private func buildCustomSchedule() -> DaySchedule {

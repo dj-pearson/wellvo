@@ -284,10 +284,19 @@ final class SubscriptionService: ObservableObject {
         updateCurrentTier()
     }
 
-    func restorePurchases() async {
+    /// Restore App Store purchases and report what happened so the caller can
+    /// tell the user (every Restore button must give a visible result).
+    @discardableResult
+    func restorePurchases() async -> RestoreOutcome {
         isLoading = true
+        // Clear any stale message so the outcome reflects this restore only.
+        errorMessage = nil
+        defer { isLoading = false }
         do {
             try await AppStore.sync()
+        } catch StoreKitError.userCancelled {
+            // The user dismissed the App Store sign-in — not an error.
+            return .cancelled
         } catch {
             errorMessage = String(localized: "Failed to restore purchases.")
         }
@@ -296,7 +305,10 @@ final class SubscriptionService: ObservableObject {
         // valid StoreKit entitlement but the server never recorded it, so
         // without this their seats/features never come back (US-IOS095).
         await reconcileEntitlementsToBackend()
-        isLoading = false
+        if let errorMessage {
+            return .failed(errorMessage)
+        }
+        return purchasedProductIDs.isEmpty ? .nothingFound : .restored
     }
 
     /// Push every currently-entitled transaction to the backend so a
@@ -519,6 +531,38 @@ enum SubscriptionError: LocalizedError {
             return "Transaction verification failed: \(error.localizedDescription)"
         case .purchaseFailed:
             return "Purchase could not be completed."
+        }
+    }
+}
+
+/// Result of a user-initiated Restore Purchases, mapped to the alert shown.
+enum RestoreOutcome: Equatable {
+    case restored
+    case nothingFound
+    /// The user dismissed the App Store sign-in sheet; show nothing.
+    case cancelled
+    case failed(String)
+
+    /// Alert title, or nil when no alert should be shown.
+    var alertTitle: String? {
+        switch self {
+        case .restored: return String(localized: "Purchases restored")
+        case .nothingFound: return String(localized: "No purchases found")
+        case .cancelled: return nil
+        case .failed: return String(localized: "Couldn't restore purchases")
+        }
+    }
+
+    var alertMessage: String {
+        switch self {
+        case .restored:
+            return String(localized: "Your purchases are active on this device again.")
+        case .nothingFound:
+            return String(localized: "We didn't find any purchases for this Apple ID.")
+        case .cancelled:
+            return ""
+        case .failed(let message):
+            return message
         }
     }
 }
