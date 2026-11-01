@@ -165,6 +165,11 @@ final class AuthViewModel: ObservableObject {
     // MARK: - Session Management
 
     func checkSession() async {
+        // Before the session is touched (launch and every foreground): if an
+        // extension rotated the refresh token while the app wasn't running,
+        // take the rotated pair into the SDK — otherwise `currentSession()`
+        // refreshes with the consumed token and signs the user out.
+        await SupabaseService.shared.adoptNewerSharedSessionIfNeeded()
         do {
             if let user = try await AuthService.shared.currentSession() {
                 currentUser = user

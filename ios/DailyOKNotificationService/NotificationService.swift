@@ -149,10 +149,15 @@ class NotificationService: UNNotificationServiceExtension {
         }
         guard let token = try? JSONDecoder().decode(TokenResponse.self, from: data) else { return nil }
 
+        // Stamp the issue time (SharedAuthTokens.issuedAt) so the main app can
+        // adopt this rotated pair instead of later presenting the refresh token
+        // this call just consumed.
+        let issuedAt = Date()
         let updated = SharedTokens(
             accessToken: token.access_token,
             refreshToken: token.refresh_token,
-            expiresAt: Date().addingTimeInterval(TimeInterval(token.expires_in))
+            expiresAt: issuedAt.addingTimeInterval(TimeInterval(token.expires_in)),
+            issuedAt: issuedAt
         )
         saveSharedTokens(updated)
         return updated
@@ -171,6 +176,8 @@ class NotificationService: UNNotificationServiceExtension {
         let accessToken: String
         let refreshToken: String
         let expiresAt: Date
+        /// Optional so items written before the stamp existed still decode.
+        var issuedAt: Date? = nil
 
         /// Same 60s early margin as SharedAuthTokens.isAccessTokenExpired.
         var isExpired: Bool { Date() >= expiresAt.addingTimeInterval(-60) }

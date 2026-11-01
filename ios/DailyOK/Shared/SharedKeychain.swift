@@ -10,6 +10,16 @@ struct SharedAuthTokens: Codable, Equatable {
     var refreshToken: String
     /// Absolute expiry of `accessToken`.
     var expiresAt: Date
+    /// When this token pair was issued by the server — the freshness stamp the
+    /// main app compares against its own SDK session to decide whether an
+    /// extension rotated the refresh token while the app wasn't running.
+    ///
+    /// Optional and defaulted so the change is additive (CLAUDE.md §C): items
+    /// written by builds that predate the stamp decode with `nil` (synthesized
+    /// `Decodable` uses `decodeIfPresent` for optionals), and older readers —
+    /// a not-yet-updated watch app, the NSE's duplicated struct — ignore the
+    /// extra key. The Keychain service/account are unchanged.
+    var issuedAt: Date? = nil
 
     /// True when the access token is at/near expiry (refresh 60s early).
     var isAccessTokenExpired: Bool {

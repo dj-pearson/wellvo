@@ -38,11 +38,7 @@ enum SharedCheckInPublisher {
         )
         SharedCheckInStore.save(state)
         // Secrets go to the encrypted Keychain, never the App Group plist.
-        SharedKeychain.saveTokens(SharedAuthTokens(
-            accessToken: session.accessToken,
-            refreshToken: session.refreshToken,
-            expiresAt: Date(timeIntervalSince1970: session.expiresAt)
-        ))
+        SharedKeychain.saveTokens(SharedAuthTokens(session: session))
         WidgetCenter.shared.reloadAllTimelines()
         PhoneWatchSync.shared.sync()
     }
@@ -52,11 +48,7 @@ enum SharedCheckInPublisher {
     /// restore out-of-process check-in once the user has proven presence.
     static func republishTokensFromSession() async {
         guard let session = try? await SupabaseService.shared.client.auth.session else { return }
-        SharedKeychain.saveTokens(SharedAuthTokens(
-            accessToken: session.accessToken,
-            refreshToken: session.refreshToken,
-            expiresAt: Date(timeIntervalSince1970: session.expiresAt)
-        ))
+        SharedKeychain.saveTokens(SharedAuthTokens(session: session))
         WidgetCenter.shared.reloadAllTimelines()
         PhoneWatchSync.shared.sync()
     }

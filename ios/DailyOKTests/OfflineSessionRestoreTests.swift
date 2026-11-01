@@ -118,3 +118,95 @@ final class OfflineSessionRestoreTests: XCTestCase {
         XCTAssertNil(CachedProfileStore.load(for: userId, defaults: defaults))
     }
 }
+
+/// Refresh-token split-brain: an extension rotated the refresh token, and the
+/// app must adopt the rotated pair rather than later present the consumed one.
+/// These cover the decision of whether the shared pair is the newer session.
+final class SharedSessionReconcileTests: XCTestCase {
+
+    private let userId = UUID()
+    private let sdkIssuedAt = Date(timeIntervalSince1970: 1_700_000_000)
+    private var sdkExpiresAt: Date { sdkIssuedAt.addingTimeInterval(3600) }
+
+    /// An unsigned JWT carrying only `sub`, base64url-encoded without padding.
+    private func jwt(sub: String) -> String {
+        func b64url(_ json: String) -> String {
+            Data(json.utf8).base64EncodedString()
+                .replacingOccurrences(of: "+", with: "-")
+                .replacingOccurrences(of: "/", with: "_")
+                .replacingOccurrences(of: "=", with: "")
+        }
+        return "\(b64url(#"{"alg":"HS256"}"#)).\(b64url("{\"sub\":\"\(sub)\"}")).sig"
+    }
+
+    private func shared(
+        refresh: String = "rotated",
+        sub: String? = nil,
+        issuedAfter: TimeInterval? = 1800,
+        expiresAfter: TimeInterval = 5400
+    ) -> SharedAuthTokens {
+        SharedAuthTokens(
+            accessToken: jwt(sub: sub ?? userId.uuidString.lowercased()),
+            refreshToken: refresh,
+            expiresAt: sdkIssuedAt.addingTimeInterval(expiresAfter),
+            issuedAt: issuedAfter.map { sdkIssuedAt.addingTimeInterval($0) }
+        )
+    }
+
+    private func adopt(_ tokens: SharedAuthTokens) -> Bool {
+        SharedSessionReconciler.shouldAdopt(
+            shared: tokens,
+            sdkRefreshToken: "consumed",
+            sdkExpiresAt: sdkExpiresAt,
+            sdkIssuedAt: sdkIssuedAt,
+            sdkUserId: userId
+        )
+    }
+
+    func testNewerRotatedPairForSameUserIsAdopted() {
+        XCTAssertTrue(adopt(shared()))
+    }
+
+    func testUnstampedLegacyPairFallsBackToExpiry() {
+        XCTAssertTrue(adopt(shared(issuedAfter: nil)))
+        XCTAssertFalse(adopt(shared(issuedAfter: nil, expiresAfter: 1800)))
+    }
+
+    func testSameRefreshTokenIsAlreadyInSync() {
+        XCTAssertFalse(adopt(shared(refresh: "consumed")))
+    }
+
+    func testOlderPairIsNeverAdopted() {
+        XCTAssertFalse(adopt(shared(issuedAfter: -60, expiresAfter: 3540)))
+        // Later expiry but stamped before the SDK session: a late mirror write.
+        XCTAssertFalse(adopt(shared(issuedAfter: -60, expiresAfter: 5400)))
+    }
+
+    func testDifferentUserIsNeverAdopted() {
+        XCTAssertFalse(adopt(shared(sub: UUID().uuidString)))
+    }
+
+    func testUndecodableAccessTokenIsNeverAdopted() {
+        let tokens = SharedAuthTokens(
+            accessToken: "not-a-jwt",
+            refreshToken: "rotated",
+            expiresAt: sdkExpiresAt.addingTimeInterval(600)
+        )
+        XCTAssertFalse(adopt(tokens))
+    }
+
+    func testSubjectIsReadFromBase64URLPayload() {
+        let sub = userId.uuidString.lowercased()
+        XCTAssertEqual(SharedSessionReconciler.jwtSubject(jwt(sub: sub)), sub)
+        XCTAssertNil(SharedSessionReconciler.jwtSubject("a.b"))
+    }
+
+    func testTokensWithoutStampStillDecode() throws {
+        let legacy = #"{"accessToken":"a","refreshToken":"r","expiresAt":"2026-01-01T00:00:00Z"}"#
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let tokens = try decoder.decode(SharedAuthTokens.self, from: Data(legacy.utf8))
+        XCTAssertEqual(tokens.refreshToken, "r")
+        XCTAssertNil(tokens.issuedAt)
+    }
+}
