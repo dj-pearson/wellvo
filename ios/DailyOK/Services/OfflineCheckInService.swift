@@ -220,7 +220,7 @@ final class OfflineCheckInService: ObservableObject {
     /// the client timestamp and falls back to now(), so replaying a row older
     /// than this would record it as a check-in made today — the failure
     /// `isStale` exists to prevent.
-    static let maxReplayAge: TimeInterval = 7 * 24 * 60 * 60
+    nonisolated static let maxReplayAge: TimeInterval = 7 * 24 * 60 * 60
 
     /// Whether a queued row is too old to replay.
     ///
@@ -247,7 +247,7 @@ final class OfflineCheckInService: ObservableObject {
     /// True when the error represents a loss of connectivity (as opposed to a
     /// server/auth/client error). Used to decide whether to optimistically queue
     /// a check-in for later sync.
-    static func isConnectivityError(_ error: Error) -> Bool {
+    nonisolated static func isConnectivityError(_ error: Error) -> Bool {
         if error is NetworkError { return true }
         // `respondToCheckIn` (and other callers) re-wrap thrown errors as
         // `DailyOKError.network(_)` / `.unknown(_)` before they reach here, so a
