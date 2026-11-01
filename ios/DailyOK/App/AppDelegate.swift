@@ -37,6 +37,11 @@ enum NotificationRoute: Equatable {
     }
 }
 
+/// The single column "Call Now" reads from `users`.
+private struct ReceiverPhoneRow: Decodable {
+    let phone: String?
+}
+
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     /// Posted when a notification action asks for the dashboard. The delegate
@@ -280,10 +285,13 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
         Task {
             do {
-                // Fetch receiver's phone number
-                let users: [AppUser] = try await SupabaseService.shared.client
+                // Fetch receiver's phone number. Decoded into a phone-only row:
+                // `AppUser` requires display_name/role/created_at/updated_at,
+                // none of which this select returns, so decoding it always threw
+                // and "Call Now" never dialed.
+                let users: [ReceiverPhoneRow] = try await SupabaseService.shared.client
                     .from("users")
-                    .select("id, phone")
+                    .select("phone")
                     .eq("id", value: receiverId.uuidString)
                     .limit(1)
                     .execute()
@@ -377,33 +385,63 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             await ReceiverCheckInAftermath.record(at: Date())
         } catch {
             Log.checkIn.error("Notification check-in response failed: \(error.localizedDescription, privacy: .public)")
-            // Decide offline-vs-hard-error from the ERROR itself, not the
-            // asynchronously-updated `isOnline` flag — NWPathMonitor often
-            // hasn't flipped to offline yet when the radio drops mid-request.
-            // Mirrors `OfflineCheckInService.performCheckIn`.
-            let connectivity = OfflineCheckInService.isConnectivityError(error)
-            if responseType == .ok, connectivity {
-                // Offline plain "I'm OK": persist so it syncs later. The
-                // per-slot, per-day dedup on both the queue (US-IOS137) and the
-                // edge function keeps this from duplicating a phone check-in.
-                if await queueOfflineCheckIn(slotKey: slotKey) {
-                    await ReceiverCheckInAftermath.record(at: Date())
-                } else {
-                    // Couldn't even persist it — don't let the receiver believe
-                    // their check-in landed.
-                    await PushNotificationService.shared.presentCheckInResponseFailed(urgent: false)
-                }
-            } else if connectivity {
-                // Offline urgent response (need help / call me). We deliberately
-                // do NOT queue an urgent signal for silent later delivery — it
-                // must reach the owner live — but the receiver must know it
-                // didn't send so they can retry or reach out another way.
+            // Every non-2xx means the response did NOT land: the server answers
+            // an already-resolved request with 200 (it returns the existing
+            // check-in), so there is no "rejected but fine" case to stay quiet
+            // about. Previously only connectivity errors alerted, so a 5xx
+            // after retries, a 401, a 404 or a pinning cancel left the
+            // receiver believing their tap — even "I Need Help" — got through.
+            guard responseType == .ok else {
+                // Urgent response (need help / call me). Never queued for silent
+                // later delivery — it must reach the owner live — so the
+                // receiver must hear it didn't send, whatever the cause.
                 await PushNotificationService.shared.presentCheckInResponseFailed(urgent: true)
+                return
             }
-            // A non-connectivity error means the server received and rejected
-            // the request (e.g. already resolved) — no phantom-success risk,
-            // so no extra alert.
+
+            let status = Self.httpStatus(of: error)
+            if status == 404 {
+                // The request is gone (expired / cleaned up) but the receiver
+                // still tapped "I'm OK" for today: check in directly against
+                // the family from the shared snapshot. That path queues offline
+                // on a connectivity failure and alerts on anything else.
+                await checkInWithoutRequest(responseType: .ok, slotKey: slotKey)
+            } else if let status, SyncDisposition.permanentRejectionStatuses.contains(status) {
+                // 400/403/409/410/422: the server will reject this identically
+                // forever, and the offline sync would drop a queued copy — so
+                // queueing would only fake success. Tell the receiver.
+                await PushNotificationService.shared.presentCheckInResponseFailed(urgent: false)
+            } else if await queueOfflineCheckIn(slotKey: slotKey) {
+                // Connectivity, 5xx after retries, 401, 426, pinning cancel:
+                // persist so it syncs later (the sync path retries all of
+                // these). The per-slot, per-day dedup on both the queue
+                // (US-IOS137) and the edge function keeps this from duplicating
+                // a phone check-in.
+                await ReceiverCheckInAftermath.record(at: Date())
+            } else {
+                // Couldn't even persist it — don't let the receiver believe
+                // their check-in landed.
+                await PushNotificationService.shared.presentCheckInResponseFailed(urgent: false)
+            }
         }
+    }
+
+    /// The edge function's HTTP status behind `error`, unwrapping the
+    /// `DailyOKError.network(_)` / `.unknown(_)` that `respondToCheckIn` wraps
+    /// every failure in. `nil` for a non-HTTP failure (connectivity, cancel).
+    nonisolated private static func httpStatus(of error: Error) -> Int? {
+        if let httpError = error as? EdgeFunctionsClient.HTTPError {
+            return httpError.status
+        }
+        if let appError = error as? DailyOKError {
+            switch appError {
+            case .network(let inner), .unknown(let inner):
+                return httpStatus(of: inner)
+            default:
+                return nil
+            }
+        }
+        return nil
     }
 
     /// Queue an offline "I'm OK" for later sync. Needs no network: the family

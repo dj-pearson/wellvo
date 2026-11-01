@@ -172,13 +172,15 @@ actor PushNotificationService {
     /// lock screen while offline previously failed silently — the receiver (and,
     /// for an urgent response, they alone) had no way to know their family was
     /// never notified. This surfaces that so they can retry or reach out another
-    /// way instead of assuming the message got through.
+    /// way instead of assuming the message got through. Used for any failure,
+    /// not just connectivity (5xx after retries, 401, pinning cancel), so the
+    /// copy doesn't claim a cause.
     func presentCheckInResponseFailed(urgent: Bool) async {
         let content = UNMutableNotificationContent()
         content.title = urgent ? "Your response didn't send" : "Check-in didn't go through"
         content.body = urgent
-            ? "You appear to be offline, so your family wasn't notified. Open Daily OK to try again, or reach them another way."
-            : "You appear to be offline and we couldn't save your check-in. Please open Daily OK and try again."
+            ? "We couldn't reach Daily OK, so your family wasn't notified. Open Daily OK to try again, or reach them another way."
+            : "We couldn't send or save your check-in. Please open Daily OK and try again."
         content.sound = .default
         // nil trigger = deliver immediately.
         let request = UNNotificationRequest(

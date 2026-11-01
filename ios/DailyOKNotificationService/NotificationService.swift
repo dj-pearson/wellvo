@@ -11,6 +11,24 @@ class NotificationService: UNNotificationServiceExtension {
     var contentHandler: ((UNNotificationContent) -> Void)?
     var bestAttemptContent: UNMutableNotificationContent?
 
+    /// The system requires the content handler be called exactly once. Both the
+    /// confirm-delivery Task's completion and `serviceExtensionTimeWillExpire`
+    /// can reach it (the Task finishes after the expiry callback when the
+    /// network is slow), and they run on different threads — hence the lock.
+    private let deliverLock = NSLock()
+    private var hasDelivered = false
+
+    /// Hand `content` to the system once; later calls are no-ops.
+    private func deliver(_ content: UNNotificationContent) {
+        deliverLock.lock()
+        let isFirst = !hasDelivered
+        hasDelivered = true
+        let handler = contentHandler
+        deliverLock.unlock()
+        guard isFirst else { return }
+        handler?(content)
+    }
+
     override func didReceive(
         _ request: UNNotificationRequest,
         withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
@@ -19,7 +37,7 @@ class NotificationService: UNNotificationServiceExtension {
         bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
 
         guard let bestAttemptContent = bestAttemptContent else {
-            contentHandler(request.content)
+            deliver(request.content)
             return
         }
 
@@ -27,18 +45,18 @@ class NotificationService: UNNotificationServiceExtension {
         let userInfo = request.content.userInfo
         if let checkinRequestId = userInfo["checkin_request_id"] as? String {
             confirmDelivery(checkinRequestId: checkinRequestId) {
-                contentHandler(bestAttemptContent)
+                self.deliver(bestAttemptContent)
             }
         } else {
-            contentHandler(bestAttemptContent)
+            deliver(bestAttemptContent)
         }
     }
 
     override func serviceExtensionTimeWillExpire() {
         // Called just before the extension will be terminated by the system.
         // Deliver whatever we have.
-        if let contentHandler = contentHandler, let bestAttemptContent = bestAttemptContent {
-            contentHandler(bestAttemptContent)
+        if let bestAttemptContent = bestAttemptContent {
+            deliver(bestAttemptContent)
         }
     }
 
