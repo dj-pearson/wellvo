@@ -53,10 +53,10 @@ struct ReceiverHomeView: View {
     /// Greeting that matches the time of day rather than always "Good morning!".
     private var greeting: String {
         switch Calendar.current.component(.hour, from: Date()) {
-        case 5..<12: return "Good morning!"
-        case 12..<17: return "Good afternoon!"
-        case 17..<22: return "Good evening!"
-        default: return "Hello!"
+        case 5..<12: return String(localized: "Good morning!", comment: "Receiver home greeting, 5am-noon")
+        case 12..<17: return String(localized: "Good afternoon!", comment: "Receiver home greeting, noon-5pm")
+        case 17..<22: return String(localized: "Good evening!", comment: "Receiver home greeting, 5pm-10pm")
+        default: return String(localized: "Hello!", comment: "Receiver home greeting, late night")
         }
     }
 
@@ -72,9 +72,11 @@ struct ReceiverHomeView: View {
                     if viewModel.isOffline {
                         HStack(spacing: 8) {
                             Image(systemName: "wifi.slash")
+                            // Plural variants live in Localizable.xcstrings
+                            // (replaces the hand-rolled "check-in(s)").
                             Text(viewModel.pendingOfflineCount > 0
-                                 ? "Offline — \(viewModel.pendingOfflineCount) check-in(s) will sync when reconnected"
-                                 : "You're offline")
+                                 ? String(localized: "Offline — \(viewModel.pendingOfflineCount) check-ins will sync when reconnected", comment: "Offline banner with queued check-in count (plural)")
+                                 : String(localized: "You're offline", comment: "Offline banner, nothing queued"))
                         }
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(DailyOKColor.warning)
@@ -83,8 +85,8 @@ struct ReceiverHomeView: View {
                         .glassPill(style: .thin)
                         .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                         .accessibilityLabel(viewModel.pendingOfflineCount > 0
-                            ? "Offline. \(viewModel.pendingOfflineCount) check-ins pending sync."
-                            : "You are offline")
+                            ? String(localized: "Offline. \(viewModel.pendingOfflineCount) check-ins pending sync.", comment: "VoiceOver: offline banner with queued check-in count (plural)")
+                            : String(localized: "You are offline", comment: "VoiceOver: offline banner, nothing queued"))
                     }
 
                     Spacer().frame(height: 20)
@@ -558,13 +560,13 @@ struct ReceiverHomeView: View {
                     if !isSimpleMode {
                         Text(mood.emoji)
                     }
-                    Text("Feeling \(mood.label.lowercased())")
+                    Text(mood.feelingSentence)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 .padding(.top, 4)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Feeling \(mood.label)")
+                .accessibilityLabel(mood.feelingSentence)
             } else if viewModel.shouldPromptForMood && !isSimpleMode {
                 moodPicker.padding(.top, 8)
             }
@@ -610,7 +612,7 @@ struct ReceiverHomeView: View {
                         .glassPill(style: .thin)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Feeling \(mood.label)")
+                    .accessibilityLabel(mood.feelingSentence)
                 }
             }
         }

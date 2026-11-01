@@ -11,10 +11,10 @@ enum PasswordStrength: Int, Comparable {
 
     var label: String {
         switch self {
-        case .weak: return "Weak"
-        case .fair: return "Fair"
-        case .good: return "Good"
-        case .strong: return "Strong"
+        case .weak: return String(localized: "password.strength.weak", defaultValue: "Weak", comment: "Password strength meter")
+        case .fair: return String(localized: "password.strength.fair", defaultValue: "Fair", comment: "Password strength meter")
+        case .good: return String(localized: "password.strength.good", defaultValue: "Good", comment: "Password strength meter")
+        case .strong: return String(localized: "password.strength.strong", defaultValue: "Strong", comment: "Password strength meter")
         }
     }
 

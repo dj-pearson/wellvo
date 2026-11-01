@@ -18,17 +18,17 @@ enum ScheduleType: String, Codable, CaseIterable {
 
     var label: String {
         switch self {
-        case .daily: return "Every Day"
-        case .weekdayWeekend: return "Weekday / Weekend"
-        case .custom: return "Custom"
+        case .daily: return String(localized: "Every Day", comment: "Check-in schedule type")
+        case .weekdayWeekend: return String(localized: "Weekday / Weekend", comment: "Check-in schedule type")
+        case .custom: return String(localized: "Custom", comment: "Check-in schedule type")
         }
     }
 
     var description: String {
         switch self {
-        case .daily: return "Same time every day"
-        case .weekdayWeekend: return "Different times for weekdays and weekends"
-        case .custom: return "Set individual days and times"
+        case .daily: return String(localized: "Same time every day", comment: "Check-in schedule type description")
+        case .weekdayWeekend: return String(localized: "Different times for weekdays and weekends", comment: "Check-in schedule type description")
+        case .custom: return String(localized: "Set individual days and times", comment: "Check-in schedule type description")
         }
     }
 }
