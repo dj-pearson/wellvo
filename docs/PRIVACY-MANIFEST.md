@@ -36,7 +36,7 @@ Last verified: 2026-04-13.
 
 ## Third-party iOS SDK status
 
-These are the packages declared in `ios/DailyOK/Package.swift`. Each row
+These are the Swift packages referenced by `ios/DailyOK.xcodeproj` (XCRemoteSwiftPackageReference). Each row
 tracks whether the SDK ships a privacy manifest at the version we pin.
 
 | SDK | Purpose | Ships `PrivacyInfo.xcprivacy`? | Code-signed? | Notes |
