@@ -4619,7 +4619,7 @@
       ],
       "priority": 235,
       "passes": false,
-      "notes": "FTC Rule on the Use of Consumer Reviews and Testimonials (16 CFR Part 465, in force since Oct 2024) reaches fabricated testimonials, and placement directly above the Subscribe button makes materiality easy to establish. Note the irony at website/src/pages/Compare.tsx:13, which advertises 'no manufactured star ratings'. If a real customer quote with written permission exists later it can be reinstated with substantiation on file — do not generate a stand-in."
+      "notes": "FTC Rule on the Use of Consumer Reviews and Testimonials (16 CFR Part 465, in force since Oct 2024) reaches fabricated testimonials, and placement directly above the Subscribe button makes materiality easy to establish. Note the irony at website/src/pages/Compare.tsx:13, which advertises 'no manufactured star ratings'. If a real customer quote with written permission exists later it can be reinstated with substantiation on file — do not generate a stand-in. iOS DONE (loop 9): testimonial, Testimonial struct and TestimonialCard removed; no replacement. Android part still open, so passes stays false."
     },
     {
       "id": "US-LEG003",
@@ -4635,7 +4635,7 @@
       ],
       "priority": 236,
       "passes": false,
-      "notes": "The app cannot be end-to-end encrypted and still work: escalation logic reads check-in data server-side. Overstated encryption claims are an established FTC deception theory in their own right (Zoom, SkyMed). 'Unlimited family members' is contradicted by a trigger that actively deactivates excess members when max_receivers drops (00005_subscription_grace_period_and_retention.sql:86-98). Keep the replacement bullets concrete rather than vague."
+      "notes": "The app cannot be end-to-end encrypted and still work: escalation logic reads check-in data server-side. Overstated encryption claims are an established FTC deception theory in their own right (Zoom, SkyMed). 'Unlimited family members' is contradicted by a trigger that actively deactivates excess members when max_receivers drops (00005_subscription_grace_period_and_retention.sql:86-98). Keep the replacement bullets concrete rather than vague. iOS DONE (loop 9): paywall bullets now state 1/3/6 Receivers + 3/5/10 Viewers, 90d/1y/no-limit history, and TLS 1.2+ in transit + at rest + row-level access; onboarding privacy copy says encrypted in transit and at rest. Android part still open, so passes stays false."
     },
     {
       "id": "US-LEG004",
@@ -4687,7 +4687,7 @@
       ],
       "priority": 239,
       "passes": false,
-      "notes": "The cancellation path itself is already fine — iOS uses .manageSubscriptionsSheet (SettingsView.swift:503) and Android deep-links to the Play subscriptions page (SubscriptionScreen.kt:392), two taps with no retention gauntlet. What is missing is the disclosure half. The FTC's click-to-cancel Negative Option Rule was vacated by the Eighth Circuit in 2025, so the operative constraints here are ROSCA (15 U.S.C. 8403) and state ARLs, which require clear and conspicuous auto-renewal terms BEFORE billing information is taken. Apple Guideline 3.1.2 independently requires the Terms and Privacy links on the paywall, so this is also an App Review rejection risk. Note the 7- and 14-day trials are under 31 days, so California's separate trial-reminder duty does not attach — no reminder story is needed."
+      "notes": "The cancellation path itself is already fine — iOS uses .manageSubscriptionsSheet (SettingsView.swift:503) and Android deep-links to the Play subscriptions page (SubscriptionScreen.kt:392), two taps with no retention gauntlet. What is missing is the disclosure half. The FTC's click-to-cancel Negative Option Rule was vacated by the Eighth Circuit in 2025, so the operative constraints here are ROSCA (15 U.S.C. 8403) and state ARLs, which require clear and conspicuous auto-renewal terms BEFORE billing information is taken. Apple Guideline 3.1.2 independently requires the Terms and Privacy links on the paywall, so this is also an App Review rejection risk. Note the 7- and 14-day trials are under 31 days, so California's separate trial-reminder duty does not attach — no reminder story is needed. iOS DONE (loop 9): each plan row shows StoreKit price + period + eligible free trial + auto-renews line; full disclosure (24h cancel, trial converts, manage in Apple ID settings) and Terms of Use (EULA)/Privacy links under the plan list. Trial length comes from StoreKit intro offer, not hardcoded (Terms.tsx now says 7 days on both plans). Android part still open, so passes stays false."
     },
     {
       "id": "US-LEG007",

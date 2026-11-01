@@ -21,6 +21,18 @@ enum SubscriptionTier: String, Codable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = SubscriptionTier(rawValue: raw) ?? .free
     }
+
+    /// User-facing, localizable plan name. Never show `rawValue` in UI — it is
+    /// the wire/DB identifier (`family_plus`), which `.capitalized` renders as
+    /// "Family_Plus".
+    var displayName: String {
+        switch self {
+        case .free: return String(localized: "Free", comment: "Subscription plan name")
+        case .caregiver: return String(localized: "Caregiver", comment: "Subscription plan name")
+        case .family: return String(localized: "Family", comment: "Subscription plan name")
+        case .familyPlus: return String(localized: "Family+", comment: "Subscription plan name")
+        }
+    }
 }
 
 enum SubscriptionStatus: String, Codable {

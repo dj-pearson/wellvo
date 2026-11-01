@@ -29,17 +29,39 @@ enum Mood: String, Codable, CaseIterable {
         }
     }
 
+    /// Short, localized mood name for pickers and summaries (US-IOS149 prep).
+    /// Keyed (`mood.<case>.label`) because the English values collide with
+    /// unrelated strings ("Good" is also a password-strength label) that need
+    /// different translations. Display-only — the raw values above are the
+    /// wire/disk format and are unchanged.
     var label: String {
         switch self {
-        case .happy: return "Good"
-        case .neutral: return "Okay"
-        case .tired: return "Tired"
-        case .excited: return "Excited"
-        case .bored: return "Bored"
-        case .hungry: return "Hungry"
-        case .scared: return "Scared"
-        case .havingFun: return "Having Fun"
-        case .unknown: return "Unknown"
+        case .happy: return String(localized: "mood.happy.label", defaultValue: "Good", comment: "Mood option: feeling good")
+        case .neutral: return String(localized: "mood.neutral.label", defaultValue: "Okay", comment: "Mood option: feeling okay")
+        case .tired: return String(localized: "mood.tired.label", defaultValue: "Tired", comment: "Mood option")
+        case .excited: return String(localized: "mood.excited.label", defaultValue: "Excited", comment: "Mood option")
+        case .bored: return String(localized: "mood.bored.label", defaultValue: "Bored", comment: "Mood option")
+        case .hungry: return String(localized: "mood.hungry.label", defaultValue: "Hungry", comment: "Mood option")
+        case .scared: return String(localized: "mood.scared.label", defaultValue: "Scared", comment: "Mood option")
+        case .havingFun: return String(localized: "mood.havingFun.label", defaultValue: "Having Fun", comment: "Mood option")
+        case .unknown: return String(localized: "mood.unknown.label", defaultValue: "Unknown", comment: "Mood we could not recognise")
+        }
+    }
+
+    /// Full localized sentence ("Feeling good") shown after a mood is picked.
+    /// A whole sentence per mood rather than "Feeling \(label)" so translators
+    /// can handle word order, gender and case agreement.
+    var feelingSentence: String {
+        switch self {
+        case .happy: return String(localized: "Feeling good", comment: "Receiver's chosen mood, shown after check-in")
+        case .neutral: return String(localized: "Feeling okay", comment: "Receiver's chosen mood, shown after check-in")
+        case .tired: return String(localized: "Feeling tired", comment: "Receiver's chosen mood, shown after check-in")
+        case .excited: return String(localized: "Feeling excited", comment: "Receiver's chosen mood, shown after check-in")
+        case .bored: return String(localized: "Feeling bored", comment: "Receiver's chosen mood, shown after check-in")
+        case .hungry: return String(localized: "Feeling hungry", comment: "Receiver's chosen mood, shown after check-in")
+        case .scared: return String(localized: "Feeling scared", comment: "Receiver's chosen mood, shown after check-in")
+        case .havingFun: return String(localized: "Feeling having fun", comment: "Receiver's chosen mood, shown after check-in")
+        case .unknown: return String(localized: "Feeling unknown", comment: "Receiver's chosen mood, shown after check-in (unrecognised mood)")
         }
     }
 
@@ -82,12 +104,12 @@ enum LocationLabel: String, Codable, CaseIterable {
 
     var label: String {
         switch self {
-        case .home: return "Home"
-        case .school: return "School"
-        case .friendsHouse: return "Friend's House"
-        case .park: return "Park"
-        case .store: return "Store"
-        case .other: return "Other"
+        case .home: return String(localized: "Home", comment: "Location label")
+        case .school: return String(localized: "School", comment: "Location label")
+        case .friendsHouse: return String(localized: "Friend's House", comment: "Location label")
+        case .park: return String(localized: "Park", comment: "Location label")
+        case .store: return String(localized: "Store", comment: "Location label")
+        case .other: return String(localized: "Other", comment: "Location label")
         }
     }
 
@@ -110,9 +132,9 @@ enum KidResponseType: String, Codable, CaseIterable {
 
     var label: String {
         switch self {
-        case .pickingMeUp: return "Pick me up!"
-        case .canStayLonger: return "Can I stay longer?"
-        case .sos: return "SOS!"
+        case .pickingMeUp: return String(localized: "Pick me up!", comment: "Kid response button")
+        case .canStayLonger: return String(localized: "Can I stay longer?", comment: "Kid response button")
+        case .sos: return String(localized: "SOS!", comment: "Kid emergency response button")
         }
     }
 

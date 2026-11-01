@@ -1,7 +1,52 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-
+    "Offline — %lld check-ins will sync when reconnected" : {
+      "comment" : "Offline banner with queued check-in count (plural)",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Offline — %lld check-in will sync when reconnected"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Offline — %lld check-ins will sync when reconnected"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Offline. %lld check-ins pending sync." : {
+      "comment" : "VoiceOver: offline banner with queued check-in count (plural)",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Offline. %lld check-in pending sync."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Offline. %lld check-ins pending sync."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   },
   "version" : "1.0"
 }

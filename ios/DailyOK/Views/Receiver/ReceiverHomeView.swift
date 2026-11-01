@@ -19,6 +19,9 @@ struct ReceiverHomeView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var buttonDiameter: CGFloat = 200
     @ScaledMetric(relativeTo: .title) private var tapIconSize: CGFloat = 40
     @ScaledMetric(relativeTo: .title) private var tapTextSize: CGFloat = 28
+    /// Width of the scroll view, measured so the check-in button can be capped
+    /// to the screen at accessibility text sizes. 0 until first layout.
+    @State private var availableWidth: CGFloat = 0
 
     private var isKidMode: Bool {
         viewModel.receiverMode == .kid
@@ -29,17 +32,31 @@ struct ReceiverHomeView: View {
         viewModel.simpleMode
     }
 
+    /// The scaled (and Simple Mode–enlarged) diameter, capped so it never runs
+    /// past the screen: at AX5 the scaled 200pt is ~353pt and Simple Mode's
+    /// x1.18 is ~416pt — wider than a 393pt iPhone.
     private var effectiveDiameter: CGFloat {
-        isSimpleMode ? buttonDiameter * 1.18 : buttonDiameter
+        let scaled = isSimpleMode ? buttonDiameter * 1.18 : buttonDiameter
+        guard availableWidth > 0 else { return scaled }
+        return max(120, min(scaled, availableWidth - 48))
+    }
+
+    /// The aurora halo, derived from the capped diameter and held inside the
+    /// content width (the scroll content has 16pt padding on each side) so it
+    /// can't widen the layout either.
+    private var haloDiameter: CGFloat {
+        let halo = effectiveDiameter * 1.4
+        guard availableWidth > 0 else { return halo }
+        return min(halo, max(effectiveDiameter, availableWidth - 32))
     }
 
     /// Greeting that matches the time of day rather than always "Good morning!".
     private var greeting: String {
         switch Calendar.current.component(.hour, from: Date()) {
-        case 5..<12: return "Good morning!"
-        case 12..<17: return "Good afternoon!"
-        case 17..<22: return "Good evening!"
-        default: return "Hello!"
+        case 5..<12: return String(localized: "Good morning!", comment: "Receiver home greeting, 5am-noon")
+        case 12..<17: return String(localized: "Good afternoon!", comment: "Receiver home greeting, noon-5pm")
+        case 17..<22: return String(localized: "Good evening!", comment: "Receiver home greeting, 5pm-10pm")
+        default: return String(localized: "Hello!", comment: "Receiver home greeting, late night")
         }
     }
 
@@ -55,9 +72,11 @@ struct ReceiverHomeView: View {
                     if viewModel.isOffline {
                         HStack(spacing: 8) {
                             Image(systemName: "wifi.slash")
+                            // Plural variants live in Localizable.xcstrings
+                            // (replaces the hand-rolled "check-in(s)").
                             Text(viewModel.pendingOfflineCount > 0
-                                 ? "Offline — \(viewModel.pendingOfflineCount) check-in(s) will sync when reconnected"
-                                 : "You're offline")
+                                 ? String(localized: "Offline — \(viewModel.pendingOfflineCount) check-ins will sync when reconnected", comment: "Offline banner with queued check-in count (plural)")
+                                 : String(localized: "You're offline", comment: "Offline banner, nothing queued"))
                         }
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(DailyOKColor.warning)
@@ -66,8 +85,8 @@ struct ReceiverHomeView: View {
                         .glassPill(style: .thin)
                         .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                         .accessibilityLabel(viewModel.pendingOfflineCount > 0
-                            ? "Offline. \(viewModel.pendingOfflineCount) check-ins pending sync."
-                            : "You are offline")
+                            ? String(localized: "Offline. \(viewModel.pendingOfflineCount) check-ins pending sync.", comment: "VoiceOver: offline banner with queued check-in count (plural)")
+                            : String(localized: "You are offline", comment: "VoiceOver: offline banner, nothing queued"))
                     }
 
                     Spacer().frame(height: 20)
@@ -142,6 +161,12 @@ struct ReceiverHomeView: View {
                     Spacer().frame(height: 20)
                 }
                 .padding()
+                .readableContentWidth()
+            }
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.width
+            } action: { newWidth in
+                availableWidth = newWidth
             }
 
             // Discreet menu — sign out + link into iOS notification settings.
@@ -357,12 +382,12 @@ struct ReceiverHomeView: View {
                     if !isSimpleMode {
                         Circle()
                             .fill(DailyOKColor.green300.opacity(0.5))
-                            .frame(width: buttonDiameter * 1.4, height: buttonDiameter * 1.4)
+                            .frame(width: haloDiameter, height: haloDiameter)
                             .blur(radius: 40)
                             .scaleEffect(isPulsing ? 1.05 : 1.0)
                         Circle()
                             .fill(DailyOKColor.teal.opacity(0.4))
-                            .frame(width: buttonDiameter * 1.2, height: buttonDiameter * 1.2)
+                            .frame(width: min(effectiveDiameter * 1.2, haloDiameter), height: min(effectiveDiameter * 1.2, haloDiameter))
                             .blur(radius: 30)
                             .offset(x: 20, y: 20)
                             .scaleEffect(isPulsing ? 1.08 : 1.0)
@@ -417,6 +442,9 @@ struct ReceiverHomeView: View {
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.5)
                         }
+                        // Propose the circle's inner width so the label (and its
+                        // minimumScaleFactor) fits the capped circle, not the screen.
+                        .frame(maxWidth: effectiveDiameter * 0.78)
                     }
                 }
             }
@@ -533,13 +561,13 @@ struct ReceiverHomeView: View {
                     if !isSimpleMode {
                         Text(mood.emoji)
                     }
-                    Text("Feeling \(mood.label.lowercased())")
+                    Text(mood.feelingSentence)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 .padding(.top, 4)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Feeling \(mood.label)")
+                .accessibilityLabel(mood.feelingSentence)
             } else if viewModel.shouldPromptForMood && !isSimpleMode {
                 moodPicker.padding(.top, 8)
             }
@@ -585,7 +613,7 @@ struct ReceiverHomeView: View {
                         .glassPill(style: .thin)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Feeling \(mood.label)")
+                    .accessibilityLabel(mood.feelingSentence)
                 }
             }
         }

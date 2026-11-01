@@ -137,10 +137,24 @@ final class OfflineCheckInService: ObservableObject {
     /// window after the first, and the receiver's later windows were reported as
     /// missed. Carrying the slot costs one optional attribute, which SwiftData
     /// migrates lightly, and old rows keep nil — day-level, exactly as before.
-    func performCheckIn(familyId: UUID, mood: Mood? = nil, source: CheckInSource = .app, slotKey: String? = nil) async throws -> CheckIn? {
+    ///
+    /// `deadline` bounds the network work (session refresh + send, including
+    /// retries). Background notification actions pass one so a slow network
+    /// can't outlast the time iOS allows; when it passes, the check-in is
+    /// queued exactly as if the device were offline. `nil` (the in-app button)
+    /// waits as long as the retries take.
+    func performCheckIn(
+        familyId: UUID,
+        mood: Mood? = nil,
+        source: CheckInSource = .app,
+        slotKey: String? = nil,
+        deadline: Date? = nil
+    ) async throws -> CheckIn? {
         let receiverId: UUID
         do {
-            receiverId = try await SupabaseService.shared.client.auth.session.user.id
+            receiverId = try await NetworkRetry.withDeadline(deadline) {
+                try await SupabaseService.shared.client.auth.session.user.id
+            }
         } catch where Self.isConnectivityError(error) || !isOnline {
             // Offline with an expired access token: the session can't refresh,
             // but this device's signed-in receiver is known from the snapshot
@@ -161,8 +175,10 @@ final class OfflineCheckInService: ObservableObject {
 
         if isOnline {
             do {
-                let checkIn = try await NetworkRetry.execute {
-                    try await CheckInService.shared.checkIn(familyId: familyId, mood: mood, source: source, slotKey: slotKey)
+                let checkIn = try await NetworkRetry.withDeadline(deadline) {
+                    try await NetworkRetry.execute {
+                        try await CheckInService.shared.checkIn(familyId: familyId, mood: mood, source: source, slotKey: slotKey)
+                    }
                 }
                 return checkIn
             } catch {
@@ -220,7 +236,7 @@ final class OfflineCheckInService: ObservableObject {
     /// the client timestamp and falls back to now(), so replaying a row older
     /// than this would record it as a check-in made today — the failure
     /// `isStale` exists to prevent.
-    static let maxReplayAge: TimeInterval = 7 * 24 * 60 * 60
+    nonisolated static let maxReplayAge: TimeInterval = 7 * 24 * 60 * 60
 
     /// Whether a queued row is too old to replay.
     ///
@@ -247,8 +263,15 @@ final class OfflineCheckInService: ObservableObject {
     /// True when the error represents a loss of connectivity (as opposed to a
     /// server/auth/client error). Used to decide whether to optimistically queue
     /// a check-in for later sync.
-    static func isConnectivityError(_ error: Error) -> Bool {
+    nonisolated static func isConnectivityError(_ error: Error) -> Bool {
+        // Includes `.deadlineExceeded`: a background action that ran out of
+        // time is queued like any other offline check-in.
         if error is NetworkError { return true }
+        // Captive portal / TLS trust that couldn't be evaluated (hotel Wi-Fi
+        // before sign-in). Not an attack and not a server answer: the request
+        // never reached us, so queue it. A genuine pin mismatch is a plain
+        // cancel and is deliberately NOT matched here.
+        if case PinningError.trustUnevaluable? = error as? PinningError { return true }
         // `respondToCheckIn` (and other callers) re-wrap thrown errors as
         // `DailyOKError.network(_)` / `.unknown(_)` before they reach here, so a
         // genuine connectivity failure would otherwise bridge to an NSError with
@@ -360,19 +383,22 @@ final class OfflineCheckInService: ObservableObject {
                 try context.save()
                 syncedAny = true
             } catch {
-                if NetworkRetry.isNonRetryable(error) {
-                    // Deterministic server rejection (e.g. 400/403/404) — this row
-                    // will NEVER succeed, so dead-letter it (mark synced so it
-                    // leaves the queue) and keep going. Otherwise one poison row
+                if SyncDisposition(for: error) == .dropPermanently {
+                    // Deterministic validation rejection (400/403/404/409/410/422)
+                    // — this row will NEVER succeed, so dead-letter it (remove it
+                    // from the queue) and keep going. Otherwise one poison row
                     // would stall every later queued check-in forever (US-IOS099).
+                    // 401 (transient auth / expired session) and 426 (force
+                    // update) are NOT in this set: those rows must survive until
+                    // the session refreshes or the user updates the app.
                     Log.offline.error("Dropping un-syncable queued check-in: \(error.localizedDescription, privacy: .public)")
                     context.delete(offlineCheckIn)
                     try? context.save()
                     continue
                 }
                 Log.offline.error("Sync failed (will retry): \(error.localizedDescription, privacy: .public)")
-                // Transient (connectivity / 5xx): stop and retry the rest of the
-                // queue on the next trigger.
+                // Transient (connectivity / 5xx / 401 / 426 / 429 …): stop and
+                // retry the rest of the queue on the next trigger.
                 break
             }
         }

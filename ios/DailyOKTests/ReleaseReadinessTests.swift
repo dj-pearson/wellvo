@@ -136,6 +136,88 @@ final class ReleaseReadinessTests: XCTestCase {
         XCTAssertFalse(NetworkRetry.isNonRetryable(timeout))
     }
 
+    // MARK: - Durable sync disposition (offline queue + StoreKit)
+
+    private func disposition(_ status: Int) -> SyncDisposition {
+        SyncDisposition(for: EdgeFunctionsClient.HTTPError(status: status, body: ""))
+    }
+
+    /// Validation failures are about the payload itself and will fail forever,
+    /// so the queued check-in / StoreKit transaction is dead-lettered.
+    func testValidationRejectionsAreDroppedPermanently() {
+        for status in [400, 403, 404, 409, 410, 422] {
+            XCTAssertEqual(disposition(status), .dropPermanently, "HTTP \(status) should drop")
+        }
+    }
+
+    /// The edge server returns 401 for transient auth-service failures and
+    /// expired sessions. Dropping on 401 lost real check-ins / paid entitlements.
+    func test401IsRetriedLaterNotDropped() {
+        XCTAssertEqual(disposition(401), .retryLater)
+    }
+
+    /// 426 is force-update: the data must survive until the user updates.
+    func test426ForceUpdateIsRetriedLaterNotDropped() {
+        XCTAssertEqual(disposition(426), .retryLater)
+        // The exact shape EdgeFunctionsClient throws for a 426.
+        XCTAssertEqual(
+            SyncDisposition(for: EdgeFunctionsClient.HTTPError(status: 426, body: "update_required")),
+            .retryLater
+        )
+    }
+
+    func testTimeoutAndRateLimitAreRetriedLater() {
+        XCTAssertEqual(disposition(408), .retryLater)
+        XCTAssertEqual(disposition(429), .retryLater)
+        XCTAssertEqual(
+            SyncDisposition(for: EdgeFunctionsClient.HTTPError(status: 429, body: "", retryAfter: 30)),
+            .retryLater
+        )
+    }
+
+    func testServerErrorsAreRetriedLater() {
+        for status in [500, 502, 503, 504] {
+            XCTAssertEqual(disposition(status), .retryLater, "HTTP \(status) should retry later")
+        }
+    }
+
+    /// Unlisted 4xx default to keeping the data — dropping is irreversible.
+    func testUnlistedClientErrorsDefaultToRetryLater() {
+        for status in [402, 405, 413, 418] {
+            XCTAssertEqual(disposition(status), .retryLater, "HTTP \(status) should retry later")
+        }
+    }
+
+    func testConnectivityAndCancellationAreRetriedLater() {
+        for code in [NSURLErrorNotConnectedToInternet, NSURLErrorTimedOut,
+                     NSURLErrorNetworkConnectionLost, NSURLErrorCannotFindHost,
+                     NSURLErrorCancelled, NSURLErrorUserAuthenticationRequired] {
+            let err = NSError(domain: NSURLErrorDomain, code: code)
+            XCTAssertEqual(SyncDisposition(for: err), .retryLater, "URL error \(code) should retry later")
+        }
+        XCTAssertEqual(SyncDisposition(for: URLError(.notConnectedToInternet)), .retryLater)
+    }
+
+    /// Captive portal: the queued row / unfinished transaction must survive
+    /// until the user signs in to the Wi-Fi (iOS loop 6).
+    func testUnevaluableTrustIsRetriedLater() {
+        XCTAssertEqual(SyncDisposition(for: PinningError.trustUnevaluable), .retryLater)
+        XCTAssertEqual(SyncDisposition(for: DailyOKError.network(PinningError.trustUnevaluable)), .retryLater)
+        XCTAssertEqual(SyncDisposition(for: NetworkError.deadlineExceeded), .retryLater)
+    }
+
+    /// Retrying a captive portal inside the loop only burns background time;
+    /// it must fail fast so the check-in is queued while time remains.
+    func testUnevaluableTrustIsNonRetryableInTheLoop() {
+        XCTAssertTrue(NetworkRetry.isNonRetryable(PinningError.trustUnevaluable))
+    }
+
+    func testUnrecognizedErrorsAreRetriedLater() {
+        XCTAssertEqual(SyncDisposition(for: NetworkError.offline), .retryLater)
+        XCTAssertEqual(SyncDisposition(for: CheckInError.notAuthenticated), .retryLater)
+        XCTAssertEqual(SyncDisposition(for: DailyOKError.unknown(NSError(domain: "EdgeFunctions", code: -1))), .retryLater)
+    }
+
     // MARK: - US-IOS097: free-tier grandfather expiry
 
     private func makeFamily(tier: String, freeTierExpiresAt: String?) throws -> Family {

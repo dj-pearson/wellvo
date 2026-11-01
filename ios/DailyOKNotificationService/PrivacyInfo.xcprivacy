@@ -9,6 +9,10 @@
 
   The main app manifest (ios/DailyOK/PrivacyInfo.xcprivacy) covers all
   data-collection declarations for the app as a whole.
+
+  UserDefaults (1C8F.1): the extension reads the App Group container
+  (group.com.wellvo.ios) for the edge/Supabase URLs and never uses
+  UserDefaults.standard, so CA92.1 (app-only defaults) does not apply.
 -->
 <plist version="1.0">
 <dict>
@@ -25,7 +29,7 @@
             <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
             <key>NSPrivacyAccessedAPITypeReasons</key>
             <array>
-                <string>CA92.1</string>
+                <string>1C8F.1</string>
             </array>
         </dict>
     </array>

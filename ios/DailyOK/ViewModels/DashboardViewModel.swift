@@ -40,10 +40,10 @@ enum ReceiverCheckInStatus {
 
     var label: String {
         switch self {
-        case .checkedIn: return "Checked In"
-        case .pending: return "Pending"
-        case .missed: return "Missed"
-        case .noData: return "No Data"
+        case .checkedIn: return String(localized: "Checked In", comment: "Receiver status on owner dashboard")
+        case .pending: return String(localized: "Pending", comment: "Receiver status on owner dashboard")
+        case .missed: return String(localized: "Missed", comment: "Receiver status on owner dashboard")
+        case .noData: return String(localized: "No Data", comment: "Receiver status on owner dashboard")
         }
     }
 

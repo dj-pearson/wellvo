@@ -6,7 +6,29 @@ actor FamilyService {
 
     private var supabase: SupabaseClient { SupabaseService.shared.client }
 
+    /// Idempotent: reuses the caller's earliest owned family (renaming it if
+    /// the name changed) instead of inserting another `families` row, then
+    /// makes sure the owner's membership row exists. Onboarding drives the
+    /// same steps individually through `OnboardingFamilyDependencies`.
     func createFamily(name: String) async throws -> Family {
+        let family: Family
+        if let existing = try await ownedFamily() {
+            if existing.name == name {
+                family = existing
+            } else {
+                family = try await renameFamily(id: existing.id, name: name)
+            }
+        } else {
+            family = try await insertFamily(name: name)
+        }
+        try await ensureOwnerMembership(familyId: family.id)
+        return family
+    }
+
+    /// Inserts a new `families` row only. Callers must look for an existing
+    /// owned family first (`ownedFamily()`) — a second row orphans every
+    /// invite sent to it, because `getFamily()` resolves to the earliest one.
+    func insertFamily(name: String) async throws -> Family {
         guard let session = try? await supabase.auth.session else {
             throw FamilyError.notAuthenticated
         }
@@ -32,18 +54,69 @@ actor FamilyService {
             .execute()
             .value
 
-        // Add owner as family member
+        return family
+    }
+
+    /// The earliest family the current user OWNS, or nil. Same ordering as
+    /// `getFamily()` so onboarding reuses exactly the family every other screen
+    /// resolves to. Deliberately ignores receiver/viewer memberships — those
+    /// families belong to someone else.
+    func ownedFamily() async throws -> Family? {
+        guard let session = try? await supabase.auth.session else {
+            throw FamilyError.notAuthenticated
+        }
+        let families: [Family] = try await supabase
+            .from("families")
+            .select()
+            .eq("owner_id", value: session.user.id.uuidString)
+            .order("created_at", ascending: true)
+            .limit(1)
+            .execute()
+            .value
+        return families.first
+    }
+
+    /// Renames a family the caller owns (RLS: "Owners can update own
+    /// families"; the 00051 guard trigger leaves privileged columns untouched).
+    func renameFamily(id: UUID, name: String) async throws -> Family {
+        let family: Family = try await supabase
+            .from("families")
+            .update(["name": name])
+            .eq("id", value: id.uuidString)
+            .select()
+            .single()
+            .execute()
+            .value
+        return family
+    }
+
+    /// Inserts the owner's own `family_members` row unless it already exists.
+    /// Safe to retry after a partial failure: `family_members` is
+    /// UNIQUE(family_id, user_id), so a blind re-insert would fail forever.
+    func ensureOwnerMembership(familyId: UUID) async throws {
+        guard let session = try? await supabase.auth.session else {
+            throw FamilyError.notAuthenticated
+        }
+
+        let existing: [FamilyMember] = try await supabase
+            .from("family_members")
+            .select()
+            .eq("family_id", value: familyId.uuidString)
+            .eq("user_id", value: session.user.id.uuidString)
+            .limit(1)
+            .execute()
+            .value
+        guard existing.isEmpty else { return }
+
         try await supabase
             .from("family_members")
             .insert([
-                "family_id": family.id.uuidString,
+                "family_id": familyId.uuidString,
                 "user_id": session.user.id.uuidString,
                 "role": UserRole.owner.rawValue,
                 "status": MemberStatus.active.rawValue,
             ])
             .execute()
-
-        return family
     }
 
     func getFamily() async throws -> Family? {

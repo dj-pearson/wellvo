@@ -57,8 +57,9 @@ final class SubscriptionService: ObservableObject {
         /// Network or server-side failure. The transaction must be left
         /// unfinished so `Transaction.updates` redelivers it.
         case transientFailure
-        /// The backend rejected it deterministically (4xx). Retrying is futile
-        /// and holding it open means redelivery on every launch, forever.
+        /// The backend rejected it deterministically (a validation 4xx per
+        /// `SyncDisposition` — never 401/426). Retrying is futile and holding
+        /// it open means redelivery on every launch, forever.
         case permanentlyRejected
 
         /// Whether it is safe to call `transaction.finish()`.
@@ -152,6 +153,62 @@ final class SubscriptionService: ObservableObject {
         return suffix.isEmpty ? displayPrice : "\(displayPrice)/\(suffix)"
     }
 
+    // MARK: - Auto-Renewal Disclosure (US-LEG006, App Store guideline 3.1.2)
+
+    /// Spelled-out length of a StoreKit period, e.g. "1 month", "7 days".
+    /// Returns "" for an unknown future unit so callers can omit it. Pure.
+    nonisolated static func periodLength(value: Int, unit: Product.SubscriptionPeriod.Unit) -> String {
+        switch unit {
+        case .day:
+            return value == 1 ? String(localized: "1 day") : String(localized: "\(value) days")
+        case .week:
+            return value == 1 ? String(localized: "1 week") : String(localized: "\(value) weeks")
+        case .month:
+            return value == 1 ? String(localized: "1 month") : String(localized: "\(value) months")
+        case .year:
+            return value == 1 ? String(localized: "1 year") : String(localized: "\(value) years")
+        @unknown default:
+            return ""
+        }
+    }
+
+    /// Billing-cadence phrase for a renewal period: "per month" for a single
+    /// unit, otherwise "every 3 months". "" for an unknown unit. Pure.
+    nonisolated static func billingCadence(value: Int, unit: Product.SubscriptionPeriod.Unit) -> String {
+        if value == 1 {
+            switch unit {
+            case .day: return String(localized: "per day")
+            case .week: return String(localized: "per week")
+            case .month: return String(localized: "per month")
+            case .year: return String(localized: "per year")
+            @unknown default: return ""
+            }
+        }
+        let length = periodLength(value: value, unit: unit)
+        return length.isEmpty ? "" : String(localized: "every \(length)")
+    }
+
+    /// The per-plan renewal line shown directly under a purchase button, e.g.
+    /// "1 week free, then $3.99 per month. Renews automatically until cancelled."
+    /// `freeTrial` is the intro free-trial period, passed only when StoreKit
+    /// reports the user eligible for it. Pure — values come from StoreKit.
+    nonisolated static func renewalTerms(
+        displayPrice: String,
+        period: (value: Int, unit: Product.SubscriptionPeriod.Unit)?,
+        freeTrial: (value: Int, unit: Product.SubscriptionPeriod.Unit)?
+    ) -> String {
+        let cadence = period.map { billingCadence(value: $0.value, unit: $0.unit) } ?? ""
+        let priceText = cadence.isEmpty ? displayPrice : "\(displayPrice) \(cadence)"
+        let renews = String(localized: "Renews automatically until cancelled.")
+        if let freeTrial {
+            let trialLength = periodLength(value: freeTrial.value, unit: freeTrial.unit)
+            if !trialLength.isEmpty {
+                return String(localized: "\(trialLength) free, then \(priceText). \(renews)")
+            }
+        }
+        return String(localized: "\(priceText). \(renews)")
+    }
+
     // MARK: - Purchase
 
     func purchase(_ product: Product) async throws -> StoreKit.Transaction? {
@@ -227,19 +284,41 @@ final class SubscriptionService: ObservableObject {
         updateCurrentTier()
     }
 
-    func restorePurchases() async {
+    /// Restore App Store purchases and report what happened so the caller can
+    /// tell the user (every Restore button must give a visible result).
+    @discardableResult
+    func restorePurchases() async -> RestoreOutcome {
         isLoading = true
+        // Clear any stale message so the outcome reflects this restore only.
+        errorMessage = nil
+        defer { isLoading = false }
+        var storeFailure: String?
         do {
             try await AppStore.sync()
+        } catch StoreKitError.userCancelled {
+            // The user dismissed the App Store sign-in — not an error.
+            return .cancelled
         } catch {
-            errorMessage = String(localized: "Failed to restore purchases.")
+            storeFailure = String(localized: "Failed to restore purchases.")
+            errorMessage = storeFailure
         }
         await updatePurchasedProducts()
         // Restore must also re-provision the backend: a reinstalled user has a
         // valid StoreKit entitlement but the server never recorded it, so
         // without this their seats/features never come back (US-IOS095).
         await reconcileEntitlementsToBackend()
-        isLoading = false
+        if let storeFailure {
+            return .failed(storeFailure)
+        }
+        if purchasedProductIDs.isEmpty {
+            return .nothingFound
+        }
+        // The App Store restore worked; a backend sync hiccup (set by
+        // syncSubscriptionToBackend) is a note on a success, not a failure.
+        if let errorMessage {
+            return .restoredWithNote(errorMessage)
+        }
+        return .restored
     }
 
     /// Push every currently-entitled transaction to the backend so a
@@ -415,22 +494,29 @@ final class SubscriptionService: ObservableObject {
             )
             return .synced
         } catch {
-            // A deterministic rejection (400/403/404) will never succeed, so
-            // neither retrying nor holding the transaction open helps — the same
-            // dead-letter reasoning as the offline check-in queue (US-IOS099).
-            // Without this, an unfinishable transaction would be redelivered by
-            // StoreKit on every single launch, forever.
-            if NetworkRetry.isNonRetryable(error) {
+            // A deterministic validation rejection (400/403/404/409/410/422)
+            // will never succeed, so neither retrying nor holding the
+            // transaction open helps — the same dead-letter reasoning as the
+            // offline check-in queue (US-IOS099). Without this, an unfinishable
+            // transaction would be redelivered by StoreKit on every launch.
+            //
+            // 401 (transient auth-service failure / expired session) and 426
+            // (force update) are NOT permanent: finishing the transaction then
+            // would lose a paid entitlement the backend never recorded. They
+            // fall through to .transientFailure so StoreKit redelivers it.
+            if SyncDisposition(for: error) == .dropPermanently {
                 Log.subscription.error("Subscription sync permanently rejected: \(error.localizedDescription, privacy: .public)")
                 errorMessage = String(localized: "We couldn't activate your subscription. Please contact support.")
                 return .permanentlyRejected
             }
-            if attempt < maxRetries {
+            // Retrying within this call can't fix a 401/426/cancellation, so
+            // skip the backoff loop for those and leave the transaction open.
+            if attempt < maxRetries && !NetworkRetry.isNonRetryable(error) {
                 let delay = UInt64(pow(2.0, Double(attempt))) * 1_000_000_000 // exponential backoff
                 try? await Task.sleep(nanoseconds: delay)
                 return await syncSubscriptionToBackend(transaction, attempt: attempt + 1)
             }
-            Log.subscription.error("Failed to sync subscription after \(maxRetries, privacy: .public) attempts: \(error.localizedDescription, privacy: .public)")
+            Log.subscription.error("Failed to sync subscription after \(attempt, privacy: .public) attempt(s): \(error.localizedDescription, privacy: .public)")
             errorMessage = String(localized: "Subscription activated. We're still finishing setup and will retry shortly.")
             return .transientFailure
         }
@@ -455,6 +541,42 @@ enum SubscriptionError: LocalizedError {
             return "Transaction verification failed: \(error.localizedDescription)"
         case .purchaseFailed:
             return "Purchase could not be completed."
+        }
+    }
+}
+
+/// Result of a user-initiated Restore Purchases, mapped to the alert shown.
+enum RestoreOutcome: Equatable {
+    case restored
+    /// Purchases were restored but finishing backend setup reported a note.
+    case restoredWithNote(String)
+    case nothingFound
+    /// The user dismissed the App Store sign-in sheet; show nothing.
+    case cancelled
+    case failed(String)
+
+    /// Alert title, or nil when no alert should be shown.
+    var alertTitle: String? {
+        switch self {
+        case .restored, .restoredWithNote: return String(localized: "Purchases restored")
+        case .nothingFound: return String(localized: "No purchases found")
+        case .cancelled: return nil
+        case .failed: return String(localized: "Couldn't restore purchases")
+        }
+    }
+
+    var alertMessage: String {
+        switch self {
+        case .restored:
+            return String(localized: "Your purchases are active on this device again.")
+        case .restoredWithNote(let note):
+            return note
+        case .nothingFound:
+            return String(localized: "We didn't find any purchases for this Apple ID.")
+        case .cancelled:
+            return ""
+        case .failed(let message):
+            return message
         }
     }
 }

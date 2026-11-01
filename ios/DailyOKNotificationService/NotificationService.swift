@@ -11,6 +11,24 @@ class NotificationService: UNNotificationServiceExtension {
     var contentHandler: ((UNNotificationContent) -> Void)?
     var bestAttemptContent: UNMutableNotificationContent?
 
+    /// The system requires the content handler be called exactly once. Both the
+    /// confirm-delivery Task's completion and `serviceExtensionTimeWillExpire`
+    /// can reach it (the Task finishes after the expiry callback when the
+    /// network is slow), and they run on different threads — hence the lock.
+    private let deliverLock = NSLock()
+    private var hasDelivered = false
+
+    /// Hand `content` to the system once; later calls are no-ops.
+    private func deliver(_ content: UNNotificationContent) {
+        deliverLock.lock()
+        let isFirst = !hasDelivered
+        hasDelivered = true
+        let handler = contentHandler
+        deliverLock.unlock()
+        guard isFirst else { return }
+        handler?(content)
+    }
+
     override func didReceive(
         _ request: UNNotificationRequest,
         withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
@@ -19,39 +37,53 @@ class NotificationService: UNNotificationServiceExtension {
         bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
 
         guard let bestAttemptContent = bestAttemptContent else {
-            contentHandler(request.content)
+            deliver(request.content)
             return
         }
 
         // Confirm delivery to the server
         let userInfo = request.content.userInfo
         if let checkinRequestId = userInfo["checkin_request_id"] as? String {
-            confirmDelivery(checkinRequestId: checkinRequestId) {
-                contentHandler(bestAttemptContent)
+            confirmDelivery(checkinRequestId: checkinRequestId) { confirmed in
+                // Tell the app's willPresent / tap handlers the server already
+                // has this confirmation, so they don't send a second one. Set on
+                // a copy, not on `bestAttemptContent`, which the expiry callback
+                // may be handing to the system on another thread. Key must match
+                // AppDelegate.deliveryConfirmedByExtensionKey.
+                guard confirmed,
+                      let flagged = bestAttemptContent.mutableCopy() as? UNMutableNotificationContent else {
+                    self.deliver(bestAttemptContent)
+                    return
+                }
+                var flaggedInfo = flagged.userInfo
+                flaggedInfo["delivery_confirmed_by_nse"] = true
+                flagged.userInfo = flaggedInfo
+                self.deliver(flagged)
             }
         } else {
-            contentHandler(bestAttemptContent)
+            deliver(bestAttemptContent)
         }
     }
 
     override func serviceExtensionTimeWillExpire() {
         // Called just before the extension will be terminated by the system.
         // Deliver whatever we have.
-        if let contentHandler = contentHandler, let bestAttemptContent = bestAttemptContent {
-            contentHandler(bestAttemptContent)
+        if let bestAttemptContent = bestAttemptContent {
+            deliver(bestAttemptContent)
         }
     }
 
     // MARK: - Delivery Confirmation
 
-    private func confirmDelivery(checkinRequestId: String, completion: @escaping () -> Void) {
+    /// `completion(true)` only when the server answered 2xx.
+    private func confirmDelivery(checkinRequestId: String, completion: @escaping (Bool) -> Void) {
         // Read the access token from the shared (encrypted) Keychain group — the
         // main app no longer mirrors it into the plaintext App Group plist. The
         // non-secret edge/supabase URLs still come from the App Group defaults.
         guard let defaults = UserDefaults(suiteName: "group.com.wellvo.ios"),
               let tokens = Self.sharedTokens(),
               !tokens.accessToken.isEmpty else {
-            completion()
+            completion(false)
             return
         }
 
@@ -65,11 +97,11 @@ class NotificationService: UNNotificationServiceExtension {
         } else if !supabaseBase.isEmpty {
             urlString = "\(supabaseBase)/functions/v1/confirm-delivery"
         } else {
-            completion()
+            completion(false)
             return
         }
         guard let url = URL(string: urlString) else {
-            completion()
+            completion(false)
             return
         }
 
@@ -79,7 +111,8 @@ class NotificationService: UNNotificationServiceExtension {
         // either way (US-IOS080/US-IOS086). CertificatePinning.swift is compiled
         // into this extension target.
         Task {
-            defer { completion() }
+            var confirmed = false
+            defer { completion(confirmed) }
 
             // Refresh first if the mirrored access token has expired
             // (US-IOS145). It usually HAS: Supabase access tokens last about an
@@ -105,7 +138,10 @@ class NotificationService: UNNotificationServiceExtension {
             let body: [String: String] = ["checkin_request_id": checkinRequestId]
             request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-            _ = try? await PinnedURLSession.shared.data(for: request)
+            if let (_, response) = try? await PinnedURLSession.shared.data(for: request),
+               let http = response as? HTTPURLResponse {
+                confirmed = (200..<300).contains(http.statusCode)
+            }
         }
     }
 
@@ -149,10 +185,15 @@ class NotificationService: UNNotificationServiceExtension {
         }
         guard let token = try? JSONDecoder().decode(TokenResponse.self, from: data) else { return nil }
 
+        // Stamp the issue time (SharedAuthTokens.issuedAt) so the main app can
+        // adopt this rotated pair instead of later presenting the refresh token
+        // this call just consumed.
+        let issuedAt = Date()
         let updated = SharedTokens(
             accessToken: token.access_token,
             refreshToken: token.refresh_token,
-            expiresAt: Date().addingTimeInterval(TimeInterval(token.expires_in))
+            expiresAt: issuedAt.addingTimeInterval(TimeInterval(token.expires_in)),
+            issuedAt: issuedAt
         )
         saveSharedTokens(updated)
         return updated
@@ -171,6 +212,8 @@ class NotificationService: UNNotificationServiceExtension {
         let accessToken: String
         let refreshToken: String
         let expiresAt: Date
+        /// Optional so items written before the stamp existed still decode.
+        var issuedAt: Date? = nil
 
         /// Same 60s early margin as SharedAuthTokens.isAccessTokenExpired.
         var isExpired: Bool { Date() >= expiresAt.addingTimeInterval(-60) }

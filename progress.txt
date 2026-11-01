@@ -4728,3 +4728,35 @@ background, offline queue without network lookups, stale reminders).
   NOT compiled here (Google Maven blocked). The next CI run is the first real
   compile in months; expect a round of fixes. Two independent compile-review
   passes were run instead.
+
+================================================================================
+2026-11-01 — iOS 15-loop improvement run (claude/15-loop-ios-improvements-k7q2)
+================================================================================
+
+  Deep dive (3 read-only audits) -> 15 loops, each implemented then reviewed
+  by an independent agent. Not compiled (no Xcode); first CI run is the real
+  compile.
+
+  1  Unit tests compile (nonisolated helpers); NSHealthUpdate/NSFaceID strings
+  2  SyncDisposition: queue + StoreKit keep data on 401/426/5xx (tests)
+  3  Offline cold launch stays signed in (cached profile per user)
+  4  App adopts newer refresh token written by NSE/widget (setSession)
+  5  Lock-screen failures always surface; Call Now decodes phone; NSE once
+  6  15s timeouts, ~20s background deadline, captive portal queues
+  7  Multi-device push tokens; deduped heartbeat/pin probe/confirm-delivery
+  8  Onboarding reuses owned family (no duplicates) (tests)
+  9  Paywall: no testimonial, true claims, auto-renew + Terms/Privacy (iOS
+     half of US-LEG002/003/006; Android still open)
+  10 I'm OK button capped to screen width; toggles roll back with message
+  11 Restore/Delete Account feedback; receiver settings save only changes
+  12 Removed unused fetch/location bg modes; privacy manifest reasons fixed
+  13 Deploy needs unit tests; SwiftLint on PRs; resolve-packages job; removed
+     stray Package.swift (US-IOS148 still open: commit Package.resolved)
+  14 Localization groundwork (greeting, mood, plurals) — US-IOS149 still open
+  15 iPad readable width; walkthrough flag per owner (legacy key fallback)
+
+  Follow-ups: supabase-swift API names in loop 3/4 (auth.currentSession,
+  setSession) unverified until build; APNs 400 BadDeviceToken not pruned
+  server-side; App Store Connect privacy answers drop "Photos or Videos";
+  confirm trial length in ASC vs Terms.tsx; CLAUDE.md still mentions
+  Package.swift; App Store receipt verification (staged backend) not done.

@@ -36,7 +36,7 @@ Last verified: 2026-04-13.
 
 ## Third-party iOS SDK status
 
-These are the packages declared in `ios/DailyOK/Package.swift`. Each row
+These are the Swift packages referenced by `ios/DailyOK.xcodeproj` (XCRemoteSwiftPackageReference). Each row
 tracks whether the SDK ships a privacy manifest at the version we pin.
 
 | SDK | Purpose | Ships `PrivacyInfo.xcprivacy`? | Code-signed? | Notes |
@@ -122,7 +122,7 @@ safety** form in the Google Play Console. Keep it in sync with:
 
 ## When to update this file
 
-- Any time a new Swift Package is added or removed from `ios/DailyOK/Package.swift`.
+- Any time a new Swift Package is added or removed from the Xcode project (`ios/DailyOK.xcodeproj`, XCRemoteSwiftPackageReference).
 - Any time a new dependency is added or removed from `android/app/build.gradle.kts`.
 - Whenever Apple publishes a new required-reason API category or code.
 - Before every App Store submission, as a final cross-check.

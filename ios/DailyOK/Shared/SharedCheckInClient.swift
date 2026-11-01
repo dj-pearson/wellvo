@@ -221,10 +221,16 @@ enum SharedCheckInClient {
             throw SharedCheckInError.sessionExpired
         }
 
+        // Stamp the issue time so the main app can tell, on its next launch or
+        // foreground, that this pair is newer than its own SDK session and adopt
+        // it — otherwise the app later presents the refresh token we just
+        // consumed and is signed out (SupabaseService.adoptNewerSharedSessionIfNeeded).
+        let issuedAt = Date()
         let updated = SharedAuthTokens(
             accessToken: token.access_token,
             refreshToken: token.refresh_token,
-            expiresAt: Date().addingTimeInterval(TimeInterval(token.expires_in))
+            expiresAt: issuedAt.addingTimeInterval(TimeInterval(token.expires_in)),
+            issuedAt: issuedAt
         )
         SharedKeychain.saveTokens(updated)
         return updated

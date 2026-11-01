@@ -148,10 +148,14 @@ struct ContentView: View {
     /// 3. With no membership, try a phone-number invite match before asking the
     ///    user what they're here to do.
     private func resolveRole() async {
-        guard let userId = try? await SupabaseService.shared.client.auth.session.user.id else {
-            // Signed in but the session can't be loaded right now (offline with
-            // an expired token). Retry on foreground rather than hang on the
-            // launch screen.
+        // Offline with an expired access token, `auth.session` throws (the
+        // refresh can't reach the server) even though the user is signed in on
+        // the cached profile. Fall back to that profile's id so the cached role
+        // still routes a receiver to their check-in button.
+        let sessionUserId = try? await SupabaseService.shared.client.auth.session.user.id
+        guard let userId = sessionUserId ?? authViewModel.currentUser?.id else {
+            // Signed in but no user id is available at all. Retry on foreground
+            // rather than hang on the launch screen.
             appState.roleResolution = .failed
             return
         }

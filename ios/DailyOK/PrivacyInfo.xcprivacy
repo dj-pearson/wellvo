@@ -91,19 +91,12 @@
             </array>
         </dict>
 
-        <!-- User Content -->
-        <dict>
-            <key>NSPrivacyCollectedDataType</key>
-            <string>NSPrivacyCollectedDataTypePhotosorVideos</string>
-            <key>NSPrivacyCollectedDataTypeLinked</key>
-            <true/>
-            <key>NSPrivacyCollectedDataTypeTracking</key>
-            <false/>
-            <key>NSPrivacyCollectedDataTypePurposes</key>
-            <array>
-                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
-            </array>
-        </dict>
+        <!--
+          User Content
+          No PhotosorVideos entry: the app has no photo picker, camera capture
+          or image upload (avatar_url is a server-side field the app only
+          displays), so it collects no photos or videos.
+        -->
         <dict>
             <key>NSPrivacyCollectedDataType</key>
             <string>NSPrivacyCollectedDataTypeCustomerSupport</string>
@@ -245,23 +238,24 @@
 
     <!--
       NSPrivacyAccessedAPITypes
-      Required-reason APIs used by Daily OK. Reason codes are from Apple's
-      published list:
+      Required-reason APIs called by first-party code in THIS bundle. Reason
+      codes are from Apple's published list:
       https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api
 
-      - UserDefaults    CA92.1: access user defaults owned only by the app or
-                                the app group it is a member of.
-      - FileTimestamp   C617.1: access file timestamps to display that
-                                information to the user.
-      - SystemBootTime  35F9.1: measure elapsed time between events that
-                                occur during the app session.
-      - DiskSpace       E174.1: check whether there is enough disk space to
-                                write files before writing them.
+      - UserDefaults  CA92.1: app-only defaults (UserDefaults.standard /
+                              @AppStorage — role, haptics, biometric opt-in,
+                              review-prompt state, etc.).
+                      1C8F.1: App Group defaults (group.com.wellvo.ios) shared
+                              with the widgets, watch app and Notification
+                              Service Extension (SharedAppGroup.swift,
+                              SupabaseService.swift, CertificatePinning.swift).
 
-      Remove any of the three below if you verify the corresponding API is
-      not actually called (for example, via the `xcrun` SDK API-inspection
-      tools). All four listed here are commonly used transitively by
-      URLSession, SwiftUI, and third-party SDKs.
+      FileTimestamp, SystemBootTime and DiskSpace are intentionally NOT
+      declared: no first-party code calls attributesOfItem / creationDate /
+      modificationDate / resourceValues, systemUptime / mach_absolute_time,
+      or volumeAvailableCapacity / statfs. The linked SDKs (supabase-swift,
+      TelemetryDeck) carry their own manifests; system frameworks are exempt.
+      Re-add a category here if code that calls one of those APIs is added.
     -->
     <key>NSPrivacyAccessedAPITypes</key>
     <array>
@@ -271,30 +265,7 @@
             <key>NSPrivacyAccessedAPITypeReasons</key>
             <array>
                 <string>CA92.1</string>
-            </array>
-        </dict>
-        <dict>
-            <key>NSPrivacyAccessedAPIType</key>
-            <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
-            <key>NSPrivacyAccessedAPITypeReasons</key>
-            <array>
-                <string>C617.1</string>
-            </array>
-        </dict>
-        <dict>
-            <key>NSPrivacyAccessedAPIType</key>
-            <string>NSPrivacyAccessedAPICategorySystemBootTime</string>
-            <key>NSPrivacyAccessedAPITypeReasons</key>
-            <array>
-                <string>35F9.1</string>
-            </array>
-        </dict>
-        <dict>
-            <key>NSPrivacyAccessedAPIType</key>
-            <string>NSPrivacyAccessedAPICategoryDiskSpace</string>
-            <key>NSPrivacyAccessedAPITypeReasons</key>
-            <array>
-                <string>E174.1</string>
+                <string>1C8F.1</string>
             </array>
         </dict>
     </array>

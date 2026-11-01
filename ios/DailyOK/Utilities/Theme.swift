@@ -75,7 +75,27 @@ enum DailyOKElevation {
     static let level5: CGFloat = 24
 }
 
+/// Layout tokens.
+enum DailyOKLayout {
+    /// Maximum width for a screen's primary content column. The app ships for
+    /// iPad (TARGETED_DEVICE_FAMILY = "1,2"), where full-width cards, forms and
+    /// buttons stretch past 1000pt and become hard to read and tap.
+    static let readableContentWidth: CGFloat = 640
+}
+
 extension View {
+    /// Cap this content at a readable column width and center it in the space
+    /// available. No effect on iPhone, where the screen is already narrower.
+    ///
+    /// Apply it to the content inside a `ScrollView` rather than to the scroll
+    /// view, so the scroll area still spans the full screen. A `List` has no
+    /// separate content to wrap: apply it to the `List`, before its
+    /// `.background(...)`, so the background still fills the screen.
+    func readableContentWidth(_ maxWidth: CGFloat = DailyOKLayout.readableContentWidth) -> some View {
+        frame(maxWidth: maxWidth)
+            .frame(maxWidth: .infinity)
+    }
+
     /// Apply a Daily OK elevation shadow consistent with the design system.
     func dailyokShadow(_ level: CGFloat, opacity: Double = 0.08) -> some View {
         shadow(

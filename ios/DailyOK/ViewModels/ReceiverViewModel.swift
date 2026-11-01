@@ -537,28 +537,57 @@ final class ReceiverViewModel: ObservableObject {
     }
 
     /// Receiver self-service: toggle Simple Mode from their own device.
-    func updateSimpleMode(_ value: Bool) async {
+    /// Applied optimistically; rolled back with a plain-language message if
+    /// the save fails, so the next reload doesn't silently flip it back.
+    @discardableResult
+    func updateSimpleMode(_ value: Bool) async -> Bool {
+        let previous = simpleMode
         simpleMode = value
-        await updateReceiverSetting(["simple_mode": String(value)])
+        let saved = await updateReceiverSetting(["simple_mode": String(value)])
+        if !saved {
+            simpleMode = previous
+            actionMessage = value
+                ? String(localized: "Couldn't turn on Simple Mode. Please check your connection and try again.")
+                : String(localized: "Couldn't turn off Simple Mode. Please check your connection and try again.")
+        }
+        return saved
     }
 
-    /// Receiver self-service: toggle spoken/audible confirmation.
-    func updateAudioConfirmation(_ value: Bool) async {
+    /// Receiver self-service: toggle spoken/audible confirmation. Rolled back
+    /// with a message on failure, like `updateSimpleMode`.
+    @discardableResult
+    func updateAudioConfirmation(_ value: Bool) async -> Bool {
+        let previous = audioConfirmationEnabled
         audioConfirmationEnabled = value
-        await updateReceiverSetting(["audio_confirmation_enabled": String(value)])
+        let saved = await updateReceiverSetting(["audio_confirmation_enabled": String(value)])
+        if !saved {
+            audioConfirmationEnabled = previous
+            actionMessage = value
+                ? String(localized: "Couldn't turn on Spoken Confirmation. Please check your connection and try again.")
+                : String(localized: "Couldn't turn off Spoken Confirmation. Please check your connection and try again.")
+        }
+        return saved
     }
 
-    private func updateReceiverSetting(_ updates: [String: String]) async {
-        guard let memberId = receiverMemberId else { return }
+    /// Writes the receiver's own settings row. Returns false when the row is
+    /// unknown (settings never loaded) or the server rejects the update.
+    private func updateReceiverSetting(_ updates: [String: String]) async -> Bool {
+        guard let memberId = receiverMemberId else {
+            Log.settings.error("Receiver setting not saved: family member id not loaded")
+            return false
+        }
         do {
             try await SupabaseService.shared.client
                 .from("receiver_settings")
                 .update(updates)
                 .eq("family_member_id", value: memberId.uuidString)
                 .execute()
+            actionMessage = nil
             DailyOKHaptics.success()
+            return true
         } catch {
             Log.settings.error("Failed to update receiver setting: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 
@@ -681,19 +710,31 @@ final class ReceiverViewModel: ObservableObject {
     }
 
     /// Attach an optional mood to today's check-in row after the fact. Updates
-    /// the UI optimistically; a failure is non-fatal (the check-in itself stands).
-    func setMood(_ mood: Mood) async {
+    /// the UI optimistically; on failure the selection is rolled back (so the
+    /// picker reappears) and a message says so — the check-in itself stands.
+    @discardableResult
+    func setMood(_ mood: Mood) async -> Bool {
+        let previous = selectedMood
         selectedMood = mood
-        guard let checkIn = lastCheckIn else { return }
+        guard let checkIn = lastCheckIn else {
+            selectedMood = previous
+            actionMessage = String(localized: "Couldn't save how you're feeling. Your check-in was still sent.")
+            return false
+        }
         do {
             try await SupabaseService.shared.client
                 .from("checkins")
                 .update(["mood": mood.rawValue])
                 .eq("id", value: checkIn.id.uuidString)
                 .execute()
+            actionMessage = nil
             await AnalyticsService.shared.track(.moodSubmitted, properties: ["mood": mood.rawValue])
+            return true
         } catch {
-            // Non-fatal — keep the optimistic selection; the row just lacks a mood.
+            Log.receiver.error("Failed to save mood: \(error.localizedDescription, privacy: .public)")
+            selectedMood = previous
+            actionMessage = String(localized: "Couldn't save how you're feeling. Please try again — your check-in was still sent.")
+            return false
         }
     }
 }

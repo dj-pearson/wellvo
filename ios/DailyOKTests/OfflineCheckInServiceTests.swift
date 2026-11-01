@@ -84,6 +84,33 @@ final class OfflineCheckInServiceTests: XCTestCase {
         XCTAssertFalse(OfflineCheckInService.isConnectivityError(DailyOKError.serverError("boom")))
     }
 
+    // MARK: - Captive portal / background deadline queue (iOS loop 6)
+
+    /// Hotel / airport Wi-Fi before sign-in: TLS trust can't be evaluated and
+    /// PinnedURLSession throws `trustUnevaluable`. The request never reached the
+    /// server, so the check-in must be queued, not surfaced as a hard error.
+    func testUnevaluableTrustIsConnectivityError() {
+        XCTAssertTrue(OfflineCheckInService.isConnectivityError(PinningError.trustUnevaluable))
+    }
+
+    func testWrappedUnevaluableTrustIsConnectivityError() {
+        // respondToCheckIn wraps every failure in DailyOKError.network(_).
+        XCTAssertTrue(OfflineCheckInService.isConnectivityError(DailyOKError.network(PinningError.trustUnevaluable)))
+        XCTAssertTrue(OfflineCheckInService.isConnectivityError(DailyOKError.unknown(PinningError.trustUnevaluable)))
+    }
+
+    /// A pin MISMATCH still surfaces as a plain cancel and must NOT be treated
+    /// as offline — that is the fail-closed path for a possible interception.
+    func testPlainCancelIsStillNotConnectivityError() {
+        XCTAssertFalse(OfflineCheckInService.isConnectivityError(urlError(NSURLErrorCancelled)))
+    }
+
+    /// A background notification action that ran out of time queues offline.
+    func testDeadlineExceededIsConnectivityError() {
+        XCTAssertTrue(OfflineCheckInService.isConnectivityError(NetworkError.deadlineExceeded))
+        XCTAssertTrue(OfflineCheckInService.isConnectivityError(DailyOKError.network(NetworkError.deadlineExceeded)))
+    }
+
     // MARK: - Offline queue dedup is per slot, not per day (US-IOS137)
 
     /// A receiver on a multi-window custom schedule (US-IOS048) who is offline

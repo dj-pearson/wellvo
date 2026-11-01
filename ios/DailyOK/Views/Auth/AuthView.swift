@@ -105,6 +105,7 @@ struct AuthView: View {
                     .padding(.bottom, 16)
                 }
                 .padding(.horizontal, 24)
+                .readableContentWidth()
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: authViewModel.errorMessage)
             }
             .onChange(of: authViewModel.authState) { newState in

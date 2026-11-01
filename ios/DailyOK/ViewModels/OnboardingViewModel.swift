@@ -16,6 +16,33 @@ enum UserTypeSelection: String {
     case other = "other"
 }
 
+/// The family-creation calls the onboarding step makes, as a seam so tests can
+/// assert that going Back and tapping Continue again — or retrying after a
+/// failed membership insert — never inserts a second `families` row. A
+/// duplicate orphaned the receiver: invites targeted the new family while
+/// `getFamily()` resolved to the earliest one, so the receiver never appeared.
+///
+/// Deliberately narrow, like `SignOutDependencies`.
+struct OnboardingFamilyDependencies {
+    /// The caller's earliest owned family, if any (never a family they only
+    /// belong to as a receiver/viewer).
+    var findOwnedFamily: @MainActor () async throws -> Family?
+    var insertFamily: @MainActor (_ name: String) async throws -> Family
+    var renameFamily: @MainActor (_ id: UUID, _ name: String) async throws -> Family
+    /// Idempotent: a no-op when the owner's membership row already exists.
+    var ensureOwnerMembership: @MainActor (_ familyId: UUID) async throws -> Void
+
+    @MainActor
+    static var live: OnboardingFamilyDependencies {
+        OnboardingFamilyDependencies(
+            findOwnedFamily: { try await FamilyService.shared.ownedFamily() },
+            insertFamily: { name in try await FamilyService.shared.insertFamily(name: name) },
+            renameFamily: { id, name in try await FamilyService.shared.renameFamily(id: id, name: name) },
+            ensureOwnerMembership: { familyId in try await FamilyService.shared.ensureOwnerMembership(familyId: familyId) }
+        )
+    }
+}
+
 @MainActor
 final class OnboardingViewModel: ObservableObject {
     @Published var currentStep: OnboardingStep = .welcome
@@ -37,6 +64,9 @@ final class OnboardingViewModel: ObservableObject {
 
     var createdFamily: Family?
 
+    /// Overridden by tests; nil means the live FamilyService.
+    var familyDependencies: OnboardingFamilyDependencies?
+
     func advance() {
         guard let nextStep = OnboardingStep(rawValue: currentStep.rawValue + 1) else { return }
         withAnimation { currentStep = nextStep }
@@ -57,13 +87,36 @@ final class OnboardingViewModel: ObservableObject {
             errorMessage = String(localized: "Family name must be 100 characters or fewer")
             return
         }
+        guard !isLoading else { return }
         familyName = trimmed
 
         isLoading = true
         errorMessage = nil
 
+        let deps = familyDependencies ?? .live
         do {
-            createdFamily = try await FamilyService.shared.createFamily(name: familyName)
+            // Never insert a second family. Reuse, in order: the family this
+            // onboarding run already made (the owner went Back and tapped
+            // Continue again, or the membership insert failed last time), then
+            // one the owner already has on the server (e.g. a run that was
+            // killed mid-way). Only with neither is a new row inserted.
+            var family: Family
+            if let existing = createdFamily {
+                family = existing
+            } else if let owned = try await deps.findOwnedFamily() {
+                family = owned
+            } else {
+                family = try await deps.insertFamily(familyName)
+            }
+            // Remember it before anything else can fail, so a retry reuses it.
+            createdFamily = family
+
+            if family.name != familyName {
+                family = try await deps.renameFamily(family.id, familyName)
+                createdFamily = family
+            }
+
+            try await deps.ensureOwnerMembership(family.id)
             advance()
         } catch {
             errorMessage = error.localizedDescription

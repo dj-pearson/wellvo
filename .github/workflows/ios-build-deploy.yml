@@ -22,7 +22,17 @@ on:
         type: string
 
 jobs:
+  # The upload is gated on the unit tests. This used to archive and ship to App
+  # Store Connect with no test step at all, so a red ios-tests.yml run on the
+  # same push could not stop a TestFlight / App Store build. Calling the
+  # reusable workflow (rather than copying its steps) keeps the simulator
+  # resolution and test command identical to the PR gate. It needs no secrets.
+  unit-tests:
+    name: Unit tests
+    uses: ./.github/workflows/ios-tests.yml
+
   build-and-deploy:
+    needs: unit-tests
     runs-on: macos-15
     timeout-minutes: 45
 
@@ -295,7 +305,8 @@ jobs:
 
   # Notify on failure — create GitHub issue
   notify-failure:
-    needs: build-and-deploy
+    # Both, so a test failure (which skips build-and-deploy) also files the issue.
+    needs: [unit-tests, build-and-deploy]
     runs-on: ubuntu-latest
     if: failure()
     permissions:

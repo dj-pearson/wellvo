@@ -37,6 +37,11 @@ enum NotificationRoute: Equatable {
     }
 }
 
+/// The single column "Call Now" reads from `users`.
+private struct ReceiverPhoneRow: Decodable {
+    let phone: String?
+}
+
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     /// Posted when a notification action asks for the dashboard. The delegate
@@ -124,14 +129,30 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        // Confirm delivery when notification arrives on device
+        // Confirm delivery when notification arrives on device — unless the
+        // Notification Service Extension already did. It runs first for every
+        // check-in push (mutable-content: 1) and flags the content once the
+        // server accepted its confirmation, so sending again here was a
+        // duplicate request on every foreground notification. confirm-delivery
+        // is idempotent either way; this remains the backstop when the
+        // extension couldn't confirm (no mirrored session, offline, timeout).
         let userInfo = notification.request.content.userInfo
-        if let requestId = userInfo["checkin_request_id"] as? String {
+        if let requestId = userInfo["checkin_request_id"] as? String,
+           !Self.extensionConfirmedDelivery(userInfo) {
             Task {
                 await CheckInService.shared.confirmDelivery(checkinRequestId: requestId)
             }
         }
         completionHandler([.banner, .sound, .badge])
+    }
+
+    /// userInfo key the Notification Service Extension sets (to `true`) once
+    /// its confirm-delivery call got a 2xx. Local only — the server never sends
+    /// it. Must match DailyOKNotificationService/NotificationService.swift.
+    nonisolated static let deliveryConfirmedByExtensionKey = "delivery_confirmed_by_nse"
+
+    nonisolated static func extensionConfirmedDelivery(_ userInfo: [AnyHashable: Any]) -> Bool {
+        (userInfo[deliveryConfirmedByExtensionKey] as? Bool) == true
     }
 
     func userNotificationCenter(
@@ -173,8 +194,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             // button opened the app to a stale screen.
             NotificationCenter.default.post(name: AppDelegate.showDashboardRequested, object: nil)
         case .openApp:
-            // User tapped notification body — open app and confirm delivery.
-            if let requestId = userInfo["checkin_request_id"] as? String {
+            // User tapped notification body — open app and confirm delivery
+            // (skipped when the extension already confirmed it).
+            if let requestId = userInfo["checkin_request_id"] as? String,
+               !Self.extensionConfirmedDelivery(userInfo) {
                 Task { await CheckInService.shared.confirmDelivery(checkinRequestId: requestId) }
             }
         case .none:
@@ -280,10 +303,13 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
         Task {
             do {
-                // Fetch receiver's phone number
-                let users: [AppUser] = try await SupabaseService.shared.client
+                // Fetch receiver's phone number. Decoded into a phone-only row:
+                // `AppUser` requires display_name/role/created_at/updated_at,
+                // none of which this select returns, so decoding it always threw
+                // and "Call Now" never dialed.
+                let users: [ReceiverPhoneRow] = try await SupabaseService.shared.client
                     .from("users")
-                    .select("id, phone")
+                    .select("phone")
                     .eq("id", value: receiverId.uuidString)
                     .limit(1)
                     .execute()
@@ -346,11 +372,21 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         // reads the slot from the request itself, which is authoritative.
         let slotKey = userInfo["slot_key"] as? String
 
+        // From the Lock Screen the app runs in the background with roughly 30s
+        // before iOS suspends it. Bound ALL the network work below by one
+        // overall deadline; when it passes, the "I'm OK" is queued offline
+        // instead of being cut off mid-request. In the foreground (an
+        // urgent `.foreground` action, or a banner action while the app is
+        // open) nothing suspends us, so the normal retries run unbounded.
+        let deadline: Date? = UIApplication.shared.applicationState == .active
+            ? nil
+            : Date().addingTimeInterval(NetworkRetry.backgroundActionBudget)
+
         guard let requestId = userInfo["checkin_request_id"] as? String else {
             // The app's own local fallback reminder carries no request id. Its
             // "I'm OK" used to do nothing at all (masked while the action opened
             // the app); check in directly instead.
-            await checkInWithoutRequest(responseType: responseType, slotKey: slotKey)
+            await checkInWithoutRequest(responseType: responseType, slotKey: slotKey, deadline: deadline)
             return
         }
 
@@ -367,43 +403,80 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             let batteryLevel = UIDevice.current.batteryLevel
             let battery: Double? = batteryLevel >= 0 ? Double(batteryLevel) : nil
 
-            try await CheckInService.shared.respondToCheckIn(
-                requestId: requestId,
-                source: .notification,
-                responseType: responseType,
-                location: location,
-                batteryLevel: battery
-            )
+            // On deadline this throws NetworkError.deadlineExceeded, which has
+            // no HTTP status, so the catch below queues it offline.
+            try await NetworkRetry.withDeadline(deadline) {
+                try await CheckInService.shared.respondToCheckIn(
+                    requestId: requestId,
+                    source: .notification,
+                    responseType: responseType,
+                    location: location,
+                    batteryLevel: battery
+                )
+            }
             await ReceiverCheckInAftermath.record(at: Date())
         } catch {
             Log.checkIn.error("Notification check-in response failed: \(error.localizedDescription, privacy: .public)")
-            // Decide offline-vs-hard-error from the ERROR itself, not the
-            // asynchronously-updated `isOnline` flag — NWPathMonitor often
-            // hasn't flipped to offline yet when the radio drops mid-request.
-            // Mirrors `OfflineCheckInService.performCheckIn`.
-            let connectivity = OfflineCheckInService.isConnectivityError(error)
-            if responseType == .ok, connectivity {
-                // Offline plain "I'm OK": persist so it syncs later. The
-                // per-slot, per-day dedup on both the queue (US-IOS137) and the
-                // edge function keeps this from duplicating a phone check-in.
-                if await queueOfflineCheckIn(slotKey: slotKey) {
-                    await ReceiverCheckInAftermath.record(at: Date())
-                } else {
-                    // Couldn't even persist it — don't let the receiver believe
-                    // their check-in landed.
-                    await PushNotificationService.shared.presentCheckInResponseFailed(urgent: false)
-                }
-            } else if connectivity {
-                // Offline urgent response (need help / call me). We deliberately
-                // do NOT queue an urgent signal for silent later delivery — it
-                // must reach the owner live — but the receiver must know it
-                // didn't send so they can retry or reach out another way.
+            // Every non-2xx means the response did NOT land: the server answers
+            // an already-resolved request with 200 (it returns the existing
+            // check-in), so there is no "rejected but fine" case to stay quiet
+            // about. Previously only connectivity errors alerted, so a 5xx
+            // after retries, a 401, a 404 or a pinning cancel left the
+            // receiver believing their tap — even "I Need Help" — got through.
+            guard responseType == .ok else {
+                // Urgent response (need help / call me). Never queued for silent
+                // later delivery — it must reach the owner live — so the
+                // receiver must hear it didn't send, whatever the cause.
                 await PushNotificationService.shared.presentCheckInResponseFailed(urgent: true)
+                return
             }
-            // A non-connectivity error means the server received and rejected
-            // the request (e.g. already resolved) — no phantom-success risk,
-            // so no extra alert.
+
+            let status = Self.httpStatus(of: error)
+            if status == 404 {
+                // The request is gone (expired / cleaned up) but the receiver
+                // still tapped "I'm OK" for today: check in directly against
+                // the family from the shared snapshot. That path queues offline
+                // on a connectivity failure and alerts on anything else.
+                // Shares the same overall deadline (whatever is left of it).
+                await checkInWithoutRequest(responseType: .ok, slotKey: slotKey, deadline: deadline)
+            } else if let status, SyncDisposition.permanentRejectionStatuses.contains(status) {
+                // 400/403/409/410/422: the server will reject this identically
+                // forever, and the offline sync would drop a queued copy — so
+                // queueing would only fake success. Tell the receiver.
+                await PushNotificationService.shared.presentCheckInResponseFailed(urgent: false)
+            } else if await queueOfflineCheckIn(slotKey: slotKey) {
+                // Connectivity, background deadline, captive portal
+                // (PinningError.trustUnevaluable), 5xx after retries, 401, 426,
+                // pinning cancel:
+                // persist so it syncs later (the sync path retries all of
+                // these). The per-slot, per-day dedup on both the queue
+                // (US-IOS137) and the edge function keeps this from duplicating
+                // a phone check-in.
+                await ReceiverCheckInAftermath.record(at: Date())
+            } else {
+                // Couldn't even persist it — don't let the receiver believe
+                // their check-in landed.
+                await PushNotificationService.shared.presentCheckInResponseFailed(urgent: false)
+            }
         }
+    }
+
+    /// The edge function's HTTP status behind `error`, unwrapping the
+    /// `DailyOKError.network(_)` / `.unknown(_)` that `respondToCheckIn` wraps
+    /// every failure in. `nil` for a non-HTTP failure (connectivity, cancel).
+    nonisolated private static func httpStatus(of error: Error) -> Int? {
+        if let httpError = error as? EdgeFunctionsClient.HTTPError {
+            return httpError.status
+        }
+        if let appError = error as? DailyOKError {
+            switch appError {
+            case .network(let inner), .unknown(let inner):
+                return httpStatus(of: inner)
+            default:
+                return nil
+            }
+        }
+        return nil
     }
 
     /// Queue an offline "I'm OK" for later sync. Needs no network: the family
@@ -431,7 +504,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     /// Check in from a notification that isn't tied to a server request (the
     /// local fallback reminder).
     @MainActor
-    private func checkInWithoutRequest(responseType: CheckInResponseType, slotKey: String?) async {
+    private func checkInWithoutRequest(responseType: CheckInResponseType, slotKey: String?, deadline: Date? = nil) async {
         guard let familyId = cachedReceiverFamilyId() else {
             // Nothing to check in to on this device (not a receiver, or the app
             // has never loaded). The receiver must hear that it didn't send.
@@ -440,10 +513,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         }
         if responseType == .ok {
             do {
+                // Past `deadline` this queues and throws NetworkError, below.
                 _ = try await OfflineCheckInService.shared.performCheckIn(
                     familyId: familyId,
                     source: .notification,
-                    slotKey: slotKey
+                    slotKey: slotKey,
+                    deadline: deadline
                 )
                 await ReceiverCheckInAftermath.record(at: Date())
             } catch is NetworkError {

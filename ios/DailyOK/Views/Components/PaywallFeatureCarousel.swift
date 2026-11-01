@@ -7,12 +7,6 @@ struct PaywallFeature: Identifiable {
     let description: String
 }
 
-struct Testimonial: Identifiable {
-    let id = UUID()
-    let quote: String
-    let author: String
-}
-
 /// Horizontal carousel showcasing premium features with animated page dots.
 /// Designed to be embedded inside a paywall screen — parent provides the
 /// feature list and the CTA button below it.
@@ -101,27 +95,5 @@ struct AnnualSavingsBadge: View {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(scheme == .dark ? DailyOKColor.gold.opacity(0.22) : DailyOKColor.goldLight)
             )
-    }
-}
-
-/// A compact testimonial card for social proof.
-struct TestimonialCard: View {
-    let testimonial: Testimonial
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("\u{201C}\(testimonial.quote)\u{201D}")
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-            Text("— \(testimonial.author)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
     }
 }

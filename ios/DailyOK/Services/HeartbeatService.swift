@@ -13,6 +13,13 @@ final class HeartbeatService {
     private var timer: Timer?
     private let interval: TimeInterval = 15 * 60 // 15 minutes
     private var connectivityObserver: NSObjectProtocol?
+    /// When a heartbeat was last kicked off by `start()` / `appBecameActive()`.
+    /// On every foreground `checkSession()` calls `start()` (the timer was
+    /// stopped on background, so it sends its initial heartbeat) and then the
+    /// scene handler calls `appBecameActive()` moments later — two identical
+    /// requests per resume. This lets the second one see the first.
+    private var lastKickoff: Date?
+    private let foregroundDedupeWindow: TimeInterval = 60
 
     func start() {
         // Enable battery monitoring once here rather than re-toggling it on every
@@ -24,7 +31,7 @@ final class HeartbeatService {
         guard timer == nil else { return }
 
         // Send initial heartbeat
-        Task { await sendHeartbeat() }
+        kickOffHeartbeat()
 
         // Schedule periodic heartbeats
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
@@ -51,8 +58,20 @@ final class HeartbeatService {
     /// repeating Timer is suspended while backgrounded, so without this a
     /// receiver who opens the app after hours away still looks stale until the
     /// next tick fires (US-IOS098). Safe to call any time the app becomes active.
+    ///
+    /// Skipped when `start()` already sent one within the last minute — the
+    /// normal resume path, where checkSession restarts the stopped timer.
     func appBecameActive() {
         UIDevice.current.isBatteryMonitoringEnabled = true
+        if let lastKickoff, Date().timeIntervalSince(lastKickoff) < foregroundDedupeWindow,
+           lastKickoff <= Date() {
+            return
+        }
+        kickOffHeartbeat()
+    }
+
+    private func kickOffHeartbeat() {
+        lastKickoff = Date()
         Task { await sendHeartbeat() }
     }
 

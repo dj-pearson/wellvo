@@ -23,6 +23,15 @@ on:
       - 'ios/**'
       - '.github/workflows/ios-tests.yml'
   workflow_dispatch:
+    inputs:
+      export_package_resolved:
+        description: 'Also run the resolver and upload Package.resolved as an artifact to commit (US-IOS148)'
+        required: false
+        default: false
+        type: boolean
+  # ios-build-deploy.yml calls this workflow so the App Store upload is gated on
+  # the SAME test job a PR runs, not a hand-copied one that drifts from it.
+  workflow_call:
 
 jobs:
   unit-tests:
@@ -137,3 +146,108 @@ jobs:
           path: ${{ runner.temp }}/DailyOKTests.xcresult
           if-no-files-found: ignore
           retention-days: 7
+
+  swiftlint:
+    # PR-only, on a GitHub-hosted runner. ios-e2e-tests.yml has the original
+    # SwiftLint job, but it is gated on vars.RUNNER_MACOS (a self-hosted runner
+    # that is not registered), so until now no PR was ever linted.
+    #
+    # NON-BLOCKING for now (continue-on-error). .swiftlint.yml makes force_try
+    # an error, and DailyOKTests still has six `try!` calls (ModelTests.swift x2,
+    # ScheduleResolverTests.swift x4), so a blocking job would be red on every
+    # iOS PR from day one. Burn those down, then delete continue-on-error.
+    #
+    # The skip condition also keeps this out of the workflow_call run from
+    # ios-build-deploy.yml, whose event is a push.
+    name: SwiftLint
+    if: github.event_name == 'pull_request'
+    runs-on: macos-15
+    timeout-minutes: 10
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: command -v swiftlint >/dev/null 2>&1 || brew install swiftlint
+
+      - name: Lint iOS sources
+        # From the repository root: .swiftlint.yml's `included:` paths are
+        # repo-root-relative (see the note in ios-e2e-tests.yml).
+        run: |
+          set -o pipefail
+          swiftlint version
+          swiftlint lint --config .swiftlint.yml 2>&1 | tee "$RUNNER_TEMP/swiftlint.log"
+
+      - name: Assert SwiftLint actually inspected the iOS sources
+        # Same guard as ios-e2e-tests.yml: a run that linted 0 files is a gate
+        # that inspects nothing, and must not look green.
+        run: |
+          COUNT=$(grep -oE 'in [0-9]+ files' "$RUNNER_TEMP/swiftlint.log" | tail -1 | grep -oE '[0-9]+' || true)
+          if [ -z "$COUNT" ]; then
+            echo "::warning::Could not read a file count from SwiftLint's output — the non-empty guard needs updating."
+            exit 0
+          fi
+          echo "SwiftLint linted $COUNT files."
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::SwiftLint linted 0 files. The 'included:' paths in .swiftlint.yml do not resolve from the repository root."
+            exit 1
+          fi
+
+  export-package-resolved:
+    # US-IOS148: Package.resolved must come from the resolver, not be written by
+    # hand (it pins exact revisions of transitive dependencies too). Run this
+    # workflow manually with export_package_resolved ticked, download the
+    # artifact, and commit it at
+    #   ios/DailyOK.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+    # Check that supabase-swift is pinned to a 2.x before committing — 3.x moves
+    # the default Keychain service (see US-IOS144). Re-run this to update the pin.
+    #
+    # `inputs` is empty under workflow_call, so the deploy workflow never runs it.
+    name: Export Package.resolved
+    if: github.event_name == 'workflow_dispatch' && inputs.export_package_resolved
+    runs-on: macos-15
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: |
+          XCODE_PATH=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -v beta | sort -V | tail -1)
+          if [ -z "$XCODE_PATH" ]; then
+            XCODE_PATH=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          fi
+          echo "Using Xcode: $XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH"
+          xcodebuild -version
+
+      - name: Resolve Swift packages
+        run: xcodebuild -project ios/DailyOK.xcodeproj -scheme DailyOK -resolvePackageDependencies
+
+      - name: Show resolved pins
+        run: |
+          RESOLVED=ios/DailyOK.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+          if [ ! -f "$RESOLVED" ]; then
+            echo "::error::The resolver did not write $RESOLVED." >&2
+            exit 1
+          fi
+          cat "$RESOLVED"
+          if command -v jq >/dev/null 2>&1; then
+            SUPA=$(jq -r '.pins[]? | select(.identity == "supabase-swift") | .state.version // empty' "$RESOLVED")
+            echo "supabase-swift resolved to: ${SUPA:-unknown}"
+            case "$SUPA" in
+              2.*) ;;
+              *) echo "::warning::supabase-swift is not a 2.x (${SUPA:-unknown}). Do not commit this pin without the review US-IOS148 asks for." ;;
+            esac
+          fi
+
+      - name: Upload Package.resolved
+        uses: actions/upload-artifact@v4
+        with:
+          name: Package.resolved
+          path: ios/DailyOK.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+          if-no-files-found: error
+          retention-days: 30
