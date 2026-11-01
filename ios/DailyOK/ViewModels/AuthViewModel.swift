@@ -172,6 +172,11 @@ final class AuthViewModel: ObservableObject {
                 // Drive the last-seen heartbeat only while signed in.
                 HeartbeatService.shared.start()
             } else {
+                // Definitively signed out (no stored session, or the server
+                // rejected the refresh). Clear the profile too, so its offline
+                // launch cache (removed in `currentUser.didSet`) can't restore
+                // this account on a later launch with no signal.
+                currentUser = nil
                 authState = .unauthenticated
                 HeartbeatService.shared.stop()
             }
