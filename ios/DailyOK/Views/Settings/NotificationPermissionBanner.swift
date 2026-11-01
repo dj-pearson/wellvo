@@ -59,6 +59,9 @@ struct NotificationPermissionBanner: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
+                            // The glyph is ~20pt; give it a full 44pt tap target.
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Dismiss notification banner")

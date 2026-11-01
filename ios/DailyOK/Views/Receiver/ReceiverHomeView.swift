@@ -19,6 +19,9 @@ struct ReceiverHomeView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var buttonDiameter: CGFloat = 200
     @ScaledMetric(relativeTo: .title) private var tapIconSize: CGFloat = 40
     @ScaledMetric(relativeTo: .title) private var tapTextSize: CGFloat = 28
+    /// Width of the scroll view, measured so the check-in button can be capped
+    /// to the screen at accessibility text sizes. 0 until first layout.
+    @State private var availableWidth: CGFloat = 0
 
     private var isKidMode: Bool {
         viewModel.receiverMode == .kid
@@ -29,8 +32,22 @@ struct ReceiverHomeView: View {
         viewModel.simpleMode
     }
 
+    /// The scaled (and Simple Mode–enlarged) diameter, capped so it never runs
+    /// past the screen: at AX5 the scaled 200pt is ~353pt and Simple Mode's
+    /// x1.18 is ~416pt — wider than a 393pt iPhone.
     private var effectiveDiameter: CGFloat {
-        isSimpleMode ? buttonDiameter * 1.18 : buttonDiameter
+        let scaled = isSimpleMode ? buttonDiameter * 1.18 : buttonDiameter
+        guard availableWidth > 0 else { return scaled }
+        return max(120, min(scaled, availableWidth - 48))
+    }
+
+    /// The aurora halo, derived from the capped diameter and held inside the
+    /// content width (the scroll content has 16pt padding on each side) so it
+    /// can't widen the layout either.
+    private var haloDiameter: CGFloat {
+        let halo = effectiveDiameter * 1.4
+        guard availableWidth > 0 else { return halo }
+        return min(halo, max(effectiveDiameter, availableWidth - 32))
     }
 
     /// Greeting that matches the time of day rather than always "Good morning!".
@@ -142,6 +159,11 @@ struct ReceiverHomeView: View {
                     Spacer().frame(height: 20)
                 }
                 .padding()
+            }
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.width
+            } action: { newWidth in
+                availableWidth = newWidth
             }
 
             // Discreet menu — sign out + link into iOS notification settings.
@@ -357,12 +379,12 @@ struct ReceiverHomeView: View {
                     if !isSimpleMode {
                         Circle()
                             .fill(DailyOKColor.green300.opacity(0.5))
-                            .frame(width: buttonDiameter * 1.4, height: buttonDiameter * 1.4)
+                            .frame(width: haloDiameter, height: haloDiameter)
                             .blur(radius: 40)
                             .scaleEffect(isPulsing ? 1.05 : 1.0)
                         Circle()
                             .fill(DailyOKColor.teal.opacity(0.4))
-                            .frame(width: buttonDiameter * 1.2, height: buttonDiameter * 1.2)
+                            .frame(width: min(effectiveDiameter * 1.2, haloDiameter), height: min(effectiveDiameter * 1.2, haloDiameter))
                             .blur(radius: 30)
                             .offset(x: 20, y: 20)
                             .scaleEffect(isPulsing ? 1.08 : 1.0)
@@ -417,6 +439,9 @@ struct ReceiverHomeView: View {
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.5)
                         }
+                        // Propose the circle's inner width so the label (and its
+                        // minimumScaleFactor) fits the capped circle, not the screen.
+                        .frame(maxWidth: effectiveDiameter * 0.78)
                     }
                 }
             }
