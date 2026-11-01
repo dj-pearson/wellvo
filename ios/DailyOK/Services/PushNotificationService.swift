@@ -49,6 +49,21 @@ actor PushNotificationService {
         KeychainService.delete(key: "lastPushToken")
     }
 
+    /// UserDefaults key for when THIS user last upserted their cached token.
+    /// Kept beside (not inside) the Keychain token cache so the cache's value
+    /// shape is unchanged for users upgrading; a missing stamp — every install
+    /// that predates it — simply reads as expired and triggers one upsert.
+    private static func lastRegisteredAtKey(for userID: UUID) -> String {
+        "lastPushTokenRegisteredAt.\(userID.uuidString)"
+    }
+
+    /// How long a successful registration suppresses the next upsert of the
+    /// same token. The cache used to be permanent, so a row that went inactive
+    /// server-side (another device's registration deactivated it, or an APNs
+    /// error pruned it) was never re-activated by this device. Re-upserting at
+    /// most daily is one cheap idempotent write and self-heals that.
+    static let registrationCacheTTL: TimeInterval = 24 * 60 * 60
+
     func registerToken(_ token: String) async throws {
         guard let session = try? await supabase.auth.session else {
             throw DailyOKError.auth("Not authenticated")
@@ -56,30 +71,35 @@ actor PushNotificationService {
 
         Self.discardUnscopedTokenCache()
 
-        // Skip the round-trip only when THIS user already registered THIS token.
+        // Skip the round-trip only when THIS user already registered THIS token
+        // recently enough.
         let cacheKey = Self.lastTokenKey(for: session.user.id)
+        let registeredAtKey = Self.lastRegisteredAtKey(for: session.user.id)
         let storedToken = KeychainService.load(key: cacheKey)
-        guard token != storedToken else { return }
+        if token == storedToken,
+           let registeredAt = UserDefaults.standard.object(forKey: registeredAtKey) as? Date,
+           Date().timeIntervalSince(registeredAt) < Self.registrationCacheTTL,
+           registeredAt <= Date() {
+            return
+        }
 
         do {
-            // Deactivate this user's OTHER iOS tokens (exclude the one we're
-            // about to register) so the live token is never momentarily marked
-            // inactive between this update and the upsert below.
-            try await supabase
-                .from("push_tokens")
-                .update(["is_active": "false"])
-                .eq("user_id", value: session.user.id.uuidString)
-                .eq("platform", value: "ios")
-                .neq("token", value: token)
-                .execute()
-
+            // Do NOT deactivate this user's other iOS tokens. It used to, on
+            // every registration, which meant an owner signed in on an iPhone
+            // and an iPad only ever got alerts on whichever registered last —
+            // and the permanent "already registered" cache stopped the other
+            // device from ever re-activating itself. Stale tokens (uninstall,
+            // token rotation) are pruned server-side when APNs answers 410
+            // (shared/send-notification.ts), and sign-out deactivates this
+            // device's row explicitly (deactivateCurrentDeviceToken).
+            //
             // Register (or re-activate) the current token. Pin the conflict
             // target to the UNIQUE(user_id, token) constraint — without
             // onConflict, PostgREST resolves against the primary key `id`, which
             // isn't in this payload, so the upsert becomes an INSERT that
             // violates UNIQUE(user_id, token) for a returning user whose row
-            // already exists (e.g. reinstall reusing the same APNs token, or the
-            // row we just deactivated above). That threw, so the token was never
+            // already exists (e.g. reinstall reusing the same APNs token, or a
+            // row deactivated at sign-out). That threw, so the token was never
             // re-activated and the user silently stopped receiving pushes.
             try await supabase
                 .from("push_tokens")
@@ -92,6 +112,7 @@ actor PushNotificationService {
                 .execute()
 
             _ = KeychainService.save(key: cacheKey, value: token)
+            UserDefaults.standard.set(Date(), forKey: registeredAtKey)
         } catch {
             throw DailyOKError.network(error)
         }
@@ -125,6 +146,7 @@ actor PushNotificationService {
         }
 
         KeychainService.delete(key: cacheKey)
+        UserDefaults.standard.removeObject(forKey: Self.lastRegisteredAtKey(for: session.user.id))
     }
 
     func checkPermissionStatus() async -> UNAuthorizationStatus {

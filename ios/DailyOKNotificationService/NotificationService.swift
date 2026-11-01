@@ -44,8 +44,21 @@ class NotificationService: UNNotificationServiceExtension {
         // Confirm delivery to the server
         let userInfo = request.content.userInfo
         if let checkinRequestId = userInfo["checkin_request_id"] as? String {
-            confirmDelivery(checkinRequestId: checkinRequestId) {
-                self.deliver(bestAttemptContent)
+            confirmDelivery(checkinRequestId: checkinRequestId) { confirmed in
+                // Tell the app's willPresent / tap handlers the server already
+                // has this confirmation, so they don't send a second one. Set on
+                // a copy, not on `bestAttemptContent`, which the expiry callback
+                // may be handing to the system on another thread. Key must match
+                // AppDelegate.deliveryConfirmedByExtensionKey.
+                guard confirmed,
+                      let flagged = bestAttemptContent.mutableCopy() as? UNMutableNotificationContent else {
+                    self.deliver(bestAttemptContent)
+                    return
+                }
+                var flaggedInfo = flagged.userInfo
+                flaggedInfo["delivery_confirmed_by_nse"] = true
+                flagged.userInfo = flaggedInfo
+                self.deliver(flagged)
             }
         } else {
             deliver(bestAttemptContent)
@@ -62,14 +75,15 @@ class NotificationService: UNNotificationServiceExtension {
 
     // MARK: - Delivery Confirmation
 
-    private func confirmDelivery(checkinRequestId: String, completion: @escaping () -> Void) {
+    /// `completion(true)` only when the server answered 2xx.
+    private func confirmDelivery(checkinRequestId: String, completion: @escaping (Bool) -> Void) {
         // Read the access token from the shared (encrypted) Keychain group — the
         // main app no longer mirrors it into the plaintext App Group plist. The
         // non-secret edge/supabase URLs still come from the App Group defaults.
         guard let defaults = UserDefaults(suiteName: "group.com.wellvo.ios"),
               let tokens = Self.sharedTokens(),
               !tokens.accessToken.isEmpty else {
-            completion()
+            completion(false)
             return
         }
 
@@ -83,11 +97,11 @@ class NotificationService: UNNotificationServiceExtension {
         } else if !supabaseBase.isEmpty {
             urlString = "\(supabaseBase)/functions/v1/confirm-delivery"
         } else {
-            completion()
+            completion(false)
             return
         }
         guard let url = URL(string: urlString) else {
-            completion()
+            completion(false)
             return
         }
 
@@ -97,7 +111,8 @@ class NotificationService: UNNotificationServiceExtension {
         // either way (US-IOS080/US-IOS086). CertificatePinning.swift is compiled
         // into this extension target.
         Task {
-            defer { completion() }
+            var confirmed = false
+            defer { completion(confirmed) }
 
             // Refresh first if the mirrored access token has expired
             // (US-IOS145). It usually HAS: Supabase access tokens last about an
@@ -123,7 +138,10 @@ class NotificationService: UNNotificationServiceExtension {
             let body: [String: String] = ["checkin_request_id": checkinRequestId]
             request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-            _ = try? await PinnedURLSession.shared.data(for: request)
+            if let (_, response) = try? await PinnedURLSession.shared.data(for: request),
+               let http = response as? HTTPURLResponse {
+                confirmed = (200..<300).contains(http.statusCode)
+            }
         }
     }
 

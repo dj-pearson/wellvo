@@ -27,10 +27,19 @@ actor CertificatePinningService {
             return .pinned // Non-HTTPS (debug/localhost) — nothing to pin.
         }
 
-        // Cache for 1 hour to avoid excessive handshakes.
-        if let lastDate = lastValidationDate, let lastResult,
-           Date().timeIntervalSince(lastDate) < 3600 {
-            return lastResult
+        // This runs on every foreground, so a successful probe is reused for
+        // 24 hours rather than paying a fresh TLS handshake each resume. The
+        // pins are root-CA SPKIs that change on a scale of years, and every
+        // real request is still pin-checked inline by `PinnedURLSession`, so a
+        // longer reuse of a `.pinned` result gives up nothing. Only `.pinned`
+        // is reused: a `.mismatch` re-probes on the next resume (so the
+        // blocking screen clears as soon as the network is trustworthy again)
+        // and `.unevaluable` (captive portal, offline) re-probes too, so it
+        // can't mask a real mismatch for the reuse window.
+        if let lastDate = lastValidationDate, lastResult == .pinned,
+           Date().timeIntervalSince(lastDate) < Self.pinnedResultTTL,
+           lastDate <= Date() {
+            return .pinned
         }
 
         let result = await performProbe(url: url)
@@ -38,6 +47,8 @@ actor CertificatePinningService {
         lastValidationDate = Date()
         return result
     }
+
+    static let pinnedResultTTL: TimeInterval = 24 * 60 * 60
 
     /// Back-compat boolean: true only when a pinned key was found.
     func validateServerCertificate() async -> Bool {

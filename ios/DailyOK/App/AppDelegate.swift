@@ -129,14 +129,30 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        // Confirm delivery when notification arrives on device
+        // Confirm delivery when notification arrives on device — unless the
+        // Notification Service Extension already did. It runs first for every
+        // check-in push (mutable-content: 1) and flags the content once the
+        // server accepted its confirmation, so sending again here was a
+        // duplicate request on every foreground notification. confirm-delivery
+        // is idempotent either way; this remains the backstop when the
+        // extension couldn't confirm (no mirrored session, offline, timeout).
         let userInfo = notification.request.content.userInfo
-        if let requestId = userInfo["checkin_request_id"] as? String {
+        if let requestId = userInfo["checkin_request_id"] as? String,
+           !Self.extensionConfirmedDelivery(userInfo) {
             Task {
                 await CheckInService.shared.confirmDelivery(checkinRequestId: requestId)
             }
         }
         completionHandler([.banner, .sound, .badge])
+    }
+
+    /// userInfo key the Notification Service Extension sets (to `true`) once
+    /// its confirm-delivery call got a 2xx. Local only — the server never sends
+    /// it. Must match DailyOKNotificationService/NotificationService.swift.
+    nonisolated static let deliveryConfirmedByExtensionKey = "delivery_confirmed_by_nse"
+
+    nonisolated static func extensionConfirmedDelivery(_ userInfo: [AnyHashable: Any]) -> Bool {
+        (userInfo[deliveryConfirmedByExtensionKey] as? Bool) == true
     }
 
     func userNotificationCenter(
@@ -178,8 +194,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             // button opened the app to a stale screen.
             NotificationCenter.default.post(name: AppDelegate.showDashboardRequested, object: nil)
         case .openApp:
-            // User tapped notification body — open app and confirm delivery.
-            if let requestId = userInfo["checkin_request_id"] as? String {
+            // User tapped notification body — open app and confirm delivery
+            // (skipped when the extension already confirmed it).
+            if let requestId = userInfo["checkin_request_id"] as? String,
+               !Self.extensionConfirmedDelivery(userInfo) {
                 Task { await CheckInService.shared.confirmDelivery(checkinRequestId: requestId) }
             }
         case .none:
