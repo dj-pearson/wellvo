@@ -61,8 +61,17 @@ enum NetworkRetry {
     /// deadline wins; `NetworkRetry.execute` and `PinnedURLSession` both honour
     /// that cancellation promptly.
     ///
+    /// The deadline is HARD: this returns at `deadline` even if `operation`
+    /// ignores cancellation. A task group would not — it awaits every child
+    /// before returning — and some work here doesn't stop when cancelled (the
+    /// Supabase SDK awaits its session refresh in an unstructured task, on its
+    /// own 60s-timeout URLSession). So the operation runs in its own task and is
+    /// raced, not joined; a cancellation-deaf operation finishes in the
+    /// background and its result is discarded.
+    ///
     /// - A `nil` deadline runs `operation` unbounded (foreground callers).
     /// - A deadline already in the past throws without running `operation`.
+    /// - Cancelling the caller throws `CancellationError` at once.
     ///
     /// A request that was already on the wire when the deadline fired may
     /// still land server-side; the queued copy is then deduplicated by the
@@ -75,19 +84,68 @@ enum NetworkRetry {
         let remaining = deadline.timeIntervalSinceNow
         guard remaining > 0 else { throw NetworkError.deadlineExceeded }
 
-        return try await withThrowingTaskGroup(of: T.self) { group in
-            group.addTask { try await operation() }
-            group.addTask {
-                try await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
-                throw NetworkError.deadlineExceeded
+        let race = DeadlineRace<T>()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
+                let work = Task {
+                    do {
+                        race.finish(.success(try await operation()))
+                    } catch {
+                        race.finish(.failure(error))
+                    }
+                }
+                let timer = Task {
+                    do {
+                        try await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+                    } catch {
+                        return // cancelled: the operation (or the caller) already decided
+                    }
+                    race.finish(.failure(NetworkError.deadlineExceeded))
+                }
+                race.begin(continuation: continuation, tasks: [work, timer])
             }
-            // Whichever child finishes first decides the outcome; the other is
-            // cancelled (the group still awaits it before returning).
-            defer { group.cancelAll() }
-            guard let first = try await group.next() else {
-                throw NetworkError.deadlineExceeded
+        } onCancel: {
+            race.finish(.failure(CancellationError()))
+        }
+    }
+
+    /// First-outcome-wins state for `withDeadline`. Resumes the continuation
+    /// exactly once, whichever of operation / timer / caller-cancel finishes
+    /// first — including before `begin` has stored the continuation — and then
+    /// cancels both racing tasks.
+    private final class DeadlineRace<T: Sendable>: @unchecked Sendable {
+        private let lock = NSLock()
+        private var continuation: CheckedContinuation<T, Error>?
+        private var outcome: Result<T, Error>?
+        private var tasks: [Task<Void, Never>] = []
+
+        func begin(continuation: CheckedContinuation<T, Error>, tasks: [Task<Void, Never>]) {
+            lock.lock()
+            if let outcome {
+                lock.unlock()
+                tasks.forEach { $0.cancel() }
+                continuation.resume(with: outcome)
+                return
             }
-            return first
+            self.continuation = continuation
+            self.tasks = tasks
+            lock.unlock()
+        }
+
+        func finish(_ result: Result<T, Error>) {
+            lock.lock()
+            guard outcome == nil else {
+                lock.unlock()
+                return
+            }
+            outcome = result
+            let continuation = self.continuation
+            self.continuation = nil
+            let tasks = self.tasks
+            self.tasks = []
+            lock.unlock()
+            tasks.forEach { $0.cancel() }
+            continuation?.resume(with: result)
         }
     }
 
