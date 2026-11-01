@@ -355,8 +355,24 @@ actor AuthService {
     /// network blip on foreground indistinguishable from a signed-out state and
     /// bounced a logged-in user to the sign-in screen. Callers must not treat a
     /// thrown error here as "signed out" (see `AuthViewModel.checkSession`).
+    ///
+    /// Also THROWS (rather than returning nil) when a session is stored on the
+    /// device but can't be validated right now because there's no network —
+    /// typically an offline cold launch with an expired access token, where the
+    /// SDK's refresh fails with a URLError. That is "can't refresh right now",
+    /// not "signed out": returning nil there signed a receiver with no signal
+    /// out and took away their I'm OK button. Only a definitive answer (no
+    /// stored session at all, or the server rejecting the refresh) returns nil.
     func currentSession() async throws -> AppUser? {
-        guard let session = try? await supabase.auth.session else { return nil }
+        let session: Session
+        do {
+            session = try await supabase.auth.session
+        } catch {
+            if Self.isSessionUnreachable(error, hasStoredSession: supabase.auth.currentSession != nil) {
+                throw error
+            }
+            return nil
+        }
 
         let user: AppUser = try await supabase
             .from("users")
@@ -367,6 +383,15 @@ actor AuthService {
             .value
 
         return user
+    }
+
+    /// True when a failure to load the auth session means "can't reach the
+    /// server right now" rather than "signed out": a session is still stored on
+    /// the device and the failure is a connectivity error. A server rejection of
+    /// the refresh token (an `AuthError`), or no stored session at all, is a
+    /// definitive sign-out.
+    nonisolated static func isSessionUnreachable(_ error: Error, hasStoredSession: Bool) -> Bool {
+        hasStoredSession && OfflineCheckInService.isConnectivityError(error)
     }
 
     /// Check if the Apple credential is still valid (not revoked). Returns true
@@ -482,5 +507,28 @@ enum AuthError: LocalizedError {
         case .credentialRevoked: return "Your Apple ID access has been revoked. Please sign in again."
         case .invalidRecoveryCode: return "Enter the 6-digit code from your reset email."
         }
+    }
+}
+
+/// The last profile loaded for each signed-in user on this device, so an
+/// offline cold launch can stay signed in with something to show (the
+/// receiver's check-in home needs `currentUser`). Keyed per user id, so a
+/// different account signing in never inherits it; removed on sign-out.
+/// New keys only — nothing existing is renamed.
+enum CachedProfileStore {
+    private static let keyPrefix = "dailyok.cachedProfile."
+
+    static func save(_ user: AppUser, defaults: UserDefaults = .standard) {
+        guard let data = try? JSONEncoder().encode(user) else { return }
+        defaults.set(data, forKey: keyPrefix + user.id.uuidString)
+    }
+
+    static func load(for userId: UUID, defaults: UserDefaults = .standard) -> AppUser? {
+        guard let data = defaults.data(forKey: keyPrefix + userId.uuidString) else { return nil }
+        return try? JSONDecoder().decode(AppUser.self, from: data)
+    }
+
+    static func remove(for userId: UUID, defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: keyPrefix + userId.uuidString)
     }
 }

@@ -47,7 +47,18 @@ struct SignOutDependencies {
 @MainActor
 final class AuthViewModel: ObservableObject {
     @Published var authState: AuthState = .loading
-    @Published var currentUser: AppUser?
+    @Published var currentUser: AppUser? {
+        didSet {
+            // Keep the offline-launch profile cache in step: every profile we
+            // load is remembered for this user, and signing out (any path that
+            // clears currentUser) forgets it.
+            if let currentUser {
+                CachedProfileStore.save(currentUser)
+            } else if let oldValue {
+                CachedProfileStore.remove(for: oldValue.id)
+            }
+        }
+    }
     @Published var errorMessage: String?
     @Published var isLoading = false
 
@@ -172,11 +183,42 @@ final class AuthViewModel: ObservableObject {
             // unauthenticated on a cold start where we never loaded a profile.
             if currentUser != nil {
                 authState = .authenticated
+            } else if let cached = Self.offlineLaunchProfile(
+                for: error,
+                storedSessionUserId: SupabaseService.shared.client.auth.currentSession?.user.id,
+                cachedProfile: { CachedProfileStore.load(for: $0) }
+            ) {
+                // Cold launch with no signal: the session is still on the
+                // device but couldn't be refreshed / the profile couldn't load.
+                // Stay signed in with the last known profile so a receiver keeps
+                // the I'm OK button (check-ins queue offline). The heartbeat
+                // no-ops until the session can be loaded again.
+                Log.auth.info("Offline launch: staying signed in with cached profile")
+                currentUser = cached
+                authState = .authenticated
+                HeartbeatService.shared.start()
             } else {
                 authState = .unauthenticated
                 HeartbeatService.shared.stop()
             }
         }
+    }
+
+    /// The profile to stay signed in with when `checkSession` fails and no
+    /// profile has been loaded this launch. Non-nil only for a connectivity
+    /// failure while a session is still stored on the device and a profile for
+    /// that same user was cached on an earlier launch. Anything else — a server
+    /// rejection, no stored session, no cache — means signed out, as before.
+    nonisolated static func offlineLaunchProfile(
+        for error: Error,
+        storedSessionUserId: UUID?,
+        cachedProfile: (UUID) -> AppUser?
+    ) -> AppUser? {
+        guard let userId = storedSessionUserId,
+              AuthService.isSessionUnreachable(error, hasStoredSession: true),
+              let profile = cachedProfile(userId),
+              profile.id == userId else { return nil }
+        return profile
     }
 
     /// Listen for Supabase auth state changes (token refresh, session expiry)
