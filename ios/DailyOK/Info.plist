@@ -54,9 +54,7 @@
 	<string>Daily OK uses Face ID, if you turn it on, to lock the app so only you can open it and see your family's check-ins.</string>
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>fetch</string>
 		<string>remote-notification</string>
-		<string>location</string>
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>

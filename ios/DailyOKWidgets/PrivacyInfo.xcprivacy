@@ -11,11 +11,12 @@
   ios/DailyOK/PrivacyInfo.xcprivacy and must stay in step with the App Store
   Connect "App Privacy" answers and website/src/pages/Privacy.tsx.
 
-  UserDefaults (CA92.1) is the load-bearing one here: this bundle reads the
-  shared App Group container. The other three mirror the main app's manifest —
-  they are commonly reached transitively through URLSession, SwiftUI and
-  WidgetKit. Remove any that a build-time API inspection shows is genuinely
-  unused.
+  UserDefaults (1C8F.1) is the only required-reason API this bundle calls:
+  it reads/writes the shared App Group container (group.com.wellvo.ios) via
+  SharedAppGroup.swift and never touches UserDefaults.standard, so CA92.1
+  (app-only defaults) does not apply. FileTimestamp, SystemBootTime and
+  DiskSpace are not declared because no first-party code in this target calls
+  those APIs (system frameworks are exempt). Re-add one if that changes.
 -->
 <plist version="1.0">
 <dict>
@@ -32,31 +33,7 @@
             <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
             <key>NSPrivacyAccessedAPITypeReasons</key>
             <array>
-                <string>CA92.1</string>
-            </array>
-        </dict>
-        <dict>
-            <key>NSPrivacyAccessedAPIType</key>
-            <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
-            <key>NSPrivacyAccessedAPITypeReasons</key>
-            <array>
-                <string>C617.1</string>
-            </array>
-        </dict>
-        <dict>
-            <key>NSPrivacyAccessedAPIType</key>
-            <string>NSPrivacyAccessedAPICategorySystemBootTime</string>
-            <key>NSPrivacyAccessedAPITypeReasons</key>
-            <array>
-                <string>35F9.1</string>
-            </array>
-        </dict>
-        <dict>
-            <key>NSPrivacyAccessedAPIType</key>
-            <string>NSPrivacyAccessedAPICategoryDiskSpace</string>
-            <key>NSPrivacyAccessedAPITypeReasons</key>
-            <array>
-                <string>E174.1</string>
+                <string>1C8F.1</string>
             </array>
         </dict>
     </array>
