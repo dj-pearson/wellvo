@@ -95,7 +95,7 @@ struct SettingsView: View {
                         HStack {
                             Text("Current Plan")
                             Spacer()
-                            Text(subscriptionService.currentTier.rawValue.capitalized)
+                            Text(subscriptionService.currentTier.displayName)
                                 .foregroundStyle(.secondary)
                         }
 
@@ -460,6 +460,10 @@ struct DataRetentionView: View {
 struct SubscriptionView: View {
     @StateObject private var subscriptionService = SubscriptionService.shared
     @State private var showErrorAlert = false
+    /// Plans whose intro offer is a free trial the user is eligible for, per
+    /// StoreKit. Only these rows state a trial — never promise one we can't
+    /// verify (US-LEG006).
+    @State private var freeTrialEligibleIDs: Set<String> = []
 
     /// Subscription plans only — exclude add-on SKUs, which aren't standalone
     /// plans and shouldn't render as "Subscribe" rows in the main paywall list.
@@ -473,8 +477,8 @@ struct SubscriptionView: View {
     private static let paywallFeatures: [PaywallFeature] = [
         PaywallFeature(
             systemImage: "person.2.fill",
-            title: "Unlimited family members",
-            description: "Add every parent, sibling, and caregiver — everyone stays in the loop."
+            title: "Room for your circle",
+            description: "Caregiver: 1 Receiver + 3 Viewers. Family: 3 Receivers + 5 Viewers. Family+: 6 Receivers + 10 Viewers."
         ),
         PaywallFeature(
             systemImage: "bell.badge.fill",
@@ -488,20 +492,15 @@ struct SubscriptionView: View {
         ),
         PaywallFeature(
             systemImage: "icloud.fill",
-            title: "Long-term history",
-            description: "Keep a full archive of check-ins for context and peace of mind."
+            title: "Check-in history",
+            description: "Kept for 90 days on Caregiver, 1 year on Family, and with no time limit on Family+."
         ),
         PaywallFeature(
             systemImage: "lock.shield.fill",
             title: "Privacy-first by design",
-            description: "End-to-end encryption and rigorous data minimization — always."
+            description: "Encrypted in transit (TLS 1.2+) and at rest, row-level access controls, and only the data we need."
         )
     ]
-
-    private static let testimonial = Testimonial(
-        quote: "Daily OK gives me peace of mind every morning. It's the first app I check.",
-        author: "Sarah M., parent of two"
-    )
 
     /// Real annual savings vs. paying monthly for the same tier, computed from
     /// StoreKit prices (never hardcoded — App Store guideline 3.1). Returns nil
@@ -529,9 +528,6 @@ struct SubscriptionView: View {
             VStack(alignment: .leading, spacing: 24) {
                 PaywallFeatureCarousel(features: Self.paywallFeatures)
                     .padding(.top, 12)
-
-                TestimonialCard(testimonial: Self.testimonial)
-                    .padding(.horizontal, 16)
 
                 if subscriptionService.isLoading && planProducts.isEmpty {
                     ProgressView("Loading plans…")
@@ -569,6 +565,9 @@ struct SubscriptionView: View {
                     }
                     .padding(.horizontal, 16)
 
+                    renewalDisclosure
+                        .padding(.horizontal, 16)
+
                     Button {
                         Task { await restore() }
                     } label: {
@@ -588,6 +587,7 @@ struct SubscriptionView: View {
         .background(AmbientBackground(tone: .warm))
         .navigationTitle("Subscription")
         .task { await subscriptionService.loadProducts() }
+        .task(id: planProducts.map(\.id)) { await refreshFreeTrialEligibility() }
         .alert("Subscription", isPresented: $showErrorAlert, presenting: subscriptionService.errorMessage) { _ in
             Button("OK", role: .cancel) { subscriptionService.errorMessage = nil }
         } message: { message in
@@ -638,6 +638,13 @@ struct SubscriptionView: View {
                     .tint(.green)
                     .disabled(subscriptionService.isLoading)
             }
+
+            // Auto-renewal terms adjacent to the purchase button (US-LEG006):
+            // price, billing period, any eligible free trial, and auto-renewal.
+            Text(renewalTerms(for: product))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -645,6 +652,68 @@ struct SubscriptionView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color(.secondarySystemGroupedBackground))
         )
+    }
+
+    /// StoreKit-derived renewal line for one plan row.
+    private func renewalTerms(for product: Product) -> String {
+        let period = product.subscription.map {
+            (value: $0.subscriptionPeriod.value, unit: $0.subscriptionPeriod.unit)
+        }
+        var freeTrial: (value: Int, unit: Product.SubscriptionPeriod.Unit)?
+        if freeTrialEligibleIDs.contains(product.id),
+           let offer = product.subscription?.introductoryOffer,
+           offer.paymentMode == .freeTrial {
+            freeTrial = (value: offer.period.value, unit: offer.period.unit)
+        }
+        return SubscriptionService.renewalTerms(
+            displayPrice: product.displayPrice,
+            period: period,
+            freeTrial: freeTrial
+        )
+    }
+
+    /// Full auto-renewal disclosure plus Terms of Use (EULA) and Privacy Policy
+    /// links, shown under the plan list and never collapsed (US-LEG006, App
+    /// Store guideline 3.1.2). Wording mirrors dailyok.net/terms.
+    private var renewalDisclosure: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Payment is charged to your Apple ID at confirmation of purchase, or when a free trial ends. Subscriptions renew automatically at the same price and billing period unless cancelled at least 24 hours before the end of the current period; renewal is charged within the 24 hours before the period ends. A free trial converts to a paid subscription unless you cancel at least 24 hours before it ends. Manage or cancel anytime in your Apple ID account settings (Settings > your name > Subscriptions).")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            // Stack the links vertically at large Dynamic Type sizes rather
+            // than truncating them.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 16) { legalLinks }
+                VStack(alignment: .leading, spacing: 8) { legalLinks }
+            }
+            .font(.footnote.weight(.medium))
+            .tint(.green)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var legalLinks: some View {
+        Link("Terms of Use (EULA)", destination: URL(string: "https://dailyok.net/terms")!)
+        Link("Privacy Policy", destination: URL(string: "https://dailyok.net/privacy")!)
+    }
+
+    /// Ask StoreKit which plans' free-trial intro offers this Apple ID can
+    /// still redeem, so the paywall only states trials that will apply.
+    private func refreshFreeTrialEligibility() async {
+        var eligible: Set<String> = []
+        for product in planProducts {
+            guard let subscription = product.subscription,
+                  let offer = subscription.introductoryOffer,
+                  offer.paymentMode == .freeTrial
+            else { continue }
+            if await subscription.isEligibleForIntroOffer {
+                eligible.insert(product.id)
+            }
+        }
+        freeTrialEligibleIDs = eligible
     }
 
     private func subscribe(_ product: Product) async {

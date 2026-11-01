@@ -47,6 +47,38 @@ final class SubscriptionServiceTests: XCTestCase {
     // construct — but `priceWithPeriod` documents/guards its effect: an empty
     // suffix collapses to the bare price, verified above via the nil-unit path.
 
+    // MARK: - Auto-renewal disclosure (US-LEG006)
+
+    func testRenewalTermsWithoutTrialStatesPricePeriodAndAutoRenewal() {
+        XCTAssertEqual(
+            SubscriptionService.renewalTerms(
+                displayPrice: "$3.99", period: (value: 1, unit: .month), freeTrial: nil
+            ),
+            "$3.99 per month. Renews automatically until cancelled."
+        )
+    }
+
+    func testRenewalTermsWithEligibleTrialStatesTrialLengthFirst() {
+        XCTAssertEqual(
+            SubscriptionService.renewalTerms(
+                displayPrice: "$29.99", period: (value: 1, unit: .year), freeTrial: (value: 7, unit: .day)
+            ),
+            "7 days free, then $29.99 per year. Renews automatically until cancelled."
+        )
+    }
+
+    func testBillingCadenceForMultiUnitPeriod() {
+        XCTAssertEqual(SubscriptionService.billingCadence(value: 3, unit: .month), "every 3 months")
+        XCTAssertEqual(SubscriptionService.periodLength(value: 1, unit: .week), "1 week")
+    }
+
+    // MARK: - Tier display names
+
+    func testTierDisplayNameNeverLeaksRawValue() {
+        XCTAssertEqual(SubscriptionTier.familyPlus.displayName, "Family+")
+        XCTAssertEqual(SubscriptionTier.caregiver.displayName, "Caregiver")
+    }
+
     // MARK: - Product ID Constants
 
     func testProductIDsContainAllPlans() {

@@ -30,7 +30,7 @@ struct OnboardingView: View {
         OnboardingPageData(
             systemImage: "lock.shield.fill",
             title: "Privacy first",
-            body: "Your family's data stays private — encrypted and minimized by design."
+            body: "Your family's data stays private — encrypted in transit and at rest, and minimized by design."
         )
     ]
 
@@ -374,8 +374,10 @@ struct OnboardingView: View {
 
             // Informational only — tapping a card no longer silently "advances"
             // as if it started a plan. Subscriptions start from the paywall in
-            // Settings, so don't promise a trial begins here.
-            Text("Here's what each plan includes. You can start a free trial anytime in Settings — no charge now.")
+            // Settings, so don't promise a trial begins here — and don't promise
+            // a trial at all: intro-offer eligibility is only known from StoreKit
+            // on the paywall, which states any trial before purchase.
+            Text("Here's what each plan includes. Nothing is charged now — choose a plan anytime in Settings, where any free trial you're eligible for is shown before you subscribe.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

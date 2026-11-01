@@ -153,6 +153,62 @@ final class SubscriptionService: ObservableObject {
         return suffix.isEmpty ? displayPrice : "\(displayPrice)/\(suffix)"
     }
 
+    // MARK: - Auto-Renewal Disclosure (US-LEG006, App Store guideline 3.1.2)
+
+    /// Spelled-out length of a StoreKit period, e.g. "1 month", "7 days".
+    /// Returns "" for an unknown future unit so callers can omit it. Pure.
+    nonisolated static func periodLength(value: Int, unit: Product.SubscriptionPeriod.Unit) -> String {
+        switch unit {
+        case .day:
+            return value == 1 ? String(localized: "1 day") : String(localized: "\(value) days")
+        case .week:
+            return value == 1 ? String(localized: "1 week") : String(localized: "\(value) weeks")
+        case .month:
+            return value == 1 ? String(localized: "1 month") : String(localized: "\(value) months")
+        case .year:
+            return value == 1 ? String(localized: "1 year") : String(localized: "\(value) years")
+        @unknown default:
+            return ""
+        }
+    }
+
+    /// Billing-cadence phrase for a renewal period: "per month" for a single
+    /// unit, otherwise "every 3 months". "" for an unknown unit. Pure.
+    nonisolated static func billingCadence(value: Int, unit: Product.SubscriptionPeriod.Unit) -> String {
+        if value == 1 {
+            switch unit {
+            case .day: return String(localized: "per day")
+            case .week: return String(localized: "per week")
+            case .month: return String(localized: "per month")
+            case .year: return String(localized: "per year")
+            @unknown default: return ""
+            }
+        }
+        let length = periodLength(value: value, unit: unit)
+        return length.isEmpty ? "" : String(localized: "every \(length)")
+    }
+
+    /// The per-plan renewal line shown directly under a purchase button, e.g.
+    /// "1 week free, then $3.99 per month. Renews automatically until cancelled."
+    /// `freeTrial` is the intro free-trial period, passed only when StoreKit
+    /// reports the user eligible for it. Pure — values come from StoreKit.
+    nonisolated static func renewalTerms(
+        displayPrice: String,
+        period: (value: Int, unit: Product.SubscriptionPeriod.Unit)?,
+        freeTrial: (value: Int, unit: Product.SubscriptionPeriod.Unit)?
+    ) -> String {
+        let cadence = period.map { billingCadence(value: $0.value, unit: $0.unit) } ?? ""
+        let priceText = cadence.isEmpty ? displayPrice : "\(displayPrice) \(cadence)"
+        let renews = String(localized: "Renews automatically until cancelled.")
+        if let freeTrial {
+            let trialLength = periodLength(value: freeTrial.value, unit: freeTrial.unit)
+            if !trialLength.isEmpty {
+                return String(localized: "\(trialLength) free, then \(priceText). \(renews)")
+            }
+        }
+        return String(localized: "\(priceText). \(renews)")
+    }
+
     // MARK: - Purchase
 
     func purchase(_ product: Product) async throws -> StoreKit.Transaction? {

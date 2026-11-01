@@ -48,7 +48,7 @@ struct FamilyView: View {
                             Text(family.name)
                                 .font(.headline)
                             Spacer()
-                            Text(family.subscriptionTier.rawValue.capitalized)
+                            Text(family.subscriptionTier.displayName)
                                 .font(.caption)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
