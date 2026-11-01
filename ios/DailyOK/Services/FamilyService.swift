@@ -62,7 +62,9 @@ actor FamilyService {
     /// resolves to. Deliberately ignores receiver/viewer memberships — those
     /// families belong to someone else.
     func ownedFamily() async throws -> Family? {
-        let session = try await supabase.auth.session
+        guard let session = try? await supabase.auth.session else {
+            throw FamilyError.notAuthenticated
+        }
         let families: [Family] = try await supabase
             .from("families")
             .select()
