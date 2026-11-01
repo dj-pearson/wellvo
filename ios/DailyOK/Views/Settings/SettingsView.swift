@@ -248,6 +248,7 @@ struct SettingsView: View {
                     }
                 }
             }
+            .readableContentWidth()
             .scrollContentBackground(.hidden)
             .background(AmbientBackground(tone: .neutral))
             .navigationTitle("Settings")
@@ -649,6 +650,7 @@ struct SubscriptionView: View {
                     .padding(.bottom, 24)
                 }
             }
+            .readableContentWidth()
         }
         .background(AmbientBackground(tone: .warm))
         .navigationTitle("Subscription")

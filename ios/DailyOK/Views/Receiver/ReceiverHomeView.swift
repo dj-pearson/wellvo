@@ -161,6 +161,7 @@ struct ReceiverHomeView: View {
                     Spacer().frame(height: 20)
                 }
                 .padding()
+                .readableContentWidth()
             }
             .onGeometryChange(for: CGFloat.self) { proxy in
                 proxy.size.width

@@ -101,6 +101,7 @@ struct OnboardingView: View {
 
                     Spacer()
                 }
+                .readableContentWidth()
                 .animation(reduceMotion ? nil : DailyOKMotion.smoothSpring, value: viewModel.currentStep)
             }
         }

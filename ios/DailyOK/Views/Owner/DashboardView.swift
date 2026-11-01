@@ -7,91 +7,129 @@ struct DashboardView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.requestReview) private var requestReview
 
-    private static let walkthroughAutoShownKey = "dailyok.firstReceiverWalkthrough.autoShown"
+    /// Legacy device-wide flag. One key for the whole device meant a second
+    /// owner signing in on the same phone never got the walkthrough. Kept only
+    /// as a one-time fallback, see `walkthroughAlreadyShown(for:)`.
+    private static let legacyWalkthroughAutoShownKey = "dailyok.firstReceiverWalkthrough.autoShown"
+    private static let walkthroughAutoShownKeyPrefix = "dailyok.firstReceiverWalkthrough.autoShown."
+
+    private static func walkthroughAutoShownKey(for userId: UUID?) -> String {
+        guard let userId else { return legacyWalkthroughAutoShownKey }
+        return walkthroughAutoShownKeyPrefix + userId.uuidString
+    }
+
+    /// Whether this owner has already been auto-shown the walkthrough.
+    ///
+    /// Upgrade shim: the flag used to be device-wide. The first owner to reach
+    /// this check after upgrading inherits the legacy value into their own key
+    /// and the legacy key is cleared, so the original user is not shown the
+    /// walkthrough again while any later owner on the device still gets it.
+    private static func walkthroughAlreadyShown(for userId: UUID?) -> Bool {
+        let defaults = UserDefaults.standard
+        let key = walkthroughAutoShownKey(for: userId)
+        if defaults.bool(forKey: key) { return true }
+        guard userId != nil, defaults.bool(forKey: legacyWalkthroughAutoShownKey) else { return false }
+        defaults.set(true, forKey: key)
+        defaults.removeObject(forKey: legacyWalkthroughAutoShownKey)
+        return true
+    }
+
+    private static func markWalkthroughShown(for userId: UUID?) {
+        UserDefaults.standard.set(true, forKey: walkthroughAutoShownKey(for: userId))
+    }
+
+    /// Read from the stored session without a network refresh; `nil` falls
+    /// back to the legacy device-wide key.
+    private var currentUserId: UUID? {
+        SupabaseService.shared.client.auth.currentSession?.user.id
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                if viewModel.isLoading && viewModel.receiverCards.isEmpty && viewModel.errorMessage == nil {
-                    DashboardSkeletonView()
-                        .padding(.top, 8)
-                } else if let errorMessage = viewModel.errorMessage, viewModel.receiverCards.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 40))
-                            .foregroundStyle(.orange)
-                        Text(errorMessage)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                        Button {
-                            Task { await viewModel.loadDashboard() }
-                        } label: {
-                            HStack(spacing: 8) {
-                                if viewModel.isLoading {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                } else {
-                                    Image(systemName: "arrow.clockwise")
+                Group {
+                    if viewModel.isLoading && viewModel.receiverCards.isEmpty && viewModel.errorMessage == nil {
+                        DashboardSkeletonView()
+                            .padding(.top, 8)
+                    } else if let errorMessage = viewModel.errorMessage, viewModel.receiverCards.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.system(size: 40))
+                                .foregroundStyle(.orange)
+                            Text(errorMessage)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            Button {
+                                Task { await viewModel.loadDashboard() }
+                            } label: {
+                                HStack(spacing: 8) {
+                                    if viewModel.isLoading {
+                                        ProgressView()
+                                            .controlSize(.small)
+                                    } else {
+                                        Image(systemName: "arrow.clockwise")
+                                    }
+                                    Text("Retry")
                                 }
-                                Text("Retry")
+                                .fontWeight(.semibold)
+                                .frame(minWidth: 120, minHeight: 44)
                             }
-                            .fontWeight(.semibold)
-                            .frame(minWidth: 120, minHeight: 44)
+                            .buttonStyle(.borderedProminent)
+                            .tint(.green)
+                            .disabled(viewModel.isLoading)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.green)
-                        .disabled(viewModel.isLoading)
+                        .padding(.top, 80)
+                        .padding(.horizontal, 32)
+                    } else if viewModel.receiverCards.isEmpty {
+                        emptyState
+                    } else {
+                        LazyVStack(spacing: 16) {
+                            // Notification permission banner — self-contained; it
+                            // checks permission on appear and on foreground.
+                            NotificationPermissionBanner()
+
+                            // Pattern Alerts
+                            if !viewModel.alerts.isEmpty {
+                                AlertsBannerView(alerts: viewModel.alerts, onDismiss: { alert in
+                                    Task { await viewModel.dismissAlert(alert) }
+                                }, onAcknowledge: { alert, release in
+                                    Task { await viewModel.acknowledgeAlert(alert, release: release) }
+                                })
+                                .transition(.asymmetric(
+                                    insertion: .opacity.combined(with: .move(edge: .top)),
+                                    removal: .opacity
+                                ))
+                            }
+
+                            // Weekly Summary
+                            if let summary = viewModel.weeklySummary {
+                                WeeklySummaryCard(summary: summary)
+                            }
+
+                            // Today's Timeline
+                            if !viewModel.receiverCards.isEmpty {
+                                TodayTimelineCard(cards: viewModel.receiverCards)
+                            }
+
+                            // Receiver Cards
+                            ForEach(Array(viewModel.receiverCards.enumerated()), id: \.element.id) { index, card in
+                                ReceiverStatusCardView(card: card, onCheckOn: {
+                                    await viewModel.sendOnDemandCheckIn(to: card.id)
+                                }, onStandDown: {
+                                    Task { await viewModel.standDownEscalation(for: card.id) }
+                                }, familyId: viewModel.family?.id)
+                                .transition(.asymmetric(
+                                    insertion: .opacity.combined(with: .move(edge: .bottom)).animation(DailyOKMotion.smoothSpring.delay(Double(index) * 0.05)),
+                                    removal: .opacity
+                                ))
+                            }
+                        }
+                        .padding()
+                        .animation(DailyOKMotion.smoothSpring, value: viewModel.receiverCards.count)
                     }
-                    .padding(.top, 80)
-                    .padding(.horizontal, 32)
-                } else if viewModel.receiverCards.isEmpty {
-                    emptyState
-                } else {
-                    LazyVStack(spacing: 16) {
-                        // Notification permission banner — self-contained; it
-                        // checks permission on appear and on foreground.
-                        NotificationPermissionBanner()
-
-                        // Pattern Alerts
-                        if !viewModel.alerts.isEmpty {
-                            AlertsBannerView(alerts: viewModel.alerts, onDismiss: { alert in
-                                Task { await viewModel.dismissAlert(alert) }
-                            }, onAcknowledge: { alert, release in
-                                Task { await viewModel.acknowledgeAlert(alert, release: release) }
-                            })
-                            .transition(.asymmetric(
-                                insertion: .opacity.combined(with: .move(edge: .top)),
-                                removal: .opacity
-                            ))
-                        }
-
-                        // Weekly Summary
-                        if let summary = viewModel.weeklySummary {
-                            WeeklySummaryCard(summary: summary)
-                        }
-
-                        // Today's Timeline
-                        if !viewModel.receiverCards.isEmpty {
-                            TodayTimelineCard(cards: viewModel.receiverCards)
-                        }
-
-                        // Receiver Cards
-                        ForEach(Array(viewModel.receiverCards.enumerated()), id: \.element.id) { index, card in
-                            ReceiverStatusCardView(card: card, onCheckOn: {
-                                await viewModel.sendOnDemandCheckIn(to: card.id)
-                            }, onStandDown: {
-                                Task { await viewModel.standDownEscalation(for: card.id) }
-                            }, familyId: viewModel.family?.id)
-                            .transition(.asymmetric(
-                                insertion: .opacity.combined(with: .move(edge: .bottom)).animation(DailyOKMotion.smoothSpring.delay(Double(index) * 0.05)),
-                                removal: .opacity
-                            ))
-                        }
-                    }
-                    .padding()
-                    .animation(DailyOKMotion.smoothSpring, value: viewModel.receiverCards.count)
                 }
+                .readableContentWidth()
             }
             .scrollContentBackground(.hidden)
             .background(AmbientBackground(tone: alertsPresent ? .alert : .calm))
@@ -135,11 +173,17 @@ struct DashboardView: View {
             .onChange(of: viewModel.isLoading) { _, loading in
                 guard !loading,
                       viewModel.errorMessage == nil,
-                      viewModel.receiverCards.isEmpty,
-                      appState.currentUserRole == .owner,
-                      !UserDefaults.standard.bool(forKey: Self.walkthroughAutoShownKey)
+                      appState.currentUserRole == .owner
                 else { return }
-                UserDefaults.standard.set(true, forKey: Self.walkthroughAutoShownKey)
+                let userId = currentUserId
+                // Checked before the empty-dashboard test so the original owner
+                // (who usually already has receivers) claims the legacy flag on
+                // their first load after upgrading, instead of a later owner
+                // with an empty dashboard inheriting it.
+                guard !Self.walkthroughAlreadyShown(for: userId),
+                      viewModel.receiverCards.isEmpty
+                else { return }
+                Self.markWalkthroughShown(for: userId)
                 showFirstReceiverWalkthrough = true
             }
             .sheet(isPresented: $showFirstReceiverWalkthrough) {
