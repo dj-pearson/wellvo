@@ -493,7 +493,7 @@ struct SubscriptionView: View {
         PaywallFeature(
             systemImage: "icloud.fill",
             title: "Check-in history",
-            description: "Kept for 90 days on Caregiver, 1 year on Family, and with no time limit on Family+."
+            description: "Up to 90 days on Caregiver, 1 year on Family, and no plan cap on Family+. Records are deleted after the period you choose in Data Retention."
         ),
         PaywallFeature(
             systemImage: "lock.shield.fill",
