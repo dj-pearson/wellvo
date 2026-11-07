@@ -5157,7 +5157,7 @@
         "subscription-cancellation stops trusting a body app_account_token for user callers (edge-functions/functions/subscription-cancellation/index.ts:19 uses app_account_token || auth.userId) and reuses resolveAuthorizedUserId from subscription-webhook, with a test proving one user cannot cancel another's family",
         "The production and sandbox notification URLs are documented in the repo CLAUDE.md under section E (Subscription state)"
       ],
-      "priority": 267,
+      "priority": 188,
       "passes": false,
       "notes": "OPEN. Size: M. Success metric: count of families that reach expired while Apple shows an active renewal goes to 0; billing-retry recovery rate; win-back reactivation rate. Why first: it is the only story where a paying customer currently loses the safety net. Coordinate with US-EDGE005 (receipt verification, open): same App Store Server API key and JWS work, build the verifier once. The subscription-cancellation fix is the same bug class as US-EDGE004 (done) and should ship first as its own small fix if this story is not started immediately. Competitive framing: Snug's paid upsell is its dispatch line (docs/PRICING_RESEARCH.md:118); reliability of the paid state is table stakes before any upsell. Verify live receiver_settings rows with is_active = FALSE on paying families before writing the backfill, since prod has drifted from the repo before (2026-10-12 cron hotfix)."
     },
@@ -5173,7 +5173,7 @@
         "The owner dashboard shows a per-receiver line such as 'Delivered on time 89 of 90 days' and a banner when the receiver's device has acknowledged nothing for 48 hours",
         "A scheduled CI job compares the live definitions of the dispatch functions from 00047/00052 against the repo migrations and fails on drift, read-only against production"
       ],
-      "priority": 268,
+      "priority": 189,
       "passes": false,
       "notes": "OPEN. Size: M. Success metric: time to detect a dispatch outage under 15 minutes (the last one went about 200 days); published on-time delivery rate; conversion of visitors who view /reliability. Competitive rationale: reliability is what the category fails on in public reviews (Snug Trustpilot complaints about false dispatches and alerts after uninstall: https://de.trustpilot.com/review/snugsafe.com); pendants sell monitored reliability at $40-50/month (https://www.safewise.com/aloe-care-review/). Depends on the out-of-repo reconcile of the 55 migrations; never run an unscoped apply."
     },
@@ -5190,7 +5190,7 @@
         "website/src/pages/Pricing.tsx renders its matrix from the same tier definition (a generated JSON file checked in CI), so the site cannot advertise a feature the server does not grant",
         "Families existing before the change keep their current channels for 60 days with an in-app notice stating the date, so no live safety net changes silently"
       ],
-      "priority": 269,
+      "priority": 190,
       "passes": false,
       "notes": "OPEN. Size: L. Success metric: free-to-paid conversion within 30 days of signup (baseline unmeasured; target 8%); share of active families on a paid tier. Competitive rationale: Snug's free tier is one check-in a day with a $17.99/yr upgrade and a $19.99/mo dispatch line (docs/PRICING_RESEARCH.md:118); Daily OK matches the free hook and charges for the backup channels. US-IOS097 (done) already enforces the grandfather expiry client-side; this story moves enforcement to the server. Coordinate with US-LEG003 so the honesty fix lands on the final matrix. Product call for the owner: downgrading free-tier critical alerts is a safety trade-off; the AC keeps every push, only the DND bypass is paid."
     },
@@ -5206,7 +5206,7 @@
         "New families carry an acquisition_source column (viewer_crosssell, receiver_crosssell, referral, clinician, partner, organic; nullable, additive) set at creation and reported by admin-metrics",
         "AnalyticsService events cover entry viewed, onboarding started and trial started, by source"
       ],
-      "priority": 270,
+      "priority": 191,
       "passes": false,
       "notes": "OPEN. Size: M. Success metric: share of new owner families with acquisition_source in (viewer_crosssell, receiver_crosssell); target 20% within 90 days. Competitive rationale: the product's own PRD makes the family graph the moat (DailyOK-PRD-v1.md:330, 396); Life360 reports circle-driven subscriber growth (https://investors.life360.com/news-releases/news-release-details/life360-continues-momentum-2-million-global-subscriber-circles). Single-user check-in apps have no graph to recruit from. The acquisition_source column is reused by LEAP-010, LEAP-018 and LEAP-019."
     },
@@ -5223,7 +5223,7 @@
         "SMS and call volume per family is capped through plan_entitlements (LEAP-003) and per-message cost is logged for margin reporting",
         "The website gains a 'no smartphone needed' section linked from the US-WEB018 pages"
       ],
-      "priority": 271,
+      "priority": 192,
       "passes": false,
       "notes": "OPEN. Size: L. Success metric: active app-less receivers; share of new families choosing sms/landline at setup; 30-day retention of those families vs app families. Competitive rationale: SMS-only and landline check-in services exist as standalone products (CheckinBee https://www.producthunt.com/products/checkinbee/launches ; AloneAssist https://www.ageinplacetech.com/node/5448); their prices were not verified in this review. Prerequisites outside code: A2P 10DLC registration for the sending number and a TCPA consent record per receiver. shared/voice.ts is reused by LEAP-009."
     },
@@ -5241,7 +5241,7 @@
         "Every email has one-click unsubscribe per category; unsubscribing from lifecycle mail never stops safety alerts, and Settings states the difference; unverified addresses receive nothing",
         "admin-metrics reports time-to-pair distribution and trial conversion for paired vs unpaired families"
       ],
-      "priority": 272,
+      "priority": 193,
       "passes": false,
       "notes": "OPEN. Size: M. Absorbs the draft's stalled-setup story, whose pairing-nudge criterion duplicated this one. Success metric: share of trial families with a paired receiver within 72h (target 80%); share of missed-window alerts acknowledged from email; trial-to-paid lift. Competitive rationale: Demumu ('Are You Dead?') escalates by email only, which coverage calls weak (https://www.techspot.com/news/110912-app-called-you-dead-going-viral-among-people.html); email here is one leg beside push and SMS. Provider choice (Mailcow vs a transactional vendor) is a deliverability decision for the owner."
     },
@@ -5257,7 +5257,7 @@
         "Owners see fall events in the timeline and PDF export; a Deno test covers duplicate events within 5 minutes collapsing to one escalation",
         "The privacy policy section from US-LEG008 covers fall events before the feature ships, and the feature is gated by plan_entitlements (LEAP-003)"
       ],
-      "priority": 273,
+      "priority": 194,
       "passes": false,
       "notes": "OPEN. Size: L. New story, replaces the draft's state/city welfare-check pSEO cluster. Success metric: opted-in receivers with a paired watch; share of fall events acknowledged by a family member within 5 minutes; upgrade rate attributed to the feature. Competitive rationale: monitored pendants with fall detection sell at roughly $40-50/month (https://www.safewise.com/aloe-care-review/); the open US-WEB018 pages target exactly the parent who will not wear one. Risk: the entitlement is discretionary; size the work only after Apple answers."
     },
@@ -5274,7 +5274,7 @@
         "Missed-check-in prompts use a high-importance FCM channel (edge-functions/shared/fcm.ts), with the DND-access request and its limits documented",
         "The hub registry and repo CLAUDE.md state Android receiver availability, and Android user-agent hits on /invite are counted before and after launch"
       ],
-      "priority": 274,
+      "priority": 195,
       "passes": false,
       "notes": "OPEN. Size: L. Success metric: invite redemption rate for Android visitors to /invite (from 0); share of families with an Android member; android_owner_waitlist size to decide on Play Billing (US-EDGE005 already notes Play purchases need server verification). Competitive rationale: Snug ships on Android as well as iOS; Daily OK currently turns Android receivers away at the invite page. Builds on US-A066 (open)."
     },
@@ -5291,7 +5291,7 @@
         "Per-call cost is logged to voice_call_costs and admin-metrics reports margin per add-on subscriber",
         "Receivers opt in by confirming their number with an SMS code, the call identifies itself as automated in its first sentence, and consent is stored per receiver (an AI-generated voice requires prior express consent under the FCC's 2024 TCPA ruling)"
       ],
-      "priority": 275,
+      "priority": 196,
       "passes": false,
       "notes": "OPEN. Size: M (after LEAP-005 lands shared/voice.ts). Success metric: add-on attach rate among paid families (target 15%); share of missed windows resolved by the call without viewer escalation; gross margin per add-on subscriber. Competitive rationale: daily-call products sell at roughly $15-30/month per the cited coverage (https://www.ageinplacetech.com/node/5448 , https://www.homecaremag.com/news/joy-calls-launches-ai-phone-companion-seniors); prices not independently verified in this review."
     },
@@ -5307,7 +5307,7 @@
         "When a referred family's first paid renewal arrives through LEAP-001, the referrer gets a free-month offer code by push (and email after LEAP-006), capped at 12 per year",
         "Redeemed families get acquisition_source = 'referral' (LEAP-004), and admin-metrics reports codes shared, redeemed, converted and rewards issued"
       ],
-      "priority": 276,
+      "priority": 197,
       "passes": false,
       "notes": "OPEN. Size: M. Success metric: referred share of new paid families (target 10%); referrals per active owner. Competitive rationale: Apple has no native referral program, so apps layer one on offer codes (https://appbot.co/blog/apple-offer-code/ , https://winwinkit.com/docs/rewards/appstore-offer-code/). Offer codes carry a quarterly quota per app; size the pool against it."
     },
@@ -5324,7 +5324,7 @@
         "Escalation copy addresses viewers as friends of the person rather than caregivers, chosen per family mode",
         "website/src/pages/LivingAlone.tsx targets 'living alone safety app' with JSON-LD and states the not-an-emergency-service framing from Terms.tsx"
       ],
-      "priority": 277,
+      "priority": 198,
       "passes": false,
       "notes": "OPEN. Size: M. Success metric: Solo subscribers; viewer-to-owner conversions originating from Solo families; organic clicks on the living-alone page. Competitive rationale: https://en.wikipedia.org/wiki/Are_You_Dead%3F , https://www.aljazeera.com/news/2026/1/14/chinese-app-are-you-dead-to-change-name-after-surge-in-popularity ; Snug's living-alone positioning is cited in docs/PRICING_RESEARCH.md:346. Price as an entry tier; Demumu demand was partly novelty."
     },
@@ -5341,7 +5341,7 @@
         "Terms.tsx (lines 44-51, 'not an emergency service') and the privacy policy are updated for the add-on before launch, reviewed alongside US-LEG015's 30-day notice",
         "A dispatch add-on SKU in the net.wellvo.* namespace is sold on the paywall and recognised by subscription-webhook"
       ],
-      "priority": 278,
+      "priority": 199,
       "passes": false,
       "notes": "OPEN. Size: XL (partner contract required before engineering starts). Success metric: attach rate; false dispatch rate per 1,000 escalations; revenue per family. Competitive rationale: Snug dispatch pricing from the repo's own research (docs/PRICING_RESEARCH.md:118); Snug reviews cite false dispatches (https://de.trustpilot.com/review/snugsafe.com)."
     },
@@ -5357,7 +5357,7 @@
         "Owners can invite viewers who join entirely on the web, counted against max_viewers",
         "The area is excluded from prerendering, the sitemap and indexing, and the CSP gains connect-src for the Supabase host only (US-SEO013)"
       ],
-      "priority": 279,
+      "priority": 200,
       "passes": false,
       "notes": "OPEN. Size: L. Success metric: weekly active web viewers; viewer seats used per family. Competitive rationale: Life360 sits on every family member's device (https://www.life360.com/press/life360-levels-up-memberships-with-the-inclusion-of-tile); a browser view reaches the same people without a second native app or location tracking."
     },
@@ -5372,7 +5372,7 @@
         "When an add-on lapses (LEAP-001), the family limit drops and members over the limit become read-only rather than removed, asserted by test",
         "admin-metrics reports add-on revenue and the count of families with 2 or more paying Apple IDs"
       ],
-      "priority": 280,
+      "priority": 201,
       "passes": false,
       "notes": "OPEN. Size: M. Success metric: add-on seat revenue; families with 2+ paying Apple IDs; viewer churn in those families. Competitive rationale: the PRD's viewer role exists for the sibling dynamic (DailyOK-PRD-v1.md:70); the draft's claim that PRD section 3.3 discusses cost-sharing was wrong and is removed, as is gifting a month, which the App Store does not support for subscriptions. Whether Snug's contacts are unlimited and free was not verified."
     },
@@ -5388,7 +5388,7 @@
         "Every summary carries an AI-authorship disclosure consistent with US-LEG010, and any distress signal in mood or notes surfaces US-LEG012 crisis resources instead of a summary",
         "The feature stays off until the US-LEG008 privacy-policy update ships and is gated to Family and above through plan_entitlements"
       ],
-      "priority": 281,
+      "priority": 202,
       "passes": false,
       "notes": "OPEN. Size: M. Success metric: weekly viewer open rate; viewer retention; upgrades attributed to the summary paywall. Competitive rationale: AI family summaries are sold on top of daily calls by Kin-nect and AloneAssist (https://apps.apple.com/app/id6772587648 , https://www.ageinplacetech.com/node/5448); Daily OK summarises data it already holds. Blocked on US-LEG008, US-LEG010, US-LEG012."
     },
@@ -5404,7 +5404,7 @@
         "Receiver UI keeps one action per prompt in Senior Simple Mode (00038); the medication prompt never asks for a dose or drug name",
         "The privacy policy (US-LEG008) covers medication labels before launch, labels are covered by the US-LEG013 retention purge, and the feature is gated through plan_entitlements"
       ],
-      "priority": 282,
+      "priority": 203,
       "passes": false,
       "notes": "OPEN. Size: M. New story, replaces the draft's stalled-setup story (folded into LEAP-006). Success metric: share of paid families with a medication window; 30-day retention of those families; upgrades attributed to the gate. Competitive rationale: medication-reminder apps such as Medisafe notify a chosen contact on a missed dose but have no daily check-in or escalation chain; no pricing claim is made here. Keep it a confirmation, not medical advice: no dosing, no interactions."
     },
@@ -5420,7 +5420,7 @@
         "admin-metrics reports false escalations (viewer alerted, then receiver checked in within 15 minutes) per 100 windows, before and after",
         "Senior Simple Mode receivers keep spoken prompts consistent; variants change wording, never the action required"
       ],
-      "priority": 283,
+      "priority": 204,
       "passes": false,
       "notes": "OPEN. Size: M. Success metric: false escalation rate down 30%; median time-to-check-in down; owner 90-day retention. Competitive rationale: Snug reviewers complain about false alarms (https://de.trustpilot.com/review/snugsafe.com); the draft's claim about a specific Snug grace-period release was not verifiable and is removed."
     },
@@ -5436,7 +5436,7 @@
         "Care managers can register a professional account linked to multiple families by owner invitation, seeing only what each owner shares, with an RLS test",
         "Families arriving from these links get acquisition_source = 'clinician' (LEAP-004)"
       ],
-      "priority": 284,
+      "priority": 205,
       "passes": false,
       "notes": "OPEN. Size: M. Success metric: clinician-sourced families; care-team links created per month; PDF referral visits. Competitive rationale: Kin-nect markets summaries families take to doctors (https://apps.apple.com/app/id6772587648); pendants have no routine data to share. Covered by the US-LEG008 privacy update before launch."
     },
@@ -5452,7 +5452,7 @@
         "Partner families see a co-branded welcome screen in onboarding (name and logo from partners)",
         "Partner codes can be configured for 3, 6 or 12 months of a chosen tier, mapped to App Store offer codes"
       ],
-      "priority": 285,
+      "priority": 206,
       "passes": false,
       "notes": "OPEN. Size: L. Depends on LEAP-010. Success metric: signed partners; partner-sourced active families; revenue per partner. Sources: https://www.myshortlister.com/compare/wellthy-vs-cariloop , https://developmentstoday.com/health/washington-medicaid-elliq-ai-robot-senior-loneliness-2026 , https://www.homecaremag.com/news/checkwellcall-launches-ai-wellness-platform-seniors . Sales motion, not just code: start only with a named first partner."
     },
@@ -5468,7 +5468,7 @@
         "Owners see the speaker as a linked device in the receiver's settings and can unlink it remotely",
         "The check_in_channel model from LEAP-005 includes 'alexa', and history shows the source of each check-in"
       ],
-      "priority": 286,
+      "priority": 207,
       "passes": false,
       "notes": "OPEN. Size: L. Success metric: active Alexa-linked receivers; share of check-ins via Alexa; retention of linked families. Competitive rationale: home devices work with older adults (ElliQ, now Medicaid-funded: https://developmentstoday.com/health/washington-medicaid-elliq-ai-robot-senior-loneliness-2026); Apple Check In is one-off (https://techcrunch.com/2023/06/05/apple-messages-app-update-brings-voicemail-transcription-a-check-in-location-sharing-feature-and-more). The draft's Google Home half was dropped because that platform no longer accepts third-party conversational actions. Lowest priority: demand evidence is the weakest of the twenty."
     }
