@@ -1,5 +1,10 @@
 name: iOS Build & Deploy to App Store
 
+# Archive, export and TestFlight upload run in the shared Pearson Media iOS
+# release workflow (Pearson-Media/ios-release). This file only says what is
+# particular to Daily OK. Signing is automatic: no provisioning profiles and no
+# project patching, so .github/scripts/patch_signing.py is no longer used.
+
 on:
   push:
     branches: [main]
@@ -8,305 +13,70 @@ on:
       - '.github/workflows/ios-build-deploy.yml'
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Deployment environment'
-        required: true
-        default: 'testflight'
-        type: choice
-        options:
-          - testflight
-          - app-store
       version:
         description: 'Marketing version (e.g. 1.0.0). Leave empty to use value from project.'
         required: false
         type: string
+      upload:
+        description: 'Upload to TestFlight (off = build and sign only)'
+        type: boolean
+        default: true
+      skip_tests:
+        description: 'Skip the unit-test gate (only for checking the release path itself)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
 
 jobs:
-  # The upload is gated on the unit tests. This used to archive and ship to App
-  # Store Connect with no test step at all, so a red ios-tests.yml run on the
-  # same push could not stop a TestFlight / App Store build. Calling the
-  # reusable workflow (rather than copying its steps) keeps the simulator
-  # resolution and test command identical to the PR gate. It needs no secrets.
+  # The upload is gated on the unit tests, so a red ios-tests.yml run cannot
+  # ship a build.
   unit-tests:
     name: Unit tests
+    if: ${{ !inputs.skip_tests }}
     uses: ./.github/workflows/ios-tests.yml
 
-  build-and-deploy:
+  release:
     needs: unit-tests
-    runs-on: macos-15
-    timeout-minutes: 45
+    if: ${{ !cancelled() && (needs.unit-tests.result == 'success' || needs.unit-tests.result == 'skipped') }}
+    uses: Pearson-Media/ios-release/.github/workflows/ios-release.yml@main
+    with:
+      working-directory: ios
+      project: DailyOK.xcodeproj
+      scheme: DailyOK
+      marketing-version: ${{ inputs.version }}
+      require-tag-on-branch: ""
+      upload: ${{ github.event_name != 'workflow_dispatch' || inputs.upload }}
+      # Supabase URL, anon key and the old ASC_* names come from Daily OK's own
+      # Infisical project; the shared IOS_* signing secrets below win over any
+      # signing values stored there.
+      infisical-project-slug: dailyok
+      required-env: SUPABASE_URL SUPABASE_ANON_KEY
+      # xcconfig treats "//" as a comment and would cut the anon key short, so
+      # the Supabase values go straight into Info.plist.
+      prepare-command: |
+        set -euo pipefail
+        printf '%s\n' '// Daily OK Build Configuration (CI-generated)' 'PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios' > ios/DailyOK/BuildConfig.xcconfig
+        PLIST=ios/DailyOK/Info.plist
+        for key in SUPABASE_URL SUPABASE_ANON_KEY; do
+          /usr/libexec/PlistBuddy -c "Set :$key ${!key}" "$PLIST" \
+            || /usr/libexec/PlistBuddy -c "Add :$key string ${!key}" "$PLIST"
+        done
+    secrets:
+      APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.IOS_ASC_KEY_ID }}
+      APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.IOS_ASC_ISSUER_ID }}
+      APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.IOS_ASC_KEY_BASE64 }}
+      BUILD_CERTIFICATE_BASE64: ${{ secrets.IOS_DEV_CERT_BASE64 }}
+      P12_PASSWORD: ${{ secrets.IOS_DEV_CERT_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+      INFISICAL_CLIENT_ID: ${{ secrets.INFISICAL_CLIENT_ID }}
+      INFISICAL_CLIENT_SECRET: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+      INFISICAL_DOMAIN: https://env.dpearsonmedia.com
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Load secrets from Infisical
-        uses: Infisical/secrets-action@v1.0.7
-        with:
-          domain: "https://env.dpearsonmedia.com"
-          client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
-          client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
-          env-slug: "prod"
-          project-slug: "dailyok"
-          export-type: "env"
-
-      - name: Select Xcode version
-        run: |
-          # Use latest stable Xcode (exclude betas)
-          XCODE_PATH=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -v beta | sort -V | tail -1)
-          if [ -z "$XCODE_PATH" ]; then
-            # Fallback to any Xcode if no stable found
-            XCODE_PATH=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
-          fi
-          echo "Using Xcode: $XCODE_PATH"
-          sudo xcode-select -s "$XCODE_PATH"
-          xcodebuild -version
-
-      - name: Install Apple certificate and provisioning profile
-        env:
-          BUILD_CERTIFICATE_BASE64: ${{ env.BUILD_CERTIFICATE_BASE64 }}
-          P12_PASSWORD: ${{ env.P12_PASSWORD }}
-          PROVISIONING_PROFILE_BASE64: ${{ env.PROVISIONING_PROFILE_BASE64 }}
-          PROVISIONING_PROFILE_WIDGETS_BASE64: ${{ env.PROVISIONING_PROFILE_WIDGETS_BASE64 }}
-          PROVISIONING_PROFILE_WATCH_BASE64: ${{ env.PROVISIONING_PROFILE_WATCH_BASE64 }}
-          PROVISIONING_PROFILE_WATCH_WIDGETS_BASE64: ${{ env.PROVISIONING_PROFILE_WATCH_WIDGETS_BASE64 }}
-          PROVISIONING_PROFILE_NSE_BASE64: ${{ env.PROVISIONING_PROFILE_NSE_BASE64 }}
-          KEYCHAIN_PASSWORD: ${{ env.KEYCHAIN_PASSWORD }}
-        run: |
-          # Create variables
-          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
-          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-
-          # Import certificate from secrets
-          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-
-          # Create temporary keychain
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
-          # Import certificate to keychain
-          security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security list-keychain -d user -s $KEYCHAIN_PATH
-
-          # Install all provisioning profiles
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo -n "$PROVISIONING_PROFILE_BASE64"              | base64 --decode -o $RUNNER_TEMP/pp_main.mobileprovision
-          echo -n "$PROVISIONING_PROFILE_WIDGETS_BASE64"      | base64 --decode -o $RUNNER_TEMP/pp_widgets.mobileprovision
-          echo -n "$PROVISIONING_PROFILE_WATCH_BASE64"        | base64 --decode -o $RUNNER_TEMP/pp_watch.mobileprovision
-          echo -n "$PROVISIONING_PROFILE_WATCH_WIDGETS_BASE64" | base64 --decode -o $RUNNER_TEMP/pp_watch_widgets.mobileprovision
-          echo -n "$PROVISIONING_PROFILE_NSE_BASE64"           | base64 --decode -o $RUNNER_TEMP/pp_nse.mobileprovision
-          cp $RUNNER_TEMP/pp_main.mobileprovision              ~/Library/MobileDevice/Provisioning\ Profiles/
-          cp $RUNNER_TEMP/pp_widgets.mobileprovision           ~/Library/MobileDevice/Provisioning\ Profiles/
-          cp $RUNNER_TEMP/pp_watch.mobileprovision             ~/Library/MobileDevice/Provisioning\ Profiles/
-          cp $RUNNER_TEMP/pp_watch_widgets.mobileprovision     ~/Library/MobileDevice/Provisioning\ Profiles/
-          cp $RUNNER_TEMP/pp_nse.mobileprovision               ~/Library/MobileDevice/Provisioning\ Profiles/
-
-      - name: Patch project for manual Distribution signing
-        working-directory: ios
-        run: |
-          extract_uuid() {
-            security cms -D -i "$1" 2>/dev/null \
-              | grep -A1 '<key>UUID</key>' | tail -1 \
-              | sed 's/.*<string>\(.*\)<\/string>.*/\1/'
-          }
-          MAIN_UUID=$(extract_uuid $RUNNER_TEMP/pp_main.mobileprovision)
-          WIDGETS_UUID=$(extract_uuid $RUNNER_TEMP/pp_widgets.mobileprovision)
-          WATCH_UUID=$(extract_uuid $RUNNER_TEMP/pp_watch.mobileprovision)
-          WATCH_WIDGETS_UUID=$(extract_uuid $RUNNER_TEMP/pp_watch_widgets.mobileprovision)
-          NSE_UUID=$(extract_uuid $RUNNER_TEMP/pp_nse.mobileprovision)
-          echo "Profile UUIDs: main=$MAIN_UUID widgets=$WIDGETS_UUID watch=$WATCH_UUID watchwidgets=$WATCH_WIDGETS_UUID nse=$NSE_UUID"
-
-          # Fail fast with an actionable message if any profile failed to decode.
-          # An empty UUID means the matching PROVISIONING_PROFILE_*_BASE64 secret
-          # is missing or decoded to an invalid profile; without it the archive
-          # dies deep inside xcodebuild ("No profiles ... were found").
-          missing=""
-          [ -z "$MAIN_UUID" ]          && missing="$missing PROVISIONING_PROFILE_BASE64"
-          [ -z "$WIDGETS_UUID" ]       && missing="$missing PROVISIONING_PROFILE_WIDGETS_BASE64"
-          [ -z "$WATCH_UUID" ]         && missing="$missing PROVISIONING_PROFILE_WATCH_BASE64"
-          [ -z "$WATCH_WIDGETS_UUID" ] && missing="$missing PROVISIONING_PROFILE_WATCH_WIDGETS_BASE64"
-          [ -z "$NSE_UUID" ]           && missing="$missing PROVISIONING_PROFILE_NSE_BASE64"
-          if [ -n "$missing" ]; then
-            echo "::error::Missing/invalid provisioning profile secret(s):$missing. Add them to Infisical (prod/dailyok) as base64-encoded .mobileprovision files."
-            exit 1
-          fi
-
-          echo "MAIN_PROFILE_UUID=$MAIN_UUID"                   >> $GITHUB_ENV
-          echo "WIDGETS_PROFILE_UUID=$WIDGETS_UUID"             >> $GITHUB_ENV
-          echo "WATCH_PROFILE_UUID=$WATCH_UUID"                 >> $GITHUB_ENV
-          echo "WATCH_WIDGETS_PROFILE_UUID=$WATCH_WIDGETS_UUID" >> $GITHUB_ENV
-          echo "NSE_PROFILE_UUID=$NSE_UUID"                     >> $GITHUB_ENV
-
-          python3 ../.github/scripts/patch_signing.py \
-            "$MAIN_UUID" "$WIDGETS_UUID" "$WATCH_UUID" "$WATCH_WIDGETS_UUID" "$NSE_UUID"
-
-      - name: Resolve Swift Package dependencies
-        working-directory: ios
-        run: |
-          xcodebuild -resolvePackageDependencies \
-            -project DailyOK.xcodeproj \
-            -scheme DailyOK
-
-      - name: Inject build configuration
-        run: |
-          # xcconfig is applied at the project level, so any setting here reaches
-          # ALL targets. Do NOT put PROVISIONING_PROFILE_SPECIFIER here — it would
-          # apply the main app's profile to extension targets with different bundle IDs.
-          # The installed .mobileprovision lets Xcode find the main app profile by
-          # bundle ID + certificate match; extension targets use -allowProvisioningUpdates.
-          {
-            echo "// Daily OK Build Configuration (CI-generated)"
-            echo "PRODUCT_BUNDLE_IDENTIFIER = com.wellvo.ios"
-          } > ios/DailyOK/BuildConfig.xcconfig
-
-          # Fail the build BEFORE injecting if either secret is empty — a blank
-          # value would otherwise ship an app that can't reach the backend
-          # (US-IOS093). The app also fatalErrors at runtime as a backstop.
-          if [ -z "${{ env.SUPABASE_URL }}" ]; then
-            echo "::error::SUPABASE_URL is empty — refusing to build a backend-less app." >&2
-            exit 1
-          fi
-          if [ -z "${{ env.SUPABASE_ANON_KEY }}" ]; then
-            echo "::error::SUPABASE_ANON_KEY is empty — refusing to build a backend-less app." >&2
-            exit 1
-          fi
-
-          # Write Supabase config directly to Info.plist using PlistBuddy.
-          # xcconfig treats "//" as comments, which truncates JWT tokens (anon key).
-          # Add-or-Set: a missing key is a hard error, not a silent no-op, so a
-          # renamed/removed Info.plist key can't ship blank (US-IOS093).
-          /usr/libexec/PlistBuddy -c "Set :SUPABASE_URL ${{ env.SUPABASE_URL }}" ios/DailyOK/Info.plist \
-            || /usr/libexec/PlistBuddy -c "Add :SUPABASE_URL string ${{ env.SUPABASE_URL }}" ios/DailyOK/Info.plist
-          /usr/libexec/PlistBuddy -c "Set :SUPABASE_ANON_KEY ${{ env.SUPABASE_ANON_KEY }}" ios/DailyOK/Info.plist \
-            || /usr/libexec/PlistBuddy -c "Add :SUPABASE_ANON_KEY string ${{ env.SUPABASE_ANON_KEY }}" ios/DailyOK/Info.plist
-
-          # Verify the injected values are non-empty (defensive double-check).
-          INJECTED_URL="$(/usr/libexec/PlistBuddy -c 'Print :SUPABASE_URL' ios/DailyOK/Info.plist)"
-          INJECTED_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPABASE_ANON_KEY' ios/DailyOK/Info.plist)"
-          if [ -z "$INJECTED_URL" ] || [ -z "$INJECTED_KEY" ]; then
-            echo "::error::Info.plist Supabase config is empty after injection." >&2
-            exit 1
-          fi
-          echo "SUPABASE_URL: $INJECTED_URL"
-          echo "SUPABASE_ANON_KEY length: $(echo -n "$INJECTED_KEY" | wc -c | tr -d ' ')"
-
-      - name: Set version and build number
-        run: |
-          BUILD_NUMBER=${{ github.run_number }}
-          VERSION="${{ inputs.version }}"
-
-          # If no version provided, read from project
-          if [ -z "$VERSION" ]; then
-            VERSION=$(sed -n 's/.*MARKETING_VERSION = \(.*\);/\1/p' ios/DailyOK.xcodeproj/project.pbxproj | head -1 | xargs)
-          fi
-
-          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
-          echo "🏷️ Version: $VERSION ($BUILD_NUMBER)"
-
-      - name: Setup App Store Connect API key
-        run: |
-          mkdir -p ~/.private_keys
-          KEY_FILE=~/.private_keys/AuthKey_${{ env.ASC_KEY_ID }}.p8
-          echo -n "${{ env.ASC_PRIVATE_KEY }}" | sed 's/\\n/\n/g' > "$KEY_FILE"
-          # Verify the key file looks like a valid PEM
-          echo "Key file first line: $(head -1 "$KEY_FILE")"
-          echo "Key file line count: $(wc -l < "$KEY_FILE")"
-
-      - name: Build and archive
-        working-directory: ios
-        run: |
-          set -o pipefail
-          # The patch step above wrote CODE_SIGN_STYLE=Manual, CODE_SIGN_IDENTITY=
-          # "Apple Distribution", and PROVISIONING_PROFILE_SPECIFIER=<UUID> into the
-          # five app-target Release configs in project.pbxproj (main app, widgets,
-          # watch, watch widgets, and the NotificationService extension).  SPM package
-          # targets are not in that file, so they keep their own Automatic (Development)
-          # signing and are never affected by the Distribution identity.  No global
-          # signing overrides are needed here.
-          xcodebuild archive \
-            -project DailyOK.xcodeproj \
-            -scheme DailyOK \
-            -configuration Release \
-            -archivePath $RUNNER_TEMP/DailyOK.xcarchive \
-            -destination "generic/platform=iOS" \
-            DEVELOPMENT_TEAM="${{ env.APPLE_TEAM_ID }}" \
-            MARKETING_VERSION="${{ env.APP_VERSION }}" \
-            CURRENT_PROJECT_VERSION="${{ env.BUILD_NUMBER }}" \
-            | xcbeautify
-
-          # Verify archive was created
-          if [ ! -d "$RUNNER_TEMP/DailyOK.xcarchive" ]; then
-            echo "::error::Archive was not created at $RUNNER_TEMP/DailyOK.xcarchive"
-            exit 1
-          fi
-
-      - name: Create ExportOptions.plist
-        run: |
-          cat > $RUNNER_TEMP/ExportOptions.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>app-store-connect</string>
-              <key>teamID</key>
-              <string>${{ env.APPLE_TEAM_ID }}</string>
-              <key>uploadSymbols</key>
-              <true/>
-              <key>compileBitcode</key>
-              <false/>
-              <key>destination</key>
-              <string>upload</string>
-              <key>signingStyle</key>
-              <string>manual</string>
-              <key>provisioningProfiles</key>
-              <dict>
-                  <key>com.wellvo.ios</key>
-                  <string>${{ env.MAIN_PROFILE_UUID }}</string>
-                  <key>com.wellvo.ios.DailyOKWidgets</key>
-                  <string>${{ env.WIDGETS_PROFILE_UUID }}</string>
-                  <key>com.wellvo.ios.watchkitapp</key>
-                  <string>${{ env.WATCH_PROFILE_UUID }}</string>
-                  <key>com.wellvo.ios.watchkitapp.DailyOKWatchWidgets</key>
-                  <string>${{ env.WATCH_WIDGETS_PROFILE_UUID }}</string>
-                  <key>com.wellvo.ios.NotificationService</key>
-                  <string>${{ env.NSE_PROFILE_UUID }}</string>
-              </dict>
-          </dict>
-          </plist>
-          EOF
-
-      - name: Export IPA
-        run: |
-          xcodebuild -exportArchive \
-            -archivePath $RUNNER_TEMP/DailyOK.xcarchive \
-            -exportPath $RUNNER_TEMP/export \
-            -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
-            -authenticationKeyPath ~/.private_keys/AuthKey_${{ env.ASC_KEY_ID }}.p8 \
-            -authenticationKeyID ${{ env.ASC_KEY_ID }} \
-            -authenticationKeyIssuerID ${{ env.ASC_ISSUER_ID }}
-
-      - name: Upload to App Store Connect
-        run: |
-          xcrun altool --upload-app \
-            --type ios \
-            --file "$RUNNER_TEMP/export/DailyOK.ipa" \
-            --apiKey "${{ env.ASC_KEY_ID }}" \
-            --apiIssuer "${{ env.ASC_ISSUER_ID }}"
-
-      - name: Clean up keychain
-        if: ${{ always() }}
-        run: |
-          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db 2>/dev/null || true
-
-  # Notify on failure — create GitHub issue
+  # Notify on failure: open a GitHub issue.
   notify-failure:
-    # Both, so a test failure (which skips build-and-deploy) also files the issue.
-    needs: [unit-tests, build-and-deploy]
+    needs: [unit-tests, release]
     runs-on: ubuntu-latest
     if: failure()
     permissions:
@@ -319,7 +89,7 @@ jobs:
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `CI Failure: iOS Build & Deploy — ${context.sha.substring(0, 7)}`,
+              title: `CI Failure: iOS Build & Deploy - ${context.sha.substring(0, 7)}`,
               body: `## Build Failure\n\n- **Workflow:** iOS Build & Deploy\n- **Branch:** ${context.ref}\n- **Commit:** ${context.sha}\n- **Build:** #${context.runNumber}\n- **Run:** [View logs](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n\nPlease investigate and fix.`,
               labels: ['ci-failure']
             });
