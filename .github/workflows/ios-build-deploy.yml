@@ -40,7 +40,7 @@ jobs:
   release:
     needs: unit-tests
     if: ${{ !cancelled() && (needs.unit-tests.result == 'success' || needs.unit-tests.result == 'skipped') }}
-    uses: Pearson-Media/ios-release/.github/workflows/ios-release.yml@main
+    uses: Pearson-Media/ios-release/.github/workflows/ios-release.yml@v1
     with:
       working-directory: ios
       project: DailyOK.xcodeproj
