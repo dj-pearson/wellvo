@@ -30,10 +30,13 @@ final class ModelTests: XCTestCase {
     }
 
     func testCheckInAllMoods() {
-        XCTAssertEqual(Mood.allCases.count, 3)
+        // Eight server moods (the enum grew in migration 00014) plus .unknown
+        // for a value this app version does not recognize.
+        XCTAssertEqual(Mood.allCases.count, 9)
         XCTAssertEqual(Mood.happy.rawValue, "happy")
         XCTAssertEqual(Mood.neutral.rawValue, "neutral")
         XCTAssertEqual(Mood.tired.rawValue, "tired")
+        XCTAssertEqual(Mood.havingFun.rawValue, "having_fun")
     }
 
     func testCheckInSources() {
@@ -181,6 +184,10 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(settings.quietHoursStart, "22:00")
         XCTAssertTrue(settings.moodTrackingEnabled)
         XCTAssertFalse(settings.smsEscalationEnabled)
+        // Location keys are absent from this row: the column defaults apply.
+        XCTAssertFalse(settings.locationTrackingEnabled)
+        XCTAssertEqual(settings.geofenceRadiusMeters, 500)
+        XCTAssertFalse(settings.locationAlertEnabled)
     }
 
     // MARK: - SharedCheckInState day-scoped doneness (US-IOS113)

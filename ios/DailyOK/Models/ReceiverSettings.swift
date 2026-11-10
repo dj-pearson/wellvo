@@ -170,11 +170,14 @@ struct ReceiverSettings: Codable, Identifiable {
         moodTrackingEnabled = try container.decode(Bool.self, forKey: .moodTrackingEnabled)
         smsEscalationEnabled = try container.decode(Bool.self, forKey: .smsEscalationEnabled)
         isActive = try container.decode(Bool.self, forKey: .isActive)
-        locationTrackingEnabled = try container.decode(Bool.self, forKey: .locationTrackingEnabled)
+        // Added in migration 00012. Missing keys fall back to that migration's
+        // column defaults, like every later column below, so a row selected
+        // without them still decodes.
+        locationTrackingEnabled = try container.decodeIfPresent(Bool.self, forKey: .locationTrackingEnabled) ?? false
         homeLatitude = try container.decodeIfPresent(Double.self, forKey: .homeLatitude)
         homeLongitude = try container.decodeIfPresent(Double.self, forKey: .homeLongitude)
-        geofenceRadiusMeters = try container.decode(Int.self, forKey: .geofenceRadiusMeters)
-        locationAlertEnabled = try container.decode(Bool.self, forKey: .locationAlertEnabled)
+        geofenceRadiusMeters = try container.decodeIfPresent(Int.self, forKey: .geofenceRadiusMeters) ?? 500
+        locationAlertEnabled = try container.decodeIfPresent(Bool.self, forKey: .locationAlertEnabled) ?? false
         receiverMode = try container.decodeIfPresent(ReceiverMode.self, forKey: .receiverMode) ?? .standard
         scheduleType = try container.decodeIfPresent(ScheduleType.self, forKey: .scheduleType) ?? .daily
         weekendCheckinTime = try container.decodeIfPresent(String.self, forKey: .weekendCheckinTime)
