@@ -47,7 +47,7 @@ final class ErrorHandlingTests: XCTestCase {
 
     func testAuthErrorPasswordTooShort() {
         let error = AuthError.passwordTooShort
-        XCTAssertEqual(error.localizedDescription, "Password must be at least 8 characters.")
+        XCTAssertEqual(error.localizedDescription, "Password must be at least 10 characters.")
     }
 
     func testAuthErrorPasswordTooWeak() {
