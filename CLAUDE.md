@@ -283,6 +283,13 @@ iOS and Android both persist data on-device (Keychain / EncryptedSharedPreferenc
 
 **Evidence only.** Verify state from the actual file or command before claiming anything is done or in place. If unsure, say so and go find out.
 
+**Work that waits on Dj is a GitHub issue labelled `on-dj`, and nowhere else.** That one label, across both orgs (`dj-pearson`, `Pearson-Media`), is the operator's to-do list: github.com/issues/assigned, or "Assigned to me" in the GitHub app. No hub, board or doc table has to be running for it.
+- **File only what only Dj can do**: a secret or token to create, an account, a payment, a platform form, a decision, an approval. If an agent could do it, do it instead.
+- **Search before filing**: `gh search issues --label on-dj --state open --owner dj-pearson --owner Pearson-Media "<keywords>"`. If one already covers it, comment there; never open a second.
+- **File in the repo the work belongs to**: `gh issue create --assignee @me --label on-dj --title ... --body-file ...`. Portfolio-wide items go to `dj-pearson/Server`, vault items to `dj-pearson/Hermes`. Add `needs-hub` only if the payoff exists solely while the local ADE Hub is running.
+- **The bar for the body**: an assistant who is not a developer can finish it line by line without asking anyone. Use the sections `## Why` (what it unblocks: story ids, features), `## You need` (logins and tools), `## Steps` (numbered; exact URLs, menu paths, Infisical project/environment/secret NAME, file paths, commands and the folder to run them from; for a decision, the options, a recommendation and how to record the choice), `## Done when` (a check the assistant can run) and `## Notes`. Names of secrets, never values.
+- **Close the loop**: at the start of work, `gh issue list --label on-dj --state closed --search "closed:>=<last run date>"` in this repo, and pick up whatever those closures unblocked. When you can verify an item is done (the secret now exists, the setting is on), close it with a comment saying how you checked.
+
 **Operating principles.** Distilled from the ADE Hub's design rules (the Server repo's `hub/CLAUDE.md`, with the reasoning in its `docs/engineering-log.md`); they hold in every repo.
 
 1. **Unmeasured is not zero, and a real zero stays zero.** A gap reads `Unavailable - <reason>`. A floor is labelled a floor: it can prove a target was hit, never that it was missed. An empty result that could mean "nothing happened" or "the read failed" says which. A total inherits the honesty of its rows, and a cached figure states its age.
